@@ -5,6 +5,19 @@
 
 ## Current state
 
+**Priority change (Nick, 2026-07-22): minimal UI + league schema FIRST, auth bypassed** — login is username-only for now (API trusts the client; Firebase Auth token verification will replace it later). Stats service (Phase 2) pushed after the minimal UI.
+
+**League schema + minimal UI: DONE (first cut)**
+
+- [x] Firestore schema: `users/{username}`, `leagues/{id}` (name, season, capAmount, commissioner, memberUsernames), `leagues/{id}/teams/{username}` (one team per user per league, `playerIds` roster)
+- [x] API endpoints: login, my-leagues, create/join league (league id = invite code), league detail (teams + rosters + capTotal), player search (in-memory PlayerCache, 10-min TTL), roster add/remove with one-owner-per-player-per-league conflict check
+- [x] React UI (mobile-first, EN): username login → my leagues (create/join) → league view (rosters of all teams, cap totals, my-team add/remove via search)
+- [x] End-to-end verified locally against prod Firestore: full flow incl. ownership conflict and cap totals. Test data left in prod: league "Buddies Pool Test" (users nick, marc)
+- [ ] Roster structure rules (nb of F/D/G) — needs Nick's pool rule sheet
+- [ ] Real auth (Firebase Auth) — deliberately deferred
+
+**Local dev**: API → `ASPNETCORE_URLS=http://localhost:5099 dotnet run --project backend/FantasyWarrior.Api --no-launch-profile` (+ `GOOGLE_APPLICATION_CREDENTIALS`, `FIRESTORE_PROJECT_ID=fantasywarriordb`); frontend → `npm run dev` in `frontend/` (API base URL via `VITE_API_URL`, defaults to localhost:5099).
+
 **Phase 1 — Player service: IN PROGRESS**
 
 - [x] `Player` model in Core (`players` collection, doc id = NHL player id)

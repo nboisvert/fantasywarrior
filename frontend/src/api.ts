@@ -1,0 +1,84 @@
+// Thin client for the Fantasy Warrior API.
+// TEMPORARY auth model: the API trusts the username we send.
+
+const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:5099";
+
+export interface PlayerDto {
+  id: number;
+  name: string;
+  position: string;
+  team: string;
+  status: string;
+  capHit: number | null;
+  headshotUrl: string | null;
+}
+
+export interface LeagueSummary {
+  id: string;
+  name: string;
+  season: string;
+  capAmount: number | null;
+  members: number;
+}
+
+export interface TeamDto {
+  name: string;
+  ownerUsername: string;
+  capTotal: number;
+  players: PlayerDto[];
+}
+
+export interface LeagueDetail {
+  id: string;
+  name: string;
+  season: string;
+  capAmount: number | null;
+  commissionerUsername: string;
+  members: string[];
+  teams: TeamDto[];
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    headers: { "Content-Type": "application/json" },
+    ...init,
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+  return body as T;
+}
+
+export const api = {
+  login: (username: string) =>
+    request<{ username: string; displayName: string }>("/api/login", {
+      method: "POST",
+      body: JSON.stringify({ username }),
+    }),
+  myLeagues: (username: string) =>
+    request<LeagueSummary[]>(`/api/users/${encodeURIComponent(username)}/leagues`),
+  createLeague: (name: string, username: string, capAmount: number | null) =>
+    request<{ id: string }>("/api/leagues", {
+      method: "POST",
+      body: JSON.stringify({ name, username, capAmount }),
+    }),
+  joinLeague: (leagueId: string, username: string) =>
+    request<{ id: string }>(`/api/leagues/${encodeURIComponent(leagueId)}/join`, {
+      method: "POST",
+      body: JSON.stringify({ username }),
+    }),
+  league: (leagueId: string) => request<LeagueDetail>(`/api/leagues/${encodeURIComponent(leagueId)}`),
+  searchPlayers: (q: string) => request<PlayerDto[]>(`/api/players?q=${encodeURIComponent(q)}`),
+  addPlayer: (leagueId: string, username: string, playerId: number) =>
+    request<PlayerDto>(`/api/leagues/${encodeURIComponent(leagueId)}/teams/${encodeURIComponent(username)}/roster`, {
+      method: "POST",
+      body: JSON.stringify({ playerId }),
+    }),
+  removePlayer: (leagueId: string, username: string, playerId: number) =>
+    request<void>(
+      `/api/leagues/${encodeURIComponent(leagueId)}/teams/${encodeURIComponent(username)}/roster/${playerId}`,
+      { method: "DELETE" },
+    ),
+};
+
+export const formatCap = (amount: number | null | undefined) =>
+  amount == null ? "—" : `$${amount.toLocaleString("en-US")}`;
