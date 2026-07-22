@@ -11,7 +11,8 @@
 - [x] `NhlApiClient` (api-web.nhle.com: standings, rosters per season with offseason fallback, prospects)
 - [x] `PlayerSyncJob` — run: `dotnet run --project backend/FantasyWarrior.Jobs -- player-sync [--season YYYYYYYY]`; salary field (`capHit`) protected from sync overwrites via merge-fields
 - [x] First prod sync done 2026-07-22: **1371 players** upserted into project `fantasywarriordb`; verified with `player-check` command
-- [ ] Salary/contract import (PuckPedia ToS to validate; fallback CSV) → fills `capHit`
+- [x] Salary import: `salary-import --file <csv>` (columns `nhlId?,firstName,lastName,teamAbbrev,capHit`; match by NHL id or normalized name + team tiebreak; unmatched rows reported). Verified end-to-end in prod incl. capHit surviving a full player-sync. **PuckPedia API is private/paid** (https://puckpedia.com/tools/data) → CSV is the retained path; Nick could still contact them.
+- [ ] Real full salary dataset to import (waiting on a source/CSV from Nick)
 - [ ] Daily cron workflow for player-sync (blocked on GitHub repo)
 
 **Firebase (live)**: project `fantasywarriordb`, Firestore Native in northamerica-northeast1, production-mode rules. Service account key (never committed): `C:\Nick\secrets\fantasywarriordb-sa.json`. Jobs need env vars `GOOGLE_APPLICATION_CREDENTIALS` + `FIRESTORE_PROJECT_ID=fantasywarriordb`.

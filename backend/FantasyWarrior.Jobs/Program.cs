@@ -3,6 +3,8 @@ using Google.Cloud.Firestore;
 
 // Usage: dotnet run -- <job> [options]
 //   player-sync [--season 20262027]
+//   salary-import --file <path.csv>   (columns: nhlId?,firstName,lastName,teamAbbrev,capHit)
+//   player-check
 //
 // Firestore target: set FIRESTORE_EMULATOR_HOST (e.g. localhost:8090) for local dev;
 // otherwise GOOGLE_APPLICATION_CREDENTIALS + FIRESTORE_PROJECT_ID for production.
@@ -39,6 +41,17 @@ switch (job)
     {
         var season = GetOption(args, "--season") ?? CurrentSeason();
         await new PlayerSyncJob(new NhlApiClient(http), db).RunAsync(season);
+        return 0;
+    }
+    case "salary-import":
+    {
+        var file = GetOption(args, "--file");
+        if (file is null || !File.Exists(file))
+        {
+            Console.Error.WriteLine("Usage: salary-import --file <path.csv>");
+            return 1;
+        }
+        await new FantasyWarrior.Jobs.Salaries.SalaryImportJob(db).RunAsync(file);
         return 0;
     }
     case "player-check":
