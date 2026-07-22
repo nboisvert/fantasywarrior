@@ -22,6 +22,11 @@ jobs:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
       - uses: google-github-actions/setup-gcloud@v2
       - run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+      - name: Ensure Artifact Registry repo exists
+        run: |
+          gcloud artifacts repositories create fantasy-warrior \
+            --repository-format=docker --location=${{ env.REGION }} \
+            --project ${{ vars.GCP_PROJECT_ID }} --quiet || true
       - name: Build and push image
         run: |
           IMAGE=${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/fantasy-warrior/${{ env.SERVICE }}:${{ github.sha }}

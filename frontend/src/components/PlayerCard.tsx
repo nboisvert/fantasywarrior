@@ -8,7 +8,7 @@ import type { JSX, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouse
 import { XIcon } from "./Icons";
 import "./PlayerCard.css";
 
-const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:5099";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5099";
 
 /* ---------- data contract (GET /api/players/{id}) ---------- */
 

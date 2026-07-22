@@ -1,7 +1,7 @@
 // Thin client for the Fantasy Warrior API.
 // TEMPORARY auth model: the API trusts the username we send.
 
-const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:5099";
+const BASE = import.meta.env.VITE_API_URL || "http://localhost:5099";
 
 export interface PlayerDto {
   id: number;
