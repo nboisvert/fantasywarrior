@@ -1,0 +1,16 @@
+[debug] [2026-07-22T20:25:45.603Z] ----------------------------------------------------------------------
+[debug] [2026-07-22T20:25:45.606Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\nicolasc\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\firebase-tools\lib\bin\firebase.js emulators:start --only firestore --project demo-fantasy-warrior
+[debug] [2026-07-22T20:25:45.606Z] CLI Version:   13.35.1
+[debug] [2026-07-22T20:25:45.606Z] Platform:      win32
+[debug] [2026-07-22T20:25:45.606Z] Node Version:  v22.15.0
+[debug] [2026-07-22T20:25:45.606Z] Time:          Wed Jul 22 2026 16:25:45 GMT-0400 (heure avancée de l’Est)
+[debug] [2026-07-22T20:25:45.607Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-07-22T20:25:45.792Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] Failed to authenticate, have you run firebase login?
+[warn] !  emulators: You are not currently authenticated so some features may not work correctly. Please run firebase login to authenticate the CLI. 
+[debug] [2026-07-22T20:25:47.056Z] java version "17.0.12" 2024-07-16 LTS
+
+[debug] [2026-07-22T20:25:47.057Z] Java(TM) SE Runtime Environment (build 17.0.12+8-LTS-286)
+Java HotSpot(TM) 64-Bit Server VM (build 17.0.12+8-LTS-286, mixed mode, sharing)
+

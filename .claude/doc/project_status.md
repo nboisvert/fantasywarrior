@@ -5,7 +5,19 @@
 
 ## Current state
 
-**Phase 0 — Foundations: IN PROGRESS**
+**Phase 1 — Player service: IN PROGRESS**
+
+- [x] `Player` model in Core (`players` collection, doc id = NHL player id)
+- [x] `NhlApiClient` (api-web.nhle.com: standings, rosters per season with offseason fallback, prospects)
+- [x] `PlayerSyncJob` — run: `dotnet run --project backend/FantasyWarrior.Jobs -- player-sync [--season YYYYYYYY]`; salary field (`capHit`) protected from sync overwrites via merge-fields
+- [x] First prod sync done 2026-07-22: **1371 players** upserted into project `fantasywarriordb`; verified with `player-check` command
+- [ ] Salary/contract import (PuckPedia ToS to validate; fallback CSV) → fills `capHit`
+- [ ] Daily cron workflow for player-sync (blocked on GitHub repo)
+
+**Firebase (live)**: project `fantasywarriordb`, Firestore Native in northamerica-northeast1, production-mode rules. Service account key (never committed): `C:\Nick\secrets\fantasywarriordb-sa.json`. Jobs need env vars `GOOGLE_APPLICATION_CREDENTIALS` + `FIRESTORE_PROJECT_ID=fantasywarriordb`.
+⚠️ `frontend/src/firebase.ts` still holds the web config of project `requinopen` (first attempt) — replace with the `fantasywarriordb` web app config (Nick to provide from console).
+
+**Phase 0 — Foundations: DONE (local scope)** — GitHub repo/Pages/GCP linking deferred by Nick (work local first, link repo later).
 
 - [x] Stack decided (see CLAUDE.md)
 - [x] Full roadmap approved by Nick (plan of 2026-07-22)
