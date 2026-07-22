@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/backend/">
+    <Project Path="backend/FantasyWarrior.Api/FantasyWarrior.Api.csproj" />
+    <Project Path="backend/FantasyWarrior.Core.Tests/FantasyWarrior.Core.Tests.csproj" />
+    <Project Path="backend/FantasyWarrior.Core/FantasyWarrior.Core.csproj" />
+    <Project Path="backend/FantasyWarrior.Jobs/FantasyWarrior.Jobs.csproj" />
+  </Folder>
+</Solution>
