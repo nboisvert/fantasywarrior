@@ -31,6 +31,19 @@ Hosting must stay easy and free.
 - You should always keep track of project progression in [.claude/doc/project_status.md](.claude/doc/project_status.md), which **MUST** be read at the start of every session and kept updated along the way.
 - Full project roadmap (phases 0-7): see project_status.md. Milestone: season-tracking MVP in prod for early October 2026 (NHL 2026-27 season).
 
+## UI Design System — "Night Arena" (approved by Nick 2026-07-22)
+
+All UI work MUST follow this system. Tokens live in `frontend/src/index.css` (CSS variables), components in `frontend/src/App.css`, screens in `frontend/src/screens/`, SVG icons in `frontend/src/components/Icons.tsx`.
+
+- **Theme**: dark only ("night arena"). Background `#0a0e1a` with fixed radial cyan/indigo glows; elevated `#10162a`; glass cards `rgba(255,255,255,.045)` + 1px border `rgba(255,255,255,.09)` + backdrop-blur.
+- **Accent**: ice cyan `#38bdf8` → `#22d3ee` (gradients, active states, subtle neon glow `rgba(56,189,248,.35)`). Danger/over-cap: rose `#f43f5e`. Standings podium: gold `#fbbf24`, silver `#c7d2e0`, bronze `#d0885a`.
+- **Text**: `#f1f5f9`; muted `#8b96ab`. Contrast AA minimum.
+- **Typography**: Russo One (display: headings, team names, numbers, uppercase) + Chakra Petch (body) — Google Fonts, loaded in `index.html`.
+- **Shape & motion**: radii 12-16px; transitions 150-300ms (color/opacity/filter only, no layout-shifting hover); `fade-in` 250ms for screen mounts; respect `prefers-reduced-motion`.
+- **Layout**: mobile-first, content max-width 680px; fixed bottom nav (2 tabs: Standings default, Roster) 64px + `env(safe-area-inset-bottom)`; sticky blurred topbar with league switcher + user; content bottom padding must clear the nav.
+- **Rules**: Lucide SVG icons only (never emojis), 44px touch targets, `cursor: pointer` on clickables, visible focus rings (`:focus-visible` cyan), aria-labels on icon-only buttons, alt text, error banners near the action.
+- **Logo**: provided by Nick (to be integrated in login hero + topbar + favicon when delivered).
+
 ## AI Team
 
 You'll manage an AI team that you will launch as subagents per request:
