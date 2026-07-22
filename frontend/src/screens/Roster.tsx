@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api, formatCap } from "../api";
 import type { LeagueDetail, PlayerDto } from "../api";
 import { PlusIcon, SearchIcon, XIcon } from "../components/Icons";
+import { PlayerCard } from "../components/PlayerCard";
 
 export function Roster({
   league,
@@ -15,6 +16,7 @@ export function Roster({
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PlayerDto[]>([]);
   const [error, setError] = useState("");
+  const [openPlayerId, setOpenPlayerId] = useState<number | null>(null);
 
   const myTeam = league.teams.find((t) => t.ownerUsername === username);
 
@@ -63,12 +65,20 @@ export function Roster({
             <span className={`used${over ? " over" : ""}`}>{formatCap(capUsed)}</span>
             {capMax != null && <> / {formatCap(capMax)}</>}
           </span>
-          <span>{myTeam.name}</span>
+          <span>
+            {myTeam.name} · <span className="pts-small">{myTeam.score} pts</span>
+          </span>
         </div>
         {capMax != null && (
           <div className="cap-track" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label="Salary cap used">
             <div className={`cap-fill${over ? " over" : ""}`} style={{ width: `${pct}%` }} />
           </div>
+        )}
+        {myTeam.adjustmentsTotal !== 0 && (
+          <small className="muted">
+            Raw top-X {myTeam.rawTopXScore} pts · adjustments {myTeam.adjustmentsTotal > 0 ? "+" : ""}
+            {myTeam.adjustmentsTotal} pts
+          </small>
         )}
       </div>
 
@@ -106,30 +116,40 @@ export function Roster({
         </ul>
       )}
 
-      <span className="section-title">
-        My roster ({myTeam.players.length})
-      </span>
+      <span className="section-title">My roster ({myTeam.players.length})</span>
       {myTeam.players.length === 0 && (
         <p className="empty-state">Empty roster — search a player above to get started.</p>
       )}
       <ul className="player-list">
         {myTeam.players.map((p) => (
-          <li key={p.id} className="player-row">
-            <img className="headshot" src={p.headshotUrl ?? ""} alt="" loading="lazy" />
-            <span className="player-info">
-              <span className="name">{p.name}</span>
-              <small>
-                <span className="pos-badge">{p.position}</span>
-                {p.team} · {p.status}
-              </small>
-            </span>
-            <span className="player-cap">{formatCap(p.capHit)}</span>
+          <li key={p.id} className={`player-row${p.counted ? " counted" : ""}`}>
+            <button
+              className="player-hit"
+              onClick={() => setOpenPlayerId(p.id)}
+              aria-label={`Open ${p.name} card`}
+            >
+              <img className="headshot" src={p.headshotUrl ?? ""} alt="" loading="lazy" />
+              <span className="player-info">
+                <span className="name">
+                  {p.name}
+                  {p.counted && <span className="counted-badge">TOP</span>}
+                </span>
+                <small>
+                  <span className="pos-badge">{p.position}</span>
+                  {p.team} · {formatCap(p.capHit)}
+                </small>
+              </span>
+              <span className="pts-small">{p.points} pts</span>
+            </button>
             <button className="icon-btn" onClick={() => remove(p.id)} aria-label={`Remove ${p.name}`}>
               <XIcon size={18} />
             </button>
           </li>
         ))}
       </ul>
+      {openPlayerId != null && (
+        <PlayerCard playerId={openPlayerId} onClose={() => setOpenPlayerId(null)} />
+      )}
     </section>
   );
 }

@@ -83,22 +83,22 @@ public sealed class StatsSyncJob(NhlApiClient nhl, FirestoreDb db)
     {
         var teams = new[]
         {
-            (Players: box.PlayerByGameStats.AwayTeam, Team: game.AwayTeam.Abbrev, Opponent: game.HomeTeam.Abbrev),
-            (Players: box.PlayerByGameStats.HomeTeam, Team: game.HomeTeam.Abbrev, Opponent: game.AwayTeam.Abbrev),
+            (Players: box.PlayerByGameStats.AwayTeam, Team: game.AwayTeam.Abbrev, Opponent: game.HomeTeam.Abbrev, IsHome: false),
+            (Players: box.PlayerByGameStats.HomeTeam, Team: game.HomeTeam.Abbrev, Opponent: game.AwayTeam.Abbrev, IsHome: true),
         };
 
-        foreach (var (players, team, opponent) in teams)
+        foreach (var (players, team, opponent, isHome) in teams)
         {
             foreach (var skater in players.Forwards.Concat(players.Defense))
-                yield return ToSkaterLine(skater, game, team, opponent, now);
+                yield return ToSkaterLine(skater, game, team, opponent, isHome, now);
 
             foreach (var goalie in players.Goalies.Where(g => TimeOnIce(g.Toi) > 0))
-                yield return ToGoalieLine(goalie, players.Goalies, game, team, opponent, now);
+                yield return ToGoalieLine(goalie, players.Goalies, game, team, opponent, isHome, now);
         }
     }
 
     private static PlayerGameStats ToSkaterLine(
-        BoxPlayerDto p, ScoreGameDto game, string team, string opponent, Timestamp now) =>
+        BoxPlayerDto p, ScoreGameDto game, string team, string opponent, bool isHome, Timestamp now) =>
         new()
         {
             GameId = game.Id,
@@ -111,6 +111,7 @@ public sealed class StatsSyncJob(NhlApiClient nhl, FirestoreDb db)
             OpponentAbbrev = opponent,
             Position = p.Position,
             IsGoalie = false,
+            IsHome = isHome,
             Toi = p.Toi,
             Pim = p.Pim,
             Goals = p.Goals ?? 0,
@@ -126,7 +127,7 @@ public sealed class StatsSyncJob(NhlApiClient nhl, FirestoreDb db)
 
     private static PlayerGameStats ToGoalieLine(
         BoxPlayerDto goalie, List<BoxPlayerDto> teamGoalies, ScoreGameDto game,
-        string team, string opponent, Timestamp now) =>
+        string team, string opponent, bool isHome, Timestamp now) =>
         new()
         {
             GameId = game.Id,
@@ -139,6 +140,7 @@ public sealed class StatsSyncJob(NhlApiClient nhl, FirestoreDb db)
             OpponentAbbrev = opponent,
             Position = goalie.Position,
             IsGoalie = true,
+            IsHome = isHome,
             Toi = goalie.Toi,
             Pim = goalie.Pim,
             ShotsAgainst = goalie.ShotsAgainst ?? 0,

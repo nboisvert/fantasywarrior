@@ -1,0 +1,386 @@
+/* PlayerCard — bottom sheet (mobile) / centered modal (>=768px).
+   Night Arena tokens from index.css; shared classes from App.css. */
+
+/* ---------- overlay & sheet ---------- */
+
+.pc-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100; /* above topbar (30) and bottom nav (50) */
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(4, 8, 18, 0.62);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: pc-overlay-in 0.25s ease;
+}
+
+.pc-sheet {
+  position: relative;
+  width: 100%;
+  max-height: 85dvh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, #141b31 0%, var(--bg-elevated) 100%);
+  border: 1px solid var(--border-strong);
+  border-bottom: none;
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -16px 48px rgba(0, 0, 0, 0.55);
+  animation: pc-sheet-up 0.25s ease;
+}
+
+/* ---------- top bar: drag handle + close ---------- */
+
+.pc-top {
+  position: relative;
+  flex-shrink: 0;
+  height: 48px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 10px;
+}
+
+.pc-handle {
+  width: 40px;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--border-strong);
+}
+
+.pc-close {
+  position: absolute;
+  top: 2px;
+  right: 6px;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 12px;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.2s, background-color 0.2s;
+}
+
+.pc-close:hover {
+  color: var(--text);
+  background: var(--surface-strong);
+}
+
+/* ---------- scrollable body ---------- */
+
+.pc-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 1.25rem calc(1.5rem + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.pc-body > div[aria-hidden] {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ---------- header ---------- */
+
+.pc-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.pc-headshot {
+  width: 96px;
+  height: 96px;
+  border: 2px solid rgba(56, 189, 248, 0.55);
+  box-shadow: 0 0 20px var(--ice-glow);
+}
+
+.pc-header-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.pc-name {
+  font-size: 1.35rem;
+  line-height: 1.2;
+  overflow-wrap: break-word;
+}
+
+.pc-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.pc-header-meta .pos-badge {
+  margin-right: 0;
+}
+
+.pc-team {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  letter-spacing: 0.06em;
+}
+
+.pc-number {
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+}
+
+/* ---------- bio grid ---------- */
+
+.pc-bio-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+}
+
+.pc-bio-item {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.pc-bio-label {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+}
+
+.pc-bio-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  overflow-wrap: break-word;
+}
+
+/* ---------- season stat tiles ---------- */
+
+.pc-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+}
+
+.pc-tiles-goalie {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.pc-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.6rem 0.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  text-align: center;
+}
+
+.pc-tile-value {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  line-height: 1.2;
+}
+
+.pc-tile-label {
+  font-size: 0.66rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+}
+
+.pc-tile.accent {
+  border-color: rgba(56, 189, 248, 0.45);
+  background: rgba(56, 189, 248, 0.08);
+}
+
+.pc-tile.accent .pc-tile-value {
+  color: var(--ice-bright);
+  text-shadow: 0 0 14px var(--ice-glow);
+}
+
+/* ---------- recent games ---------- */
+
+.pc-games {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.pc-game-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.55rem 0.9rem;
+  font-size: 0.85rem;
+}
+
+.pc-game-row + .pc-game-row {
+  border-top: 1px solid var(--border);
+}
+
+.pc-game-date {
+  flex: 0 0 3.4rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.pc-game-opp {
+  flex: 0 0 4rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pc-game-line {
+  flex: 1;
+  text-align: right;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pc-game-line.hot {
+  color: var(--ice-bright);
+  font-weight: 700;
+}
+
+.pc-empty {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* ---------- skeleton loading ---------- */
+
+.pc-skel {
+  display: block;
+  border-radius: 10px;
+  background: var(--surface-strong);
+  animation: pc-pulse 1.4s ease-in-out infinite;
+}
+
+.pc-skel-headshot {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.pc-skel-line {
+  height: 1.1rem;
+  margin-bottom: 0.5rem;
+}
+
+.pc-skel-bio {
+  height: 2.2rem;
+}
+
+.pc-skel-tile {
+  height: 3.6rem;
+  border-radius: 12px;
+}
+
+.pc-skel-row {
+  height: 2.4rem;
+}
+
+.pc-skel-row + .pc-skel-row {
+  margin-top: 0.4rem;
+}
+
+/* skeleton uses same layout containers; relax their chrome while loading */
+.pc-body [aria-hidden] .pc-bio-grid,
+.pc-body [aria-hidden] .pc-games {
+  border: none;
+  background: none;
+  padding: 0;
+}
+
+/* ---------- desktop: centered modal ---------- */
+
+@media (min-width: 768px) {
+  .pc-overlay {
+    align-items: center;
+    padding: 1.5rem;
+  }
+
+  .pc-sheet {
+    max-width: 480px;
+    border-radius: 16px;
+    border-bottom: 1px solid var(--border-strong);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+    animation: pc-modal-in 0.25s ease;
+  }
+
+  .pc-handle {
+    visibility: hidden;
+  }
+}
+
+/* ---------- motion ---------- */
+
+@keyframes pc-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pc-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes pc-modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pc-overlay,
+  .pc-sheet,
+  .pc-skel {
+    animation: none;
+  }
+}

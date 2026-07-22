@@ -19,6 +19,18 @@
 
 **Local dev**: API → `ASPNETCORE_URLS=http://localhost:5099 dotnet run --project backend/FantasyWarrior.Api --no-launch-profile` (+ `GOOGLE_APPLICATION_CREDENTIALS`, `FIRESTORE_PROJECT_ID=fantasywarriordb`); frontend → `npm run dev` in `frontend/` (API base URL via `VITE_API_URL`, defaults to localhost:5099).
 
+**Phase 4 — Scoring engine: DONE** (plan: `.claude/doc/plans/phase4-scoring-engine.md`)
+
+- [x] `RuleConfig` per league (commissioner-editable): point values (defaults G/A/OTL=1, W=2, SO=0) + top X per position group (F/D/G, null = all)
+- [x] `ScoringEngine` (Core, pure, 7 unit tests): player points, top-X selection with deterministic ties, transaction adjustment
+- [x] **Transaction invariance**: roster add/drop creates `adjustments` ledger entries so team score never moves at transaction time; `score = rawTopXScore + adjustmentsTotal`
+- [x] `assignments` history per league: playerId, team, from/to (ET dates), **source** (initial | free_agency | trade | draft) + sourceRefId; opened/closed by roster endpoints; `league-init-assignments` migration ran
+- [x] `score-calc` job (stateless recompute) wired in daily-jobs.yml between stats-sync and player-sync; `countsInScore` persisted as `countedPlayerIds` per team
+- [x] API: PATCH /api/leagues/{id}/rules (commissioner), GET /api/players/{id} (bio + season totals + last 10 games, isHome), league detail exposes score/points/counted/ruleConfig, teams sorted by score
+- [x] UI: standings show real scores (+adj), expandable team rosters, TOP badge on counted players; roster shows player points + cap meter; RulesPanel (gear icon, commissioner only); **PlayerCard** bottom-sheet (bio, season tiles, last 10 games) built by React Exposito agent, wired on all player rows
+- [x] E2E verified on 2025-26 data: league DJgrL5jEEMVSJekAZ3v5 (testa/testb) — top-X exclusion works, Marner↔Bratt trade left both scores unchanged, next-day sync moved only new production
+- Note: `isHome` added to playerGameStats (Apr 1-5 re-synced). Goalie goals/assists not in NHL boxscore goalie group — not counted (rare, acceptable v1).
+
 **Phase 2 — Stats service: DONE (cron pending secret)**
 
 - [x] Firestore: `games/{gameId}` (scores, lastPeriodType REG/OT/SO) and `playerGameStats/{gameId_playerId}` (full skater + goalie lines, queried by `date`)

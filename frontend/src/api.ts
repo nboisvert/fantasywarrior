@@ -21,11 +21,34 @@ export interface LeagueSummary {
   members: number;
 }
 
+export interface RosterPlayer extends PlayerDto {
+  points: number;
+  counted: boolean;
+}
+
 export interface TeamDto {
   name: string;
   ownerUsername: string;
+  score: number;
+  rawTopXScore: number;
+  adjustmentsTotal: number;
   capTotal: number;
-  players: PlayerDto[];
+  players: RosterPlayer[];
+}
+
+export interface RuleConfig {
+  pointValues: {
+    goal: number;
+    assist: number;
+    goalieWin: number;
+    goalieOtLoss: number;
+    shutout: number;
+  };
+  topCount: {
+    forwards: number | null;
+    defense: number | null;
+    goalies: number | null;
+  };
 }
 
 export interface LeagueDetail {
@@ -34,6 +57,7 @@ export interface LeagueDetail {
   season: string;
   capAmount: number | null;
   commissionerUsername: string;
+  ruleConfig: RuleConfig;
   members: string[];
   teams: TeamDto[];
 }
@@ -67,6 +91,11 @@ export const api = {
       body: JSON.stringify({ username }),
     }),
   league: (leagueId: string) => request<LeagueDetail>(`/api/leagues/${encodeURIComponent(leagueId)}`),
+  updateRules: (leagueId: string, username: string, ruleConfig: RuleConfig) =>
+    request<{ ok: boolean }>(`/api/leagues/${encodeURIComponent(leagueId)}/rules`, {
+      method: "PATCH",
+      body: JSON.stringify({ username, ruleConfig }),
+    }),
   searchPlayers: (q: string) => request<PlayerDto[]>(`/api/players?q=${encodeURIComponent(q)}`),
   addPlayer: (leagueId: string, username: string, playerId: number) =>
     request<PlayerDto>(`/api/leagues/${encodeURIComponent(leagueId)}/teams/${encodeURIComponent(username)}/roster`, {

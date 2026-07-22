@@ -1,6 +1,7 @@
 using FantasyWarrior.Api;
 using FantasyWarrior.Core.Leagues;
 using FantasyWarrior.Core.Players;
+using FantasyWarrior.Core.Scoring;
 using FantasyWarrior.Core.Users;
 using Google.Cloud.Firestore;
 
@@ -21,6 +22,15 @@ app.MapGet("/", () => "Fantasy Warrior API");
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
 
 static string Normalize(string username) => username.Trim().ToLowerInvariant();
+
+// NHL "game day" runs on Eastern Time.
+static string EtToday()
+{
+    TimeZoneInfo tz;
+    try { tz = TimeZoneInfo.FindSystemTimeZoneById("America/New_York"); }
+    catch (TimeZoneNotFoundException) { tz = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time"); }
+    return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz).ToString("yyyy-MM-dd");
+}
 
 app.MapPost("/api/login", async (LoginRequest req, FirestoreDb db) =>
 {
@@ -66,6 +76,7 @@ app.MapPost("/api/leagues", async (CreateLeagueRequest req, FirestoreDb db) =>
         CommissionerUsername = username,
         MemberUsernames = [username],
         CapAmount = req.CapAmount,
+        RuleConfig = new RuleConfig(),
         CreatedUtc = now,
     });
     await leagueDoc.Collection("teams").Document(username).SetAsync(new Team
@@ -99,6 +110,22 @@ app.MapPost("/api/leagues/{leagueId}/join", async (string leagueId, JoinLeagueRe
     return Results.Ok(new { id = leagueId });
 });
 
+app.MapMethods("/api/leagues/{leagueId}/rules", ["PATCH"], async (string leagueId, UpdateRulesRequest req, FirestoreDb db) =>
+{
+    if (string.IsNullOrWhiteSpace(req.Username) || req.RuleConfig is null)
+        return Results.BadRequest(new { error = "Username and ruleConfig are required." });
+
+    var leagueDoc = db.Collection("leagues").Document(leagueId);
+    var leagueSnap = await leagueDoc.GetSnapshotAsync();
+    if (!leagueSnap.Exists)
+        return Results.NotFound(new { error = "League not found." });
+    if (leagueSnap.ConvertTo<League>().CommissionerUsername != Normalize(req.Username))
+        return Results.Json(new { error = "Only the commissioner can change the rules." }, statusCode: 403);
+
+    await leagueDoc.UpdateAsync("ruleConfig", req.RuleConfig);
+    return Results.Ok(new { ok = true, note = "Scores refresh at the next nightly calculation (or run score-calc)." });
+});
+
 app.MapGet("/api/leagues/{leagueId}", async (string leagueId, FirestoreDb db, PlayerCache players) =>
 {
     var leagueSnap = await db.Collection("leagues").Document(leagueId).GetSnapshotAsync();
@@ -117,49 +144,163 @@ app.MapGet("/api/leagues/{leagueId}", async (string leagueId, FirestoreDb db, Pl
         league.Season,
         league.CapAmount,
         league.CommissionerUsername,
+        league.RuleConfig,
         members = league.MemberUsernames,
-        teams = teams.Select(t => new
-        {
-            t.Name,
-            t.OwnerUsername,
-            capTotal = t.PlayerIds.Sum(id => playersById.GetValueOrDefault(id)?.CapHit ?? 0),
-            players = t.PlayerIds
-                .Select(id => playersById.GetValueOrDefault(id))
-                .Where(p => p is not null)
-                .Select(p => PlayerDto.From(p!)),
-        }),
+        teams = teams
+            .OrderByDescending(t => t.Score)
+            .ThenBy(t => t.Name)
+            .Select(t => new
+            {
+                t.Name,
+                t.OwnerUsername,
+                t.Score,
+                t.RawTopXScore,
+                t.AdjustmentsTotal,
+                capTotal = t.PlayerIds.Sum(id => playersById.GetValueOrDefault(id)?.CapHit ?? 0),
+                players = t.PlayerIds
+                    .Select(id => playersById.GetValueOrDefault(id))
+                    .Where(p => p is not null)
+                    .Select(p => new
+                    {
+                        Dto = PlayerDto.From(p!),
+                        Points = t.PlayerPoints.GetValueOrDefault(p!.NhlId.ToString(), 0),
+                        Counted = t.CountedPlayerIds.Contains(p.NhlId),
+                    })
+                    .OrderByDescending(x => x.Points)
+                    .Select(x => new
+                    {
+                        x.Dto.Id, x.Dto.Name, x.Dto.Position, x.Dto.Team, x.Dto.Status,
+                        x.Dto.CapHit, x.Dto.HeadshotUrl, x.Points, x.Counted,
+                    }),
+            }),
     });
 });
 
 app.MapPost("/api/leagues/{leagueId}/teams/{username}/roster", async (
     string leagueId, string username, RosterChangeRequest req, FirestoreDb db, PlayerCache players) =>
 {
-    var teamDoc = db.Collection("leagues").Document(leagueId).Collection("teams").Document(Normalize(username));
-    if (!(await teamDoc.GetSnapshotAsync()).Exists)
+    var leagueDoc = db.Collection("leagues").Document(leagueId);
+    var leagueSnap = await leagueDoc.GetSnapshotAsync();
+    if (!leagueSnap.Exists)
+        return Results.NotFound(new { error = "League not found." });
+    var league = leagueSnap.ConvertTo<League>();
+
+    var teamDoc = leagueDoc.Collection("teams").Document(Normalize(username));
+    var teamSnap = await teamDoc.GetSnapshotAsync();
+    if (!teamSnap.Exists)
         return Results.NotFound(new { error = "Team not found." });
+    var team = teamSnap.ConvertTo<Team>();
 
     var player = (await players.GetByIdsAsync([req.PlayerId])).GetValueOrDefault(req.PlayerId);
     if (player is null)
         return Results.BadRequest(new { error = "Unknown player id." });
+    if (team.PlayerIds.Contains(req.PlayerId))
+        return Results.BadRequest(new { error = "Player already on this roster." });
 
     // One owner per player per league.
-    var teamsSnap = await db.Collection("leagues").Document(leagueId).Collection("teams").GetSnapshotAsync();
-    var taken = teamsSnap.Documents
-        .FirstOrDefault(d => d.ConvertTo<Team>().PlayerIds.Contains(req.PlayerId));
-    if (taken is not null && taken.Id != Normalize(username))
+    var teamsSnap = await leagueDoc.Collection("teams").GetSnapshotAsync();
+    var taken = teamsSnap.Documents.FirstOrDefault(d => d.ConvertTo<Team>().PlayerIds.Contains(req.PlayerId));
+    if (taken is not null)
         return Results.Conflict(new { error = $"{player.FirstName} {player.LastName} is already on team '{taken.GetValue<string>("name")}'." });
 
-    await teamDoc.UpdateAsync("playerIds", FieldValue.ArrayUnion(req.PlayerId));
+    // Compensation: the displayed score must not move on a transaction.
+    var totals = await PlayerTotalsSource.FetchAsync(db, [req.PlayerId], league.Season);
+    var newPlayerPoints = ScoringEngine.PlayerPoints(totals[req.PlayerId], league.RuleConfig.PointValues);
+    var rosterPositions = await RosterPositions(players, team.PlayerIds);
+    var entriesBefore = team.PlayerIds
+        .Select(id => (id, rosterPositions.GetValueOrDefault(id, "C"), team.PlayerPoints.GetValueOrDefault(id.ToString(), 0)))
+        .ToList();
+    var before = ScoringEngine.TeamScoreFromPoints(entriesBefore, league.RuleConfig.TopCount);
+    var after = ScoringEngine.TeamScoreFromPoints(
+        [.. entriesBefore, (req.PlayerId, player.Position, newPlayerPoints)], league.RuleConfig.TopCount);
+    var delta = ScoringEngine.TransactionAdjustment(before.RawTopX, after.RawTopX);
+
+    if (delta != 0)
+        await teamDoc.Collection("adjustments").AddAsync(new Adjustment
+        {
+            Delta = delta,
+            Reason = "add",
+            PlayerIdsIn = [req.PlayerId],
+            DateUtc = Timestamp.GetCurrentTimestamp(),
+        });
+
+    await leagueDoc.Collection("assignments").AddAsync(new Assignment
+    {
+        PlayerId = req.PlayerId,
+        TeamUsername = team.OwnerUsername,
+        From = EtToday(),
+        Source = req.Source ?? "free_agency",
+        SourceRefId = req.SourceRefId,
+        CreatedUtc = Timestamp.GetCurrentTimestamp(),
+    });
+
+    var adjustmentsTotal = team.AdjustmentsTotal + delta;
+    await teamDoc.UpdateAsync(new Dictionary<string, object>
+    {
+        ["playerIds"] = FieldValue.ArrayUnion(req.PlayerId),
+        [$"playerPoints.{req.PlayerId}"] = newPlayerPoints,
+        ["rawTopXScore"] = after.RawTopX,
+        ["adjustmentsTotal"] = adjustmentsTotal,
+        ["score"] = after.RawTopX + adjustmentsTotal,
+        ["countedPlayerIds"] = after.CountedPlayerIds.ToList(),
+    });
     return Results.Ok(PlayerDto.From(player));
 });
 
 app.MapDelete("/api/leagues/{leagueId}/teams/{username}/roster/{playerId:long}", async (
-    string leagueId, string username, long playerId, FirestoreDb db) =>
+    string leagueId, string username, long playerId, FirestoreDb db, PlayerCache players) =>
 {
-    var teamDoc = db.Collection("leagues").Document(leagueId).Collection("teams").Document(Normalize(username));
-    if (!(await teamDoc.GetSnapshotAsync()).Exists)
+    var leagueDoc = db.Collection("leagues").Document(leagueId);
+    var leagueSnap = await leagueDoc.GetSnapshotAsync();
+    if (!leagueSnap.Exists)
+        return Results.NotFound(new { error = "League not found." });
+    var league = leagueSnap.ConvertTo<League>();
+
+    var teamDoc = leagueDoc.Collection("teams").Document(Normalize(username));
+    var teamSnap = await teamDoc.GetSnapshotAsync();
+    if (!teamSnap.Exists)
         return Results.NotFound(new { error = "Team not found." });
-    await teamDoc.UpdateAsync("playerIds", FieldValue.ArrayRemove(playerId));
+    var team = teamSnap.ConvertTo<Team>();
+    if (!team.PlayerIds.Contains(playerId))
+        return Results.BadRequest(new { error = "Player is not on this roster." });
+
+    var rosterPositions = await RosterPositions(players, team.PlayerIds);
+    var entriesBefore = team.PlayerIds
+        .Select(id => (id, rosterPositions.GetValueOrDefault(id, "C"), team.PlayerPoints.GetValueOrDefault(id.ToString(), 0)))
+        .ToList();
+    var before = ScoringEngine.TeamScoreFromPoints(entriesBefore, league.RuleConfig.TopCount);
+    var after = ScoringEngine.TeamScoreFromPoints(
+        entriesBefore.Where(e => e.Item1 != playerId).ToList(), league.RuleConfig.TopCount);
+    var delta = ScoringEngine.TransactionAdjustment(before.RawTopX, after.RawTopX);
+
+    if (delta != 0)
+        await teamDoc.Collection("adjustments").AddAsync(new Adjustment
+        {
+            Delta = delta,
+            Reason = "drop",
+            PlayerIdsOut = [playerId],
+            DateUtc = Timestamp.GetCurrentTimestamp(),
+        });
+
+    // Close the open assignment.
+    var openAssignments = await leagueDoc.Collection("assignments")
+        .WhereEqualTo("playerId", playerId)
+        .WhereEqualTo("teamUsername", team.OwnerUsername)
+        .WhereEqualTo("to", null)
+        .GetSnapshotAsync();
+    foreach (var assignment in openAssignments.Documents)
+        await assignment.Reference.UpdateAsync("to", EtToday());
+
+    var adjustmentsTotal = team.AdjustmentsTotal + delta;
+    await teamDoc.UpdateAsync(new Dictionary<string, object>
+    {
+        ["playerIds"] = FieldValue.ArrayRemove(playerId),
+        [$"playerPoints.{playerId}"] = FieldValue.Delete,
+        ["rawTopXScore"] = after.RawTopX,
+        ["adjustmentsTotal"] = adjustmentsTotal,
+        ["score"] = after.RawTopX + adjustmentsTotal,
+        ["countedPlayerIds"] = after.CountedPlayerIds.ToList(),
+    });
     return Results.Ok();
 });
 
@@ -169,12 +310,89 @@ app.MapGet("/api/players", async (string? q, PlayerCache players) =>
     return Results.Ok(results.Select(PlayerDto.From));
 });
 
+app.MapGet("/api/players/{playerId:long}", async (long playerId, FirestoreDb db, PlayerCache players) =>
+{
+    var player = (await players.GetByIdsAsync([playerId])).GetValueOrDefault(playerId);
+    if (player is null)
+        return Results.NotFound(new { error = "Player not found." });
+
+    var lines = await PlayerTotalsSource.FetchLinesAsync(db, playerId);
+    var season = lines.Count > 0 ? lines.Max(l => l.Season) : null;
+    var seasonLines = lines.Where(l => l.Season == season && l.GameType == 2).ToList();
+    var totals = PlayerTotalsSource.Aggregate(seasonLines);
+    var isGoalie = player.Position == "G";
+
+    return Results.Ok(new
+    {
+        id = player.NhlId,
+        name = $"{player.FirstName} {player.LastName}",
+        position = player.Position,
+        team = player.TeamAbbrev,
+        status = player.Status,
+        sweaterNumber = player.SweaterNumber,
+        shootsCatches = player.ShootsCatches,
+        birthDate = player.BirthDate,
+        birthCountry = player.BirthCountry,
+        heightCm = player.HeightCm,
+        weightKg = player.WeightKg,
+        headshotUrl = player.HeadshotUrl,
+        capHit = player.CapHit,
+        isGoalie,
+        season,
+        seasonTotals = new
+        {
+            gamesPlayed = totals.GamesPlayed,
+            goals = totals.Goals,
+            assists = totals.Assists,
+            points = totals.Goals + totals.Assists,
+            plusMinus = seasonLines.Sum(l => l.PlusMinus ?? 0),
+            pim = seasonLines.Sum(l => l.Pim),
+            shots = seasonLines.Sum(l => l.Shots ?? 0),
+            wins = totals.Wins,
+            otLosses = totals.OtLosses,
+            shutouts = totals.Shutouts,
+            goalsAgainst = seasonLines.Sum(l => l.GoalsAgainst ?? 0),
+            saves = seasonLines.Sum(l => l.Saves ?? 0),
+            shotsAgainst = seasonLines.Sum(l => l.ShotsAgainst ?? 0),
+        },
+        recentGames = seasonLines
+            .OrderByDescending(l => l.Date)
+            .Take(10)
+            .Select(l => new
+            {
+                date = l.Date,
+                gameId = l.GameId,
+                opponent = l.OpponentAbbrev,
+                isHome = l.IsHome,
+                goals = l.Goals,
+                assists = l.Assists,
+                points = l.Points,
+                plusMinus = l.PlusMinus,
+                pim = l.Pim,
+                shots = l.Shots,
+                toi = l.Toi,
+                decision = l.Decision,
+                saves = l.Saves,
+                shotsAgainst = l.ShotsAgainst,
+                goalsAgainst = l.GoalsAgainst,
+                shutout = l.Shutout,
+            }),
+    });
+});
+
 app.Run();
+
+static async Task<Dictionary<long, string>> RosterPositions(PlayerCache players, IReadOnlyCollection<long> playerIds)
+{
+    var byId = await players.GetByIdsAsync(playerIds);
+    return byId.ToDictionary(kv => kv.Key, kv => kv.Value.Position);
+}
 
 record LoginRequest(string? Username);
 record CreateLeagueRequest(string? Name, string? Username, string? TeamName, string? Season, long? CapAmount);
 record JoinLeagueRequest(string? Username, string? TeamName);
-record RosterChangeRequest(long PlayerId);
+record RosterChangeRequest(long PlayerId, string? Source, string? SourceRefId);
+record UpdateRulesRequest(string? Username, RuleConfig? RuleConfig);
 
 record PlayerDto(long Id, string Name, string Position, string Team, string Status, long? CapHit, string? HeadshotUrl)
 {

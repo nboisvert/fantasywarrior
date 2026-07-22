@@ -42,6 +42,9 @@ public sealed class PlayerGameStats
     [FirestoreProperty("isGoalie")]
     public bool IsGoalie { get; set; }
 
+    [FirestoreProperty("isHome")]
+    public bool IsHome { get; set; }
+
     [FirestoreProperty("toi")]
     public string Toi { get; set; } = "";
 

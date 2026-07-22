@@ -37,5 +37,7 @@ jobs:
           ARGS=""
           if [ -n "${{ inputs.from }}" ]; then ARGS="--from ${{ inputs.from }} --to ${{ inputs.to || inputs.from }}"; fi
           dotnet run --project backend/FantasyWarrior.Jobs -c Release -- stats-sync $ARGS
+      - name: Score calc
+        run: dotnet run --project backend/FantasyWarrior.Jobs -c Release -- score-calc
       - name: Player sync
         run: dotnet run --project backend/FantasyWarrior.Jobs -c Release -- player-sync

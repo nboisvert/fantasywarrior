@@ -6,6 +6,8 @@ using Google.Cloud.Firestore;
 //   salary-import --file <path.csv>   (columns: nhlId?,firstName,lastName,teamAbbrev,capHit)
 //   stats-sync [--date YYYY-MM-DD | --from A --to B]   (default: yesterday UTC)
 //   stats-check [--date YYYY-MM-DD]
+//   score-calc [--league <leagueId>]
+//   league-init-assignments
 //   player-check
 //
 // Firestore target: set FIRESTORE_EMULATOR_HOST (e.g. localhost:8090) for local dev;
@@ -60,6 +62,43 @@ switch (job)
         }
         Console.WriteLine($"StatsSync: {fromDate:yyyy-MM-dd} -> {toDate:yyyy-MM-dd}");
         await new StatsSyncJob(new NhlApiClient(http), db).RunAsync(fromDate, toDate);
+        return 0;
+    }
+    case "score-calc":
+    {
+        await new FantasyWarrior.Jobs.Scoring.ScoreCalcJob(db).RunAsync(GetOption(args, "--league"));
+        return 0;
+    }
+    case "league-init-assignments":
+    {
+        // Migration: opens an "initial" assignment for rostered players that have none.
+        var leagues = await db.Collection("leagues").GetSnapshotAsync();
+        foreach (var leagueSnap in leagues.Documents)
+        {
+            var assignmentsCol = leagueSnap.Reference.Collection("assignments");
+            var existing = (await assignmentsCol.WhereEqualTo("to", null).GetSnapshotAsync()).Documents
+                .Select(d => (d.GetValue<long>("playerId"), d.GetValue<string>("teamUsername")))
+                .ToHashSet();
+            var created = 0;
+            var fromDate = leagueSnap.GetValue<Timestamp>("createdUtc").ToDateTime().ToString("yyyy-MM-dd");
+            foreach (var teamSnap in (await leagueSnap.Reference.Collection("teams").GetSnapshotAsync()).Documents)
+            {
+                var team = teamSnap.ConvertTo<FantasyWarrior.Core.Leagues.Team>();
+                foreach (var playerId in team.PlayerIds.Where(p => !existing.Contains((p, team.OwnerUsername))))
+                {
+                    await assignmentsCol.AddAsync(new FantasyWarrior.Core.Leagues.Assignment
+                    {
+                        PlayerId = playerId,
+                        TeamUsername = team.OwnerUsername,
+                        From = fromDate,
+                        Source = "initial",
+                        CreatedUtc = Timestamp.GetCurrentTimestamp(),
+                    });
+                    created++;
+                }
+            }
+            Console.WriteLine($"League [{leagueSnap.Id}]: {created} assignments created");
+        }
         return 0;
     }
     case "stats-check":

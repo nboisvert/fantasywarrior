@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "./api";
 import type { LeagueDetail } from "./api";
-import { ChevronDownIcon, LogOutIcon, TrophyIcon, UsersIcon } from "./components/Icons";
+import { ChevronDownIcon, LogOutIcon, SettingsIcon, TrophyIcon, UsersIcon } from "./components/Icons";
 import logo from "./assets/logo.webp";
 import { Login } from "./screens/Login";
 import { LeagueGate } from "./screens/LeagueGate";
 import { Standings } from "./screens/Standings";
 import { Roster } from "./screens/Roster";
+import { RulesPanel } from "./screens/RulesPanel";
 import "./App.css";
 
 type Tab = "standings" | "roster";
@@ -16,6 +17,7 @@ export default function App() {
   const [leagueId, setLeagueId] = useState<string | null>(localStorage.getItem("fw-league"));
   const [league, setLeague] = useState<LeagueDetail | null>(null);
   const [tab, setTab] = useState<Tab>("standings");
+  const [showRules, setShowRules] = useState(false);
   const [error, setError] = useState("");
 
   const openLeague = (id: string) => {
@@ -70,14 +72,34 @@ export default function App() {
           <span className="name">{league?.name ?? "…"}</span>
           <ChevronDownIcon size={16} />
         </button>
-        <button className="btn-ghost" onClick={logout}>
-          <LogOutIcon size={16} /> {username}
-        </button>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+          {league?.commissionerUsername === username && (
+            <button
+              className="icon-btn"
+              onClick={() => setShowRules(!showRules)}
+              aria-label="League rules"
+              style={showRules ? { color: "var(--ice-bright)" } : undefined}
+            >
+              <SettingsIcon size={18} />
+            </button>
+          )}
+          <button className="btn-ghost" onClick={logout}>
+            <LogOutIcon size={16} /> {username}
+          </button>
+        </span>
       </header>
 
       <main className="shell-content" style={{ paddingTop: "1rem" }}>
         {error && <p className="error-banner">{error}</p>}
         {!league && !error && <p className="empty-state">Loading league…</p>}
+        {league && showRules && (
+          <RulesPanel
+            league={league}
+            username={username}
+            onSaved={refreshLeague}
+            onClose={() => setShowRules(false)}
+          />
+        )}
         {league && tab === "standings" && <Standings league={league} username={username} />}
         {league && tab === "roster" && (
           <Roster league={league} username={username} onChanged={refreshLeague} />

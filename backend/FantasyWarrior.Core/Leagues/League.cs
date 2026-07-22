@@ -1,3 +1,4 @@
+using FantasyWarrior.Core.Scoring;
 using Google.Cloud.Firestore;
 
 namespace FantasyWarrior.Core.Leagues;
@@ -27,6 +28,10 @@ public sealed class League
     /// <summary>Salary cap per team in USD; null = no cap rule.</summary>
     [FirestoreProperty("capAmount")]
     public long? CapAmount { get; set; }
+
+    /// <summary>Scoring rules, editable by the commissioner.</summary>
+    [FirestoreProperty("ruleConfig")]
+    public RuleConfig RuleConfig { get; set; } = new();
 
     [FirestoreProperty("createdUtc")]
     public Timestamp CreatedUtc { get; set; }
