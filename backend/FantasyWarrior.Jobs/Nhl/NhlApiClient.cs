@@ -62,6 +62,24 @@ public sealed class NhlApiClient(HttpClient http)
         return players;
     }
 
+    /// <summary>All games (any state) for a calendar date.</summary>
+    public async Task<IReadOnlyList<ScoreGameDto>> GetDailyScoresAsync(string date, CancellationToken ct = default)
+    {
+        using var response = await http.GetAsync($"https://api-web.nhle.com/v1/score/{date}", ct);
+        if (!response.IsSuccessStatusCode)
+            return [];
+        var dto = JsonSerializer.Deserialize<DailyScoresDto>(await response.Content.ReadAsStringAsync(ct), JsonOptions);
+        return dto?.Games ?? [];
+    }
+
+    public async Task<BoxscoreDto?> GetBoxscoreAsync(long gameId, CancellationToken ct = default)
+    {
+        using var response = await http.GetAsync($"https://api-web.nhle.com/v1/gamecenter/{gameId}/boxscore", ct);
+        if (!response.IsSuccessStatusCode)
+            return null;
+        return JsonSerializer.Deserialize<BoxscoreDto>(await response.Content.ReadAsStringAsync(ct), JsonOptions);
+    }
+
     private async Task<JsonDocument> GetJsonAsync(string url, CancellationToken ct)
     {
         using var response = await http.GetAsync(url, ct);

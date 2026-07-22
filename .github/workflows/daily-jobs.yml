@@ -1,0 +1,41 @@
+# Nightly data jobs: yesterday's boxscores + player roster refresh.
+# 09:30 UTC = after all NHL games are final (incl. West Coast).
+# Requires GitHub secret FIREBASE_SA_KEY = content of the Firestore
+# service-account JSON key.
+# Manual runs can pass a date range to backfill missed days.
+name: Daily NHL data sync
+
+on:
+  schedule:
+    - cron: "30 9 * * *"
+  workflow_dispatch:
+    inputs:
+      from:
+        description: "Backfill from (YYYY-MM-DD), default yesterday"
+        required: false
+      to:
+        description: "Backfill to (YYYY-MM-DD), default yesterday"
+        required: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      FIRESTORE_PROJECT_ID: fantasywarriordb
+      GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/gcp-sa.json
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Write service account key
+        run: echo "$FIREBASE_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
+        env:
+          FIREBASE_SA_KEY: ${{ secrets.FIREBASE_SA_KEY }}
+      - name: Stats sync
+        run: |
+          ARGS=""
+          if [ -n "${{ inputs.from }}" ]; then ARGS="--from ${{ inputs.from }} --to ${{ inputs.to || inputs.from }}"; fi
+          dotnet run --project backend/FantasyWarrior.Jobs -c Release -- stats-sync $ARGS
+      - name: Player sync
+        run: dotnet run --project backend/FantasyWarrior.Jobs -c Release -- player-sync

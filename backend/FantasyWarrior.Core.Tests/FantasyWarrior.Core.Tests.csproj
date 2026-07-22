@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\FantasyWarrior.Core\FantasyWarrior.Core.csproj" />
+    <ProjectReference Include="..\FantasyWarrior.Jobs\FantasyWarrior.Jobs.csproj" />
   </ItemGroup>
 
 </Project>

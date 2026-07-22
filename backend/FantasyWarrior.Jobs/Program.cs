@@ -4,6 +4,8 @@ using Google.Cloud.Firestore;
 // Usage: dotnet run -- <job> [options]
 //   player-sync [--season 20262027]
 //   salary-import --file <path.csv>   (columns: nhlId?,firstName,lastName,teamAbbrev,capHit)
+//   stats-sync [--date YYYY-MM-DD | --from A --to B]   (default: yesterday UTC)
+//   stats-check [--date YYYY-MM-DD]
 //   player-check
 //
 // Firestore target: set FIRESTORE_EMULATOR_HOST (e.g. localhost:8090) for local dev;
@@ -41,6 +43,45 @@ switch (job)
     {
         var season = GetOption(args, "--season") ?? CurrentSeason();
         await new PlayerSyncJob(new NhlApiClient(http), db).RunAsync(season);
+        return 0;
+    }
+    case "stats-sync":
+    {
+        var single = GetOption(args, "--date");
+        var from = GetOption(args, "--from") ?? single;
+        var to = GetOption(args, "--to") ?? single;
+        var yesterday = DateOnly.FromDateTime(DateTime.UtcNow.Date.AddDays(-1));
+        var fromDate = from is null ? yesterday : DateOnly.Parse(from);
+        var toDate = to is null ? yesterday : DateOnly.Parse(to);
+        if (toDate < fromDate)
+        {
+            Console.Error.WriteLine("--to must be >= --from");
+            return 1;
+        }
+        Console.WriteLine($"StatsSync: {fromDate:yyyy-MM-dd} -> {toDate:yyyy-MM-dd}");
+        await new StatsSyncJob(new NhlApiClient(http), db).RunAsync(fromDate, toDate);
+        return 0;
+    }
+    case "stats-check":
+    {
+        var date = GetOption(args, "--date") ?? DateOnly.FromDateTime(DateTime.UtcNow.Date.AddDays(-1)).ToString("yyyy-MM-dd");
+        var games = await db.Collection("games").WhereEqualTo("date", date).GetSnapshotAsync();
+        var lines = await db.Collection("playerGameStats").WhereEqualTo("date", date).GetSnapshotAsync();
+        Console.WriteLine($"{date}: {games.Count} games, {lines.Count} player lines");
+        foreach (var g in games.Documents.Take(5))
+            Console.WriteLine($"  [{g.Id}] {g.GetValue<string>("awayAbbrev")} {g.GetValue<int>("awayScore")} @ {g.GetValue<string>("homeAbbrev")} {g.GetValue<int>("homeScore")} ({g.GetValue<string>("lastPeriodType")})");
+        var top = lines.Documents
+            .Select(d => d.ConvertTo<FantasyWarrior.Core.Stats.PlayerGameStats>())
+            .Where(l => !l.IsGoalie)
+            .OrderByDescending(l => l.Points)
+            .Take(3);
+        foreach (var l in top)
+            Console.WriteLine($"  top: {l.Name} ({l.TeamAbbrev}) {l.Goals}G {l.Assists}A vs {l.OpponentAbbrev}");
+        var goalies = lines.Documents
+            .Select(d => d.ConvertTo<FantasyWarrior.Core.Stats.PlayerGameStats>())
+            .Where(l => l.IsGoalie && (l.Shutout == true || l.OtLoss == true));
+        foreach (var l in goalies)
+            Console.WriteLine($"  goalie: {l.Name} ({l.TeamAbbrev}) GA={l.GoalsAgainst} {l.Decision}{(l.Shutout == true ? " SHUTOUT" : "")}{(l.OtLoss == true ? " OTL" : "")}");
         return 0;
     }
     case "salary-import":

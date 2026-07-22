@@ -19,6 +19,15 @@
 
 **Local dev**: API → `ASPNETCORE_URLS=http://localhost:5099 dotnet run --project backend/FantasyWarrior.Api --no-launch-profile` (+ `GOOGLE_APPLICATION_CREDENTIALS`, `FIRESTORE_PROJECT_ID=fantasywarriordb`); frontend → `npm run dev` in `frontend/` (API base URL via `VITE_API_URL`, defaults to localhost:5099).
 
+**Phase 2 — Stats service: DONE (cron pending secret)**
+
+- [x] Firestore: `games/{gameId}` (scores, lastPeriodType REG/OT/SO) and `playerGameStats/{gameId_playerId}` (full skater + goalie lines, queried by `date`)
+- [x] `StatsSyncJob`: `stats-sync [--date | --from/--to]` (default yesterday UTC), idempotent upserts, backfill-ready; derived flags: `shutout` (solo goalie, 0 GA), `otLoss` (decision O). `stats-check` for verification
+- [x] Unit tests (TOI parse, shutout rules, date ranges) — 16 tests green
+- [x] Verified on real 2025-26 data: 2026-04-01→04 synced (34 games, 1296 lines); spot-checked vs known results (Marner hat trick, Oettinger shutout, Kuemper OTL)
+- [x] `daily-jobs.yml`: cron 09:30 UTC (stats-sync + player-sync) with manual backfill inputs
+- [ ] **Nick: add GitHub secret `FIREBASE_SA_KEY`** (content of the service-account JSON) to activate the cron
+
 **Phase 1 — Player service: IN PROGRESS**
 
 - [x] `Player` model in Core (`players` collection, doc id = NHL player id)
