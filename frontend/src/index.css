@@ -1,29 +1,35 @@
 :root {
-  --text: #24202b;
-  --text-muted: #6b6375;
-  --bg: #f7f6f9;
-  --surface: #ffffff;
-  --border: #e0dee5;
-  --accent: #1f5fbf;
-  --danger: #c22f2f;
+  /* Fantasy Warrior design tokens — "night arena" dark theme */
+  --bg: #0a0e1a;
+  --bg-elevated: #10162a;
+  --surface: rgba(255, 255, 255, 0.045);
+  --surface-strong: rgba(255, 255, 255, 0.08);
+  --border: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.16);
 
-  font: 16px/1.45 system-ui, "Segoe UI", Roboto, sans-serif;
+  --text: #f1f5f9;
+  --text-muted: #8b96ab;
+
+  --ice: #38bdf8;
+  --ice-bright: #22d3ee;
+  --ice-glow: rgba(56, 189, 248, 0.35);
+  --danger: #f43f5e;
+  --gold: #fbbf24;
+  --silver: #c7d2e0;
+  --bronze: #d0885a;
+
+  --font-display: "Russo One", system-ui, sans-serif;
+  --font-body: "Chakra Petch", system-ui, sans-serif;
+
+  --nav-height: 64px;
+
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
   color: var(--text);
   background: var(--bg);
-  color-scheme: light dark;
+  color-scheme: dark;
   -webkit-font-smoothing: antialiased;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #ecebef;
-    --text-muted: #a49dae;
-    --bg: #16141a;
-    --surface: #201d26;
-    --border: #37333f;
-    --accent: #6ea3ef;
-    --danger: #e57373;
-  }
 }
 
 * {
@@ -33,4 +39,40 @@
 body {
   margin: 0;
   min-height: 100dvh;
+  background:
+    radial-gradient(60% 40% at 85% -10%, rgba(56, 189, 248, 0.14), transparent 70%),
+    radial-gradient(50% 35% at 0% 100%, rgba(99, 102, 241, 0.12), transparent 70%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  margin: 0;
+}
+
+button {
+  font-family: inherit;
+}
+
+input {
+  font-family: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ice);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
