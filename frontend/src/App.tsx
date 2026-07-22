@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "./api";
 import type { LeagueDetail } from "./api";
 import { ChevronDownIcon, LogOutIcon, TrophyIcon, UsersIcon } from "./components/Icons";
+import logo from "./assets/logo.webp";
 import { Login } from "./screens/Login";
 import { LeagueGate } from "./screens/LeagueGate";
 import { Standings } from "./screens/Standings";
@@ -64,6 +65,7 @@ export default function App() {
   return (
     <div className="shell">
       <header className="topbar">
+        <img className="topbar-logo" src={logo} alt="" />
         <button className="league-switch" onClick={closeLeague} aria-label="Switch league">
           <span className="name">{league?.name ?? "…"}</span>
           <ChevronDownIcon size={16} />

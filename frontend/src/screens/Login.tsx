@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { api } from "../api";
-import { ShieldIcon } from "../components/Icons";
+import logo from "../assets/logo.webp";
 
 export function Login({ onLogin }: { onLogin: (username: string) => void }) {
   const [value, setValue] = useState("");
@@ -24,9 +24,7 @@ export function Login({ onLogin }: { onLogin: (username: string) => void }) {
   return (
     <main className="login fade-in">
       <div className="login-logo">
-        <div className="icon-ring">
-          <ShieldIcon size={40} />
-        </div>
+        <img className="hero-logo" src={logo} alt="Fantasy Warrior logo" />
         <div>
           <h1>
             Fantasy <span className="accent">Warrior</span>

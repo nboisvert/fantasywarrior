@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, formatCap } from "../api";
 import type { LeagueSummary } from "../api";
 import { LogOutIcon } from "../components/Icons";
+import logo from "../assets/logo.webp";
 
 export function LeagueGate({
   username,
@@ -47,6 +48,7 @@ export function LeagueGate({
     <div className="shell fade-in">
       <header className="topbar">
         <span className="brand">
+          <img className="topbar-logo" src={logo} alt="" />
           Fantasy <span className="accent">Warrior</span>
         </span>
         <button className="btn-ghost" onClick={onLogout}>

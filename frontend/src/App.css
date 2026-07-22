@@ -43,6 +43,18 @@
   color: var(--ice);
 }
 
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.topbar-logo {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+}
+
 /* ---------- bottom navigation ---------- */
 
 .bottom-nav {
@@ -111,18 +123,10 @@
   gap: 1rem;
 }
 
-.login-logo .icon-ring {
-  width: 84px;
-  height: 84px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  color: var(--ice-bright);
-  background: rgba(56, 189, 248, 0.08);
-  border: 1px solid rgba(56, 189, 248, 0.35);
-  box-shadow:
-    0 0 40px rgba(56, 189, 248, 0.25),
-    inset 0 0 25px rgba(56, 189, 248, 0.08);
+.hero-logo {
+  width: 180px;
+  height: 180px;
+  filter: drop-shadow(0 0 32px rgba(56, 189, 248, 0.28));
 }
 
 .login h1 {
