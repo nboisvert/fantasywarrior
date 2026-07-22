@@ -11,7 +11,8 @@
 
 - [x] Firestore schema: `users/{username}`, `leagues/{id}` (name, season, capAmount, commissioner, memberUsernames), `leagues/{id}/teams/{username}` (one team per user per league, `playerIds` roster)
 - [x] API endpoints: login, my-leagues, create/join league (league id = invite code), league detail (teams + rosters + capTotal), player search (in-memory PlayerCache, 10-min TTL), roster add/remove with one-owner-per-player-per-league conflict check
-- [x] React UI (mobile-first, EN): username login → my leagues (create/join) → league view (rosters of all teams, cap totals, my-team add/remove via search)
+- [x] React UI (mobile-first, EN): username login → league gate (create/join/pick) → app shell with **fixed bottom nav (Standings default + Roster)** and league switcher in top bar
+- [x] UI design system (2026-07-22, via ui-ux-pro-max): dark "night arena" theme — bg `#0a0e1a`, ice-cyan accents `#38bdf8/#22d3ee`, glass cards, Russo One (display) + Chakra Petch (body), podium colors for ranks, cap meter with overage state, Lucide SVG icons. Tokens in `frontend/src/index.css`; screens in `frontend/src/screens/`
 - [x] End-to-end verified locally against prod Firestore: full flow incl. ownership conflict and cap totals. Test data left in prod: league "Buddies Pool Test" (users nick, marc)
 - [ ] Roster structure rules (nb of F/D/G) — needs Nick's pool rule sheet
 - [ ] Real auth (Firebase Auth) — deliberately deferred
