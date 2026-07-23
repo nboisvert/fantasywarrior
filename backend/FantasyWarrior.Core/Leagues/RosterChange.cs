@@ -16,6 +16,47 @@ namespace FantasyWarrior.Core.Leagues;
 /// </summary>
 public static class RosterChange
 {
+    /// <summary>
+    /// Pure: the new Assignment docs to create for players joining a team —
+    /// no Firestore I/O, so this is unit-testable on its own (e.g. "does
+    /// processing a trade open an assignment per incoming player, tagged
+    /// with the trade's id as sourceRefId").
+    /// </summary>
+    public static List<Assignment> BuildOpenedAssignments(
+        IReadOnlyCollection<long> playersIn, string teamUsername, string source, string? sourceRefId,
+        string effectiveDate, Timestamp createdUtc) =>
+        playersIn.Select(playerId => new Assignment
+        {
+            PlayerId = playerId,
+            TeamUsername = teamUsername,
+            From = effectiveDate,
+            Source = source,
+            SourceRefId = sourceRefId,
+            CreatedUtc = createdUtc,
+        }).ToList();
+
+    /// <summary>
+    /// Pure: the field map to write when closing an outgoing player's open
+    /// assignment — freezes the per-stint stats one final time (via
+    /// <see cref="AssignmentStats.ToFieldMap"/>) and sets `to`/`closedUtc`.
+    /// </summary>
+    public static Dictionary<string, object> BuildClosedAssignmentFields(
+        PlayerRawTotals finalTotals, double finalFantasyPoints, string effectiveDate, Timestamp closedUtc)
+    {
+        var fields = AssignmentStats.ToFieldMap(finalTotals, finalFantasyPoints, closedUtc);
+        fields["to"] = effectiveDate;
+        fields["closedUtc"] = closedUtc;
+        return fields;
+    }
+
+    /// <summary>Pure: a team's roster after removing playersOut and adding playersIn.</summary>
+    public static List<long> BuildNewPlayerIds(
+        IReadOnlyCollection<long> currentPlayerIds, IReadOnlyCollection<long> playersOut, IReadOnlyCollection<long> playersIn)
+    {
+        var outSet = playersOut.ToHashSet();
+        return currentPlayerIds.Where(id => !outSet.Contains(id)).Concat(playersIn).ToList();
+    }
+
     public static async Task ApplyAsync(
         FirestoreDb db,
         DocumentReference leagueDoc,
@@ -78,26 +119,16 @@ public static class RosterChange
                 var lines = await PlayerTotalsSource.FetchLinesAsync(db, playerId, ct);
                 var finalTotals = PlayerTotalsSource.AggregateRange(lines, league.Season, a.From, effectiveDate);
                 var finalFantasyPoints = ScoringEngine.PlayerPoints(finalTotals, league.RuleConfig.PointValues);
-                var fields = AssignmentStats.ToFieldMap(finalTotals, finalFantasyPoints, closeNow);
-                fields["to"] = effectiveDate;
-                fields["closedUtc"] = closeNow;
+                var fields = BuildClosedAssignmentFields(finalTotals, finalFantasyPoints, effectiveDate, closeNow);
                 await assignmentDoc.Reference.UpdateAsync(fields, cancellationToken: ct);
             }
         }
 
         // Open incoming assignments.
-        foreach (var playerId in playersIn)
-            await leagueDoc.Collection("assignments").AddAsync(new Assignment
-            {
-                PlayerId = playerId,
-                TeamUsername = team.OwnerUsername,
-                From = effectiveDate,
-                Source = source,
-                SourceRefId = sourceRefId,
-                CreatedUtc = Timestamp.GetCurrentTimestamp(),
-            }, ct);
+        foreach (var assignment in BuildOpenedAssignments(playersIn, team.OwnerUsername, source, sourceRefId, effectiveDate, Timestamp.GetCurrentTimestamp()))
+            await leagueDoc.Collection("assignments").AddAsync(assignment, ct);
 
-        var newPlayerIds = team.PlayerIds.Where(id => !outSet.Contains(id)).Concat(playersIn).ToList();
+        var newPlayerIds = BuildNewPlayerIds(team.PlayerIds, playersOut, playersIn);
         var adjustmentsTotal = team.AdjustmentsTotal + delta;
         var fieldUpdates = new Dictionary<string, object>
         {
