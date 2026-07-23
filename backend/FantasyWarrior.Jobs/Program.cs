@@ -8,6 +8,7 @@ using Google.Cloud.Firestore;
 //   stats-check [--date YYYY-MM-DD]
 //   score-calc [--league <leagueId>]
 //   league-init-assignments
+//   set-league-cap --league <leagueId> --amount <dollars>   (0 clears the cap)
 //   wipe-pools   (deletes all users/leagues/teams/assignments/adjustments; players/games/playerGameStats untouched)
 //   seed-allstars [--league-name "Shemalz Pool"] [--season 20252026]
 //                 [--forwards 4] [--defense 3] [--goalies 1]
@@ -255,6 +256,28 @@ switch (job)
 
         var rosterSize = forwardSlots + defenseSlots + goalieSlots;
         Console.WriteLine($"Seeded '{leagueName}' [{leagueDoc.Id}] season {season}: {usernames.Length} teams x {rosterSize} players ({forwardSlots}F/{defenseSlots}D/{goalieSlots}G), no adjustments.");
+        return 0;
+    }
+    case "set-league-cap":
+    {
+        var leagueId = GetOption(args, "--league");
+        var amountStr = GetOption(args, "--amount");
+        if (leagueId is null || amountStr is null || !long.TryParse(amountStr, out var amount))
+        {
+            Console.Error.WriteLine("Usage: set-league-cap --league <leagueId> --amount <dollars> (0 clears the cap)");
+            return 1;
+        }
+        var leagueDoc = db.Collection("leagues").Document(leagueId);
+        if (!(await leagueDoc.GetSnapshotAsync()).Exists)
+        {
+            Console.Error.WriteLine($"League {leagueId} not found.");
+            return 1;
+        }
+        if (amount == 0)
+            await leagueDoc.UpdateAsync("capAmount", FieldValue.Delete);
+        else
+            await leagueDoc.UpdateAsync("capAmount", amount);
+        Console.WriteLine($"League [{leagueId}]: capAmount set to {(amount == 0 ? "null (no cap)" : amount.ToString())}.");
         return 0;
     }
     case "wipe-pools":
