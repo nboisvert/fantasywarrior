@@ -459,28 +459,112 @@
   color: var(--text-muted);
 }
 
-/* ---------- roster ---------- */
+/* ---------- roster header (redesigned 2026-07-22, per Nick: "gros travail
+   de UI UX" — points made the headline, adjustments a pill, cap gauge given
+   real "available $ / % used" framing, Mint-app style). `.cap-track`/
+   `.cap-fill` below are the shared progress-bar mechanics — untouched. ---- */
 
-.cap-meter {
+.roster-header {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 1.1rem;
+  padding: 1.1rem 1.15rem;
 }
 
-.cap-meter .cap-labels {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.85rem;
+.roster-team-name {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
   color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.cap-meter .cap-labels .used {
-  color: var(--text);
-  font-weight: 600;
+/* ---- score: the headline element of the header ---- */
+
+.roster-score-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
-.cap-meter .cap-labels .used.over {
+.roster-score-main {
+  display: flex;
+  align-items: baseline;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.roster-score-value {
+  font-family: var(--font-display);
+  font-size: clamp(2.75rem, 11vw, 3.5rem);
+  line-height: 1;
+  color: var(--ice-bright);
+  text-shadow: 0 0 22px var(--ice-glow);
+}
+
+.roster-score-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-weight: 700;
+}
+
+.roster-score-detail {
+  font-size: 0.8rem;
+}
+
+/* adjustment pill next to the score — signed, hidden entirely at zero */
+.roster-adj-pill {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.roster-adj-pill-pos {
+  color: var(--ice-bright);
+  background: rgba(56, 189, 248, 0.14);
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+.roster-adj-pill-neg {
   color: var(--danger);
+  background: rgba(244, 63, 94, 0.14);
+  border-color: rgba(244, 63, 94, 0.4);
+}
+
+/* ---- cap gauge: the second visual centerpiece ---- */
+
+.roster-cap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding-top: 0.95rem;
+  border-top: 1px solid var(--border);
+}
+
+/* two-up variant of PlayerCard's .pc-tiles, reused here for the "available"
+   and "% used" figures so the tile rhythm matches the rest of the app. */
+.roster-cap-tiles {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.roster-cap-sub {
+  text-align: center;
+  font-size: 0.8rem;
+}
+
+.roster-cap-none {
+  margin: 0;
+  font-size: 0.85rem;
+  text-align: center;
 }
 
 .cap-track {
@@ -596,6 +680,57 @@
   color: var(--text-muted);
   font-size: 0.85rem;
   white-space: nowrap;
+}
+
+/* ---------- roster player-row: F/D/G group pill + sub-line layout ----------
+   Roster-scoped: same visual shape/size as `.pos-badge` (shared elsewhere,
+   e.g. PlayerCard, with the raw position code) but this pill shows the
+   collapsed F/D/G group and is color-coded per group. Colors are existing
+   Night Arena tokens only: ice-cyan for forwards (the app's offense/energy
+   accent), silver for defense (steadier/cooler), gold for goalies (elevated,
+   same token used for 1st place in Standings). The letter itself is always
+   rendered — color is never the only signal. */
+
+.roster-pos-pill {
+  display: inline-block;
+  min-width: 1.6rem;
+  text-align: center;
+  padding: 0.1rem 0.35rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.roster-pos-pill-f {
+  background: rgba(56, 189, 248, 0.12);
+  color: var(--ice-bright);
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+.roster-pos-pill-d {
+  background: rgba(199, 210, 224, 0.14);
+  color: var(--silver);
+  border-color: rgba(199, 210, 224, 0.35);
+}
+
+.roster-pos-pill-g {
+  background: rgba(251, 191, 36, 0.14);
+  color: var(--gold);
+  border-color: rgba(251, 191, 36, 0.35);
+}
+
+/* player-row sub-line: pill + team + (optional) cap hit, laid out with flex
+   gap instead of a "·" separator character. */
+.player-sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.player-cap-hit {
+  color: var(--text-muted);
 }
 
 /* ---------- scoring ---------- */
