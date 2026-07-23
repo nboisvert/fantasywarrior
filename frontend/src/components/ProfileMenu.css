@@ -31,8 +31,12 @@
   background: var(--surface-strong);
 }
 
-.profile-avatar {
+.profile-avatar-wrap {
+  position: relative;
   flex-shrink: 0;
+}
+
+.profile-avatar {
   width: 26px;
   height: 26px;
   display: grid;
@@ -50,6 +54,27 @@
   width: 40px;
   height: 40px;
   font-size: 0.95rem;
+}
+
+/* Online-count badge on the trigger's avatar — same green as the presence
+   dots below, so the two read as one system rather than two colors. */
+.profile-online-badge {
+  position: absolute;
+  bottom: -3px;
+  right: -3px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 2px solid var(--bg);
+  background: var(--online);
+  box-shadow: 0 0 6px var(--online-glow);
+  color: #06121f;
+  font-family: var(--font-display);
+  font-size: 0.58rem;
+  line-height: 1;
 }
 
 .profile-trigger-name {
@@ -126,32 +151,35 @@
 
 .profile-panel-actions {
   display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.4rem;
 }
 
 .profile-action {
+  flex: 1;
   display: flex;
   align-items: center;
-  gap: 0.65rem;
+  justify-content: center;
+  gap: 0.5rem;
   min-height: 44px;
   padding: 0 0.5rem;
-  border: none;
+  border: 1px solid var(--border);
   border-radius: 10px;
-  background: none;
+  background: var(--surface);
   color: var(--text);
-  font: 600 0.9rem var(--font-body);
+  font: 600 0.85rem var(--font-body);
   cursor: pointer;
-  transition: background-color 0.2s, color 0.2s;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
 }
 
 .profile-action:hover {
   background: var(--surface-strong);
+  border-color: var(--ice);
   color: var(--ice-bright);
 }
 
 .profile-action-danger:hover {
   background: rgba(244, 63, 94, 0.1);
+  border-color: var(--danger);
   color: var(--danger);
 }
 
@@ -173,7 +201,9 @@
 .profile-member-list {
   list-style: none;
   margin: 0;
-  padding: 0;
+  /* Right padding keeps the "Online"/"Xh ago" text clear of the scrollbar
+     when the list is tall enough to scroll (2026-07-23, per Nick). */
+  padding: 0 0.4rem 0 0;
   max-height: 220px;
   overflow-y: auto;
   display: flex;
@@ -197,8 +227,8 @@
 }
 
 .profile-status-dot.online {
-  background: var(--ice-bright);
-  box-shadow: 0 0 6px var(--ice-glow);
+  background: var(--online);
+  box-shadow: 0 0 6px var(--online-glow);
 }
 
 .profile-member-name {

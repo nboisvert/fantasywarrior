@@ -31,22 +31,29 @@ function hashString(s: string): number {
   return Math.abs(h);
 }
 
-function getPresence(username: string): { online: boolean; lastSeenLabel: string } {
+interface Presence {
+  online: boolean;
+  lastSeenLabel: string;
+  /** Minutes since last seen (0 while online) — sort key only, never displayed. */
+  minutesAgo: number;
+}
+
+function getPresence(username: string): Presence {
   const seed = hashString(username);
   const online = seed % 5 !== 0; // ~4 in 5 users read as online
-  if (online) return { online: true, lastSeenLabel: "Online now" };
+  if (online) return { online: true, lastSeenLabel: "Online", minutesAgo: 0 };
 
   const bucket = seed % 3;
   if (bucket === 0) {
     const minutes = (seed % 45) + 3;
-    return { online: false, lastSeenLabel: `${minutes}m ago` };
+    return { online: false, lastSeenLabel: `${minutes}m ago`, minutesAgo: minutes };
   }
   if (bucket === 1) {
     const hours = (seed % 11) + 1;
-    return { online: false, lastSeenLabel: `${hours}h ago` };
+    return { online: false, lastSeenLabel: `${hours}h ago`, minutesAgo: hours * 60 };
   }
   const days = (seed % 6) + 1;
-  return { online: false, lastSeenLabel: `${days}d ago` };
+  return { online: false, lastSeenLabel: `${days}d ago`, minutesAgo: days * 1440 };
 }
 
 /** First letters of up to the first two "words" of a username (usernames in
@@ -108,6 +115,15 @@ export function ProfileMenu({
 
   const close = () => setOpen(false);
 
+  // Online first, then most-recently-seen first; a stable alphabetical
+  // tiebreak keeps the order from jittering between renders.
+  const withPresence = otherMembers
+    .map((member) => ({ member, presence: getPresence(member) }))
+    .sort((a, b) => a.presence.minutesAgo - b.presence.minutesAgo || a.member.localeCompare(b.member));
+  const onlineCount = withPresence.filter((m) => m.presence.online).length;
+  // The viewer is, definitionally, online right now — the badge counts everyone.
+  const totalOnlineCount = onlineCount + 1;
+
   return (
     <div className="profile-menu">
       <button
@@ -116,10 +132,15 @@ export function ProfileMenu({
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="true"
         aria-expanded={open}
-        aria-label={`Profile menu — ${username}`}
+        aria-label={`Profile menu — ${username}, ${totalOnlineCount} online in this league`}
       >
-        <span className="profile-avatar" aria-hidden="true">
-          {initials(username)}
+        <span className="profile-avatar-wrap">
+          <span className="profile-avatar" aria-hidden="true">
+            {initials(username)}
+          </span>
+          <span className="profile-online-badge" aria-hidden="true">
+            {totalOnlineCount}
+          </span>
         </span>
         <span className="profile-trigger-name">{username}</span>
       </button>
@@ -160,26 +181,23 @@ export function ProfileMenu({
           <div className="profile-panel-divider" />
 
           <span className="section-title profile-panel-section">
-            <UsersIcon size={13} className="inline-icon" /> In this league
+            <UsersIcon size={13} className="inline-icon" /> League GMs ({onlineCount} online)
           </span>
 
-          {otherMembers.length === 0 ? (
+          {withPresence.length === 0 ? (
             <p className="profile-empty muted">No other poolers yet.</p>
           ) : (
             <ul className="profile-member-list">
-              {otherMembers.map((member) => {
-                const presence = getPresence(member);
-                return (
-                  <li key={member} className="profile-member-row">
-                    <span
-                      className={`profile-status-dot${presence.online ? " online" : ""}`}
-                      aria-hidden="true"
-                    />
-                    <span className="profile-member-name">{member}</span>
-                    <span className="profile-member-seen muted">{presence.lastSeenLabel}</span>
-                  </li>
-                );
-              })}
+              {withPresence.map(({ member, presence }) => (
+                <li key={member} className="profile-member-row">
+                  <span
+                    className={`profile-status-dot${presence.online ? " online" : ""}`}
+                    aria-hidden="true"
+                  />
+                  <span className="profile-member-name">{member}</span>
+                  <span className="profile-member-seen muted">{presence.lastSeenLabel}</span>
+                </li>
+              ))}
             </ul>
           )}
         </div>
