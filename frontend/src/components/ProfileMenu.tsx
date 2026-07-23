@@ -300,6 +300,11 @@ export function ProfileMenu({
             <ul className="profile-member-list">
               {withPresence.map(({ member, presence }) => (
                 <li key={member} className="profile-member-row">
+                  <span
+                    className={`profile-status-dot${presence.online ? " online" : ""}`}
+                    aria-hidden="true"
+                  />
+                  <span className="profile-member-name">{member}</span>
                   {presence.online && (
                     <button
                       className="profile-msg-btn"
@@ -309,11 +314,6 @@ export function ProfileMenu({
                       <MessageSquareIcon size={15} />
                     </button>
                   )}
-                  <span
-                    className={`profile-status-dot${presence.online ? " online" : ""}`}
-                    aria-hidden="true"
-                  />
-                  <span className="profile-member-name">{member}</span>
                   <span className="profile-member-seen muted">{presence.lastSeenLabel}</span>
                 </li>
               ))}
