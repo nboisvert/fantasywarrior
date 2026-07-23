@@ -143,7 +143,7 @@ export default function App() {
         {league && tab === "dashboard" && <Dashboard league={league} username={username} />}
         {league && tab === "standings" && <Standings league={league} username={username} />}
         {league && tab === "roster" && (
-          <Roster league={league} username={username} onChanged={refreshLeague} />
+          <Roster league={league} username={username} />
         )}
       </main>
 
