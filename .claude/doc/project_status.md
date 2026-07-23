@@ -5,6 +5,8 @@
 
 ## Current state
 
+**Data reset (2026-07-22 night)**: added `wipe-pools` job (deletes `users` + `leagues` incl. subcollections `teams`/`assignments`/`adjustments`; `players`/`games`/`playerGameStats` untouched — reusable going forward for clearing test data). Ran it, then seeded a fresh real pool via the live API (not raw Firestore writes, so assignments/scoring bookkeeping stays consistent): **league "Shemalz Pool"** (id `PZPF8iZDlzW1y4TmHKTw`, season 20262027, commissioner `nick`), 9 GMs — jay, nick, al, chuck, baby, sam, dom, vince, didi — 6 real NHL players each (54 total, all unique). Season 20262027 has no stats yet (real upcoming season), so scores are 0 until it starts — expected, not a bug.
+
 **DONE (2026-07-22 evening): GM Dashboard redesign**
 - [x] Backend: `GET /api/leagues/{id}/activity?limit=` — recent add/drop events (assignments-derived), enriched with player name/position/team name; `Assignment.closedUtc` added so drop events are orderable.
 - [x] Frontend IA rework (built by a React Exposito subagent, reviewed and integrated): bottom nav is now 4 tabs — **Dashboard** (new default: hero header, rank/score/cap stat chips, top-4 mini standings, top-8 scorers of my roster tappable to PlayerCard, relative-time activity feed) · Standings · Roster · **Settings** (create/join league forms + my-leagues switch list + commissioner RulesPanel + logout — moved out of the main flow). `LeagueGate` trimmed to a pure picker, shown only when the user has 2+ leagues and no remembered one, or via the topbar league-switch. 0-league users land straight on Settings; exactly 1 league auto-selects. `fw-league` in localStorage still drives "last opened league" persistence.

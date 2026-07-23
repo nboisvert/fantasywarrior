@@ -8,6 +8,7 @@ using Google.Cloud.Firestore;
 //   stats-check [--date YYYY-MM-DD]
 //   score-calc [--league <leagueId>]
 //   league-init-assignments
+//   wipe-pools   (deletes all users/leagues/teams/assignments/adjustments; players/games/playerGameStats untouched)
 //   player-check
 //
 // Firestore target: set FIRESTORE_EMULATOR_HOST (e.g. localhost:8090) for local dev;
@@ -101,6 +102,24 @@ switch (job)
         }
         return 0;
     }
+    case "wipe-pools":
+    {
+        var deletedUsers = await WipeCollectionAsync(db.Collection("users"));
+        var leagues = await db.Collection("leagues").GetSnapshotAsync();
+        var deletedLeagues = 0;
+        foreach (var leagueSnap in leagues.Documents)
+        {
+            var teams = await leagueSnap.Reference.Collection("teams").GetSnapshotAsync();
+            foreach (var teamDoc in teams.Documents)
+                await WipeCollectionAsync(teamDoc.Reference.Collection("adjustments"));
+            await WipeCollectionAsync(leagueSnap.Reference.Collection("teams"));
+            await WipeCollectionAsync(leagueSnap.Reference.Collection("assignments"));
+            await leagueSnap.Reference.DeleteAsync();
+            deletedLeagues++;
+        }
+        Console.WriteLine($"wipe-pools: deleted {deletedUsers} users, {deletedLeagues} leagues (with their teams/assignments/adjustments). players/games/playerGameStats untouched.");
+        return 0;
+    }
     case "stats-check":
     {
         var date = GetOption(args, "--date") ?? DateOnly.FromDateTime(DateTime.UtcNow.Date.AddDays(-1)).ToString("yyyy-MM-dd");
@@ -156,6 +175,21 @@ static string? GetOption(string[] args, string name)
 {
     var i = Array.IndexOf(args, name);
     return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
+}
+
+static async Task<int> WipeCollectionAsync(CollectionReference col)
+{
+    var snapshot = await col.GetSnapshotAsync();
+    var count = 0;
+    foreach (var chunk in snapshot.Documents.Chunk(500))
+    {
+        var batch = col.Database.StartBatch();
+        foreach (var doc in chunk)
+            batch.Delete(doc.Reference);
+        await batch.CommitAsync();
+        count += chunk.Length;
+    }
+    return count;
 }
 
 // NHL seasons roll over in July (post-draft/free agency).
