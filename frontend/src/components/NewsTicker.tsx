@@ -110,11 +110,18 @@ export function NewsTicker({ leagueId, league }: { leagueId: string | null; leag
       return;
     }
     let ignore = false;
-    Promise.all([api.activity(leagueId, 12), api.trades(leagueId)])
+    // Fetch a generous raw batch (50 is the endpoint's max) and filter out
+    // trade-sourced events BEFORE capping the display count — a burst of
+    // trade activity produces 4 raw events each (2 opens + 2 closes), which
+    // can fill a small fetch limit entirely and starve out freeagent
+    // movements before this filter even runs. Capping the *filtered* list
+    // instead keeps a real mix of both news types on screen.
+    Promise.all([api.activity(leagueId, 50), api.trades(leagueId)])
       .then(([activity, trades]: [ActivityEntry[], Trade[]]) => {
         if (ignore) return;
         const movements: NewsItem[] = activity
           .filter((e) => e.source !== "trade")
+          .slice(0, 10)
           .map((e) => ({
             kind: "movement",
             key: `mv-${e.playerId}-${e.dateUtc}`,
