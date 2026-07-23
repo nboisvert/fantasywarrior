@@ -8,6 +8,11 @@ using Google.Cloud.Firestore;
 //   stats-check [--date YYYY-MM-DD]
 //   score-calc [--league <leagueId>]
 //   league-init-assignments
+//   estimate-salaries [--season 20252026] [--top 200] [--top-max 14000000]
+//                     [--top-min 3000000] [--default 1000000]
+//     PLACEHOLDER cap hits (no real salary source wired up yet): scales
+//     top-N real scorers (goals+assists) between top-min/top-max, flat
+//     default for everyone else. Tags capHitSource="estimated".
 //   set-league-cap --league <leagueId> --amount <dollars>   (0 clears the cap)
 //   wipe-pools   (deletes all users/leagues/teams/assignments/adjustments; players/games/playerGameStats untouched)
 //   seed-allstars [--league-name "Shemalz Pool"] [--season 20252026]
@@ -256,6 +261,57 @@ switch (job)
 
         var rosterSize = forwardSlots + defenseSlots + goalieSlots;
         Console.WriteLine($"Seeded '{leagueName}' [{leagueDoc.Id}] season {season}: {usernames.Length} teams x {rosterSize} players ({forwardSlots}F/{defenseSlots}D/{goalieSlots}G), no adjustments.");
+        return 0;
+    }
+    case "estimate-salaries":
+    {
+        // Placeholder cap hits until a real salary source is wired up (PuckPedia
+        // is private/paid; no free bulk source exists). Nick approved this stopgap
+        // 2026-07-22: scale $topMin-$topMax across the top N scorers by real
+        // points (goals+assists), flat $default for everyone else. Every
+        // written doc is tagged capHitSource="estimated" so it's never
+        // mistaken for real contract data later.
+        var season = GetOption(args, "--season") ?? "20252026";
+        var topCount = int.Parse(GetOption(args, "--top") ?? "200");
+        var topMax = long.Parse(GetOption(args, "--top-max") ?? "14000000");
+        var topMin = long.Parse(GetOption(args, "--top-min") ?? "3000000");
+        var defaultSalary = long.Parse(GetOption(args, "--default") ?? "1000000");
+
+        var seasonStatsSnap = await db.Collection("playerSeasonStats").WhereEqualTo("season", season).GetSnapshotAsync();
+        var ranked = seasonStatsSnap.Documents
+            .Select(d => d.ConvertTo<FantasyWarrior.Core.Stats.PlayerSeasonStats>())
+            .OrderByDescending(s => s.Goals + s.Assists)
+            .ToList();
+
+        var salaryByPlayerId = new Dictionary<long, long>();
+        for (var i = 0; i < ranked.Count && i < topCount; i++)
+        {
+            var t = topCount > 1 ? (double)i / (topCount - 1) : 0;
+            salaryByPlayerId[ranked[i].PlayerId] = (long)Math.Round(topMax - t * (topMax - topMin));
+        }
+
+        var allPlayers = await db.Collection("players").GetSnapshotAsync();
+        var now = Timestamp.GetCurrentTimestamp();
+        var updated = 0;
+        foreach (var chunk in allPlayers.Documents.Chunk(400))
+        {
+            var batch = db.StartBatch();
+            foreach (var doc in chunk)
+            {
+                var salary = salaryByPlayerId.GetValueOrDefault(long.Parse(doc.Id), defaultSalary);
+                batch.Update(doc.Reference, new Dictionary<string, object>
+                {
+                    ["capHit"] = salary,
+                    ["capHitSource"] = "estimated",
+                    ["capHitUpdatedUtc"] = now,
+                });
+                updated++;
+            }
+            await batch.CommitAsync();
+        }
+        Console.WriteLine(
+            $"estimate-salaries: {salaryByPlayerId.Count} top scorers scaled ${topMin:N0}-${topMax:N0}, " +
+            $"{updated - salaryByPlayerId.Count} others set to ${defaultSalary:N0}. Total: {updated} players.");
         return 0;
     }
     case "set-league-cap":
