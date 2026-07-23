@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       FIRESTORE_PROJECT_ID: fantasywarriordb
-      GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/gcp-sa.json
+      GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-sa.json
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
