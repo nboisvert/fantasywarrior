@@ -5,6 +5,12 @@
 
 ## Current state
 
+**🚀 LIVE since 2026-07-22** — full stack in production, all free-tier:
+- App: https://nboisvert.github.io/fantasywarrior/ (GitHub Pages, auto-deploy on push)
+- API: https://fantasy-warrior-api-197228637471.northamerica-northeast1.run.app (Cloud Run, manual deploy workflow)
+- Nightly cron active (stats → scores → rosters, 09:30 UTC)
+- E2E verified in prod: login, standings, player card. See `.claude/doc/deployment.md` for the full runbook.
+
 **Priority change (Nick, 2026-07-22): minimal UI + league schema FIRST, auth bypassed** — login is username-only for now (API trusts the client; Firebase Auth token verification will replace it later). Stats service (Phase 2) pushed after the minimal UI.
 
 **League schema + minimal UI: DONE (first cut)**
