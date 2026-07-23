@@ -1053,13 +1053,54 @@
   border-bottom: 1px solid var(--border);
 }
 
-.stats-group-th {
+.stats-grid .stats-group-th {
   text-align: center;
   border-left: 1px solid var(--border);
 }
 
 .stats-group-th.accent {
   color: var(--ice-bright);
+}
+
+/* Vertical divider carried all the way down through the sortable-header row,
+   every body row, and the footer — not just the group-label row above — so
+   the NHL/Pool/Extra/Salary sections stay visually separated at every row of
+   the grid (2026-07-23, per Nick). Applied to the first column of each
+   group; the group-label row's own border-left (above) already lines up
+   with it since both groups start at the same column. */
+.stats-grid .stats-group-start {
+  border-left: 1px solid var(--border);
+}
+
+/* The one column that's the actual headline number (Pool PTS) gets a
+   background tint, not just tinted text — it needs to read as THE stat at a
+   glance, not just another accented column (2026-07-23, per Nick: the
+   previous text-only highlight didn't stand out enough). */
+.stats-grid td.stats-col-spotlight {
+  background: rgba(56, 189, 248, 0.1);
+}
+
+.stats-grid thead th.stats-col-spotlight {
+  background: rgba(56, 189, 248, 0.16);
+}
+
+.stats-grid tfoot td.stats-col-spotlight {
+  background: rgba(56, 189, 248, 0.14);
+}
+
+/* The rowSpan=2 Player header must stay a genuine table-cell — overriding
+   `display` to flex (as .stats-col-player does for the tbody/name+pos row)
+   makes the browser drop it out of the table's column-tracking algorithm,
+   which throws off colSpan alignment on the group-label row above it and
+   defeats the rowSpan merge visually. The button inside already provides its
+   own inline-flex layout for the label+chevron, so the cell itself doesn't
+   need to be a flex container. Its border-bottom (from `.stats-group-row th`
+   above) renders at the true bottom of the cell — i.e. after both header
+   rows, same as every other header cell — so it reads as one merged cell,
+   not two stacked ones. */
+.stats-grid thead th.stats-col-player {
+  display: table-cell;
+  vertical-align: middle;
 }
 
 .stats-grid tbody tr + tr td {
