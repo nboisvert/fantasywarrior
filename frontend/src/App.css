@@ -989,8 +989,69 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 8.5rem;
+  max-width: 7.4rem;
   font-weight: 600;
+}
+
+/* Plain-text position, right of the name, before the numeric columns start —
+   no pill/badge chrome on this screen (kept on Roster.tsx only). */
+.stats-player-pos {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+/* ---- sortable column headers ---- */
+
+.stats-sortable {
+  padding: 0 !important;
+}
+
+.stats-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  width: 100%;
+  height: 100%;
+  padding: 0.55rem 0.7rem;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  justify-content: flex-end;
+}
+
+.stats-sortable.stats-col-player .stats-sort-btn {
+  justify-content: flex-start;
+}
+
+.stats-sort-btn:hover {
+  color: var(--text);
+}
+
+.stats-sortable.accent .stats-sort-btn:hover {
+  color: var(--ice-bright);
+}
+
+.stats-sort-icon {
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.stats-sort-icon.asc {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stats-sort-icon {
+    transition: none;
+  }
 }
 
 /* Simple in-table totals row (not sticky — just the last row of each grid,
