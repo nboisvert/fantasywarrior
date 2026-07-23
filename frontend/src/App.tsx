@@ -164,7 +164,7 @@ export default function App() {
         {league && tab === "trades" && <Trades league={league} username={username} />}
       </main>
 
-      <NewsTicker leagueId={leagueId} league={league} />
+      <NewsTicker leagueId={leagueId} league={league} username={username} />
 
       <nav className="bottom-nav" aria-label="Main navigation">
         <button

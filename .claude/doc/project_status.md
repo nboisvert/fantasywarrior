@@ -1,9 +1,21 @@
 # Fantasy Warrior — Project Status
 
 > **MUST be read at the start of every session and kept updated along the way.**
-> Last updated: 2026-07-23 (by Macklin Softwarini)
+> Last updated: 2026-07-23 (by Macklin Softwarini) — Trades screen overhaul (privacy, timeline, recap, star rating)
 
 ## Current state
+
+**Trades screen overhaul: privacy, vertical timeline, recap, star rating (2026-07-23) — DONE** (plan: `C:\Users\nicolasc\.claude\plans\plusieurs-points-ici-param-trable-concurrent-mango.md`)
+
+Nick flagged five gaps after using the Trades screen for real: pending/declined trades were visible league-wide (should be private to the two teams involved), the old 1-5 rating scale was meaningless without knowing which side it favored, no distinct status existed for "proposer withdrew" vs "counterparty rejected", the collapsed row dumped full player-name lists instead of a quick recap, and the single date line should be a proper timeline.
+- **Privacy**: `GET /trades` now requires `username` and filters via new `TradeValidation.IsVisibleTo` — `accepted`/`processed` stay public to the whole league, `pending`/`declined`/`cancelled` are visible only to `proposerUsername`/`counterpartyUsername`.
+- **New `cancelled` status**, distinct from `declined`: `POST /trades/{id}/respond` with `accept=false` now branches by caller identity — proposer withdrawing their own offer → `cancelled` (via new `TradeValidation.CanCancel`), counterparty rejecting → `declined` (`CanDecline`, now proposer-excluded). The status alone communicates who acted, no extra field needed.
+- **Rating system rebuilt to be cross-trade-aggregable**: `TradeVote.Level: int` (1-5, proposer/counterparty-relative, meaningless without UI context) replaced with `FavoredUsername: string?` (the actual username favored, null = fair) + `Magnitude: int` (0/1/2) — a future "which GM wins their trades most" rollup can now filter votes by `FavoredUsername` directly across the whole league without needing to know proposer/counterparty roles per trade. `GET /trades` returns a bucketed tally (`proposerClear/proposerLean/fair/counterpartyLean/counterpartyClear/total`) instead of a bare average.
+- **Frontend**: `TradeRatingWidget.tsx` rewritten as a literal 5-option star scale (★★ / ★ / **Fair** / ★ / ★★, new `StarIcon` in `Icons.tsx`), selected option gets a visibly stronger scale-up + glow treatment, summary line names a team explicitly (e.g. "Team X favored, 3 of 5 voters") instead of a bare number. `Trades.tsx`: collapsed past-trade rows now show a 2-3-best-player recap per side (reusing `NewsTicker.tsx`'s NHL-points ranking) instead of a full name dump; the single date line became a real **vertical timeline** (Proposed → Accepted/Declined/Cancelled → Processed, filled/muted stops per Nick's "elegant, vertical" call); past-trades bucket now also includes `cancelled`.
+- Tests: 56 green (was 47; +9 `TradeValidationTests` — `CanCancel`/`CanDecline` split, `IsValidVote`, `CanVoteOnTrade`, `IsVisibleTo`). Backend + frontend build clean.
+- **Live-verified against prod Firestore** (Shemalz Pool): proposed a jay↔baby test trade, confirmed it's invisible to an uninvolved user (`nick`) while pending and stays invisible once declined; a second test trade confirmed proposer-cancel produces `cancelled` and blocks further action on it; cast an invalid vote (`magnitude=2` with `favoredUsername=null`) and confirmed rejection; cast a valid vote and confirmed the tally bucket incremented correctly and `myVote` round-tripped. Couldn't visually verify the rendered UI in a browser this session (no browser tooling available) — worth Nick's own pass once deployed.
+- **Note**: the "Gary Coleman" AI-commissioner-chat idea Nick asked to explore was fully designed then explicitly deferred ("conserve ce plan d'idée, on va travailler le Trade screen maintenant") — preserved outside the repo in Claude's memory system (not lost, just not in this file since it isn't built), to be picked up whenever Nick brings it up again.
+- **API changed significantly — needs a manual Cloud Run redeploy** before this works in prod.
 
 **News ticker: user-scrollable + Trades screen shows date/time (2026-07-23)**
 

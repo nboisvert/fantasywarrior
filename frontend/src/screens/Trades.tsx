@@ -1,17 +1,18 @@
 // Trades — propose/accept/decline trades between teams in this league, and
-// rate processed ("past") trades on a 5-level who-won scale. Reached via the
-// bottom nav (took Settings' old slot — Settings moved to a topbar icon).
+// rate processed ("past") trades on a star-based who-won scale. Reached via
+// the bottom nav (took Settings' old slot — Settings moved to a topbar icon).
+//
+// Privacy: the server already filters out pending/declined/cancelled trades
+// the viewer isn't party to (see TradeValidation.IsVisibleTo) — everything
+// this screen receives is safe to render without further filtering.
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import type { LeagueDetail, Trade, TradePlayer } from "../api";
 import { ArrowLeftRightIcon } from "../components/Icons";
 import { CreateTradeSheet } from "../components/CreateTradeSheet";
 import { TradeRatingWidget } from "../components/TradeRatingWidget";
 import { LoadingLogo } from "../components/LoadingLogo";
-
-const playersLabel = (players: TradePlayer[]) =>
-  players.length === 0 ? "nothing" : players.map((p) => p.name).join(", ");
 
 const formatDateTime = (iso: string) =>
   new Date(iso).toLocaleString("en-US", {
@@ -22,14 +23,54 @@ const formatDateTime = (iso: string) =>
     minute: "2-digit",
   });
 
-/** The most relevant date/time to show per trade, labeled by what it means
- * for that status — proposed/accepted/declined/processed each point at a
- * different timestamp field. */
-function tradeDateLabel(t: Trade): string {
-  if (t.status === "processed" && t.processedUtc) return `Processed ${formatDateTime(t.processedUtc)}`;
-  if (t.status === "declined" && t.respondedUtc) return `Declined ${formatDateTime(t.respondedUtc)}`;
-  if (t.status === "accepted" && t.respondedUtc) return `Accepted ${formatDateTime(t.respondedUtc)}`;
-  return `Proposed ${formatDateTime(t.createdUtc)}`;
+interface TimelineStop {
+  label: string;
+  date: string | null;
+  state: "done" | "upcoming";
+  tone: "positive" | "negative";
+}
+
+/** Every stage of a trade's life gets its own stop — proposed always happens;
+ * what follows depends on how it was resolved (or whether it still hasn't
+ * been). Declined/cancelled are terminal, so they never grow a Processed
+ * stop; accepted-but-not-yet-processed shows a muted "Processing" stop so
+ * the timeline still communicates what's coming next. */
+function timelineStops(t: Trade): TimelineStop[] {
+  const stops: TimelineStop[] = [{ label: "Proposed", date: formatDateTime(t.createdUtc), state: "done", tone: "positive" }];
+  if (t.status === "pending") {
+    stops.push({ label: "Awaiting response", date: null, state: "upcoming", tone: "positive" });
+    return stops;
+  }
+  if (t.status === "declined") {
+    stops.push({ label: "Declined", date: t.respondedUtc ? formatDateTime(t.respondedUtc) : null, state: "done", tone: "negative" });
+    return stops;
+  }
+  if (t.status === "cancelled") {
+    stops.push({ label: "Cancelled", date: t.respondedUtc ? formatDateTime(t.respondedUtc) : null, state: "done", tone: "negative" });
+    return stops;
+  }
+  stops.push({ label: "Accepted", date: t.respondedUtc ? formatDateTime(t.respondedUtc) : null, state: "done", tone: "positive" });
+  if (t.status === "processed") {
+    stops.push({ label: "Processed", date: t.processedUtc ? formatDateTime(t.processedUtc) : null, state: "done", tone: "positive" });
+  } else {
+    stops.push({ label: "Processing", date: null, state: "upcoming", tone: "positive" });
+  }
+  return stops;
+}
+
+function TradeTimeline({ trade }: { trade: Trade }) {
+  const stops = timelineStops(trade);
+  return (
+    <ol className="trade-timeline">
+      {stops.map((s, i) => (
+        <li key={i} className={`trade-timeline-stop trade-timeline-${s.state} trade-timeline-${s.tone}`}>
+          <span className="trade-timeline-dot" />
+          <span className="trade-timeline-label">{s.label}</span>
+          {s.date && <span className="trade-timeline-date">{s.date}</span>}
+        </li>
+      ))}
+    </ol>
+  );
 }
 
 export function Trades({ league, username }: { league: LeagueDetail; username: string }) {
@@ -51,9 +92,29 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
 
   useEffect(load, [league.id, username]);
 
+  const pointsById = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const team of league.teams) for (const p of team.players) map.set(p.id, p.nhlPoints);
+    return map;
+  }, [league]);
+
+  /** Collapsed-row recap: the 2-3 best players by NHL points per side, plus
+   * a "+N others" tail — full lists are still available in the expanded
+   * view via playersLabel below. */
+  const sideRecap = (players: TradePlayer[]): string => {
+    if (players.length === 0) return "nothing";
+    const sorted = [...players].sort((a, b) => (pointsById.get(b.id) ?? 0) - (pointsById.get(a.id) ?? 0));
+    if (sorted.length <= 3) return sorted.map((p) => p.name).join(", ");
+    const shown = sorted.slice(0, 2);
+    return `${shown.map((p) => p.name).join(", ")} +${sorted.length - shown.length} others`;
+  };
+
+  const playersLabel = (players: TradePlayer[]) =>
+    players.length === 0 ? "nothing" : players.map((p) => p.name).join(", ");
+
   const myTeam = league.teams.find((t) => t.ownerUsername === username);
   const pending = (trades ?? []).filter((t) => t.status === "pending" || t.status === "accepted");
-  const past = (trades ?? []).filter((t) => t.status === "processed" || t.status === "declined");
+  const past = (trades ?? []).filter((t) => t.status === "processed" || t.status === "declined" || t.status === "cancelled");
 
   const respond = async (tradeId: string, accept: boolean) => {
     setBusyId(tradeId);
@@ -100,7 +161,7 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
                       <div>{t.proposerTeamName} gives: {playersLabel(t.playersFromProposer)}</div>
                       <div>{t.counterpartyTeamName} gives: {playersLabel(t.playersFromCounterparty)}</div>
                     </div>
-                    <small className="muted trade-row-date">{tradeDateLabel(t)}</small>
+                    <TradeTimeline trade={t} />
                     {t.status === "pending" && t.counterpartyUsername === username && (
                       <div className="trade-actions">
                         <button className="btn" disabled={busyId === t.id} onClick={() => respond(t.id, true)}>
@@ -146,13 +207,17 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
                       </span>
                       <span className={`trade-status-pill trade-status-${t.status}`}>{t.status}</span>
                     </button>
-                    <small className="muted trade-row-date">{tradeDateLabel(t)}</small>
+                    <div className="trade-row-recap">
+                      <div>{t.proposerTeamName}: {sideRecap(t.playersFromProposer)}</div>
+                      <div>{t.counterpartyTeamName}: {sideRecap(t.playersFromCounterparty)}</div>
+                    </div>
                     {expanded === t.id && (
                       <div className="trade-row-expanded">
                         <div className="trade-row-players">
                           <div>{t.proposerTeamName} gave: {playersLabel(t.playersFromProposer)}</div>
                           <div>{t.counterpartyTeamName} gave: {playersLabel(t.playersFromCounterparty)}</div>
                         </div>
+                        <TradeTimeline trade={t} />
                         {t.status === "processed" && (
                           <TradeRatingWidget leagueId={league.id} trade={t} username={username} onVoted={load} />
                         )}

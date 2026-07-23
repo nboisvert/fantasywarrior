@@ -22,13 +22,22 @@
 .trw-seg {
   flex: 1;
   min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface);
   color: var(--text-muted);
   font: 700 0.78rem var(--font-body);
   cursor: pointer;
-  transition: color 0.2s, border-color 0.2s, background-color 0.2s;
+  transition: color 0.2s, border-color 0.2s, background-color 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+
+.trw-stars {
+  display: flex;
+  gap: 2px;
+  line-height: 0;
 }
 
 .trw-seg:hover {
@@ -36,22 +45,31 @@
   border-color: var(--border-strong);
 }
 
-.trw-seg-left.selected {
+.trw-seg-proposer.selected {
   color: var(--ice-bright);
-  border-color: rgba(56, 189, 248, 0.5);
-  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.6);
+  background: rgba(56, 189, 248, 0.14);
+  transform: scale(1.12);
+  box-shadow: 0 0 16px var(--ice-glow);
+  z-index: 1;
 }
 
-.trw-seg-mid.selected {
+.trw-seg-fair.selected {
   color: var(--text);
   border-color: var(--border-strong);
   background: var(--surface-strong);
+  transform: scale(1.12);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.18);
+  z-index: 1;
 }
 
-.trw-seg-right.selected {
+.trw-seg-counterparty.selected {
   color: var(--defense);
-  border-color: rgba(167, 139, 250, 0.5);
-  background: rgba(167, 139, 250, 0.12);
+  border-color: rgba(167, 139, 250, 0.6);
+  background: rgba(167, 139, 250, 0.14);
+  transform: scale(1.12);
+  box-shadow: 0 0 16px rgba(167, 139, 250, 0.4);
+  z-index: 1;
 }
 
 .trw-track {

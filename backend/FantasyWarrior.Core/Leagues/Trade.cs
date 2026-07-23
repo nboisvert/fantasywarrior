@@ -43,22 +43,36 @@ public sealed class Trade
 public static class TradeStatus
 {
     public const string Pending = "pending";
+    /// <summary>The counterparty rejected the offer.</summary>
     public const string Declined = "declined";
+    /// <summary>The proposer withdrew their own still-pending offer — distinct from Declined so the status alone says who acted.</summary>
+    public const string Cancelled = "cancelled";
     public const string Accepted = "accepted";
     public const string Processed = "processed";
 }
 
 /// <summary>
-/// One league member's "who won this trade" vote, 1-5 (1 = proposer's team
-/// clearly won, 3 = fair, 5 = counterparty's team clearly won). Stored at
+/// One league member's "who won this trade" vote. Stored at
 /// leagues/{leagueId}/trades/{tradeId}/votes/{username} — doc id is the
 /// normalized username, so re-voting is a plain overwrite.
+///
+/// Stores the actual favored username (not a proposer/counterparty-relative
+/// 1-5) so votes are meaningful on their own and can eventually roll up
+/// across a GM's whole trade history (e.g. "how often does this GM come out
+/// ahead in trades, per peers") without needing to know who was proposer vs
+/// counterparty in each one — that cross-trade aggregate doesn't exist yet
+/// this round, but the shape supports it.
 /// </summary>
 [FirestoreData]
 public sealed class TradeVote
 {
-    [FirestoreProperty("level")]
-    public int Level { get; set; }
+    /// <summary>Username judged to have won the trade; null = "fair".</summary>
+    [FirestoreProperty("favoredUsername")]
+    public string? FavoredUsername { get; set; }
+
+    /// <summary>0 when FavoredUsername is null; 1 = "leans"; 2 = "clearly won".</summary>
+    [FirestoreProperty("magnitude")]
+    public int Magnitude { get; set; }
 
     [FirestoreProperty("votedUtc")]
     public Timestamp VotedUtc { get; set; }
@@ -71,12 +85,34 @@ public static class TradeValidation
     public static bool CanAccept(Trade trade, string normalizedUsername) =>
         trade.Status == TradeStatus.Pending && trade.CounterpartyUsername == normalizedUsername;
 
-    /// <summary>Either side can decline: the counterparty rejects the offer, or the proposer withdraws it.</summary>
+    /// <summary>Only the proposer can withdraw their own still-pending offer.</summary>
+    public static bool CanCancel(Trade trade, string normalizedUsername) =>
+        trade.Status == TradeStatus.Pending && trade.ProposerUsername == normalizedUsername;
+
+    /// <summary>Only the receiving team can reject a still-pending offer.</summary>
     public static bool CanDecline(Trade trade, string normalizedUsername) =>
-        trade.Status == TradeStatus.Pending &&
-        (trade.CounterpartyUsername == normalizedUsername || trade.ProposerUsername == normalizedUsername);
+        trade.Status == TradeStatus.Pending && trade.CounterpartyUsername == normalizedUsername;
 
     /// <summary>A player can't appear on both sides of the same trade.</summary>
     public static bool HasOverlap(IReadOnlyCollection<long> playersFromProposer, IReadOnlyCollection<long> playersFromCounterparty) =>
         playersFromProposer.Intersect(playersFromCounterparty).Any();
+
+    /// <summary>Valid combinations: (null, 0) = fair, or (proposer|counterparty, 1|2).</summary>
+    public static bool IsValidVote(string? favoredUsername, int magnitude, string proposerUsername, string counterpartyUsername)
+    {
+        if (favoredUsername is null)
+            return magnitude == 0;
+        if (favoredUsername != proposerUsername && favoredUsername != counterpartyUsername)
+            return false;
+        return magnitude is 1 or 2;
+    }
+
+    /// <summary>Only a processed trade has a settled winner to rate.</summary>
+    public static bool CanVoteOnTrade(Trade trade) => trade.Status == TradeStatus.Processed;
+
+    /// <summary>A trade is visible to a viewer if it's public (accepted/processed) or they're one of the two parties.</summary>
+    public static bool IsVisibleTo(Trade trade, string normalizedUsername) =>
+        trade.Status is TradeStatus.Accepted or TradeStatus.Processed
+        || trade.ProposerUsername == normalizedUsername
+        || trade.CounterpartyUsername == normalizedUsername;
 }

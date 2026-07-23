@@ -80,7 +80,15 @@ function tradeLabel(trade: Trade, pointsById: Map<number, number>): string {
   return `${trade.proposerTeamName}: ${tradeSideLabel(trade.playersFromProposer, pointsById)} ⇄ ${trade.counterpartyTeamName}: ${tradeSideLabel(trade.playersFromCounterparty, pointsById)}`;
 }
 
-export function NewsTicker({ leagueId, league }: { leagueId: string | null; league: LeagueDetail | null }) {
+export function NewsTicker({
+  leagueId,
+  league,
+  username,
+}: {
+  leagueId: string | null;
+  league: LeagueDetail | null;
+  username: string;
+}) {
   const [items, setItems] = useState<NewsItem[]>([]);
   const reducedMotion = usePrefersReducedMotion();
   const tickerRef = useRef<HTMLDivElement>(null);
@@ -116,7 +124,7 @@ export function NewsTicker({ leagueId, league }: { leagueId: string | null; leag
     // can fill a small fetch limit entirely and starve out freeagent
     // movements before this filter even runs. Capping the *filtered* list
     // instead keeps a real mix of both news types on screen.
-    Promise.all([api.activity(leagueId, 50), api.trades(leagueId)])
+    Promise.all([api.activity(leagueId, 50), api.trades(leagueId, username)])
       .then(([activity, trades]: [ActivityEntry[], Trade[]]) => {
         if (ignore) return;
         const movements: NewsItem[] = activity
@@ -145,7 +153,7 @@ export function NewsTicker({ leagueId, league }: { leagueId: string | null; leag
     return () => {
       ignore = true;
     };
-  }, [leagueId, pointsById]);
+  }, [leagueId, pointsById, username]);
 
   // Which trades currently qualify as "hot" — a plain string so the effect
   // below only re-runs when the actual set changes, not on every 30s tick.

@@ -117,7 +117,21 @@ export interface TradePlayer {
   position: string | null;
 }
 
-export type TradeStatus = "pending" | "declined" | "accepted" | "processed";
+export type TradeStatus = "pending" | "declined" | "cancelled" | "accepted" | "processed";
+
+export interface TradeVoteTally {
+  proposerClear: number;
+  proposerLean: number;
+  fair: number;
+  counterpartyLean: number;
+  counterpartyClear: number;
+  total: number;
+}
+
+export interface TradeMyVote {
+  favoredUsername: string | null;
+  magnitude: number;
+}
 
 export interface Trade {
   id: string;
@@ -131,9 +145,8 @@ export interface Trade {
   createdUtc: string;
   respondedUtc: string | null;
   processedUtc: string | null;
-  avgRating: number | null;
-  voteCount: number;
-  myVote: number | null;
+  votes: TradeVoteTally;
+  myVote: TradeMyVote | null;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -189,9 +202,9 @@ export const api = {
       `/api/leagues/${encodeURIComponent(leagueId)}/teams/${encodeURIComponent(username)}/roster/${playerId}`,
       { method: "DELETE" },
     ),
-  trades: (leagueId: string, username?: string) =>
+  trades: (leagueId: string, username: string) =>
     request<Trade[]>(
-      `/api/leagues/${encodeURIComponent(leagueId)}/trades${username ? `?username=${encodeURIComponent(username)}` : ""}`,
+      `/api/leagues/${encodeURIComponent(leagueId)}/trades?username=${encodeURIComponent(username)}`,
     ),
   proposeTrade: (
     leagueId: string,
@@ -209,10 +222,10 @@ export const api = {
       `/api/leagues/${encodeURIComponent(leagueId)}/trades/${encodeURIComponent(tradeId)}/respond`,
       { method: "POST", body: JSON.stringify({ username, accept }) },
     ),
-  voteTrade: (leagueId: string, tradeId: string, username: string, level: number) =>
+  voteTrade: (leagueId: string, tradeId: string, username: string, favoredUsername: string | null, magnitude: number) =>
     request<{ ok: boolean }>(
       `/api/leagues/${encodeURIComponent(leagueId)}/trades/${encodeURIComponent(tradeId)}/vote`,
-      { method: "POST", body: JSON.stringify({ username, level }) },
+      { method: "POST", body: JSON.stringify({ username, favoredUsername, magnitude }) },
     ),
 };
 

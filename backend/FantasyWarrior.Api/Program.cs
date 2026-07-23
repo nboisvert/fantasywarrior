@@ -356,8 +356,22 @@ app.MapPost("/api/leagues/{leagueId}/trades/{tradeId}/respond", async (
         return Results.Ok(new { ok = true, status = TradeStatus.Accepted, note = "Processed the night after the next scoring update." });
     }
 
+    // Declining branches by who's acting: the proposer withdrawing their own
+    // offer is "cancelled"; the counterparty rejecting someone else's offer
+    // is "declined" — distinct statuses so the status alone says who acted.
+    if (username == trade.ProposerUsername)
+    {
+        if (!TradeValidation.CanCancel(trade, username))
+            return Results.Json(new { error = "This offer can no longer be cancelled." }, statusCode: 403);
+        await tradeDoc.UpdateAsync(new Dictionary<string, object>
+        {
+            ["status"] = TradeStatus.Cancelled,
+            ["respondedUtc"] = Timestamp.GetCurrentTimestamp(),
+        });
+        return Results.Ok(new { ok = true, status = TradeStatus.Cancelled });
+    }
     if (!TradeValidation.CanDecline(trade, username))
-        return Results.Json(new { error = "Only the two teams in this trade can decline/cancel it." }, statusCode: 403);
+        return Results.Json(new { error = "Only the receiving team can decline this trade." }, statusCode: 403);
     await tradeDoc.UpdateAsync(new Dictionary<string, object>
     {
         ["status"] = TradeStatus.Declined,
@@ -371,6 +385,9 @@ app.MapGet("/api/leagues/{leagueId}/trades", async (string leagueId, string? use
     var leagueDoc = db.Collection("leagues").Document(leagueId);
     if (!(await leagueDoc.GetSnapshotAsync()).Exists)
         return Results.NotFound(new { error = "League not found." });
+    if (string.IsNullOrWhiteSpace(username))
+        return Results.BadRequest(new { error = "username is required." });
+    var normalizedViewer = Normalize(username);
 
     var teamsSnap = await leagueDoc.Collection("teams").GetSnapshotAsync();
     var teamNames = teamsSnap.Documents.ToDictionary(d => d.Id, d => d.GetValue<string>("name"));
@@ -378,12 +395,14 @@ app.MapGet("/api/leagues/{leagueId}/trades", async (string leagueId, string? use
     var tradesSnap = await leagueDoc.Collection("trades").GetSnapshotAsync();
     var trades = tradesSnap.Documents
         .Select(d => (Doc: d, Trade: d.ConvertTo<Trade>()))
+        // pending/declined/cancelled trades are private to the two parties;
+        // accepted/processed are visible to the whole league.
+        .Where(t => TradeValidation.IsVisibleTo(t.Trade, normalizedViewer))
         .OrderByDescending(t => t.Trade.CreatedUtc.ToDateTime())
         .ToList();
 
     var allPlayerIds = trades.SelectMany(t => t.Trade.PlayersFromProposer.Concat(t.Trade.PlayersFromCounterparty)).Distinct();
     var playersById = await players.GetByIdsAsync(allPlayerIds);
-    var normalizedViewer = username is null ? null : Normalize(username);
 
     List<object> PlayerList(List<long> ids) => ids.Select(id =>
     {
@@ -394,20 +413,25 @@ app.MapGet("/api/leagues/{leagueId}/trades", async (string leagueId, string? use
     var result = new List<object>();
     foreach (var (doc, trade) in trades)
     {
-        int? myVote = null;
-        double? avgRating = null;
-        var voteCount = 0;
+        object? myVote = null;
+        var tally = new { proposerClear = 0, proposerLean = 0, fair = 0, counterpartyLean = 0, counterpartyClear = 0, total = 0 };
         if (trade.Status == TradeStatus.Processed)
         {
             var votesSnap = await doc.Reference.Collection("votes").GetSnapshotAsync();
-            var levels = votesSnap.Documents.Select(v => v.ConvertTo<TradeVote>().Level).ToList();
-            voteCount = levels.Count;
-            avgRating = voteCount > 0 ? Math.Round(levels.Average(), 2) : null;
-            if (normalizedViewer is not null)
+            var votes = votesSnap.Documents.Select(v => (Id: v.Id, Vote: v.ConvertTo<TradeVote>())).ToList();
+            int CountWhere(Func<TradeVote, bool> pred) => votes.Count(v => pred(v.Vote));
+            tally = new
             {
-                var mine = votesSnap.Documents.FirstOrDefault(v => v.Id == normalizedViewer);
-                myVote = mine?.ConvertTo<TradeVote>().Level;
-            }
+                proposerClear = CountWhere(v => v.FavoredUsername == trade.ProposerUsername && v.Magnitude == 2),
+                proposerLean = CountWhere(v => v.FavoredUsername == trade.ProposerUsername && v.Magnitude == 1),
+                fair = CountWhere(v => v.FavoredUsername is null),
+                counterpartyLean = CountWhere(v => v.FavoredUsername == trade.CounterpartyUsername && v.Magnitude == 1),
+                counterpartyClear = CountWhere(v => v.FavoredUsername == trade.CounterpartyUsername && v.Magnitude == 2),
+                total = votes.Count,
+            };
+            var mine = votes.FirstOrDefault(v => v.Id == normalizedViewer);
+            if (mine.Vote is not null)
+                myVote = new { favoredUsername = mine.Vote.FavoredUsername, magnitude = mine.Vote.Magnitude };
         }
 
         result.Add(new
@@ -423,8 +447,7 @@ app.MapGet("/api/leagues/{leagueId}/trades", async (string leagueId, string? use
             createdUtc = trade.CreatedUtc.ToDateTime(),
             respondedUtc = trade.RespondedUtc?.ToDateTime(),
             processedUtc = trade.ProcessedUtc?.ToDateTime(),
-            avgRating,
-            voteCount,
+            votes = tally,
             myVote,
         });
     }
@@ -436,20 +459,22 @@ app.MapPost("/api/leagues/{leagueId}/trades/{tradeId}/vote", async (
 {
     if (string.IsNullOrWhiteSpace(req.Username))
         return Results.BadRequest(new { error = "Username is required." });
-    if (req.Level is < 1 or > 5)
-        return Results.BadRequest(new { error = "Level must be between 1 and 5." });
 
     var tradeDoc = db.Collection("leagues").Document(leagueId).Collection("trades").Document(tradeId);
     var tradeSnap = await tradeDoc.GetSnapshotAsync();
     if (!tradeSnap.Exists)
         return Results.NotFound(new { error = "Trade not found." });
-    if (tradeSnap.ConvertTo<Trade>().Status != TradeStatus.Processed)
+    var trade = tradeSnap.ConvertTo<Trade>();
+    if (!TradeValidation.CanVoteOnTrade(trade))
         return Results.BadRequest(new { error = "Only processed trades can be rated." });
+    if (!TradeValidation.IsValidVote(req.FavoredUsername, req.Magnitude, trade.ProposerUsername, trade.CounterpartyUsername))
+        return Results.BadRequest(new { error = "Invalid vote: favoredUsername must be null (fair) or one of the two teams, with a matching magnitude (0 for fair, 1-2 otherwise)." });
 
     var username = Normalize(req.Username);
     await tradeDoc.Collection("votes").Document(username).SetAsync(new TradeVote
     {
-        Level = req.Level,
+        FavoredUsername = req.FavoredUsername,
+        Magnitude = req.Magnitude,
         VotedUtc = Timestamp.GetCurrentTimestamp(),
     });
     return Results.Ok(new { ok = true });
@@ -625,7 +650,7 @@ record RosterChangeRequest(long PlayerId, string? CreationEvent, string? Creatio
 record UpdateRulesRequest(string? Username, RuleConfig? RuleConfig);
 record ProposeTradeRequest(string? Username, string? CounterpartyUsername, List<long>? PlayersFromProposer, List<long>? PlayersFromCounterparty);
 record RespondTradeRequest(string? Username, bool Accept);
-record VoteTradeRequest(string? Username, int Level);
+record VoteTradeRequest(string? Username, string? FavoredUsername, int Magnitude);
 
 record PlayerDto(long Id, string Name, string Position, string Team, string Status, long? CapHit, string? HeadshotUrl)
 {
