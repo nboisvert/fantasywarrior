@@ -42,10 +42,7 @@ export function Standings({ league, username }: { league: LeagueDetail; username
                   <li key={p.id}>
                     <button className="player-row clickable" onClick={() => setOpenPlayerId(p.id)}>
                       <span className="player-info">
-                        <span className="name">
-                          {p.name}
-                          {p.counted && <span className="counted-badge">TOP</span>}
-                        </span>
+                        <span className="name">{p.name}</span>
                         <small>
                           <span className="pos-badge">{p.position}</span>
                           {p.team}

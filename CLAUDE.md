@@ -41,8 +41,9 @@ All UI work MUST follow this system. Tokens live in `frontend/src/index.css` (CS
 - **Text**: `#f1f5f9`; muted `#8b96ab`. Contrast AA minimum.
 - **Typography**: Russo One (display: headings, team names, numbers, uppercase) + Chakra Petch (body) — Google Fonts, loaded in `index.html`.
 - **Shape & motion**: radii 12-16px; transitions 150-300ms (color/opacity/filter only, no layout-shifting hover); `fade-in` 250ms for screen mounts; respect `prefers-reduced-motion`.
-- **Layout**: mobile-first, content max-width 680px; fixed bottom nav (2 tabs: Standings default, Roster) 64px + `env(safe-area-inset-bottom)`; sticky blurred topbar with league switcher + user; content bottom padding must clear the nav.
+- **Layout**: mobile-first, content max-width 680px; fixed bottom nav (4 tabs: Dashboard default, Standings, Roster, Settings) 64px + `env(safe-area-inset-bottom)`; sticky blurred topbar with league switcher + user; content bottom padding must clear the nav.
 - **Rules**: Lucide SVG icons only (never emojis), 44px touch targets, `cursor: pointer` on clickables, visible focus rings (`:focus-visible` cyan), aria-labels on icon-only buttons, alt text, error banners near the action.
+- **No duplicate destinations (Nick, 2026-07-22)**: never show two links/buttons on the same screen that navigate to the same place. If a destination is already reachable via primary navigation (e.g. a bottom-nav tab), don't also add an inline "view all" / shortcut link to it elsewhere on that screen — pick one path. (First case: removed the Dashboard's "View full standings" link since the Standings tab already goes there.)
 - **Logo**: circular badge (bearded warrior, red helmet, crossed sticks). Master: `fw_logo.png` at repo root (1024px, transparent). App asset: `frontend/src/assets/logo.webp` (512px, cleaned/cropped); favicons `frontend/public/favicon.png` (64) + `favicon-192.png`. Used in login hero (180px, cyan drop-shadow), topbars (30px). Regenerate assets from the master via Pillow if the logo changes.
 
 ## AI Team

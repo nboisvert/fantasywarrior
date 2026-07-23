@@ -130,10 +130,7 @@ export function Roster({
             >
               <img className="headshot" src={p.headshotUrl ?? ""} alt="" loading="lazy" />
               <span className="player-info">
-                <span className="name">
-                  {p.name}
-                  {p.counted && <span className="counted-badge">TOP</span>}
-                </span>
+                <span className="name">{p.name}</span>
                 <small>
                   <span className="pos-badge">{p.position}</span>
                   {p.team} · {formatCap(p.capHit)}
