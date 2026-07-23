@@ -7,6 +7,7 @@
 // re-derived and re-tightened.
 
 import { useState } from "react";
+import { posGroup } from "../api";
 import type { LeagueDetail } from "../api";
 import { PlayerCard } from "../components/PlayerCard";
 
@@ -23,17 +24,6 @@ function formatCapCompact(amount: number): string {
   if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1)}M`;
   if (abs >= 1_000) return `${sign}$${Math.round(abs / 1_000)}K`;
   return `${sign}$${abs}`;
-}
-
-type PosGroup = "F" | "D" | "G";
-
-/** Collapse a raw NHL position code to the three roster groups — same
- * helper as Roster.tsx/Stats.tsx (kept duplicated on purpose, per project
- * convention of small screen-local helpers rather than a shared util). */
-function posGroup(position: string): PosGroup {
-  if (position === "D") return "D";
-  if (position === "G") return "G";
-  return "F";
 }
 
 /** "Sidney Crosby" -> "S. Crosby" — used only for this screen's compact
@@ -127,14 +117,12 @@ export function Dashboard({ league, username }: { league: LeagueDetail; username
                   aria-label={`Open ${p.name} card`}
                 >
                   <img className="headshot" src={p.headshotUrl ?? ""} alt="" loading="lazy" />
-                  <span className="player-info">
+                  <span className="player-info dash-scorer-info">
                     <span className="name">{formatShortName(p.name)}</span>
-                    <small>
-                      <span className={`roster-pos-pill roster-pos-pill-${posGroup(p.position).toLowerCase()}`}>
-                        {posGroup(p.position)}
-                      </span>
-                      {p.team}
-                    </small>
+                    <span className={`roster-pos-pill roster-pos-pill-${posGroup(p.position).toLowerCase()}`}>
+                      {posGroup(p.position)}
+                    </span>
+                    <span className="dash-scorer-team muted">{p.team}</span>
                   </span>
                   <span className="pts-small">{p.points} pts</span>
                 </button>

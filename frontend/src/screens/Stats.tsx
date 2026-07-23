@@ -11,7 +11,7 @@
 // everywhere else in the app (Standings/Dashboard/Roster).
 
 import { useEffect, useState } from "react";
-import { api, formatSeason } from "../api";
+import { api, formatSeason, posGroup } from "../api";
 import type { LeagueDetail, PlayerSeasonStatsRow } from "../api";
 import { ChevronDownIcon } from "../components/Icons";
 
@@ -292,7 +292,7 @@ export function Stats({ league, username }: { league: LeagueDetail; username: st
                       <tr key={r.id}>
                         <td className="stats-col-player">
                           <span className="stats-player-name">{r.name}</span>
-                          <span className="stats-player-pos">{r.position}</span>
+                          <span className="stats-player-pos">{posGroup(r.position)}</span>
                         </td>
                         <td>{r.gamesPlayed}</td>
                         <td>{r.goals}</td>
@@ -352,7 +352,7 @@ export function Stats({ league, username }: { league: LeagueDetail; username: st
                       <tr key={r.id}>
                         <td className="stats-col-player">
                           <span className="stats-player-name">{r.name}</span>
-                          <span className="stats-player-pos">{r.position}</span>
+                          <span className="stats-player-pos">{posGroup(r.position)}</span>
                         </td>
                         <td>{r.gamesPlayed}</td>
                         <td className="accent">{r.wins}</td>

@@ -165,3 +165,17 @@ export const formatCap = (amount: number | null | undefined) =>
 /** "20262027" -> "2026-27" */
 export const formatSeason = (season: string): string =>
   season.length === 8 ? `${season.slice(0, 4)}-${season.slice(6)}` : season;
+
+export type PosGroup = "F" | "D" | "G";
+
+/** Collapses a raw NHL position code to the three roster groups everywhere
+ * the app displays a position — C/L/R always read as "F", at all times, no
+ * per-screen exceptions (the raw code is still what's stored/returned by the
+ * API; this is a display-only rule). Single source of truth: every screen
+ * (Roster, Stats, Dashboard, PlayerCard) imports this instead of keeping its
+ * own copy. */
+export function posGroup(position: string): PosGroup {
+  if (position === "D") return "D";
+  if (position === "G") return "G";
+  return "F";
+}

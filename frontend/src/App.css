@@ -616,7 +616,10 @@
 .player-name-line {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  /* No gap here: the pill's own margin-inline (see .roster-pos-pill) already
+     guarantees spacing on both sides, so this parent gap doesn't need to
+     duplicate it. */
+  gap: 0;
   min-width: 0;
 }
 
@@ -666,6 +669,9 @@
   font-size: 0.72rem;
   font-weight: 700;
   border: 1px solid transparent;
+  /* Own margin, not just a parent flex-gap — the pill must never sit flush
+     against a neighbor no matter where it's placed (2026-07-23, per Nick). */
+  margin-inline: 0.3rem;
 }
 
 .roster-pos-pill-f {
@@ -845,6 +851,27 @@
 
 .dash-scorers .player-hit {
   gap: 0.6rem;
+}
+
+/* Single-line scorer row: name, position pill and team all share one row
+   (Nick, 2026-07-23 — two lines per player was still too tall for this
+   card). Name shrinks/ellipsizes first so the pill and team code never get
+   pushed out. */
+.dash-scorer-info {
+  flex-direction: row !important;
+  align-items: center;
+  /* No gap here either: the pill's own margin-inline covers both seams
+     (name-pill and pill-team) since it sits between them. */
+  gap: 0;
+}
+
+.dash-scorer-info .name {
+  flex-shrink: 1;
+}
+
+.dash-scorer-team {
+  flex-shrink: 0;
+  font-size: 0.78rem;
 }
 
 .dash-scorers .headshot {

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { formatCap } from "../api";
+import { formatCap, posGroup } from "../api";
 import type { LeagueDetail } from "../api";
 import { PlayerCard } from "../components/PlayerCard";
 
@@ -17,16 +17,6 @@ function formatCapCompact(amount: number): string {
   if (abs >= 1_000_000) return `$${(abs / 1_000_000).toFixed(1)}M`;
   if (abs >= 1_000) return `$${Math.round(abs / 1_000)}K`;
   return `$${abs}`;
-}
-
-type PosGroup = "F" | "D" | "G";
-
-/** Collapse a raw NHL position code (C, L, R, LW, RW, D, G, ...) to the three
- * roster groups: forward, defense, goalie. Anything not D/G defaults to F. */
-function posGroup(position: string): PosGroup {
-  if (position === "D") return "D";
-  if (position === "G") return "G";
-  return "F";
 }
 
 export function Roster({ league, username }: { league: LeagueDetail; username: string }) {
