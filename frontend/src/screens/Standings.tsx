@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { formatCap, posGroup } from "../api";
+import { posGroup } from "../api";
 import type { LeagueDetail } from "../api";
 import { PlayerCard } from "../components/PlayerCard";
 
@@ -33,7 +33,7 @@ export function Standings({ league, username }: { league: LeagueDetail; username
               </div>
               <div className="standing-points">
                 <span className="pts">{team.score} pts</span>
-                <small>{formatCap(team.capTotal)}</small>
+                <small>{team.ptsPerGame != null ? `${team.ptsPerGame} pts/gm` : "—"}</small>
               </div>
             </div>
             {expanded === team.ownerUsername && (

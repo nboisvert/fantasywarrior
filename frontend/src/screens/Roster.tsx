@@ -37,9 +37,9 @@ export function Roster({ league, username }: { league: LeagueDetail; username: s
 
   return (
     <section className="fade-in" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-      <div className="card roster-header">
-        <span className="roster-team-name">{myTeam.name}</span>
+      <span className="roster-team-name">{myTeam.name}</span>
 
+      <div className="card roster-header">
         {capMax != null && capAvailable != null ? (
           <div className="roster-cap">
             <div className="pc-tiles roster-cap-tiles">

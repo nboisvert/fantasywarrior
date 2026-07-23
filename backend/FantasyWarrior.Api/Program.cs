@@ -136,6 +136,7 @@ app.MapGet("/api/leagues/{leagueId}", async (string leagueId, FirestoreDb db, Pl
     var teamsSnap = await leagueSnap.Reference.Collection("teams").GetSnapshotAsync();
     var teams = teamsSnap.Documents.Select(d => d.ConvertTo<Team>()).ToList();
     var playersById = await players.GetByIdsAsync(teams.SelectMany(t => t.PlayerIds));
+    var totalsById = await PlayerTotalsSource.FetchWithCacheAsync(db, teams.SelectMany(t => t.PlayerIds).ToList(), league.Season);
 
     return Results.Ok(new
     {
@@ -156,6 +157,7 @@ app.MapGet("/api/leagues/{leagueId}", async (string leagueId, FirestoreDb db, Pl
                 t.Score,
                 t.RawTopXScore,
                 t.AdjustmentsTotal,
+                ptsPerGame = PtsPerGame(t, totalsById),
                 capTotal = t.PlayerIds.Sum(id => playersById.GetValueOrDefault(id)?.CapHit ?? 0),
                 players = t.PlayerIds
                     .Select(id => playersById.GetValueOrDefault(id))
@@ -482,6 +484,12 @@ app.MapGet("/api/players/{playerId:long}", async (long playerId, FirestoreDb db,
 });
 
 app.Run();
+
+static double? PtsPerGame(Team team, Dictionary<long, PlayerRawTotals> totalsById)
+{
+    var gamesPlayed = team.PlayerIds.Sum(id => totalsById.GetValueOrDefault(id)?.GamesPlayed ?? 0);
+    return gamesPlayed > 0 ? Math.Round(team.Score / (double)gamesPlayed, 2) : null;
+}
 
 static async Task<Dictionary<long, string>> RosterPositions(PlayerCache players, IReadOnlyCollection<long> playerIds)
 {

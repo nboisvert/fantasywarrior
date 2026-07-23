@@ -32,6 +32,7 @@ export interface TeamDto {
   score: number;
   rawTopXScore: number;
   adjustmentsTotal: number;
+  ptsPerGame: number | null;
   capTotal: number;
   players: RosterPlayer[];
 }

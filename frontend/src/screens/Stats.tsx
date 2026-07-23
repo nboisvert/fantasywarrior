@@ -11,7 +11,7 @@
 // everywhere else in the app (Standings/Dashboard/Roster).
 
 import { useEffect, useState } from "react";
-import { api, formatSeason, posGroup } from "../api";
+import { api, posGroup } from "../api";
 import type { LeagueDetail, PlayerSeasonStatsRow } from "../api";
 import { ChevronDownIcon } from "../components/Icons";
 
@@ -251,14 +251,15 @@ export function Stats({ league, username }: { league: LeagueDetail; username: st
               }`}
             >
               {myTeam.adjustmentsTotal > 0 ? "+" : ""}
-              {myTeam.adjustmentsTotal}
+              {myTeam.adjustmentsTotal} pts
             </span>
-            <small className="muted">adjustment · raw top-X score: {myTeam.rawTopXScore} pts</small>
+            <small className="muted">
+              carried over from past trades/roster moves, so your total stayed fair at the time —
+              your current roster alone has scored {myTeam.rawTopXScore} pts
+            </small>
           </div>
         )}
       </div>
-
-      <span className="section-title">Season {formatSeason(league.season)} stats</span>
 
       {loading && <p className="empty-state">Loading stats…</p>}
       {!loading && error && <p className="error-banner">{error}</p>}
