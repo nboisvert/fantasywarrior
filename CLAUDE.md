@@ -29,6 +29,7 @@ Hosting must stay easy and free.
 - Fully intuitive interactive transaction, free agency and draft mechanisms.
 - First rules/features implemented will be based on my own buddies' pool, agile/incremental style.
 - You should always keep track of project progression in [.claude/doc/project_status.md](.claude/doc/project_status.md), which **MUST** be read at the start of every session and kept updated along the way.
+- Deployment, GCP/GitHub configuration, local dev commands and ops runbook: see [.claude/doc/deployment.md](.claude/doc/deployment.md). Keep it updated when infra changes.
 - Full project roadmap (phases 0-7): see project_status.md. Milestone: season-tracking MVP in prod for early October 2026 (NHL 2026-27 season).
 
 ## UI Design System — "Night Arena" (approved by Nick 2026-07-22)
