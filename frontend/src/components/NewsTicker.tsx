@@ -261,7 +261,11 @@ export function NewsTicker({ leagueId, league }: { leagueId: string | null; leag
       className={`news-ticker${alertActive ? " alert" : ""}`}
       aria-label="Recent league activity"
     >
-      {alertActive && <span className="news-ticker-alert-label">Trade Alert</span>}
+      {alertActive && (
+        <span className="news-ticker-alert-label">
+          <span className="news-ticker-alert-label-text">Trade Alert</span>
+        </span>
+      )}
       <div className="news-ticker-track">
         {displayItems.map((item, i) => {
           const isHot = item.kind === "trade" && now - item.ts < HOT_WINDOW_MS;

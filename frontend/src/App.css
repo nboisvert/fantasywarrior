@@ -182,26 +182,35 @@
   }
 }
 
-/* "TRADE ALERT" label, straddling the ticker's own top border like a
-   fieldset legend — reads as if it's cut into the gold border line itself
-   (2026-07-23, per Nick). The background is a flat approximation of the
-   page behind the ticker (the radial glows aren't sampled), close enough
-   for a label this small/thin. */
+/* "TRADE ALERT" strip sitting just above the ticker band — tiny font, but
+   very wide letter-spacing so it still reads as a bold, attention-grabbing
+   headline across the full width (2026-07-23, per Nick: "très petit mais
+   large font", take 2 — the first attempt cut the label into the border
+   like a fieldset legend, not what he meant). */
 .news-ticker-alert-label {
-  position: absolute;
-  top: 0;
-  left: 1rem;
-  transform: translateY(-50%);
-  padding: 0 0.4rem;
-  background: var(--bg);
-  border-radius: 4px;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--nav-height) + var(--ticker-height) + env(safe-area-inset-bottom));
+  z-index: 40;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(251, 191, 36, 0.14);
+  border-top: 1px solid rgba(251, 191, 36, 0.4);
   color: var(--gold);
-  font: 700 0.62rem var(--font-body);
-  letter-spacing: 0.1em;
+  font: 700 0.6rem var(--font-body);
   text-transform: uppercase;
   text-shadow: 0 0 8px rgba(251, 191, 36, 0.5);
-  white-space: nowrap;
   pointer-events: none;
+}
+
+.news-ticker-alert-label-text {
+  letter-spacing: 0.5em;
+  /* Cancels the trailing letter-spacing after the last character, which
+     would otherwise visually shift the centered text left. */
+  margin-right: -0.5em;
 }
 
 /* 5-tab fit (2026-07-23, Stats tab added): gap/padding tightened above and
