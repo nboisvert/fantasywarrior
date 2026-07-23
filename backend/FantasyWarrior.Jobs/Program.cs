@@ -9,6 +9,9 @@ using Google.Cloud.Firestore;
 //   score-calc [--league <leagueId>]
 //   league-init-assignments
 //   wipe-pools   (deletes all users/leagues/teams/assignments/adjustments; players/games/playerGameStats untouched)
+//   seed-allstars [--league-name "Shemalz Pool"] [--season 20252026]
+//     Drafts top synced performers (snake draft) into 9 fixed GMs, 6/team, no
+//     adjustment ledger -- full season stats count as if always on that team.
 //   player-check
 //
 // Firestore target: set FIRESTORE_EMULATOR_HOST (e.g. localhost:8090) for local dev;
@@ -100,6 +103,109 @@ switch (job)
             }
             Console.WriteLine($"League [{leagueSnap.Id}]: {created} assignments created");
         }
+        return 0;
+    }
+    case "seed-allstars":
+    {
+        var leagueName = GetOption(args, "--league-name") ?? "Shemalz Pool";
+        var season = GetOption(args, "--season") ?? "20252026";
+        var usernames = new[] { "jay", "nick", "al", "chuck", "baby", "sam", "dom", "vince", "didi" };
+        const string commissioner = "nick";
+        const int rosterSize = 6;
+
+        var now = Timestamp.GetCurrentTimestamp();
+        foreach (var u in usernames)
+        {
+            var userDoc = db.Collection("users").Document(u);
+            if (!(await userDoc.GetSnapshotAsync()).Exists)
+                await userDoc.SetAsync(new FantasyWarrior.Core.Users.User { DisplayName = u, CreatedUtc = now, LastLoginUtc = now });
+        }
+
+        var leagueDoc = db.Collection("leagues").Document();
+        await leagueDoc.SetAsync(new FantasyWarrior.Core.Leagues.League
+        {
+            Name = leagueName,
+            Season = season,
+            CommissionerUsername = commissioner,
+            MemberUsernames = [.. usernames],
+            RuleConfig = new FantasyWarrior.Core.Scoring.RuleConfig(),
+            CreatedUtc = now,
+        });
+
+        // All lines for the season, filtered to regular season in memory
+        // (avoids requiring a composite index for a two-field equality query).
+        var linesSnap = await db.Collection("playerGameStats").WhereEqualTo("season", season).GetSnapshotAsync();
+        var lines = linesSnap.Documents
+            .Select(d => d.ConvertTo<FantasyWarrior.Core.Stats.PlayerGameStats>())
+            .Where(l => l.GameType == 2)
+            .ToList();
+        var pointValues = new FantasyWarrior.Core.Scoring.RuleConfig().PointValues;
+
+        var byPlayer = lines
+            .GroupBy(l => l.PlayerId)
+            .Select(g => new
+            {
+                PlayerId = g.Key,
+                Name = g.First().Name,
+                IsGoalie = g.First().IsGoalie,
+                FantasyPoints = FantasyWarrior.Core.Scoring.ScoringEngine.PlayerPoints(
+                    FantasyWarrior.Core.Scoring.PlayerTotalsSource.Aggregate(g), pointValues),
+            })
+            .ToList();
+
+        var skaters = byPlayer.Where(p => !p.IsGoalie).OrderByDescending(p => p.FantasyPoints).ToList();
+        var goalies = byPlayer.Where(p => p.IsGoalie).OrderByDescending(p => p.FantasyPoints).ToList();
+        var goalieSlotsPerTeam = Math.Min(1, goalies.Count / usernames.Length);
+        var neededSkaters = usernames.Length * (rosterSize - goalieSlotsPerTeam);
+
+        if (skaters.Count < neededSkaters || goalies.Count < goalieSlotsPerTeam * usernames.Length)
+        {
+            Console.Error.WriteLine($"Not enough synced players for season {season}: {skaters.Count} skaters, {goalies.Count} goalies. Sync more stats first.");
+            return 1;
+        }
+        Console.WriteLine($"Pool: {skaters.Count} skaters (top: {skaters[0].Name} {skaters[0].FantasyPoints}pts), {goalies.Count} goalies. Snake-drafting {neededSkaters} skaters + {goalieSlotsPerTeam}/team goalies.");
+
+        var rosters = usernames.ToDictionary(u => u, _ => new List<long>());
+        void SnakeDraft<T>(List<T> pool, int rounds, Func<T, long> id)
+        {
+            for (var round = 0; round < rounds && pool.Count > 0; round++)
+            {
+                var order = round % 2 == 0 ? usernames : usernames.Reverse().ToArray();
+                foreach (var u in order)
+                {
+                    if (pool.Count == 0) break;
+                    rosters[u].Add(id(pool[0]));
+                    pool.RemoveAt(0);
+                }
+            }
+        }
+        if (goalieSlotsPerTeam == 1)
+            SnakeDraft(goalies, 1, p => p.PlayerId);
+        SnakeDraft(skaters, rosterSize - goalieSlotsPerTeam, p => p.PlayerId);
+
+        foreach (var (username, playerIds) in rosters)
+        {
+            // Direct write, no adjustment ledger: full-season stats count as if
+            // the player had always been on this team (no transaction to compensate for).
+            await leagueDoc.Collection("teams").Document(username).SetAsync(new FantasyWarrior.Core.Leagues.Team
+            {
+                Name = $"Team {char.ToUpper(username[0])}{username[1..]}",
+                OwnerUsername = username,
+                PlayerIds = playerIds,
+                CreatedUtc = now,
+            });
+            foreach (var pid in playerIds)
+                await leagueDoc.Collection("assignments").AddAsync(new FantasyWarrior.Core.Leagues.Assignment
+                {
+                    PlayerId = pid,
+                    TeamUsername = username,
+                    From = $"{season[..4]}-10-01",
+                    Source = "initial",
+                    CreatedUtc = now,
+                });
+        }
+
+        Console.WriteLine($"Seeded '{leagueName}' [{leagueDoc.Id}] season {season}: {usernames.Length} teams x {rosterSize} players, no adjustments.");
         return 0;
     }
     case "wipe-pools":
