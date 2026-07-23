@@ -5,6 +5,10 @@
 
 ## Current state
 
+**In progress (2026-07-22 evening): GM Dashboard redesign** — Nick wants the post-login landing to be a per-league "GM dashboard" (mini top-4 standings, top 7-8 scorers of my roster, recent pool activity feed) instead of the league picker; league creation/join moves into a new Settings tab; bottom nav becomes 4 tabs (Dashboard default, Standings, Roster, Settings).
+- [x] Backend: `GET /api/leagues/{id}/activity?limit=` — recent add/drop events (assignments-derived), enriched with player name/position/team name; `Assignment.closedUtc` added so drop events are orderable. Verified live against the E2E test league.
+- [ ] Frontend IA rework — delegated to a React Exposito subagent (worktree `agent-a1b19d1c815ffd79a` at time of writing); integrate its output into `frontend/src/` when it reports back.
+
 **🚀 LIVE since 2026-07-22** — full stack in production, all free-tier:
 - App: https://nboisvert.github.io/fantasywarrior/ (GitHub Pages, auto-deploy on push)
 - API: https://fantasy-warrior-api-197228637471.northamerica-northeast1.run.app (Cloud Run, manual deploy workflow)

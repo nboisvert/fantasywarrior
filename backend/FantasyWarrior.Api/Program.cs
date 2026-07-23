@@ -289,7 +289,11 @@ app.MapDelete("/api/leagues/{leagueId}/teams/{username}/roster/{playerId:long}",
         .WhereEqualTo("to", null)
         .GetSnapshotAsync();
     foreach (var assignment in openAssignments.Documents)
-        await assignment.Reference.UpdateAsync("to", EtToday());
+        await assignment.Reference.UpdateAsync(new Dictionary<string, object>
+        {
+            ["to"] = EtToday(),
+            ["closedUtc"] = Timestamp.GetCurrentTimestamp(),
+        });
 
     var adjustmentsTotal = team.AdjustmentsTotal + delta;
     await teamDoc.UpdateAsync(new Dictionary<string, object>
@@ -302,6 +306,44 @@ app.MapDelete("/api/leagues/{leagueId}/teams/{username}/roster/{playerId:long}",
         ["countedPlayerIds"] = after.CountedPlayerIds.ToList(),
     });
     return Results.Ok();
+});
+
+app.MapGet("/api/leagues/{leagueId}/activity", async (string leagueId, int? limit, FirestoreDb db, PlayerCache players) =>
+{
+    var leagueDoc = db.Collection("leagues").Document(leagueId);
+    var teamsSnap = await leagueDoc.Collection("teams").GetSnapshotAsync();
+    var teamNames = teamsSnap.Documents.ToDictionary(d => d.Id, d => d.GetValue<string>("name"));
+
+    var assignments = await leagueDoc.Collection("assignments").GetSnapshotAsync();
+    var events = new List<(Timestamp When, string Type, long PlayerId, string TeamUsername, string Source, string? SourceRefId)>();
+    foreach (var doc in assignments.Documents)
+    {
+        var a = doc.ConvertTo<Assignment>();
+        events.Add((a.CreatedUtc, "add", a.PlayerId, a.TeamUsername, a.Source, a.SourceRefId));
+        if (a.To is not null && a.ClosedUtc is { } closed)
+            events.Add((closed, "drop", a.PlayerId, a.TeamUsername, a.Source, a.SourceRefId));
+    }
+
+    var take = Math.Clamp(limit ?? 15, 1, 50);
+    var recent = events.OrderByDescending(e => e.When).Take(take).ToList();
+    var playersById = await players.GetByIdsAsync(recent.Select(e => e.PlayerId));
+
+    return Results.Ok(recent.Select(e =>
+    {
+        var player = playersById.GetValueOrDefault(e.PlayerId);
+        return new
+        {
+            type = e.Type,
+            dateUtc = e.When.ToDateTime(),
+            playerId = e.PlayerId,
+            playerName = player is null ? "Unknown player" : $"{player.FirstName} {player.LastName}",
+            position = player?.Position,
+            teamUsername = e.TeamUsername,
+            teamName = teamNames.GetValueOrDefault(e.TeamUsername, e.TeamUsername),
+            source = e.Source,
+            sourceRefId = e.SourceRefId,
+        };
+    }));
 });
 
 app.MapGet("/api/players", async (string? q, PlayerCache players) =>

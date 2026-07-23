@@ -25,6 +25,10 @@ public sealed class Assignment
     [FirestoreProperty("to")]
     public string? To { get; set; }
 
+    /// <summary>Set together with `to` — lets the activity feed order drop events.</summary>
+    [FirestoreProperty("closedUtc")]
+    public Timestamp? ClosedUtc { get; set; }
+
     /// <summary>How the player was acquired: initial | free_agency | trade | draft.</summary>
     [FirestoreProperty("source")]
     public string Source { get; set; } = "";
