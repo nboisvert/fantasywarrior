@@ -5,6 +5,10 @@
 
 ## Current state
 
+**Inline chat mock in the profile menu (2026-07-23, UI mock only — no backend)**
+
+Added a message icon to each "League GMs" row in `ProfileMenu`; tapping it swaps the panel's content (same dropdown, no new dialog — "inline") from the GM list to a two-message mock thread + composer for that GM, with a back arrow to return. Deterministic seeded opening exchange per GM (same hash approach as the presence mock), typed replies append locally only. A small note in the chat view ("UI preview only — messages aren't sent anywhere yet") makes the mock status explicit to whoever's testing it. New icons added: `MessageCircleIcon`, `ArrowLeftIcon`, `SendIcon`. Real chat needs an actual backend (a `messages` collection + realtime listeners) — not built, out of scope this round. Build clean.
+
 **Position indicator: new durable convention + app-wide audit fix (2026-07-23)**
 
 Nick asked to settle this "once and for all": added a hard rule to CLAUDE.md's design system section — every F/D/G indicator app-wide must use one of exactly two patterns, **normal** (pill: `.roster-pos-pill` + `.roster-pos-pill-f/d/g`) or **compact** (bare colored letter, no pill: new `.pos-compact-f/d/g`), chosen per screen by data density, always built via a new shared `posGroupClass()` helper in `api.ts` (never inline `.toLowerCase()`).

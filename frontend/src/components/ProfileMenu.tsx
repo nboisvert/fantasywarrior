@@ -11,7 +11,7 @@
 // inside so keyboard users don't have to tab past a hidden panel.
 
 import { useEffect, useRef, useState } from "react";
-import { LogOutIcon, SettingsIcon, UsersIcon } from "./Icons";
+import { ArrowLeftIcon, LogOutIcon, MessageCircleIcon, SendIcon, SettingsIcon, UsersIcon } from "./Icons";
 import "./ProfileMenu.css";
 
 /* ---------- mock presence (placeholder until real presence tracking exists) ----------
@@ -54,6 +54,37 @@ function getPresence(username: string): Presence {
   }
   const days = (seed % 6) + 1;
   return { online: false, lastSeenLabel: `${days}d ago`, minutesAgo: days * 1440 };
+}
+
+/* ---------- mock chat (UI only — no backend, per Nick's "just UI mock for now") ----------
+ * A small seeded set of opening exchanges, picked deterministically per GM
+ * (same hash as getPresence) so reopening a thread shows the same starting
+ * messages instead of a new random pair each time. Anything typed and sent
+ * during the session is appended locally only — nothing is persisted or
+ * sent anywhere; real messaging needs an actual backend (a `messages`
+ * collection + realtime listeners) that doesn't exist yet.
+ */
+interface ChatMessage {
+  id: string;
+  fromMe: boolean;
+  text: string;
+  time: string;
+}
+
+const MOCK_EXCHANGES: { theirs: string; mine: string }[] = [
+  { theirs: "You around for the draft chat tonight?", mine: "Yeah, I'll hop on around 8." },
+  { theirs: "Nice pickup on that last trade.", mine: "Thanks, been eyeing him for weeks." },
+  { theirs: "Your goalie situation is looking rough.", mine: "Don't remind me..." },
+  { theirs: "Free agent wire is stacked this week.", mine: "Calling dibs on that winger from Montreal." },
+  { theirs: "Good game last night, close one.", mine: "Too close, I need a bench boost." },
+];
+
+function getMockThread(username: string): ChatMessage[] {
+  const exchange = MOCK_EXCHANGES[hashString(username) % MOCK_EXCHANGES.length];
+  return [
+    { id: "seed-1", fromMe: false, text: exchange.theirs, time: "Yesterday" },
+    { id: "seed-2", fromMe: true, text: exchange.mine, time: "Yesterday" },
+  ];
 }
 
 /** First letters of up to the first two "words" of a username (usernames in
@@ -108,12 +139,41 @@ export function ProfileMenu({
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  // Move focus into the panel when it opens.
+  const close = () => setOpen(false);
+
+  const [chatWith, setChatWith] = useState<string | null>(null);
+  const [threads, setThreads] = useState<Record<string, ChatMessage[]>>({});
+  const [draft, setDraft] = useState("");
+
+  // Move focus into the panel when it opens, and again whenever the view
+  // swaps between the GM list and a chat thread (firstItemRef re-attaches
+  // to whichever view is currently mounted).
   useEffect(() => {
     if (open) firstItemRef.current?.focus();
+  }, [open, chatWith]);
+
+  // Land back on the GM list, not mid-conversation, next time the menu opens.
+  useEffect(() => {
+    if (!open) {
+      setChatWith(null);
+      setDraft("");
+    }
   }, [open]);
 
-  const close = () => setOpen(false);
+  const openChat = (member: string) => {
+    setThreads((prev) => (prev[member] ? prev : { ...prev, [member]: getMockThread(member) }));
+    setChatWith(member);
+  };
+
+  const sendMessage = () => {
+    const text = draft.trim();
+    if (!text || !chatWith) return;
+    setThreads((prev) => ({
+      ...prev,
+      [chatWith]: [...(prev[chatWith] ?? []), { id: `local-${Date.now()}`, fromMe: true, text, time: "Just now" }],
+    }));
+    setDraft("");
+  };
 
   // Online first, then most-recently-seen first; a stable alphabetical
   // tiebreak keeps the order from jittering between renders.
@@ -145,7 +205,57 @@ export function ProfileMenu({
         <span className="profile-trigger-name">{username}</span>
       </button>
 
-      {open && (
+      {open && chatWith && (
+        <div ref={panelRef} className="profile-panel profile-panel-chat" role="dialog" aria-label={`Chat with ${chatWith}`}>
+          <div className="profile-chat-header">
+            <button
+              ref={firstItemRef}
+              className="profile-chat-back"
+              onClick={() => setChatWith(null)}
+              aria-label="Back to profile menu"
+            >
+              <ArrowLeftIcon size={18} />
+            </button>
+            <span className="profile-avatar" aria-hidden="true">
+              {initials(chatWith)}
+            </span>
+            <span className="profile-panel-name">{chatWith}</span>
+          </div>
+
+          <p className="profile-chat-mock-note muted">UI preview only — messages aren't sent anywhere yet.</p>
+
+          <ul className="profile-chat-thread">
+            {(threads[chatWith] ?? []).map((msg) => (
+              <li key={msg.id} className={`profile-chat-bubble${msg.fromMe ? " mine" : ""}`}>
+                <span className="profile-chat-text">{msg.text}</span>
+                <span className="profile-chat-time muted">{msg.time}</span>
+              </li>
+            ))}
+          </ul>
+
+          <div className="profile-chat-composer">
+            <input
+              className="field profile-chat-input"
+              placeholder={`Message ${chatWith}…`}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") sendMessage();
+              }}
+            />
+            <button
+              className="profile-chat-send"
+              onClick={sendMessage}
+              disabled={!draft.trim()}
+              aria-label="Send"
+            >
+              <SendIcon size={18} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {open && !chatWith && (
         <div ref={panelRef} className="profile-panel" role="dialog" aria-label="Profile menu">
           <div className="profile-panel-header">
             <span className="profile-avatar profile-avatar-lg" aria-hidden="true">
@@ -196,6 +306,13 @@ export function ProfileMenu({
                   />
                   <span className="profile-member-name">{member}</span>
                   <span className="profile-member-seen muted">{presence.lastSeenLabel}</span>
+                  <button
+                    className="profile-msg-btn"
+                    onClick={() => openChat(member)}
+                    aria-label={`Message ${member}`}
+                  >
+                    <MessageCircleIcon size={16} />
+                  </button>
                 </li>
               ))}
             </ul>
