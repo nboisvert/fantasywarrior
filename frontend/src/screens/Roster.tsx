@@ -87,10 +87,10 @@ export function Roster({ league, username }: { league: LeagueDetail; username: s
               <img className="headshot" src={p.headshotUrl ?? ""} alt="" loading="lazy" />
               <span className="player-info">
                 <span className="player-name-line">
+                  <span className="name">{p.name}</span>
                   <span className={`roster-pos-pill roster-pos-pill-${posGroup(p.position).toLowerCase()}`}>
                     {posGroup(p.position)}
                   </span>
-                  <span className="name">{p.name}</span>
                 </span>
                 <small className="player-sub">
                   <span>{p.team}</span>
