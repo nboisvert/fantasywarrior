@@ -182,6 +182,28 @@
   }
 }
 
+/* "TRADE ALERT" label, straddling the ticker's own top border like a
+   fieldset legend — reads as if it's cut into the gold border line itself
+   (2026-07-23, per Nick). The background is a flat approximation of the
+   page behind the ticker (the radial glows aren't sampled), close enough
+   for a label this small/thin. */
+.news-ticker-alert-label {
+  position: absolute;
+  top: 0;
+  left: 1rem;
+  transform: translateY(-50%);
+  padding: 0 0.4rem;
+  background: var(--bg);
+  border-radius: 4px;
+  color: var(--gold);
+  font: 700 0.62rem var(--font-body);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-shadow: 0 0 8px rgba(251, 191, 36, 0.5);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 /* 5-tab fit (2026-07-23, Stats tab added): gap/padding tightened above and
    label type tightened here so "Dashboard"/"Standings" still fit without
    wrapping at a 375px viewport now that there are 5 tabs instead of 4. */
