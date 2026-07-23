@@ -1,9 +1,15 @@
 # Fantasy Warrior — Project Status
 
 > **MUST be read at the start of every session and kept updated along the way.**
-> Last updated: 2026-07-23 (by Macklin Softwarini) — Trades screen overhaul (privacy, timeline, recap, star rating)
+> Last updated: 2026-07-23 (by Macklin Softwarini) — end-of-session wrap-up
 
 ## Current state
+
+**Session wrap-up (2026-07-23)** — 33 commits today, ~6,200 lines generated / ~1,100 removed (net +5,091, via `git log --numstat`), spanning: Roster/Stats screen split, score ledger + per-assignment stats, Dashboard/Roster/Standings position-pill + row-density pass, breathing-logo loading state, global news ticker (built, then iterated on alert styling/scroll speed/starvation fix/user-scrollability across ~8 follow-up rounds), full trade feature (propose → accept/decline → nightly-process → community rating) plus its full privacy/cancelled-status/star-rating/history-timeline overhaul (2 rounds), profile menu + online GM list + inline chat mock, assignment creation/close field rename + one-command demo reseed, and a PlayerCard scroll fix. Everything is committed and pushed to `main`; **the Cloud Run API redeploy for the trade-privacy/rating backend changes is still on Nick to trigger** — see that entry below for what depends on it.
+
+**Trades history: chronological vertical timeline instead of per-trade stepper (2026-07-23)**
+
+Nick clarified after the overhaul below: the "timeline" ask was for the **past-trades list itself** — each past trade as one stop on a single chronological timeline (dot + recap + click-to-expand) — not a Proposed→Accepted→Processed stepper nested inside each trade. Reworked `Trades.tsx`: past trades now render as one dotted vertical timeline (`trade-history*` classes in `App.css`, cyan dot for processed / rose for declined-cancelled), each node showing the status pill, single most-relevant date, and the 2-3-player recap, expanding to the full player lists + all stage timestamps (now a compact inline `Proposed: … · Accepted: …` line, `StageDates`, replacing the old per-trade `TradeTimeline` stepper) + the rating widget (unchanged). Frontend-only, build clean, no backend redeploy needed for this part.
 
 **Trades screen overhaul: privacy, vertical timeline, recap, star rating (2026-07-23) — DONE** (plan: `C:\Users\nicolasc\.claude\plans\plusieurs-points-ici-param-trable-concurrent-mango.md`)
 
