@@ -24,7 +24,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.85rem 1rem;
+  /* Vertical padding trimmed to make room for the bigger logo below without
+     growing the bar's overall height (2026-07-23, per Nick). */
+  padding: 0.5rem 1rem;
   background: rgba(10, 14, 26, 0.82);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -50,8 +52,8 @@
 }
 
 .topbar-logo {
-  width: 30px;
-  height: 30px;
+  width: 40px;
+  height: 40px;
   flex-shrink: 0;
 }
 
