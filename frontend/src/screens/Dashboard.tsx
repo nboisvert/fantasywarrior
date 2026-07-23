@@ -25,6 +25,26 @@ function formatCapCompact(amount: number): string {
   return `${sign}$${abs}`;
 }
 
+type PosGroup = "F" | "D" | "G";
+
+/** Collapse a raw NHL position code to the three roster groups — same
+ * helper as Roster.tsx/Stats.tsx (kept duplicated on purpose, per project
+ * convention of small screen-local helpers rather than a shared util). */
+function posGroup(position: string): PosGroup {
+  if (position === "D") return "D";
+  if (position === "G") return "G";
+  return "F";
+}
+
+/** "Sidney Crosby" -> "S. Crosby" — used only for this screen's compact
+ * scorer list (Roster/Stats keep full names). Falls back to the plain
+ * string when there's no space to split on (single-word name). */
+function formatShortName(name: string): string {
+  const spaceIndex = name.indexOf(" ");
+  if (spaceIndex <= 0) return name;
+  return `${name[0]}. ${name.slice(spaceIndex + 1)}`;
+}
+
 /** 1 -> "1st", 3 -> "3rd", 11 -> "11th", etc. */
 function ordinal(n: number): string {
   const rem100 = n % 100;
@@ -108,9 +128,11 @@ export function Dashboard({ league, username }: { league: LeagueDetail; username
                 >
                   <img className="headshot" src={p.headshotUrl ?? ""} alt="" loading="lazy" />
                   <span className="player-info">
-                    <span className="name">{p.name}</span>
+                    <span className="name">{formatShortName(p.name)}</span>
                     <small>
-                      <span className="pos-badge">{p.position}</span>
+                      <span className={`roster-pos-pill roster-pos-pill-${posGroup(p.position).toLowerCase()}`}>
+                        {posGroup(p.position)}
+                      </span>
                       {p.team}
                     </small>
                   </span>

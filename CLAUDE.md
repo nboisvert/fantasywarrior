@@ -37,7 +37,7 @@ Hosting must stay easy and free.
 All UI work MUST follow this system. Tokens live in `frontend/src/index.css` (CSS variables), components in `frontend/src/App.css`, screens in `frontend/src/screens/`, SVG icons in `frontend/src/components/Icons.tsx`.
 
 - **Theme**: dark only ("night arena"). Background `#0a0e1a` with fixed radial cyan/indigo glows; elevated `#10162a`; glass cards `rgba(255,255,255,.045)` + 1px border `rgba(255,255,255,.09)` + backdrop-blur.
-- **Accent**: ice cyan `#38bdf8` → `#22d3ee` (gradients, active states, subtle neon glow `rgba(56,189,248,.35)`). Danger/over-cap: rose `#f43f5e`. Standings podium: gold `#fbbf24`, silver `#c7d2e0`, bronze `#d0885a`.
+- **Accent**: ice cyan `#38bdf8` → `#22d3ee` (gradients, active states, subtle neon glow `rgba(56,189,248,.35)`). Danger/over-cap: rose `#f43f5e`. Standings podium: gold `#fbbf24`, silver `#c7d2e0`, bronze `#d0885a`. Position pills (F/D/G, `.roster-pos-pill-*`): forward = ice cyan, defense = violet `#a78bfa` (`--defense`, added 2026-07-23 — silver read too low-contrast for defense), goalie = gold.
 - **Text**: `#f1f5f9`; muted `#8b96ab`. Contrast AA minimum.
 - **Typography**: Russo One (display: headings, team names, numbers, uppercase) + Chakra Petch (body) — Google Fonts, loaded in `index.html`.
 - **Shape & motion**: radii 12-16px; transitions 150-300ms (color/opacity/filter only, no layout-shifting hover); `fade-in` 250ms for screen mounts; respect `prefers-reduced-motion`.
