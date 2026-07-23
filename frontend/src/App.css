@@ -624,8 +624,27 @@
 }
 
 .player-name-line .name {
-  flex: 1;
+  /* Shrinks/ellipsizes if needed but doesn't stretch — otherwise it pushes
+     the pill (and the salary after it) away from the name instead of
+     sitting snug right next to it. */
+  flex-shrink: 1;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Salary sits at the far right of line 1 (name + pill stay snug at the
+   start) — margin-left: auto claims all the remaining row width for it
+   alone. Slightly more prominent than plain muted text (2026-07-23, per
+   Nick), mirroring .pts-small's treatment. */
+.player-salary {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  color: var(--ice-bright);
+  white-space: nowrap;
 }
 
 .player-info small {
@@ -701,10 +720,6 @@
   align-items: center;
   gap: 0.4rem;
   flex-wrap: wrap;
-}
-
-.player-cap-hit {
-  color: var(--text-muted);
 }
 
 /* ---------- scoring ---------- */

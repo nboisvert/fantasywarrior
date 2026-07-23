@@ -91,10 +91,10 @@ export function Roster({ league, username }: { league: LeagueDetail; username: s
                   <span className={`roster-pos-pill roster-pos-pill-${posGroup(p.position).toLowerCase()}`}>
                     {posGroup(p.position)}
                   </span>
+                  {p.capHit != null && <span className="player-salary">{formatCapCompact(p.capHit)}</span>}
                 </span>
                 <small className="player-sub">
                   <span>{p.team}</span>
-                  {p.capHit != null && <span className="player-cap-hit">{formatCapCompact(p.capHit)}</span>}
                 </small>
               </span>
             </button>
