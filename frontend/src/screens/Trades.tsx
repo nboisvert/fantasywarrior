@@ -13,6 +13,25 @@ import { LoadingLogo } from "../components/LoadingLogo";
 const playersLabel = (players: TradePlayer[]) =>
   players.length === 0 ? "nothing" : players.map((p) => p.name).join(", ");
 
+const formatDateTime = (iso: string) =>
+  new Date(iso).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+/** The most relevant date/time to show per trade, labeled by what it means
+ * for that status — proposed/accepted/declined/processed each point at a
+ * different timestamp field. */
+function tradeDateLabel(t: Trade): string {
+  if (t.status === "processed" && t.processedUtc) return `Processed ${formatDateTime(t.processedUtc)}`;
+  if (t.status === "declined" && t.respondedUtc) return `Declined ${formatDateTime(t.respondedUtc)}`;
+  if (t.status === "accepted" && t.respondedUtc) return `Accepted ${formatDateTime(t.respondedUtc)}`;
+  return `Proposed ${formatDateTime(t.createdUtc)}`;
+}
+
 export function Trades({ league, username }: { league: LeagueDetail; username: string }) {
   const [trades, setTrades] = useState<Trade[] | null>(null);
   const [error, setError] = useState("");
@@ -81,6 +100,7 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
                       <div>{t.proposerTeamName} gives: {playersLabel(t.playersFromProposer)}</div>
                       <div>{t.counterpartyTeamName} gives: {playersLabel(t.playersFromCounterparty)}</div>
                     </div>
+                    <small className="muted trade-row-date">{tradeDateLabel(t)}</small>
                     {t.status === "pending" && t.counterpartyUsername === username && (
                       <div className="trade-actions">
                         <button className="btn" disabled={busyId === t.id} onClick={() => respond(t.id, true)}>
@@ -126,6 +146,7 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
                       </span>
                       <span className={`trade-status-pill trade-status-${t.status}`}>{t.status}</span>
                     </button>
+                    <small className="muted trade-row-date">{tradeDateLabel(t)}</small>
                     {expanded === t.id && (
                       <div className="trade-row-expanded">
                         <div className="trade-row-players">

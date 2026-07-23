@@ -15,6 +15,13 @@
 // draw the eye — and reverts the moment it scrolls back out. Since the
 // marquee loops, the same item re-triggers the alert every time it comes
 // back around, for as long as it's still within its 30-minute window.
+//
+// The band is a genuine scrollable element (not a CSS transform animation):
+// a requestAnimationFrame loop nudges `scrollLeft` forward at a steady pace,
+// but a real touch/wheel/trackpad scroll on it moves the SAME scrollLeft, so
+// a user can swipe through faster than the auto-advance — auto-play just
+// pauses for a couple seconds after manual input, then resumes from wherever
+// the user left it.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
@@ -22,6 +29,10 @@ import type { ActivityEntry, LeagueDetail, Trade, TradePlayer } from "../api";
 import { ArrowLeftRightIcon, MinusIcon, PlusIcon } from "./Icons";
 
 const HOT_WINDOW_MS = 30 * 60 * 1000;
+/** How long after the user's last touch/wheel input before auto-advance resumes. */
+const RESUME_AFTER_MS = 1500;
+/** Matches the old CSS animation's pace: one full loop of the (undoubled) content in 60s. */
+const LOOP_SECONDS = 60;
 
 /** Small local helper, not shared — same "duplicated per file" convention as
  * formatMoneyCompact in Stats.tsx/Roster.tsx. */
@@ -75,6 +86,8 @@ export function NewsTicker({ leagueId, league }: { leagueId: string | null; leag
   const tickerRef = useRef<HTMLDivElement>(null);
   const visibleHotNodes = useRef<Set<Element>>(new Set());
   const [alertActive, setAlertActive] = useState(false);
+  const lastInputRef = useRef(0);
+  const isHoveringRef = useRef(false);
 
   // Ticks every 30s purely to re-evaluate "is this trade still within its
   // 30-minute hot window" — without this, a trade that ages out while the
@@ -162,6 +175,82 @@ export function NewsTicker({ leagueId, league }: { leagueId: string | null; leag
     };
   }, [hotKey]);
 
+  // Mark recent manual input (touch/wheel/pointer) so the auto-advance loop
+  // below knows to back off for a bit instead of fighting the user's scroll.
+  // Hovering pauses for as long as the pointer stays over it (WCAG 2.2.2 —
+  // not just a fixed timeout like the other input types).
+  useEffect(() => {
+    const el = tickerRef.current;
+    if (!el) return;
+    const markActive = () => {
+      lastInputRef.current = performance.now();
+    };
+    const onEnter = () => {
+      isHoveringRef.current = true;
+    };
+    const onLeave = () => {
+      isHoveringRef.current = false;
+      lastInputRef.current = performance.now();
+    };
+    el.addEventListener("wheel", markActive, { passive: true });
+    el.addEventListener("touchstart", markActive, { passive: true });
+    el.addEventListener("pointerdown", markActive);
+    el.addEventListener("mouseenter", onEnter);
+    el.addEventListener("mouseleave", onLeave);
+    el.addEventListener("focusin", onEnter);
+    el.addEventListener("focusout", onLeave);
+    return () => {
+      el.removeEventListener("wheel", markActive);
+      el.removeEventListener("touchstart", markActive);
+      el.removeEventListener("pointerdown", markActive);
+      el.removeEventListener("mouseenter", onEnter);
+      el.removeEventListener("mouseleave", onLeave);
+      el.removeEventListener("focusin", onEnter);
+      el.removeEventListener("focusout", onLeave);
+    };
+  }, []);
+
+  // Auto-advance: a real scrollLeft nudge every frame, not a CSS transform,
+  // so a manual scroll/swipe on the same element can move it faster — this
+  // just backs off for RESUME_AFTER_MS after any detected user input.
+  useEffect(() => {
+    if (reducedMotion) return;
+    const el = tickerRef.current;
+    if (!el) return;
+    let raf = 0;
+    let last = performance.now();
+
+    const step = (t: number) => {
+      const dt = (t - last) / 1000;
+      last = t;
+      if (!isHoveringRef.current && performance.now() - lastInputRef.current > RESUME_AFTER_MS) {
+        const half = el.scrollWidth / 2;
+        if (half > 0) {
+          const pxPerSecond = half / LOOP_SECONDS;
+          el.scrollLeft += pxPerSecond * dt;
+          if (el.scrollLeft >= half) el.scrollLeft -= half;
+        }
+      }
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [reducedMotion, items]);
+
+  // A manual scroll can also carry scrollLeft past the halfway point (the
+  // doubled list's seam) — wrap it the same way the auto-advance loop does,
+  // so scrolling fast doesn't run off the end of the (real) content.
+  useEffect(() => {
+    const el = tickerRef.current;
+    if (!el || reducedMotion) return;
+    const onScroll = () => {
+      const half = el.scrollWidth / 2;
+      if (half > 0 && el.scrollLeft >= half) el.scrollLeft -= half;
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [reducedMotion, items]);
+
   if (items.length === 0) return null;
 
   const displayItems = reducedMotion ? items : [...items, ...items];
@@ -172,7 +261,7 @@ export function NewsTicker({ leagueId, league }: { leagueId: string | null; leag
       className={`news-ticker${alertActive ? " alert" : ""}`}
       aria-label="Recent league activity"
     >
-      <div className="news-ticker-track" style={reducedMotion ? { animation: "none" } : undefined}>
+      <div className="news-ticker-track">
         {displayItems.map((item, i) => {
           const isHot = item.kind === "trade" && now - item.ts < HOT_WINDOW_MS;
           return (

@@ -5,6 +5,12 @@
 
 ## Current state
 
+**News ticker: user-scrollable + Trades screen shows date/time (2026-07-23)**
+
+- **Ticker is now a real scrollable element, not a CSS transform animation.** `NewsTicker.tsx` drives auto-advance via a `requestAnimationFrame` loop nudging `scrollLeft` (matching the old pace: one loop of the content per 60s), but since it's genuine `overflow-x: auto` underneath, real touch/wheel/trackpad input on the same element moves that same `scrollLeft` — so a user can swipe through faster than the auto-advance. Auto-advance backs off for 1.5s after detected input, and pauses entirely (not just a timeout) for as long as the pointer/focus stays on it, matching the previous CSS `:hover`/`:focus-within` pause behavior (WCAG 2.2.2). Scrollbar hidden (`scrollbar-width: none` + `::-webkit-scrollbar{display:none}`) since it reads as a ticker, not a conventional list. The hot-trade `IntersectionObserver` logic needed no changes — real scrolling is if anything a more natural fit for it than the transform-based version.
+- **Trades screen shows date/time per row** — `tradeDateLabel()` in `Trades.tsx` picks the status-relevant timestamp (`Proposed`/`Accepted`/`Declined`/`Processed` + a formatted date+time), shown on both pending and past-trade rows.
+- Frontend-only, build clean, no backend redeploy needed.
+
 **Assignment field model renamed + one-command full demo reseed (2026-07-23)**
 
 Formalized the open/close tracking fields Nick asked to define: `Assignment.CreationEvent`/`CreationEventReferenceId` (values: `draft` | `trade` | `freeagent`, default `freeagent` — replaces the old `Source`/`SourceRefId`, dropping the separate `"initial"` concept entirely) and `CloseReason`/`CloseReasonReferenceId` (values: `trade` | `release` | null-while-open — `CloseReasonReferenceId` renamed from the previous session's `CloseSourceRefId`). `RosterChange.ApplyAsync` now takes independent creation/close parameter pairs instead of one shared `source`/`sourceRefId` (needed since the vocab differs by direction — e.g. a free-agency add opens with `freeagent` but a manual drop closes with `release`, not the same value). Renamed across `Assignment.cs`, `RosterChange.cs`, `Program.cs` (add/drop endpoints, `/activity`, `RosterChangeRequest` DTO), `ProcessTradesJob.cs`, `SeedTradesJob.cs`, `seed-allstars`/`league-init-assignments`, `RosterChangeTests.cs`, and the frontend `ActivityEntry.source` type. 47 tests green throughout.

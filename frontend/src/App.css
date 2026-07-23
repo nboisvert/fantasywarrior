@@ -81,7 +81,14 @@
    mounted once in App.tsx so it's visible on every tab — sits in its own
    fixed band directly above the bottom nav. Revives a Dashboard-only
    vertical-carousel ticker that was removed in an earlier redesign, this
-   time app-wide and as a plain CSS marquee (no JS timer/windowing needed). */
+   time app-wide.
+   A genuine scrollable element, not a CSS transform animation (see
+   NewsTicker.tsx) — a requestAnimationFrame loop nudges scrollLeft forward
+   at a steady pace, but real touch/wheel/trackpad input on the same element
+   moves that same scrollLeft, so users can swipe through faster than the
+   auto-advance (2026-07-23, per Nick). Scrollbar hidden since this reads as
+   a ticker, not a conventional scrollable list, but the element is fully
+   real-scroll-capable underneath. */
 .news-ticker {
   position: fixed;
   left: 0;
@@ -89,7 +96,9 @@
   bottom: calc(var(--nav-height) + env(safe-area-inset-bottom));
   z-index: 40;
   height: var(--ticker-height);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
   display: flex;
   align-items: center;
   background: rgba(13, 18, 34, 0.92);
@@ -98,35 +107,16 @@
   border-top: 1px solid var(--border);
 }
 
+.news-ticker::-webkit-scrollbar {
+  display: none;
+}
+
 .news-ticker-track {
   display: flex;
   align-items: center;
   gap: 2rem;
   white-space: nowrap;
   padding-left: 1.5rem;
-  animation: news-ticker-scroll 60s linear infinite;
-}
-
-/* Pauseable motion (WCAG 2.2.2) — hover for desktop, focus-within so a
-   keyboard user tabbing through can also stop it moving. */
-.news-ticker:hover .news-ticker-track,
-.news-ticker:focus-within .news-ticker-track {
-  animation-play-state: paused;
-}
-
-@keyframes news-ticker-scroll {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .news-ticker-track {
-    animation: none;
-  }
 }
 
 .news-ticker-item {
@@ -1546,4 +1536,8 @@
   gap: 0.75rem;
   padding-top: 0.4rem;
   border-top: 1px solid var(--border);
+}
+
+.trade-row-date {
+  font-size: 0.72rem;
 }
