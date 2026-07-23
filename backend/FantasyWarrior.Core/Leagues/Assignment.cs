@@ -37,6 +37,20 @@ public sealed class Assignment
     [FirestoreProperty("sourceRefId")]
     public string? SourceRefId { get; set; }
 
+    /// <summary>
+    /// How this assignment ENDED — set only when it closes. Distinct from
+    /// `source` (why it was OPENED): a season-long "initial" assignment can
+    /// still end via a trade, and the activity feed's drop event must
+    /// reflect that, not the original acquisition reason. Null on legacy
+    /// assignments closed before this field existed — the activity feed
+    /// falls back to `source` for those.
+    /// </summary>
+    [FirestoreProperty("closeReason")]
+    public string? CloseReason { get; set; }
+
+    [FirestoreProperty("closeSourceRefId")]
+    public string? CloseSourceRefId { get; set; }
+
     [FirestoreProperty("createdUtc")]
     public Timestamp CreatedUtc { get; set; }
 

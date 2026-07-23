@@ -56,7 +56,9 @@ public class RosterChangeTests
     public void BuildClosedAssignmentFields_SetsToAndClosedUtc_OnTopOfFrozenStats()
     {
         var totals = new PlayerRawTotals(GamesPlayed: 10, Goals: 4, Assists: 6);
-        var fields = RosterChange.BuildClosedAssignmentFields(totals, finalFantasyPoints: 10, effectiveDate: "2026-07-24", closedUtc: FixedNow);
+        var fields = RosterChange.BuildClosedAssignmentFields(
+            totals, finalFantasyPoints: 10, effectiveDate: "2026-07-24", closedUtc: FixedNow,
+            closeReason: "trade", closeSourceRefId: "trade-abc");
 
         Assert.Equal("2026-07-24", fields["to"]);
         Assert.Equal(FixedNow, fields["closedUtc"]);
@@ -64,6 +66,33 @@ public class RosterChangeTests
         Assert.Equal(10, fields["gamesPlayed"]);
         Assert.Equal(4, fields["goals"]);
         Assert.Equal(10.0, fields["fantasyPoints"]);
+    }
+
+    [Fact]
+    public void BuildClosedAssignmentFields_RecordsCloseReason_DistinctFromOriginalOpenSource()
+    {
+        // The whole point of this field: a season-long assignment opened
+        // with source="initial" can still close because of a trade — the
+        // close reason must reflect that, not the original open reason.
+        var totals = new PlayerRawTotals();
+        var fields = RosterChange.BuildClosedAssignmentFields(
+            totals, finalFantasyPoints: 0, effectiveDate: "2026-07-24", closedUtc: FixedNow,
+            closeReason: "trade", closeSourceRefId: "trade-abc");
+
+        Assert.Equal("trade", fields["closeReason"]);
+        Assert.Equal("trade-abc", fields["closeSourceRefId"]);
+    }
+
+    [Fact]
+    public void BuildClosedAssignmentFields_OmitsCloseSourceRefIdWhenNull()
+    {
+        var totals = new PlayerRawTotals();
+        var fields = RosterChange.BuildClosedAssignmentFields(
+            totals, finalFantasyPoints: 0, effectiveDate: "2026-07-24", closedUtc: FixedNow,
+            closeReason: "free_agency", closeSourceRefId: null);
+
+        Assert.Equal("free_agency", fields["closeReason"]);
+        Assert.False(fields.ContainsKey("closeSourceRefId"));
     }
 
     [Fact]

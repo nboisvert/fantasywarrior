@@ -38,14 +38,22 @@ public static class RosterChange
     /// <summary>
     /// Pure: the field map to write when closing an outgoing player's open
     /// assignment — freezes the per-stint stats one final time (via
-    /// <see cref="AssignmentStats.ToFieldMap"/>) and sets `to`/`closedUtc`.
+    /// <see cref="AssignmentStats.ToFieldMap"/>), sets `to`/`closedUtc`, and
+    /// records why it closed (`closeReason`/`closeSourceRefId`) separately
+    /// from `source` (why it was originally opened) — a season-long
+    /// "initial" assignment ending via a trade must show up as a trade in
+    /// the activity feed's drop event, not as "initial".
     /// </summary>
     public static Dictionary<string, object> BuildClosedAssignmentFields(
-        PlayerRawTotals finalTotals, double finalFantasyPoints, string effectiveDate, Timestamp closedUtc)
+        PlayerRawTotals finalTotals, double finalFantasyPoints, string effectiveDate, Timestamp closedUtc,
+        string closeReason, string? closeSourceRefId)
     {
         var fields = AssignmentStats.ToFieldMap(finalTotals, finalFantasyPoints, closedUtc);
         fields["to"] = effectiveDate;
         fields["closedUtc"] = closedUtc;
+        fields["closeReason"] = closeReason;
+        if (closeSourceRefId is not null)
+            fields["closeSourceRefId"] = closeSourceRefId;
         return fields;
     }
 
@@ -119,7 +127,7 @@ public static class RosterChange
                 var lines = await PlayerTotalsSource.FetchLinesAsync(db, playerId, ct);
                 var finalTotals = PlayerTotalsSource.AggregateRange(lines, league.Season, a.From, effectiveDate);
                 var finalFantasyPoints = ScoringEngine.PlayerPoints(finalTotals, league.RuleConfig.PointValues);
-                var fields = BuildClosedAssignmentFields(finalTotals, finalFantasyPoints, effectiveDate, closeNow);
+                var fields = BuildClosedAssignmentFields(finalTotals, finalFantasyPoints, effectiveDate, closeNow, source, sourceRefId);
                 await assignmentDoc.Reference.UpdateAsync(fields, cancellationToken: ct);
             }
         }

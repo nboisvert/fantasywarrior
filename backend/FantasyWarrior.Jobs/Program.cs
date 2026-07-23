@@ -10,6 +10,11 @@ using Google.Cloud.Firestore;
 //   process-trades
 //     Executes every `accepted` trade (roster swap via RosterChange) and
 //     marks it `processed`. Run nightly, right after score-calc.
+//   seed-trades --league <leagueId>
+//     Wipes the league's trades (+ votes) and reseeds one of each status
+//     (pending/accepted/declined/processed) with staggered timestamps; the
+//     processed one is stamped "now" so it's inside the news ticker's
+//     30-minute hot window right after seeding.
 //   league-init-assignments
 //   estimate-salaries [--season 20252026] [--top 200] [--top-max 14000000]
 //                     [--top-min 3000000] [--default 1000000]
@@ -87,6 +92,17 @@ switch (job)
     case "process-trades":
     {
         await new FantasyWarrior.Jobs.Trades.ProcessTradesJob(db).RunAsync();
+        return 0;
+    }
+    case "seed-trades":
+    {
+        var seedLeagueId = GetOption(args, "--league");
+        if (seedLeagueId is null)
+        {
+            Console.Error.WriteLine("--league is required.");
+            return 1;
+        }
+        await new FantasyWarrior.Jobs.Trades.SeedTradesJob(db).RunAsync(seedLeagueId);
         return 0;
     }
     case "league-init-assignments":

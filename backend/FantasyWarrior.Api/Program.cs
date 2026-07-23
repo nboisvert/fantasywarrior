@@ -254,8 +254,10 @@ app.MapGet("/api/leagues/{leagueId}/activity", async (string leagueId, int? limi
     {
         var a = doc.ConvertTo<Assignment>();
         events.Add((a.CreatedUtc, "add", a.PlayerId, a.TeamUsername, a.Source, a.SourceRefId));
+        // Why it closed (e.g. "trade") can differ from why it was opened
+        // (e.g. "initial") — a season-long assignment can end via a trade.
         if (a.To is not null && a.ClosedUtc is { } closed)
-            events.Add((closed, "drop", a.PlayerId, a.TeamUsername, a.Source, a.SourceRefId));
+            events.Add((closed, "drop", a.PlayerId, a.TeamUsername, a.CloseReason ?? a.Source, a.CloseSourceRefId ?? a.SourceRefId));
     }
 
     var take = Math.Clamp(limit ?? 15, 1, 50);

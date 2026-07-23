@@ -5,6 +5,15 @@
 
 ## Current state
 
+**Fixed: trades were leaking spurious "drop" movement news + fresh trade-status test data (2026-07-23)**
+
+Nick caught that trade-involved players were still generating plain movement news items alongside their dedicated trade item. Root cause was an **engine design gap, not a typo**: `RosterChange.ApplyAsync` closes a player's *existing* assignment when he's traded away, but that assignment's `source` field reflects why it was originally *opened* (e.g. `"initial"`, from the season-long roster) — never why it *closed*. The `/activity` endpoint's drop-event derivation blindly reused that same opening `source` for the close event too, so a trade-caused drop showed up misattributed to `"initial"`/`"free_agency"`, slipping past the news ticker's `source !== "trade"` filter.
+- Fixed by adding `Assignment.CloseReason`/`CloseSourceRefId` (distinct from `Source`/`SourceRefId`, populated only when an assignment closes), threaded through `RosterChange.BuildClosedAssignmentFields` (now takes `closeReason`/`closeSourceRefId` params) and consumed by `/activity`'s drop-event branch (`a.CloseReason ?? a.Source`, backward-compatible fallback for assignments closed before this field existed). Tests: 47 green (+2).
+- Live-verified: the drop side of a fresh trade now correctly shows `source: "trade"` (was `"initial"`) — confirmed all 4 events (2 adds + 2 drops) of a freshly-processed nick↔al trade report `source: "trade"`.
+- **New `seed-trades --league <id>` job** (`Jobs/Trades/SeedTradesJob.cs`): wipes a league's `trades` (+ `votes` subcollections) and reseeds one of each status with staggered timestamps — pending (10 min old), accepted-not-yet-processed (proposed 2h/accepted 1h ago), declined (a day old), and a **processed trade stamped "now"** (via a real `RosterChange` swap, not a fake status flag) so it's inside the news ticker's 30-minute hot window immediately after seeding. Ran against Shemalz Pool: sam↔vince (pending), dom↔didi (accepted), baby↔jay (declined), nick↔al (processed, confirmed 0.9 min old / HOT at verification time).
+- Nick should now see the ticker's gold pulse alert live when the nick↔al trade item scrolls into view (still hadn't seen it before this fix+reseed).
+- **Needs a Cloud Run redeploy** before the fix is live in prod (backend change) — reminder, not self-triggerable.
+
 **News ticker: real notification system (2026-07-23) — non-trade movements + processed trades + "hot" alert**
 
 Rewrote `NewsTicker.tsx` to merge two real data sources into one feed: plain player movements (add/drop) with `source !== "trade"` from the existing `/activity` endpoint, plus recently `processed` trades from `/trades`, each rendered richly (both teams' "star" player — highest NHL points among the league's currently-rostered players, looked up via a new `league` prop threaded down from `App.tsx` — plus a `(+N)` for any other players on that side). Trade-sourced individual add/drop events are filtered out of the plain-movement list so a trade never double-shows.
