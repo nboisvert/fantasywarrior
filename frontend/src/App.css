@@ -686,70 +686,46 @@
 }
 
 /* ---------- dashboard ---------- */
-/* Density reference: PlayerCard.css (.pc-bio-grid / .pc-tiles / .pc-game-row) —
-   tiny uppercase labels, tight paddings, big numbers only where they matter. */
+/* Full restart (2026-07-22, per Nick): the previous 2-column dense-grid
+   dashboard read like a desktop BI panel crammed onto a phone. This version
+   is a single vertical stack of full-width cards. The "at a glance" tiles
+   below reuse PlayerCard.css's `.pc-tiles`/`.pc-tile` classes verbatim
+   (that stylesheet ships in the same bundle, via Dashboard.tsx's PlayerCard
+   import) so the padding/type-scale match PlayerCard exactly instead of
+   being re-derived and re-tightened. The scorers list below that reuses
+   Roster.tsx's own `.player-list`/`.player-row`/`.headshot`/`.player-info`
+   pattern for the same reason. */
 
-/* Layout: a 2-column top section (standings | cap + activity ticker stacked),
-   then a full-width scorers section below. Named grid areas so the single
-   stacked order at narrow widths is just a template swap, no source reorder.
-   Round 4: gap tightened (0.7/0.85rem -> 0.45/0.4rem) to reclaim horizontal
-   room — the whole point of this pass is that both columns fit side by side
-   on a real ~360-390px phone, not just in a browser resized to tablet width. */
-.dash-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-areas:
-    "standings cap"
-    "standings activity"
-    "scorers   scorers";
-  align-items: start;
-  gap: 0.45rem 0.4rem;
+.dash-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
-.dash-standings,
-.dash-cap,
-.dash-activity,
+.dash-glance {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Cap-space tile, over-cap case: same danger red/glow treatment as
+   `.cap-fill.over` elsewhere, applied to `.pc-tile`'s value here since this
+   card shows cap as one compact figure rather than the full used/max gauge. */
+.pc-tile.danger .pc-tile-value {
+  color: var(--danger);
+  text-shadow: 0 0 14px rgba(244, 63, 94, 0.35);
+}
+
+.dash-leader-note {
+  margin: 0;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
 .dash-scorers {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  min-width: 0;
-}
-
-.dash-standings {
-  grid-area: standings;
-}
-
-.dash-cap {
-  grid-area: cap;
-}
-
-.dash-activity {
-  grid-area: activity;
-}
-
-.dash-scorers {
-  grid-area: scorers;
-}
-
-/* Round 3 collapsed below 480px "for a table + a card side by side" — but
-   480 CSS px is wider than most phones in portrait (real devices run
-   ~360-430px), so on an actual phone it never rendered 2 columns at all.
-   Round 4 tightened every padding/gap in this section enough that 2 columns
-   now fit comfortably down to ~320px (an iPhone SE / first-gen "small
-   phone" width) with no truncated scores and no horizontal scroll — so the
-   breakpoint only needs to catch genuinely tiny/unusual viewports below
-   that, not typical phones. Reading order preserved when it does fire:
-   standings, cap, activity, scorers. */
-@media (max-width: 320px) {
-  .dash-grid {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "standings"
-      "cap"
-      "activity"
-      "scorers";
-  }
+  gap: 0.75rem;
 }
 
 .dashboard-section-head {
@@ -757,329 +733,6 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-}
-
-/* Cap Space card: reuses .cap-meter/.cap-track/.cap-fill verbatim (same
-   component language as Roster.tsx) — only the amount label is sized up a
-   touch since it's the sole focus of this small card, not one line among
-   others. Round 4: `.card`'s default 1rem padding is much too generous for a
-   ~150-165px-wide column at phone width, so it's overridden here down to
-   0.6rem/0.65rem, and the label sizes trimmed a notch so "$82.4M / $88.0M"
-   reliably fits on one line without wrapping. */
-/* Compound selectors (ancestor carries both .cap-meter and .dash-cap-meter)
-   so these intentionally out-specificity the shared `.cap-meter .cap-labels`
-   rule above, regardless of source order. */
-.cap-meter.dash-cap-meter {
-  gap: 0.4rem;
-  padding: 0.6rem 0.65rem;
-}
-
-.cap-meter.dash-cap-meter .cap-labels {
-  justify-content: flex-start;
-  font-size: 0.85rem;
-}
-
-.cap-meter.dash-cap-meter .cap-labels .used {
-  font-size: 0.92rem;
-}
-
-.dash-cap-empty {
-  padding: 0.3rem 0;
-  margin: 0;
-  text-align: left;
-}
-
-/* Dashboard-only: compact grid "table" for mini-standings and top-scorers.
-   One bordered container with internal grid rows instead of N separate
-   card-styled rows — reads denser and lets rank/team/pts (or name+pill/team
-   abbr/pts) align in columns. Rows are divided by a hairline, not individual
-   borders. Round 4: both tables now share the exact same row padding/gap
-   (only `grid-template-columns` differs below) so the two mini-tables read
-   as one consistent dense grid system rather than two different densities. */
-.mini-table {
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--surface);
-  overflow: hidden;
-}
-
-.mini-row {
-  display: grid;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.26rem 0.5rem;
-  color: inherit;
-}
-
-.mini-row + .mini-row {
-  border-top: 1px solid var(--border);
-}
-
-.mini-row.mine {
-  background: rgba(56, 189, 248, 0.06);
-}
-
-/* Standings-only: the "gap to my rank" divider. Deliberately heavier and
-   brighter than the hairline `.mini-row + .mini-row` border above it — a
-   glowing ice-cyan bar with extra breathing room, so it reads unmistakably
-   as "ranks were skipped here", not just another row separator. */
-.standings-gap {
-  height: 3px;
-  margin: 0.4rem 0.6rem;
-  border-radius: 99px;
-  background: linear-gradient(90deg, transparent, var(--ice) 15%, var(--ice-bright) 50%, var(--ice) 85%, transparent);
-  box-shadow: 0 0 10px var(--ice-glow);
-}
-
-/* Interactive scorer rows: visual line stays thin, but the button's padding
-   plus line-height keeps the real hit area >= 44px tall. */
-.mini-row.clickable {
-  width: 100%;
-  min-height: 44px;
-  border: none;
-  background: none;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.mini-row.clickable:hover {
-  background: var(--surface-strong);
-}
-
-/* Rank column narrowed from 1.4rem — single/double-digit ranks (this
-   league's roster of teams never runs past 2 digits) still center fine at
-   1.2rem, and the freed width goes to the team-name column, which needs it
-   more now that the whole column is narrower on phone. */
-.mini-standings .mini-row {
-  grid-template-columns: 1.2rem 1fr auto;
-}
-
-/* "My top scorers": name(+position pill) | team abbreviation | points. Row
-   padding/gap now comes entirely from the shared `.mini-row` rule above —
-   this override only supplies the column template, which is the one thing
-   that legitimately differs between the two mini-tables. */
-.mini-scorers .mini-row {
-  grid-template-columns: 1fr auto auto;
-}
-
-.msr-rank {
-  font-family: var(--font-display);
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  text-align: center;
-}
-
-.msr-rank.r1 {
-  color: var(--gold);
-}
-
-.msr-rank.r2 {
-  color: var(--silver);
-}
-
-.msr-rank.r3 {
-  color: var(--bronze);
-}
-
-.msr-team {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  line-height: 1.25;
-}
-
-.msr-name {
-  font-family: var(--font-display);
-  font-size: 0.82rem;
-  letter-spacing: 0.02em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mini-scorers .msr-name {
-  font-family: var(--font-body);
-  font-weight: 600;
-  font-size: 0.78rem;
-  display: flex;
-  align-items: baseline;
-  min-width: 0;
-}
-
-.msr-name-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-
-/* Position pill: clones `.counted-badge`'s exact pill treatment (same
-   gradient, radius, dark text, weight) — that class name is kept for the
-   "counted toward the score" meaning it already carries elsewhere, so this
-   gets its own name even though the visual language is identical on purpose. */
-.msr-pos-pill {
-  display: inline-block;
-  flex-shrink: 0;
-  margin-left: 0.35rem;
-  padding: 0.05rem 0.35rem;
-  border-radius: 5px;
-  font: 700 0.6rem/1.4 var(--font-body);
-  letter-spacing: 0.08em;
-  color: #06121f;
-  background: linear-gradient(135deg, var(--ice), var(--ice-bright));
-  vertical-align: middle;
-}
-
-/* Team abbreviation now stands alone as the mini-scorers' 2nd column (the
-   position code moved into the pill next to the name). */
-.msr-team-abbr {
-  flex-shrink: 0;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  color: var(--text-muted);
-  text-align: right;
-  white-space: nowrap;
-}
-
-.msr-pts {
-  flex-shrink: 0;
-  font-family: var(--font-display);
-  color: var(--ice-bright);
-  font-size: 0.9rem;
-  text-align: right;
-  white-space: nowrap;
-}
-
-.mini-scorers .msr-pts {
-  font-size: 0.8rem;
-}
-
-/* Recent-activity ticker: a 3-row vertical carousel over the full activity
-   list, inside a fixed-height (exactly 3 rows) slot so loading/empty/error/
-   sliding states never shift the layout around it. The `.card` gives it the
-   same glass-panel chrome as the cap card above it.
-   Mechanism: `.ticker-viewport` clips to `--ticker-row-h * 3`; `.ticker-track`
-   stacks every row (the activity list doubled, back-to-back) and is
-   translated up by `--ticker-row-h` per step via an inline `transform`, so
-   the window appears to slide continuously downward through the list. Once
-   a full cycle has scrolled past, the track is silently rewound to start
-   (transition duration set to 0ms for that one frame) — invisible, because
-   the doubled list means the content at the rewound position is identical
-   to what was already on screen. */
-.ticker {
-  padding: 0;
-  overflow: hidden;
-}
-
-.ticker:focus-visible {
-  outline: 2px solid var(--ice);
-  outline-offset: -2px;
-}
-
-.ticker-viewport {
-  --ticker-row-h: 1.85rem;
-  height: calc(var(--ticker-row-h) * 3);
-  overflow: hidden;
-  position: relative;
-}
-
-.ticker-viewport .ticker-empty {
-  height: 100%;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 1rem;
-  margin: 0;
-  text-align: center;
-}
-
-.ticker-track {
-  display: flex;
-  flex-direction: column;
-  transition-property: transform;
-  transition-timing-function: ease;
-}
-
-/* Visually-hidden live region: announces only the single row that just slid
-   into view (see the Dashboard.tsx effect that sets it), so screen readers
-   get one short, meaningful update per advance instead of the whole 3-row
-   window being re-read on every tick. */
-.ticker-sr-status {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-/* Compound selector so this reliably beats `.activity-row`'s own chrome
-   below, regardless of source order — the ticker sits inside `.card`
-   already, it doesn't need its own nested border/background. Each row gets
-   a hard-fixed height (not padding-derived) so every step of the slide
-   advances by an identical, predictable amount. */
-.activity-row.ticker-row {
-  width: 100%;
-  height: var(--ticker-row-h);
-  flex-shrink: 0;
-  border: none;
-  border-radius: 0;
-  background: none;
-}
-
-.activity-row {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0 0.5rem;
-  border-radius: 14px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  transition: border-color 0.2s;
-}
-
-.activity-row.mine {
-  border-color: rgba(56, 189, 248, 0.35);
-  background: rgba(56, 189, 248, 0.05);
-}
-
-.activity-icon {
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: rgba(56, 189, 248, 0.12);
-  color: var(--ice-bright);
-}
-
-.activity-icon.drop {
-  background: rgba(244, 63, 94, 0.12);
-  color: var(--danger);
-}
-
-.activity-text {
-  flex: 1;
-  min-width: 0;
-  font-size: 0.72rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.activity-time {
-  flex-shrink: 0;
-  color: var(--text-muted);
-  font-size: 0.62rem;
-  white-space: nowrap;
 }
 
 /* ---------- transitions ---------- */
