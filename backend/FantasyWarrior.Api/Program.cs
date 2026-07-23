@@ -352,6 +352,60 @@ app.MapGet("/api/players", async (string? q, PlayerCache players) =>
     return Results.Ok(results.Select(PlayerDto.From));
 });
 
+app.MapGet("/api/leagues/{leagueId}/teams/{username}/season-stats", async (
+    string leagueId, string username, FirestoreDb db, PlayerCache players) =>
+{
+    var leagueSnap = await db.Collection("leagues").Document(leagueId).GetSnapshotAsync();
+    if (!leagueSnap.Exists)
+        return Results.NotFound(new { error = "League not found." });
+    var league = leagueSnap.ConvertTo<League>();
+
+    var teamSnap = await leagueSnap.Reference.Collection("teams").Document(Normalize(username)).GetSnapshotAsync();
+    if (!teamSnap.Exists)
+        return Results.NotFound(new { error = "Team not found." });
+    var team = teamSnap.ConvertTo<Team>();
+
+    var playersById = await players.GetByIdsAsync(team.PlayerIds);
+    var totalsById = await PlayerTotalsSource.FetchWithCacheAsync(db, team.PlayerIds, league.Season);
+
+    var rows = team.PlayerIds
+        .Select(id => playersById.GetValueOrDefault(id))
+        .Where(p => p is not null)
+        .Select(p =>
+        {
+            var t = totalsById.GetValueOrDefault(p!.NhlId) ?? new PlayerRawTotals();
+            var isGoalie = p.Position == "G";
+            return new
+            {
+                id = p.NhlId,
+                name = $"{p.FirstName} {p.LastName}",
+                position = p.Position,
+                team = p.TeamAbbrev,
+                capHit = p.CapHit,
+                headshotUrl = p.HeadshotUrl,
+                isGoalie,
+                gamesPlayed = t.GamesPlayed,
+                goals = t.Goals,
+                assists = t.Assists,
+                points = t.Goals + t.Assists,
+                plusMinus = t.PlusMinus,
+                pim = t.Pim,
+                shots = t.Shots,
+                hits = t.Hits,
+                blockedShots = t.BlockedShots,
+                wins = t.Wins,
+                otLosses = t.OtLosses,
+                shutouts = t.Shutouts,
+                goalsAgainst = t.GoalsAgainst,
+                saves = t.Saves,
+                shotsAgainst = t.ShotsAgainst,
+            };
+        })
+        .ToList();
+
+    return Results.Ok(new { season = league.Season, players = rows });
+});
+
 app.MapGet("/api/players/{playerId:long}", async (long playerId, FirestoreDb db, PlayerCache players) =>
 {
     var player = (await players.GetByIdsAsync([playerId])).GetValueOrDefault(playerId);

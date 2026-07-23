@@ -62,6 +62,36 @@ export interface LeagueDetail {
   teams: TeamDto[];
 }
 
+export interface PlayerSeasonStatsRow {
+  id: number;
+  name: string;
+  position: string;
+  team: string;
+  capHit: number | null;
+  headshotUrl: string | null;
+  isGoalie: boolean;
+  gamesPlayed: number;
+  goals: number;
+  assists: number;
+  points: number;
+  plusMinus: number;
+  pim: number;
+  shots: number;
+  hits: number;
+  blockedShots: number;
+  wins: number;
+  otLosses: number;
+  shutouts: number;
+  goalsAgainst: number;
+  saves: number;
+  shotsAgainst: number;
+}
+
+export interface TeamSeasonStats {
+  season: string;
+  players: PlayerSeasonStatsRow[];
+}
+
 export interface ActivityEntry {
   type: "add" | "drop";
   dateUtc: string;
@@ -112,6 +142,10 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ username, ruleConfig }),
     }),
+  teamSeasonStats: (leagueId: string, username: string) =>
+    request<TeamSeasonStats>(
+      `/api/leagues/${encodeURIComponent(leagueId)}/teams/${encodeURIComponent(username)}/season-stats`,
+    ),
   searchPlayers: (q: string) => request<PlayerDto[]>(`/api/players?q=${encodeURIComponent(q)}`),
   addPlayer: (leagueId: string, username: string, playerId: number) =>
     request<PlayerDto>(`/api/leagues/${encodeURIComponent(leagueId)}/teams/${encodeURIComponent(username)}/roster`, {

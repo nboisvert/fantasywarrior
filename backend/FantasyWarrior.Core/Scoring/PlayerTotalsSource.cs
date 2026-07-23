@@ -37,6 +37,30 @@ public static class PlayerTotalsSource
         return results;
     }
 
+    /// <summary>
+    /// Cache-first totals — for on-demand views (e.g. a roster stats page)
+    /// where nightly-fresh data is fine. Falls back to a live per-game
+    /// aggregation (and populates the cache) for any player not yet cached.
+    /// </summary>
+    public static async Task<Dictionary<long, PlayerRawTotals>> FetchWithCacheAsync(
+        FirestoreDb db, IReadOnlyCollection<long> playerIds, string season, CancellationToken ct = default)
+    {
+        var results = new Dictionary<long, PlayerRawTotals>();
+        var misses = new List<long>();
+        foreach (var id in playerIds.Distinct())
+        {
+            var cached = await TryGetCachedAsync(db, season, id, ct);
+            if (cached is not null)
+                results[id] = cached;
+            else
+                misses.Add(id);
+        }
+        if (misses.Count > 0)
+            foreach (var (id, totals) in await FetchAsync(db, misses, season, ct))
+                results[id] = totals;
+        return results;
+    }
+
     public static async Task<IReadOnlyList<PlayerGameStats>> FetchLinesAsync(
         FirestoreDb db, long playerId, CancellationToken ct = default)
     {
