@@ -5,6 +5,14 @@
 
 ## Current state
 
+**News ticker: real notification system (2026-07-23) — non-trade movements + processed trades + "hot" alert**
+
+Rewrote `NewsTicker.tsx` to merge two real data sources into one feed: plain player movements (add/drop) with `source !== "trade"` from the existing `/activity` endpoint, plus recently `processed` trades from `/trades`, each rendered richly (both teams' "star" player — highest NHL points among the league's currently-rostered players, looked up via a new `league` prop threaded down from `App.tsx` — plus a `(+N)` for any other players on that side). Trade-sourced individual add/drop events are filtered out of the plain-movement list so a trade never double-shows.
+- **"Hot" alert**: a processed trade counts as hot for 30 minutes. While a hot trade's ticker item is actually scrolled into the visible band (tracked with a real `IntersectionObserver` against the ticker's own viewport — not just "present in the data"), the whole ticker switches to a pulsing gold alert treatment; it reverts the instant the item scrolls back out, and — since the marquee loops — re-fires every time that item comes back around, for as long as it's still within the 30-minute window. A `setInterval` re-checks hotness every 30s so it correctly expires even if the tab's been open the whole time.
+- **Per-type icons**: add = `PlusIcon` (ice-cyan), drop = new `MinusIcon` (muted), trade = `ArrowLeftRightIcon` (gold) — trade reuses the exact same icon used everywhere else a trade is represented (Trades nav tab, CreateTradeSheet), per Nick's ask.
+- Live-verified the data layer against prod Firestore: confirmed trade-sourced activity entries are correctly excluded from the plain-movement list, and the two leftover test trades from the earlier trade-feature verification are correctly past their 30-min hot window (~81-83 min old) so they won't spuriously alert. Couldn't visually verify the IntersectionObserver-driven scroll-into-view behavior itself (no browser tooling this session) — worth a manual check once a genuinely fresh trade exists.
+- Build clean.
+
 **Inline chat mock in the profile menu (2026-07-23, UI mock only — no backend)**
 
 Added a message icon to each "League GMs" row in `ProfileMenu`; tapping it swaps the panel's content (same dropdown, no new dialog — "inline") from the GM list to a two-message mock thread + composer for that GM, with a back arrow to return. Deterministic seeded opening exchange per GM (same hash approach as the presence mock), typed replies append locally only. A small note in the chat view ("UI preview only — messages aren't sent anywhere yet") makes the mock status explicit to whoever's testing it. New icons added: `MessageCircleIcon`, `ArrowLeftIcon`, `SendIcon`. Real chat needs an actual backend (a `messages` collection + realtime listeners) — not built, out of scope this round. Build clean.

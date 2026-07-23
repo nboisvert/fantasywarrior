@@ -139,7 +139,57 @@
 
 .news-ticker-icon {
   flex-shrink: 0;
+}
+
+/* Per-news-type icon color — trade reuses the same gold/ArrowLeftRightIcon
+   pairing used everywhere else a trade is represented (the Trades nav tab,
+   CreateTradeSheet's propose button uses the icon too). */
+.news-ticker-icon-add {
   color: var(--ice-bright);
+}
+
+.news-ticker-icon-drop {
+  color: var(--text-muted);
+}
+
+.news-ticker-icon-trade {
+  color: var(--gold);
+}
+
+/* A processed trade still within its 30-minute "hot" window gets a gold
+   text treatment on top of the container-level alert below, so the specific
+   item causing the alert is identifiable as it scrolls through. */
+.news-ticker-item.hot {
+  color: var(--gold);
+  font-weight: 700;
+}
+
+/* Container-level alert — active only while a hot trade's item is actually
+   scrolled into view (see NewsTicker.tsx's IntersectionObserver), not just
+   "present in the data". Reverts the instant it scrolls out, and re-fires
+   every time the looping marquee brings it back into view, for as long as
+   it's still within its 30-minute window. */
+.news-ticker.alert {
+  border-top-color: var(--gold);
+  background: rgba(251, 191, 36, 0.12);
+  animation: news-ticker-alert-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes news-ticker-alert-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 12px rgba(251, 191, 36, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 26px rgba(251, 191, 36, 0.5);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .news-ticker.alert {
+    animation: none;
+    box-shadow: 0 0 16px rgba(251, 191, 36, 0.35);
+  }
 }
 
 /* 5-tab fit (2026-07-23, Stats tab added): gap/padding tightened above and

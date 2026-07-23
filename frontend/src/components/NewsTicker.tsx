@@ -1,15 +1,27 @@
-// Global "news" ticker — a horizontal marquee of recent league activity
-// (adds/drops/trades), mounted once at the app-shell level so it's visible
-// on every tab, sitting in its own fixed band just above the bottom nav.
-// This revives a Dashboard-only "Recent Activity" ticker that was built then
-// fully removed during an earlier redesign (deferred, per project_status.md)
-// — same idea, now app-wide and a simpler horizontal marquee instead of the
-// old 3-row vertical carousel.
+// Global "news" ticker — a horizontal marquee mounted once at the app-shell
+// level, visible on every tab, sitting in its own fixed band just above the
+// bottom nav. Two kinds of items:
+//  - plain player movements (add/drop) that are NOT part of a trade — trade
+//    moves get their own richer representation below instead of showing up
+//    twice.
+//  - recently processed trades: both sides' "star" player (highest NHL
+//    points among the players on that side, per the current roster data)
+//    plus a "+N" for any others involved.
+//
+// A processed trade counts as "hot" for 30 minutes after it processed. While
+// a hot trade's ticker item is actually scrolled into view (tracked via
+// IntersectionObserver against the ticker's own visible band, not just
+// "present in the data"), the whole ticker switches to an alert treatment to
+// draw the eye — and reverts the moment it scrolls back out. Since the
+// marquee loops, the same item re-triggers the alert every time it comes
+// back around, for as long as it's still within its 30-minute window.
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
-import type { ActivityEntry } from "../api";
-import { ActivityIcon } from "./Icons";
+import type { ActivityEntry, LeagueDetail, Trade, TradePlayer } from "../api";
+import { ArrowLeftRightIcon, MinusIcon, PlusIcon } from "./Icons";
+
+const HOT_WINDOW_MS = 30 * 60 * 1000;
 
 /** Small local helper, not shared — same "duplicated per file" convention as
  * formatMoneyCompact in Stats.tsx/Roster.tsx. */
@@ -21,12 +33,6 @@ function timeAgo(dateUtc: string): string {
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h`;
   return `${Math.floor(hours / 24)}d`;
-}
-
-function entryText(e: ActivityEntry): string {
-  const verb = e.type === "add" ? "added" : "dropped";
-  const suffix = e.source === "trade" ? " (trade)" : "";
-  return `${e.teamName} ${verb} ${e.playerName}${suffix} · ${timeAgo(e.dateUtc)}`;
 }
 
 /** Mirrors the reduced-motion hook the old (removed) Dashboard ticker used —
@@ -45,42 +51,147 @@ function usePrefersReducedMotion(): boolean {
   return reduced;
 }
 
-export function NewsTicker({ leagueId }: { leagueId: string | null }) {
-  const [entries, setEntries] = useState<ActivityEntry[]>([]);
+type NewsItem =
+  | { kind: "movement"; key: string; ts: number; type: "add" | "drop"; text: string }
+  | { kind: "trade"; key: string; ts: number; label: string };
+
+/** "Star" player per side = highest NHL points among the current roster data
+ * (a proxy for "the name worth putting in the ticker" — the trade endpoint
+ * doesn't carry stats itself, so this looks the players up in the league's
+ * already-loaded roster data instead of adding a new backend field). */
+function tradeSideLabel(players: TradePlayer[], pointsById: Map<number, number>): string {
+  if (players.length === 0) return "nothing";
+  const sorted = [...players].sort((a, b) => (pointsById.get(b.id) ?? 0) - (pointsById.get(a.id) ?? 0));
+  return sorted.length > 1 ? `${sorted[0].name} (+${sorted.length - 1})` : sorted[0].name;
+}
+
+function tradeLabel(trade: Trade, pointsById: Map<number, number>): string {
+  return `${trade.proposerTeamName}: ${tradeSideLabel(trade.playersFromProposer, pointsById)} ⇄ ${trade.counterpartyTeamName}: ${tradeSideLabel(trade.playersFromCounterparty, pointsById)}`;
+}
+
+export function NewsTicker({ leagueId, league }: { leagueId: string | null; league: LeagueDetail | null }) {
+  const [items, setItems] = useState<NewsItem[]>([]);
   const reducedMotion = usePrefersReducedMotion();
+  const tickerRef = useRef<HTMLDivElement>(null);
+  const visibleHotNodes = useRef<Set<Element>>(new Set());
+  const [alertActive, setAlertActive] = useState(false);
+
+  // Ticks every 30s purely to re-evaluate "is this trade still within its
+  // 30-minute hot window" — without this, a trade that ages out while the
+  // tab stays open would never lose its highlight until the next data fetch.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const pointsById = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const team of league?.teams ?? []) for (const p of team.players) map.set(p.id, p.nhlPoints);
+    return map;
+  }, [league]);
 
   useEffect(() => {
     if (!leagueId) {
-      setEntries([]);
+      setItems([]);
       return;
     }
     let ignore = false;
-    api
-      .activity(leagueId, 12)
-      .then((list) => {
-        if (!ignore) setEntries(list);
+    Promise.all([api.activity(leagueId, 12), api.trades(leagueId)])
+      .then(([activity, trades]: [ActivityEntry[], Trade[]]) => {
+        if (ignore) return;
+        const movements: NewsItem[] = activity
+          .filter((e) => e.source !== "trade")
+          .map((e) => ({
+            kind: "movement",
+            key: `mv-${e.playerId}-${e.dateUtc}`,
+            ts: new Date(e.dateUtc).getTime(),
+            type: e.type,
+            text: `${e.teamName} ${e.type === "add" ? "added" : "dropped"} ${e.playerName} · ${timeAgo(e.dateUtc)}`,
+          }));
+        const processed: NewsItem[] = trades
+          .filter((t): t is Trade & { processedUtc: string } => t.status === "processed" && t.processedUtc != null)
+          .map((t) => ({
+            kind: "trade",
+            key: `tr-${t.id}`,
+            ts: new Date(t.processedUtc).getTime(),
+            label: tradeLabel(t, pointsById),
+          }));
+        setItems([...movements, ...processed].sort((a, b) => b.ts - a.ts).slice(0, 16));
       })
       .catch(() => {
-        if (!ignore) setEntries([]);
+        if (!ignore) setItems([]);
       });
     return () => {
       ignore = true;
     };
-  }, [leagueId]);
+  }, [leagueId, pointsById]);
 
-  if (entries.length === 0) return null;
+  // Which trades currently qualify as "hot" — a plain string so the effect
+  // below only re-runs when the actual set changes, not on every 30s tick.
+  const hotKey = items
+    .filter((it) => it.kind === "trade" && now - it.ts < HOT_WINDOW_MS)
+    .map((it) => it.key)
+    .join(",");
 
-  const items = reducedMotion ? entries : [...entries, ...entries];
+  // Watch every hot trade item's DOM node; the ticker gets the alert
+  // treatment for as long as at least one is actually scrolled into view.
+  useEffect(() => {
+    const root = tickerRef.current;
+    if (!root) return;
+    const nodes = root.querySelectorAll<HTMLElement>("[data-hot-trade]");
+    if (nodes.length === 0) {
+      setAlertActive(false);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) visibleHotNodes.current.add(entry.target);
+          else visibleHotNodes.current.delete(entry.target);
+        }
+        setAlertActive(visibleHotNodes.current.size > 0);
+      },
+      { root, threshold: 0.4 },
+    );
+    nodes.forEach((n) => observer.observe(n));
+    return () => {
+      observer.disconnect();
+      visibleHotNodes.current.clear();
+      setAlertActive(false);
+    };
+  }, [hotKey]);
+
+  if (items.length === 0) return null;
+
+  const displayItems = reducedMotion ? items : [...items, ...items];
 
   return (
-    <div className="news-ticker" aria-label="Recent league activity">
+    <div
+      ref={tickerRef}
+      className={`news-ticker${alertActive ? " alert" : ""}`}
+      aria-label="Recent league activity"
+    >
       <div className="news-ticker-track" style={reducedMotion ? { animation: "none" } : undefined}>
-        {items.map((e, i) => (
-          <span className="news-ticker-item" key={`${e.playerId}-${e.dateUtc}-${i}`}>
-            <ActivityIcon size={13} className="news-ticker-icon" />
-            {entryText(e)}
-          </span>
-        ))}
+        {displayItems.map((item, i) => {
+          const isHot = item.kind === "trade" && now - item.ts < HOT_WINDOW_MS;
+          return (
+            <span
+              className={`news-ticker-item${isHot ? " hot" : ""}`}
+              key={`${item.key}-${i}`}
+              data-hot-trade={isHot ? "true" : undefined}
+            >
+              {item.kind === "trade" ? (
+                <ArrowLeftRightIcon size={13} className="news-ticker-icon news-ticker-icon-trade" />
+              ) : item.type === "add" ? (
+                <PlusIcon size={13} className="news-ticker-icon news-ticker-icon-add" />
+              ) : (
+                <MinusIcon size={13} className="news-ticker-icon news-ticker-icon-drop" />
+              )}
+              {item.kind === "trade" ? item.label : item.text}
+            </span>
+          );
+        })}
       </div>
     </div>
   );
