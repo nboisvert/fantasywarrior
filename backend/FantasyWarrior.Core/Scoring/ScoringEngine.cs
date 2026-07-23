@@ -1,13 +1,26 @@
 namespace FantasyWarrior.Core.Scoring;
 
-/// <summary>Raw season counting stats for one player (league-agnostic).</summary>
+/// <summary>
+/// Raw season counting stats for one player (league-agnostic). Only
+/// Goals/Assists/Wins/OtLosses/Shutouts feed the scoring engine; the rest
+/// ride along so this one shape also backs the consolidated per-season
+/// cache (<see cref="Stats.PlayerSeasonStats"/>) and the player-card API.
+/// </summary>
 public sealed record PlayerRawTotals(
     int GamesPlayed = 0,
     int Goals = 0,
     int Assists = 0,
     int Wins = 0,
     int OtLosses = 0,
-    int Shutouts = 0);
+    int Shutouts = 0,
+    int PlusMinus = 0,
+    int Pim = 0,
+    int Shots = 0,
+    int Hits = 0,
+    int BlockedShots = 0,
+    int GoalsAgainst = 0,
+    int Saves = 0,
+    int ShotsAgainst = 0);
 
 /// <summary>A roster entry fed to the engine.</summary>
 public sealed record RosterEntry(long PlayerId, string Position, PlayerRawTotals Totals);

@@ -10,8 +10,10 @@ using Google.Cloud.Firestore;
 //   league-init-assignments
 //   wipe-pools   (deletes all users/leagues/teams/assignments/adjustments; players/games/playerGameStats untouched)
 //   seed-allstars [--league-name "Shemalz Pool"] [--season 20252026]
-//     Drafts top synced performers (snake draft) into 9 fixed GMs, 6/team, no
-//     adjustment ledger -- full season stats count as if always on that team.
+//                 [--forwards 4] [--defense 3] [--goalies 1]
+//     Drafts top synced performers per position (snake draft) into 9 fixed
+//     GMs, no adjustment ledger -- full season stats count as if always on
+//     that team.
 //   player-check
 //
 // Firestore target: set FIRESTORE_EMULATOR_HOST (e.g. localhost:8090) for local dev;
@@ -111,7 +113,9 @@ switch (job)
         var season = GetOption(args, "--season") ?? "20252026";
         var usernames = new[] { "jay", "nick", "al", "chuck", "baby", "sam", "dom", "vince", "didi" };
         const string commissioner = "nick";
-        const int rosterSize = 6;
+        var forwardSlots = int.Parse(GetOption(args, "--forwards") ?? "4");
+        var defenseSlots = int.Parse(GetOption(args, "--defense") ?? "3");
+        var goalieSlots = int.Parse(GetOption(args, "--goalies") ?? "1");
 
         var now = Timestamp.GetCurrentTimestamp();
         foreach (var u in usernames)
@@ -143,27 +147,71 @@ switch (job)
 
         var byPlayer = lines
             .GroupBy(l => l.PlayerId)
-            .Select(g => new
+            .Select(g =>
             {
-                PlayerId = g.Key,
-                Name = g.First().Name,
-                IsGoalie = g.First().IsGoalie,
-                FantasyPoints = FantasyWarrior.Core.Scoring.ScoringEngine.PlayerPoints(
-                    FantasyWarrior.Core.Scoring.PlayerTotalsSource.Aggregate(g), pointValues),
+                var totals = FantasyWarrior.Core.Scoring.PlayerTotalsSource.Aggregate(g);
+                return new
+                {
+                    PlayerId = g.Key,
+                    Name = g.First().Name,
+                    Group = FantasyWarrior.Core.Scoring.PositionGroups.From(g.First().Position),
+                    Totals = totals,
+                    FantasyPoints = FantasyWarrior.Core.Scoring.ScoringEngine.PlayerPoints(totals, pointValues),
+                };
             })
             .ToList();
 
-        var skaters = byPlayer.Where(p => !p.IsGoalie).OrderByDescending(p => p.FantasyPoints).ToList();
-        var goalies = byPlayer.Where(p => p.IsGoalie).OrderByDescending(p => p.FantasyPoints).ToList();
-        var goalieSlotsPerTeam = Math.Min(1, goalies.Count / usernames.Length);
-        var neededSkaters = usernames.Length * (rosterSize - goalieSlotsPerTeam);
-
-        if (skaters.Count < neededSkaters || goalies.Count < goalieSlotsPerTeam * usernames.Length)
+        // This full scan already computed every synced player's season totals —
+        // persist them into the consolidated cache so nightly scoring and the
+        // player-card API don't have to re-scan `playerGameStats` for these players.
+        foreach (var chunk in byPlayer.Chunk(400))
         {
-            Console.Error.WriteLine($"Not enough synced players for season {season}: {skaters.Count} skaters, {goalies.Count} goalies. Sync more stats first.");
+            var cacheBatch = db.StartBatch();
+            foreach (var p in chunk)
+                cacheBatch.Set(
+                    db.Collection("playerSeasonStats").Document(FantasyWarrior.Core.Scoring.PlayerTotalsSource.SeasonStatsDocId(season, p.PlayerId)),
+                    new FantasyWarrior.Core.Stats.PlayerSeasonStats
+                    {
+                        Season = season,
+                        PlayerId = p.PlayerId,
+                        GamesPlayed = p.Totals.GamesPlayed,
+                        Goals = p.Totals.Goals,
+                        Assists = p.Totals.Assists,
+                        PlusMinus = p.Totals.PlusMinus,
+                        Pim = p.Totals.Pim,
+                        Shots = p.Totals.Shots,
+                        Hits = p.Totals.Hits,
+                        BlockedShots = p.Totals.BlockedShots,
+                        Wins = p.Totals.Wins,
+                        OtLosses = p.Totals.OtLosses,
+                        Shutouts = p.Totals.Shutouts,
+                        GoalsAgainst = p.Totals.GoalsAgainst,
+                        Saves = p.Totals.Saves,
+                        ShotsAgainst = p.Totals.ShotsAgainst,
+                        UpdatedUtc = Timestamp.GetCurrentTimestamp(),
+                    });
+            await cacheBatch.CommitAsync();
+        }
+        Console.WriteLine($"Cached season totals for {byPlayer.Count} players in playerSeasonStats.");
+
+        var forwards = byPlayer.Where(p => p.Group == FantasyWarrior.Core.Scoring.PositionGroup.Forward).OrderByDescending(p => p.FantasyPoints).ToList();
+        var defense = byPlayer.Where(p => p.Group == FantasyWarrior.Core.Scoring.PositionGroup.Defense).OrderByDescending(p => p.FantasyPoints).ToList();
+        var goalies = byPlayer.Where(p => p.Group == FantasyWarrior.Core.Scoring.PositionGroup.Goalie).OrderByDescending(p => p.FantasyPoints).ToList();
+
+        var neededForwards = usernames.Length * forwardSlots;
+        var neededDefense = usernames.Length * defenseSlots;
+        var neededGoalies = usernames.Length * goalieSlots;
+        if (forwards.Count < neededForwards || defense.Count < neededDefense || goalies.Count < neededGoalies)
+        {
+            Console.Error.WriteLine(
+                $"Not enough synced players for season {season}: need {neededForwards}F/{neededDefense}D/{neededGoalies}G, " +
+                $"have {forwards.Count}F/{defense.Count}D/{goalies.Count}G. Sync more stats first.");
             return 1;
         }
-        Console.WriteLine($"Pool: {skaters.Count} skaters (top: {skaters[0].Name} {skaters[0].FantasyPoints}pts), {goalies.Count} goalies. Snake-drafting {neededSkaters} skaters + {goalieSlotsPerTeam}/team goalies.");
+        Console.WriteLine(
+            $"Pool: {forwards.Count}F (top: {forwards[0].Name} {forwards[0].FantasyPoints}pts), " +
+            $"{defense.Count}D (top: {defense[0].Name} {defense[0].FantasyPoints}pts), {goalies.Count}G. " +
+            $"Snake-drafting {forwardSlots}F + {defenseSlots}D + {goalieSlots}G per team.");
 
         var rosters = usernames.ToDictionary(u => u, _ => new List<long>());
         void SnakeDraft<T>(List<T> pool, int rounds, Func<T, long> id)
@@ -179,9 +227,9 @@ switch (job)
                 }
             }
         }
-        if (goalieSlotsPerTeam == 1)
-            SnakeDraft(goalies, 1, p => p.PlayerId);
-        SnakeDraft(skaters, rosterSize - goalieSlotsPerTeam, p => p.PlayerId);
+        SnakeDraft(forwards, forwardSlots, p => p.PlayerId);
+        SnakeDraft(defense, defenseSlots, p => p.PlayerId);
+        SnakeDraft(goalies, goalieSlots, p => p.PlayerId);
 
         foreach (var (username, playerIds) in rosters)
         {
@@ -205,7 +253,8 @@ switch (job)
                 });
         }
 
-        Console.WriteLine($"Seeded '{leagueName}' [{leagueDoc.Id}] season {season}: {usernames.Length} teams x {rosterSize} players, no adjustments.");
+        var rosterSize = forwardSlots + defenseSlots + goalieSlots;
+        Console.WriteLine($"Seeded '{leagueName}' [{leagueDoc.Id}] season {season}: {usernames.Length} teams x {rosterSize} players ({forwardSlots}F/{defenseSlots}D/{goalieSlots}G), no adjustments.");
         return 0;
     }
     case "wipe-pools":

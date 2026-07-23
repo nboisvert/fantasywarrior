@@ -364,6 +364,11 @@ app.MapGet("/api/players/{playerId:long}", async (long playerId, FirestoreDb db,
     var totals = PlayerTotalsSource.Aggregate(seasonLines);
     var isGoalie = player.Position == "G";
 
+    // Already computed for free (the lines above are fetched for recentGames
+    // regardless) — refresh the consolidated cache as a side effect.
+    if (season is not null)
+        await PlayerTotalsSource.CacheAsync(db, season, playerId, totals);
+
     return Results.Ok(new
     {
         id = player.NhlId,
@@ -387,15 +392,15 @@ app.MapGet("/api/players/{playerId:long}", async (long playerId, FirestoreDb db,
             goals = totals.Goals,
             assists = totals.Assists,
             points = totals.Goals + totals.Assists,
-            plusMinus = seasonLines.Sum(l => l.PlusMinus ?? 0),
-            pim = seasonLines.Sum(l => l.Pim),
-            shots = seasonLines.Sum(l => l.Shots ?? 0),
+            plusMinus = totals.PlusMinus,
+            pim = totals.Pim,
+            shots = totals.Shots,
             wins = totals.Wins,
             otLosses = totals.OtLosses,
             shutouts = totals.Shutouts,
-            goalsAgainst = seasonLines.Sum(l => l.GoalsAgainst ?? 0),
-            saves = seasonLines.Sum(l => l.Saves ?? 0),
-            shotsAgainst = seasonLines.Sum(l => l.ShotsAgainst ?? 0),
+            goalsAgainst = totals.GoalsAgainst,
+            saves = totals.Saves,
+            shotsAgainst = totals.ShotsAgainst,
         },
         recentGames = seasonLines
             .OrderByDescending(l => l.Date)

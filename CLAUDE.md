@@ -24,7 +24,7 @@ Hosting must stay easy and free.
 - Mobile-first app. Still should be responsive for larger devices.
 - App must be multi-tenancy like (multi-league, same user can belong to many leagues).
 - App relies on a **player service** that keeps information (except stats) about all players and prospects in the NHL ecosystem. See PuckPedia as the gold data source for salaries/contracts; official NHL API (`api-web.nhle.com`) for identity/rosters.
-- App relies on an **advanced stats service** that must fetch daily NHL player stats, drilled down to game-by-game stats (detail level required by/for other services).
+- App relies on an **advanced stats service** that must fetch daily NHL player stats, drilled down to game-by-game stats (detail level required by/for other services). Model supports per-season stat retention: `playerGameStats` (game-by-game, source of truth) plus a consolidated `playerSeasonStats` cache (one doc per season/player) kept fresh as a write-through side effect of nightly scoring and player-card views — never a full-season rescan on a schedule (a whole season is ~49k game-lines, and the Firestore free tier caps at 50k reads/day, so that must stay a rare, deliberate operation, not routine).
 - App relies on a **score calculation & rules service** that calculates scores daily based on each league's implemented rules (configurable per league; v1: points for goals/assists, goalie wins/shutouts/OT losses, plus a salary cap).
 - Fully intuitive interactive transaction, free agency and draft mechanisms.
 - First rules/features implemented will be based on my own buddies' pool, agile/incremental style.
