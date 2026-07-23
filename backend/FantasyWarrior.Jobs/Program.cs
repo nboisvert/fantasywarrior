@@ -29,6 +29,14 @@ using Google.Cloud.Firestore;
 //     GMs, no adjustment ledger -- full season stats count as if always on
 //     that team.
 //   player-check
+//   reseed-demo [--league-name "Shemalz Pool"] [--season 20252026]
+//     One-command full reseed: wipes users/leagues/teams/assignments/
+//     adjustments/trades (never touches players/games/playerGameStats),
+//     recreates the 9 fixed GMs + league (rules/cap carried over from the
+//     current league of that name, if one exists), drafts rosters from real
+//     top performers with staggered assignment dates, estimates salaries,
+//     seeds a demo trade set (one status of each, one fresh/hot), and
+//     re-runs score-calc.
 //
 // Firestore target: set FIRESTORE_EMULATOR_HOST (e.g. localhost:8090) for local dev;
 // otherwise GOOGLE_APPLICATION_CREDENTIALS + FIRESTORE_PROJECT_ID for production.
@@ -105,6 +113,13 @@ switch (job)
         await new FantasyWarrior.Jobs.Trades.SeedTradesJob(db).RunAsync(seedLeagueId);
         return 0;
     }
+    case "reseed-demo":
+    {
+        var reseedLeagueName = GetOption(args, "--league-name") ?? "Shemalz Pool";
+        var reseedSeason = GetOption(args, "--season") ?? "20252026";
+        await new FantasyWarrior.Jobs.Demo.FullReseedJob(db).RunAsync(reseedLeagueName, reseedSeason);
+        return 0;
+    }
     case "league-init-assignments":
     {
         // Migration: opens an "initial" assignment for rostered players that have none.
@@ -127,7 +142,7 @@ switch (job)
                         PlayerId = playerId,
                         TeamUsername = team.OwnerUsername,
                         From = fromDate,
-                        Source = "initial",
+                        CreationEvent = FantasyWarrior.Core.Leagues.AssignmentCreationEvent.FreeAgent,
                         CreatedUtc = Timestamp.GetCurrentTimestamp(),
                     });
                     created++;
@@ -261,6 +276,19 @@ switch (job)
         SnakeDraft(defense, defenseSlots, p => p.PlayerId);
         SnakeDraft(goalies, goalieSlots, p => p.PlayerId);
 
+        // Staggers each assignment's CreatedUtc (the activity-feed/news-ticker
+        // timestamp) across the recent past, deterministically — otherwise
+        // every one of these ~70 assignments shares the exact same "now"
+        // moment and the ticker shows a wall of identical-looking entries.
+        // `From` (the real stat-counting start date) is untouched — it must
+        // stay the true season start regardless of this display-only spread.
+        var assignmentIndex = 0;
+        Timestamp StaggeredCreatedUtc()
+        {
+            var daysAgo = 1 + (assignmentIndex++ * 13) % 89;
+            return Timestamp.FromDateTime(DateTime.UtcNow.AddDays(-daysAgo));
+        }
+
         foreach (var (username, playerIds) in rosters)
         {
             // Direct write, no adjustment ledger: full-season stats count as if
@@ -278,8 +306,8 @@ switch (job)
                     PlayerId = pid,
                     TeamUsername = username,
                     From = $"{season[..4]}-10-01",
-                    Source = "initial",
-                    CreatedUtc = now,
+                    CreationEvent = FantasyWarrior.Core.Leagues.AssignmentCreationEvent.FreeAgent,
+                    CreatedUtc = StaggeredCreatedUtc(),
                 });
         }
 
@@ -372,10 +400,14 @@ switch (job)
                 await WipeCollectionAsync(teamDoc.Reference.Collection("adjustments"));
             await WipeCollectionAsync(leagueSnap.Reference.Collection("teams"));
             await WipeCollectionAsync(leagueSnap.Reference.Collection("assignments"));
+            var trades = await leagueSnap.Reference.Collection("trades").GetSnapshotAsync();
+            foreach (var tradeDoc in trades.Documents)
+                await WipeCollectionAsync(tradeDoc.Reference.Collection("votes"));
+            await WipeCollectionAsync(leagueSnap.Reference.Collection("trades"));
             await leagueSnap.Reference.DeleteAsync();
             deletedLeagues++;
         }
-        Console.WriteLine($"wipe-pools: deleted {deletedUsers} users, {deletedLeagues} leagues (with their teams/assignments/adjustments). players/games/playerGameStats untouched.");
+        Console.WriteLine($"wipe-pools: deleted {deletedUsers} users, {deletedLeagues} leagues (with their teams/assignments/adjustments/trades). players/games/playerGameStats untouched.");
         return 0;
     }
     case "stats-check":

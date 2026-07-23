@@ -20,18 +20,18 @@ public static class RosterChange
     /// Pure: the new Assignment docs to create for players joining a team —
     /// no Firestore I/O, so this is unit-testable on its own (e.g. "does
     /// processing a trade open an assignment per incoming player, tagged
-    /// with the trade's id as sourceRefId").
+    /// with the trade's id as creationEventReferenceId").
     /// </summary>
     public static List<Assignment> BuildOpenedAssignments(
-        IReadOnlyCollection<long> playersIn, string teamUsername, string source, string? sourceRefId,
+        IReadOnlyCollection<long> playersIn, string teamUsername, string creationEvent, string? creationEventReferenceId,
         string effectiveDate, Timestamp createdUtc) =>
         playersIn.Select(playerId => new Assignment
         {
             PlayerId = playerId,
             TeamUsername = teamUsername,
             From = effectiveDate,
-            Source = source,
-            SourceRefId = sourceRefId,
+            CreationEvent = creationEvent,
+            CreationEventReferenceId = creationEventReferenceId,
             CreatedUtc = createdUtc,
         }).ToList();
 
@@ -39,21 +39,21 @@ public static class RosterChange
     /// Pure: the field map to write when closing an outgoing player's open
     /// assignment — freezes the per-stint stats one final time (via
     /// <see cref="AssignmentStats.ToFieldMap"/>), sets `to`/`closedUtc`, and
-    /// records why it closed (`closeReason`/`closeSourceRefId`) separately
-    /// from `source` (why it was originally opened) — a season-long
-    /// "initial" assignment ending via a trade must show up as a trade in
-    /// the activity feed's drop event, not as "initial".
+    /// records why it closed (`closeReason`/`closeReasonReferenceId`)
+    /// separately from `creationEvent` (why it was originally opened) — a
+    /// freeagent-acquired assignment ending via a trade must show up as a
+    /// trade in the activity feed's drop event, not as "freeagent".
     /// </summary>
     public static Dictionary<string, object> BuildClosedAssignmentFields(
         PlayerRawTotals finalTotals, double finalFantasyPoints, string effectiveDate, Timestamp closedUtc,
-        string closeReason, string? closeSourceRefId)
+        string closeReason, string? closeReasonReferenceId)
     {
         var fields = AssignmentStats.ToFieldMap(finalTotals, finalFantasyPoints, closedUtc);
         fields["to"] = effectiveDate;
         fields["closedUtc"] = closedUtc;
         fields["closeReason"] = closeReason;
-        if (closeSourceRefId is not null)
-            fields["closeSourceRefId"] = closeSourceRefId;
+        if (closeReasonReferenceId is not null)
+            fields["closeReasonReferenceId"] = closeReasonReferenceId;
         return fields;
     }
 
@@ -74,9 +74,11 @@ public static class RosterChange
         IReadOnlyDictionary<long, string> positions,
         IReadOnlyCollection<long> playersOut,
         IReadOnlyCollection<long> playersIn,
-        string reason,
-        string source,
-        string? sourceRefId,
+        string adjustmentReason,
+        string creationEvent,
+        string? creationEventReferenceId,
+        string closeReason,
+        string? closeReasonReferenceId,
         string effectiveDate,
         CancellationToken ct = default)
     {
@@ -105,7 +107,7 @@ public static class RosterChange
             await teamDoc.Collection("adjustments").AddAsync(new Adjustment
             {
                 Delta = delta,
-                Reason = reason,
+                Reason = adjustmentReason,
                 PlayerIdsIn = [.. playersIn],
                 PlayerIdsOut = [.. playersOut],
                 DateUtc = Timestamp.GetCurrentTimestamp(),
@@ -127,13 +129,13 @@ public static class RosterChange
                 var lines = await PlayerTotalsSource.FetchLinesAsync(db, playerId, ct);
                 var finalTotals = PlayerTotalsSource.AggregateRange(lines, league.Season, a.From, effectiveDate);
                 var finalFantasyPoints = ScoringEngine.PlayerPoints(finalTotals, league.RuleConfig.PointValues);
-                var fields = BuildClosedAssignmentFields(finalTotals, finalFantasyPoints, effectiveDate, closeNow, source, sourceRefId);
+                var fields = BuildClosedAssignmentFields(finalTotals, finalFantasyPoints, effectiveDate, closeNow, closeReason, closeReasonReferenceId);
                 await assignmentDoc.Reference.UpdateAsync(fields, cancellationToken: ct);
             }
         }
 
         // Open incoming assignments.
-        foreach (var assignment in BuildOpenedAssignments(playersIn, team.OwnerUsername, source, sourceRefId, effectiveDate, Timestamp.GetCurrentTimestamp()))
+        foreach (var assignment in BuildOpenedAssignments(playersIn, team.OwnerUsername, creationEvent, creationEventReferenceId, effectiveDate, Timestamp.GetCurrentTimestamp()))
             await leagueDoc.Collection("assignments").AddAsync(assignment, ct);
 
         var newPlayerIds = BuildNewPlayerIds(team.PlayerIds, playersOut, playersIn);

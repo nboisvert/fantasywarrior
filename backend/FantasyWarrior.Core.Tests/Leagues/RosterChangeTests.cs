@@ -9,13 +9,13 @@ public class RosterChangeTests
     private static readonly Timestamp FixedNow = Timestamp.FromDateTime(new DateTime(2026, 7, 23, 12, 0, 0, DateTimeKind.Utc));
 
     [Fact]
-    public void BuildOpenedAssignments_OneAssignmentPerIncomingPlayer_WithTradeSourceRefId()
+    public void BuildOpenedAssignments_OneAssignmentPerIncomingPlayer_WithTradeReferenceId()
     {
         var assignments = RosterChange.BuildOpenedAssignments(
             playersIn: [111, 222],
             teamUsername: "al",
-            source: "trade",
-            sourceRefId: "trade-abc",
+            creationEvent: AssignmentCreationEvent.Trade,
+            creationEventReferenceId: "trade-abc",
             effectiveDate: "2026-07-24",
             createdUtc: FixedNow);
 
@@ -25,8 +25,8 @@ public class RosterChangeTests
             Assert.Equal("al", a.TeamUsername);
             Assert.Equal("2026-07-24", a.From);
             Assert.Null(a.To);
-            Assert.Equal("trade", a.Source);
-            Assert.Equal("trade-abc", a.SourceRefId);
+            Assert.Equal(AssignmentCreationEvent.Trade, a.CreationEvent);
+            Assert.Equal("trade-abc", a.CreationEventReferenceId);
             Assert.Equal(FixedNow, a.CreatedUtc);
         }
         Assert.Equal([111, 222], assignments.Select(a => a.PlayerId).ToList());
@@ -36,20 +36,20 @@ public class RosterChangeTests
     public void BuildOpenedAssignments_EmptyWhenNoIncomingPlayers()
     {
         var assignments = RosterChange.BuildOpenedAssignments(
-            playersIn: [], teamUsername: "al", source: "free_agency", sourceRefId: null,
+            playersIn: [], teamUsername: "al", creationEvent: AssignmentCreationEvent.FreeAgent, creationEventReferenceId: null,
             effectiveDate: "2026-07-24", createdUtc: FixedNow);
 
         Assert.Empty(assignments);
     }
 
     [Fact]
-    public void BuildOpenedAssignments_FreeAgencyHasNoSourceRefId()
+    public void BuildOpenedAssignments_FreeAgentHasNoReferenceId()
     {
         var assignments = RosterChange.BuildOpenedAssignments(
-            playersIn: [111], teamUsername: "al", source: "free_agency", sourceRefId: null,
+            playersIn: [111], teamUsername: "al", creationEvent: AssignmentCreationEvent.FreeAgent, creationEventReferenceId: null,
             effectiveDate: "2026-07-24", createdUtc: FixedNow);
 
-        Assert.Null(Assert.Single(assignments).SourceRefId);
+        Assert.Null(Assert.Single(assignments).CreationEventReferenceId);
     }
 
     [Fact]
@@ -58,7 +58,7 @@ public class RosterChangeTests
         var totals = new PlayerRawTotals(GamesPlayed: 10, Goals: 4, Assists: 6);
         var fields = RosterChange.BuildClosedAssignmentFields(
             totals, finalFantasyPoints: 10, effectiveDate: "2026-07-24", closedUtc: FixedNow,
-            closeReason: "trade", closeSourceRefId: "trade-abc");
+            closeReason: AssignmentCloseReason.Trade, closeReasonReferenceId: "trade-abc");
 
         Assert.Equal("2026-07-24", fields["to"]);
         Assert.Equal(FixedNow, fields["closedUtc"]);
@@ -69,30 +69,30 @@ public class RosterChangeTests
     }
 
     [Fact]
-    public void BuildClosedAssignmentFields_RecordsCloseReason_DistinctFromOriginalOpenSource()
+    public void BuildClosedAssignmentFields_RecordsCloseReason_DistinctFromOriginalCreationEvent()
     {
-        // The whole point of this field: a season-long assignment opened
-        // with source="initial" can still close because of a trade — the
-        // close reason must reflect that, not the original open reason.
+        // The whole point of this field: a freeagent-acquired assignment can
+        // still close because of a trade — the close reason must reflect
+        // that, not the original creation event.
         var totals = new PlayerRawTotals();
         var fields = RosterChange.BuildClosedAssignmentFields(
             totals, finalFantasyPoints: 0, effectiveDate: "2026-07-24", closedUtc: FixedNow,
-            closeReason: "trade", closeSourceRefId: "trade-abc");
+            closeReason: AssignmentCloseReason.Trade, closeReasonReferenceId: "trade-abc");
 
-        Assert.Equal("trade", fields["closeReason"]);
-        Assert.Equal("trade-abc", fields["closeSourceRefId"]);
+        Assert.Equal(AssignmentCloseReason.Trade, fields["closeReason"]);
+        Assert.Equal("trade-abc", fields["closeReasonReferenceId"]);
     }
 
     [Fact]
-    public void BuildClosedAssignmentFields_OmitsCloseSourceRefIdWhenNull()
+    public void BuildClosedAssignmentFields_OmitsCloseReasonReferenceIdWhenNull()
     {
         var totals = new PlayerRawTotals();
         var fields = RosterChange.BuildClosedAssignmentFields(
             totals, finalFantasyPoints: 0, effectiveDate: "2026-07-24", closedUtc: FixedNow,
-            closeReason: "free_agency", closeSourceRefId: null);
+            closeReason: AssignmentCloseReason.Release, closeReasonReferenceId: null);
 
-        Assert.Equal("free_agency", fields["closeReason"]);
-        Assert.False(fields.ContainsKey("closeSourceRefId"));
+        Assert.Equal(AssignmentCloseReason.Release, fields["closeReason"]);
+        Assert.False(fields.ContainsKey("closeReasonReferenceId"));
     }
 
     [Fact]

@@ -29,27 +29,28 @@ public sealed class Assignment
     [FirestoreProperty("closedUtc")]
     public Timestamp? ClosedUtc { get; set; }
 
-    /// <summary>How the player was acquired: initial | free_agency | trade | draft.</summary>
-    [FirestoreProperty("source")]
-    public string Source { get; set; } = "";
+    /// <summary>How the player was acquired: draft | trade | freeagent (default).</summary>
+    [FirestoreProperty("creationEvent")]
+    public string CreationEvent { get; set; } = AssignmentCreationEvent.FreeAgent;
 
-    /// <summary>Id of the source entity (trade id, draft pick id) when applicable.</summary>
-    [FirestoreProperty("sourceRefId")]
-    public string? SourceRefId { get; set; }
+    /// <summary>Id of the creation event entity (trade id, draft pick id) when applicable.</summary>
+    [FirestoreProperty("creationEventReferenceId")]
+    public string? CreationEventReferenceId { get; set; }
 
     /// <summary>
-    /// How this assignment ENDED — set only when it closes. Distinct from
-    /// `source` (why it was OPENED): a season-long "initial" assignment can
-    /// still end via a trade, and the activity feed's drop event must
-    /// reflect that, not the original acquisition reason. Null on legacy
-    /// assignments closed before this field existed — the activity feed
-    /// falls back to `source` for those.
+    /// How this assignment ENDED — trade | release | null (still open, on
+    /// the roster). Distinct from `creationEvent` (why it was OPENED): a
+    /// freeagent-acquired assignment can still end via a trade, and the
+    /// activity feed's drop event must reflect that, not the original
+    /// acquisition reason. Null on legacy assignments closed before this
+    /// field existed — the activity feed falls back to `creationEvent` for
+    /// those.
     /// </summary>
     [FirestoreProperty("closeReason")]
     public string? CloseReason { get; set; }
 
-    [FirestoreProperty("closeSourceRefId")]
-    public string? CloseSourceRefId { get; set; }
+    [FirestoreProperty("closeReasonReferenceId")]
+    public string? CloseReasonReferenceId { get; set; }
 
     [FirestoreProperty("createdUtc")]
     public Timestamp CreatedUtc { get; set; }
@@ -107,6 +108,21 @@ public sealed class Assignment
 
     [FirestoreProperty("statsUpdatedUtc")]
     public Timestamp? StatsUpdatedUtc { get; set; }
+}
+
+/// <summary>Values for <see cref="Assignment.CreationEvent"/>. "draft" is reserved for the future live-draft feature (Phase 7) — not written anywhere yet.</summary>
+public static class AssignmentCreationEvent
+{
+    public const string Draft = "draft";
+    public const string Trade = "trade";
+    public const string FreeAgent = "freeagent";
+}
+
+/// <summary>Values for <see cref="Assignment.CloseReason"/>. Null (unset) means the assignment is still open.</summary>
+public static class AssignmentCloseReason
+{
+    public const string Trade = "trade";
+    public const string Release = "release";
 }
 
 /// <summary>

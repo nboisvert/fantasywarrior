@@ -62,12 +62,18 @@ public sealed class ProcessTradesJob(FirestoreDb db)
         await RosterChange.ApplyAsync(
             db, leagueRef, league, proposerDoc, proposerTeam, positions,
             playersOut: trade.PlayersFromProposer, playersIn: trade.PlayersFromCounterparty,
-            reason: "trade", source: "trade", sourceRefId: tradeRef.Id, effectiveDate: today, ct);
+            adjustmentReason: "trade",
+            creationEvent: AssignmentCreationEvent.Trade, creationEventReferenceId: tradeRef.Id,
+            closeReason: AssignmentCloseReason.Trade, closeReasonReferenceId: tradeRef.Id,
+            effectiveDate: today, ct);
 
         await RosterChange.ApplyAsync(
             db, leagueRef, league, counterpartyDoc, counterpartyTeam, positions,
             playersOut: trade.PlayersFromCounterparty, playersIn: trade.PlayersFromProposer,
-            reason: "trade", source: "trade", sourceRefId: tradeRef.Id, effectiveDate: today, ct);
+            adjustmentReason: "trade",
+            creationEvent: AssignmentCreationEvent.Trade, creationEventReferenceId: tradeRef.Id,
+            closeReason: AssignmentCloseReason.Trade, closeReasonReferenceId: tradeRef.Id,
+            effectiveDate: today, ct);
 
         await tradeRef.UpdateAsync(new Dictionary<string, object>
         {

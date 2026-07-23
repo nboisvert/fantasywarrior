@@ -105,7 +105,9 @@ export interface ActivityEntry {
   position: string;
   teamUsername: string;
   teamName: string;
-  source: "initial" | "free_agency" | "trade" | "draft";
+  /** Creation reason (add events) or close reason (drop events) — the same
+   * field serves both, since which one applies depends on `type`. */
+  source: "freeagent" | "trade" | "draft" | "release";
   sourceRefId: string | null;
 }
 

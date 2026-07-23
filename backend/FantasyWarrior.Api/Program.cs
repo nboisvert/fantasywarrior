@@ -211,7 +211,9 @@ app.MapPost("/api/leagues/{leagueId}/teams/{username}/roster", async (
     await RosterChange.ApplyAsync(
         db, leagueDoc, league, teamDoc, team, positions,
         playersOut: [], playersIn: [req.PlayerId],
-        reason: "add", source: req.Source ?? "free_agency", sourceRefId: req.SourceRefId,
+        adjustmentReason: "add",
+        creationEvent: req.CreationEvent ?? AssignmentCreationEvent.FreeAgent, creationEventReferenceId: req.CreationEventReferenceId,
+        closeReason: AssignmentCloseReason.Release, closeReasonReferenceId: null,
         effectiveDate: EtToday());
     return Results.Ok(PlayerDto.From(player));
 });
@@ -237,7 +239,9 @@ app.MapDelete("/api/leagues/{leagueId}/teams/{username}/roster/{playerId:long}",
     await RosterChange.ApplyAsync(
         db, leagueDoc, league, teamDoc, team, positions,
         playersOut: [playerId], playersIn: [],
-        reason: "drop", source: "free_agency", sourceRefId: null,
+        adjustmentReason: "drop",
+        creationEvent: AssignmentCreationEvent.FreeAgent, creationEventReferenceId: null,
+        closeReason: AssignmentCloseReason.Release, closeReasonReferenceId: null,
         effectiveDate: EtToday());
     return Results.Ok();
 });
@@ -253,11 +257,11 @@ app.MapGet("/api/leagues/{leagueId}/activity", async (string leagueId, int? limi
     foreach (var doc in assignments.Documents)
     {
         var a = doc.ConvertTo<Assignment>();
-        events.Add((a.CreatedUtc, "add", a.PlayerId, a.TeamUsername, a.Source, a.SourceRefId));
+        events.Add((a.CreatedUtc, "add", a.PlayerId, a.TeamUsername, a.CreationEvent, a.CreationEventReferenceId));
         // Why it closed (e.g. "trade") can differ from why it was opened
-        // (e.g. "initial") — a season-long assignment can end via a trade.
+        // (e.g. "freeagent") — a freeagent-acquired assignment can end via a trade.
         if (a.To is not null && a.ClosedUtc is { } closed)
-            events.Add((closed, "drop", a.PlayerId, a.TeamUsername, a.CloseReason ?? a.Source, a.CloseSourceRefId ?? a.SourceRefId));
+            events.Add((closed, "drop", a.PlayerId, a.TeamUsername, a.CloseReason ?? a.CreationEvent, a.CloseReasonReferenceId ?? a.CreationEventReferenceId));
     }
 
     var take = Math.Clamp(limit ?? 15, 1, 50);
@@ -617,7 +621,7 @@ static async Task<Dictionary<long, string>> RosterPositions(PlayerCache players,
 record LoginRequest(string? Username);
 record CreateLeagueRequest(string? Name, string? Username, string? TeamName, string? Season, long? CapAmount);
 record JoinLeagueRequest(string? Username, string? TeamName);
-record RosterChangeRequest(long PlayerId, string? Source, string? SourceRefId);
+record RosterChangeRequest(long PlayerId, string? CreationEvent, string? CreationEventReferenceId);
 record UpdateRulesRequest(string? Username, RuleConfig? RuleConfig);
 record ProposeTradeRequest(string? Username, string? CounterpartyUsername, List<long>? PlayersFromProposer, List<long>? PlayersFromCounterparty);
 record RespondTradeRequest(string? Username, bool Accept);
