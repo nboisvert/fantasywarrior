@@ -1,9 +1,21 @@
 # Fantasy Warrior — Project Status
 
 > **MUST be read at the start of every session and kept updated along the way.**
-> Last updated: 2026-07-22 (by Macklin Softwarini)
+> Last updated: 2026-07-23 (by Macklin Softwarini)
 
 ## Current state
+
+**Scoring traceability: daily ledger + per-assignment stats + Stats double-header (2026-07-23) — DONE** (plan: `C:\Users\nicolasc\.claude\plans\plusieurs-points-ici-param-trable-concurrent-mango.md`)
+
+Nick suspected a scoring bug (a 4th-best defenseman's big night overtaking the 3rd-best, worried the team would get credit for the player's whole game instead of just the boundary-crossing delta). **Verified against the actual code: no bug** — `score-calc` recomputes every team's top-X fresh from season-cumulative totals every night rather than accumulating day-by-day deltas, so a boundary crossing already nets out correctly on its own. The real gap was a missing audit trail, closed by two new pieces:
+- **`scoreLedger`** subcollection (`leagues/{id}/teams/{username}/scoreLedger`) — one entry per (team, player, day) written only when a player's cumulative fantasy points changed or his counted-flag flipped (`ScoreLedgerLogic.ShouldRecord`, unit-tested). Purely explanatory; `Team.Score` is never derived from it.
+- **`Assignment`** extended with a full per-stint stat line (goals/assists/... + `fantasyPoints` + `statsUpdatedUtc`), scoped to `[from, to ?? today]`, refreshed nightly for open assignments by `score-calc` (`RefreshOpenAssignmentsAsync`) and frozen once for good when an assignment closes (roster-remove endpoint).
+- Stats screen (`Stats.tsx`) now has a **two-row grouped header** — NHL (GP/G/A, season) / Pool (PTS, PTS/M — now sourced from `assignmentFantasyPoints`/`assignmentGamesPlayed`, no more client-side point-value math) / Extra (+/-/PIM/SOG or GAA/SV%) / Salary (Salary, $/PTS — now against Pool points). Goalies grid gained PTS/M and $/PTS columns to match. `league-detail` endpoint also exposes each rostered player's `nhlPoints` (season goals+assists).
+- Standings' expanded player list fixed to **1 line** (full name, not truncated + pos pill + team + `nhlPoints`, all inline) — this was bundled in as a small parallel request.
+- **New durable rule added to CLAUDE.md**: before touching any player-row list on any screen, ask how many lines / name truncation / right-side info — several earlier rounds this session were spent guessing this per screen.
+- Verified live against prod Firestore: temporarily bumped Shemalz Pool's assist value 1→2, ran `score-calc`, confirmed 6-7 ledger entries per team fired correctly, reverted the rule config and re-ran to restore correct scores (final restored scores: Al 636, Baby 597, Chuck 613, Didi 577, Dom 586, Jay 667, Nick 642 [raw 561 + adj 81], Sam 592, Vince 580).
+- Tests: 31 green (was 23; +5 `ScoreLedgerLogicTests`, +3 `PlayerTotalsSourceTests.AggregateRange`). Backend + frontend build clean. **Not yet visually verified in a browser** (no browser tooling available this session) — Nick should eyeball the Stats screen's new grouped header before considering this fully closed.
+- **API changed significantly — needs a manual Cloud Run redeploy** (Actions → Deploy API to Cloud Run → Run workflow); not self-triggerable (no `gh`/`GITHUB_TOKEN` available to this session).
 
 **UI adjustments (2026-07-23)**: Roster's team name moved out of the cap card, now sits unwrapped at the top of the page. Stats' adjustment line reworded to explain itself ("carried over from past trades/roster moves, so your total stayed fair at the time — your current roster alone has scored X pts") instead of a bare "adjustment · raw top-X score". Stats' "Season 2025-26 stats" heading removed. Standings replaced the cap/salary sub-line with **team PTS/M** — new `ptsPerGame` field on `GET /api/leagues/{id}` (team score ÷ summed games-played across the roster, via the existing `PlayerTotalsSource.FetchWithCacheAsync` cache, null when no games played yet).
 

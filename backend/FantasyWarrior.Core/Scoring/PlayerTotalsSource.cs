@@ -94,6 +94,18 @@ public static class PlayerTotalsSource
         return new PlayerRawTotals(gp, goals, assists, wins, otl, so, plusMinus, pim, shots, hits, blocked, ga, saves, sa);
     }
 
+    /// <summary>
+    /// Aggregate a player's lines within one date range (inclusive), e.g. for
+    /// one roster assignment's stint. Date strings are "YYYY-MM-DD", so plain
+    /// ordinal comparison sorts chronologically — no date parsing needed.
+    /// </summary>
+    public static PlayerRawTotals AggregateRange(
+        IEnumerable<PlayerGameStats> lines, string season, string from, string? to) =>
+        Aggregate(lines.Where(l =>
+            l.Season == season && l.GameType == 2 &&
+            string.CompareOrdinal(l.Date, from) >= 0 &&
+            (to is null || string.CompareOrdinal(l.Date, to) <= 0)));
+
     public static string SeasonStatsDocId(string season, long playerId) => $"{season}_{playerId}";
 
     /// <summary>Reads the consolidated cache doc, if present. Does not fall back to computing.</summary>

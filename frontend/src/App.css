@@ -891,6 +891,28 @@
   font-size: 0.78rem;
 }
 
+/* Standings' expanded player list: 1 line (name + pos pill + team + NHL
+   points), name shown in full — deliberately not truncated (2026-07-23, per
+   Nick), unlike Dashboard's scorer rows right above. */
+.standing-player-info {
+  flex-direction: row !important;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.standing-player-info .name {
+  overflow: visible;
+  text-overflow: unset;
+  white-space: normal;
+}
+
+.standing-player-team {
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
 .dash-scorers .headshot {
   width: 32px;
   height: 32px;
@@ -1018,6 +1040,26 @@
   letter-spacing: 0.08em;
   font-weight: 700;
   border-bottom: 1px solid var(--border);
+}
+
+/* Group-label row (NHL / Pool / Extra / Salary) sitting above the per-column
+   sortable headers — smaller and dimmer than the column labels beneath it,
+   with a divider between groups so the source of each stat block is obvious
+   at a glance. */
+.stats-group-row th {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  border-bottom: 1px solid var(--border);
+}
+
+.stats-group-th {
+  text-align: center;
+  border-left: 1px solid var(--border);
+}
+
+.stats-group-th.accent {
+  color: var(--ice-bright);
 }
 
 .stats-grid tbody tr + tr td {

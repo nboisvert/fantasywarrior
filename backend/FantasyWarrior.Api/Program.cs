@@ -167,12 +167,14 @@ app.MapGet("/api/leagues/{leagueId}", async (string leagueId, FirestoreDb db, Pl
                         Dto = PlayerDto.From(p!),
                         Points = t.PlayerPoints.GetValueOrDefault(p!.NhlId.ToString(), 0),
                         Counted = t.CountedPlayerIds.Contains(p.NhlId),
+                        NhlPoints = (totalsById.GetValueOrDefault(p.NhlId)?.Goals ?? 0)
+                            + (totalsById.GetValueOrDefault(p.NhlId)?.Assists ?? 0),
                     })
                     .OrderByDescending(x => x.Points)
                     .Select(x => new
                     {
                         x.Dto.Id, x.Dto.Name, x.Dto.Position, x.Dto.Team, x.Dto.Status,
-                        x.Dto.CapHit, x.Dto.HeadshotUrl, x.Points, x.Counted,
+                        x.Dto.CapHit, x.Dto.HeadshotUrl, x.Points, x.Counted, x.NhlPoints,
                     }),
             }),
     });
@@ -284,18 +286,26 @@ app.MapDelete("/api/leagues/{leagueId}/teams/{username}/roster/{playerId:long}",
             DateUtc = Timestamp.GetCurrentTimestamp(),
         });
 
-    // Close the open assignment.
+    // Close the open assignment, freezing its per-stint stats one final time
+    // (they stop refreshing nightly the moment `to` is set).
     var openAssignments = await leagueDoc.Collection("assignments")
         .WhereEqualTo("playerId", playerId)
         .WhereEqualTo("teamUsername", team.OwnerUsername)
         .WhereEqualTo("to", null)
         .GetSnapshotAsync();
+    var closeDate = EtToday();
+    var closeNow = Timestamp.GetCurrentTimestamp();
     foreach (var assignment in openAssignments.Documents)
-        await assignment.Reference.UpdateAsync(new Dictionary<string, object>
-        {
-            ["to"] = EtToday(),
-            ["closedUtc"] = Timestamp.GetCurrentTimestamp(),
-        });
+    {
+        var a = assignment.ConvertTo<Assignment>();
+        var lines = await PlayerTotalsSource.FetchLinesAsync(db, playerId);
+        var finalTotals = PlayerTotalsSource.AggregateRange(lines, league.Season, a.From, closeDate);
+        var finalFantasyPoints = ScoringEngine.PlayerPoints(finalTotals, league.RuleConfig.PointValues);
+        var fields = AssignmentStats.ToFieldMap(finalTotals, finalFantasyPoints, closeNow);
+        fields["to"] = closeDate;
+        fields["closedUtc"] = closeNow;
+        await assignment.Reference.UpdateAsync(fields);
+    }
 
     var adjustmentsTotal = team.AdjustmentsTotal + delta;
     await teamDoc.UpdateAsync(new Dictionary<string, object>
@@ -370,6 +380,16 @@ app.MapGet("/api/leagues/{leagueId}/teams/{username}/season-stats", async (
     var playersById = await players.GetByIdsAsync(team.PlayerIds);
     var totalsById = await PlayerTotalsSource.FetchWithCacheAsync(db, team.PlayerIds, league.Season);
 
+    // Pool group's stats are scoped to the *current* assignment (this stint
+    // with this owner), precomputed nightly by ScoreCalcJob — never
+    // recomputed live here.
+    var openAssignmentsByPlayer = (await leagueSnap.Reference.Collection("assignments")
+            .WhereEqualTo("teamUsername", Normalize(username))
+            .WhereEqualTo("to", null)
+            .GetSnapshotAsync())
+        .Documents.Select(d => d.ConvertTo<Assignment>())
+        .ToDictionary(a => a.PlayerId);
+
     var rows = team.PlayerIds
         .Select(id => playersById.GetValueOrDefault(id))
         .Where(p => p is not null)
@@ -377,6 +397,7 @@ app.MapGet("/api/leagues/{leagueId}/teams/{username}/season-stats", async (
         {
             var t = totalsById.GetValueOrDefault(p!.NhlId) ?? new PlayerRawTotals();
             var isGoalie = p.Position == "G";
+            var assignment = openAssignmentsByPlayer.GetValueOrDefault(p.NhlId);
             return new
             {
                 id = p.NhlId,
@@ -401,6 +422,9 @@ app.MapGet("/api/leagues/{leagueId}/teams/{username}/season-stats", async (
                 goalsAgainst = t.GoalsAgainst,
                 saves = t.Saves,
                 shotsAgainst = t.ShotsAgainst,
+                assignmentFrom = assignment?.From,
+                assignmentGamesPlayed = assignment?.GamesPlayed ?? 0,
+                assignmentFantasyPoints = assignment?.FantasyPoints ?? 0,
             };
         })
         .ToList();

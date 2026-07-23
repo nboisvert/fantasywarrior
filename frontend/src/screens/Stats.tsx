@@ -65,12 +65,14 @@ interface GoalieRow {
   otLosses: number;
   shutouts: number;
   fantasyPoints: number;
+  ptsPerGame: number | null;
   goalsAgainst: number;
   saves: number;
   shotsAgainst: number;
   gaa: number | null;
   svPct: number | null;
   capHit: number | null;
+  costPerPoint: number | null;
 }
 
 /* ---------- generic sortable-grid plumbing ---------- */
@@ -116,6 +118,18 @@ function useSort<T extends object>(rows: T[], initialKey: keyof T) {
   return { sorted, key: key as string, dir, toggle };
 }
 
+/** Top row of the two-row grouped header: a label spanning the columns
+ * belonging to one data source (NHL season totals / this-stint Pool points /
+ * Extra counting stats / Salary), so the grid reads as "where did this
+ * number come from" at a glance. */
+function GroupHead({ label, span, accent }: { label: string; span: number; accent?: boolean }) {
+  return (
+    <th colSpan={span} className={`stats-group-th${accent ? " accent" : ""}`} scope="colgroup">
+      {label}
+    </th>
+  );
+}
+
 function SortableHead({
   label,
   colKey,
@@ -123,7 +137,6 @@ function SortableHead({
   dir,
   onSort,
   accent,
-  alignLeft,
 }: {
   label: string;
   colKey: string;
@@ -131,12 +144,11 @@ function SortableHead({
   dir: SortDir;
   onSort: (k: string) => void;
   accent?: boolean;
-  alignLeft?: boolean;
 }) {
   return (
     <th
       scope="col"
-      className={`stats-sortable${accent ? " accent" : ""}${alignLeft ? " stats-col-player" : ""}`}
+      className={`stats-sortable${accent ? " accent" : ""}`}
       aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}
     >
       <button type="button" className="stats-sort-btn" onClick={() => onSort(colKey)}>
@@ -178,28 +190,28 @@ export function Stats({ league, username }: { league: LeagueDetail; username: st
   const myTeam = league.teams.find((t) => t.ownerUsername === username);
   if (!myTeam) return <p className="empty-state">You don't have a team in this league.</p>;
 
-  const { goal, assist, goalieWin, goalieOtLoss, shutout } = league.ruleConfig.pointValues;
-
+  // Pool PTS/PTS-per-M come straight from each player's current roster
+  // assignment (precomputed nightly by score-calc, scoped to "since this
+  // team got him") — never recomputed client-side from raw stats, so a
+  // custom rule config or a mid-season trade is always reflected correctly
+  // without duplicating the scoring formula here.
   const skaterRows: SkaterRow[] = (players ?? [])
     .filter((p) => !p.isGoalie)
-    .map((p) => {
-      const fantasyPoints = p.goals * goal + p.assists * assist;
-      return {
-        id: p.id,
-        name: p.name,
-        position: p.position,
-        gamesPlayed: p.gamesPlayed,
-        goals: p.goals,
-        assists: p.assists,
-        fantasyPoints,
-        ptsPerGame: p.gamesPlayed > 0 ? fantasyPoints / p.gamesPlayed : null,
-        plusMinus: p.plusMinus,
-        pim: p.pim,
-        shots: p.shots,
-        capHit: p.capHit,
-        costPerPoint: p.capHit != null && fantasyPoints > 0 ? p.capHit / fantasyPoints : null,
-      };
-    });
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      position: p.position,
+      gamesPlayed: p.gamesPlayed,
+      goals: p.goals,
+      assists: p.assists,
+      fantasyPoints: p.assignmentFantasyPoints,
+      ptsPerGame: p.assignmentGamesPlayed > 0 ? p.assignmentFantasyPoints / p.assignmentGamesPlayed : null,
+      plusMinus: p.plusMinus,
+      pim: p.pim,
+      shots: p.shots,
+      capHit: p.capHit,
+      costPerPoint: p.capHit != null && p.assignmentFantasyPoints > 0 ? p.capHit / p.assignmentFantasyPoints : null,
+    }));
 
   const goalieRows: GoalieRow[] = (players ?? [])
     .filter((p) => p.isGoalie)
@@ -211,13 +223,15 @@ export function Stats({ league, username }: { league: LeagueDetail; username: st
       wins: p.wins,
       otLosses: p.otLosses,
       shutouts: p.shutouts,
-      fantasyPoints: p.wins * goalieWin + p.otLosses * goalieOtLoss + p.shutouts * shutout,
+      fantasyPoints: p.assignmentFantasyPoints,
+      ptsPerGame: p.assignmentGamesPlayed > 0 ? p.assignmentFantasyPoints / p.assignmentGamesPlayed : null,
       goalsAgainst: p.goalsAgainst,
       saves: p.saves,
       shotsAgainst: p.shotsAgainst,
       gaa: formatGaa(p.goalsAgainst, p.gamesPlayed),
       svPct: formatSvPct(p.saves, p.shotsAgainst),
       capHit: p.capHit,
+      costPerPoint: p.capHit != null && p.assignmentFantasyPoints > 0 ? p.capHit / p.assignmentFantasyPoints : null,
     }));
 
   const skaterSort = useSort<SkaterRow>(skaterRows, "fantasyPoints");
@@ -228,6 +242,7 @@ export function Stats({ league, username }: { league: LeagueDetail; username: st
   const skatersFp = sum(skaterRows, (r) => r.fantasyPoints);
   const skatersCap = sum(skaterRows, (r) => r.capHit ?? 0);
   const goaliesGp = sum(goalieRows, (r) => r.gamesPlayed);
+  const goaliesFp = sum(goalieRows, (r) => r.fantasyPoints);
   const goaliesGa = sum(goalieRows, (r) => r.goalsAgainst);
   const goaliesSaves = sum(goalieRows, (r) => r.saves);
   const goaliesShotsAgainst = sum(goalieRows, (r) => r.shotsAgainst);
@@ -274,13 +289,26 @@ export function Stats({ league, username }: { league: LeagueDetail; username: st
               <div className="stats-grid-scroll">
                 <table className="stats-grid">
                   <thead>
+                    <tr className="stats-group-row">
+                      <th className="stats-col-player stats-sortable" rowSpan={2} scope="col">
+                        <button type="button" className="stats-sort-btn" onClick={() => skaterSort.toggle("name")}>
+                          Player
+                          {skaterSort.key === "name" && (
+                            <ChevronDownIcon size={12} className={`stats-sort-icon${skaterSort.dir === "asc" ? " asc" : ""}`} />
+                          )}
+                        </button>
+                      </th>
+                      <GroupHead label="NHL" span={3} />
+                      <GroupHead label="Pool" span={2} accent />
+                      <GroupHead label="Extra" span={3} />
+                      <GroupHead label="Salary" span={2} />
+                    </tr>
                     <tr>
-                      <SortableHead label="Player" colKey="name" active={skaterSort.key === "name"} dir={skaterSort.dir} onSort={skaterSort.toggle} alignLeft />
                       <SortableHead label="GP" colKey="gamesPlayed" active={skaterSort.key === "gamesPlayed"} dir={skaterSort.dir} onSort={skaterSort.toggle} />
                       <SortableHead label="G" colKey="goals" active={skaterSort.key === "goals"} dir={skaterSort.dir} onSort={skaterSort.toggle} />
                       <SortableHead label="A" colKey="assists" active={skaterSort.key === "assists"} dir={skaterSort.dir} onSort={skaterSort.toggle} />
                       <SortableHead label="PTS" colKey="fantasyPoints" active={skaterSort.key === "fantasyPoints"} dir={skaterSort.dir} onSort={skaterSort.toggle} accent />
-                      <SortableHead label="PTS/M" colKey="ptsPerGame" active={skaterSort.key === "ptsPerGame"} dir={skaterSort.dir} onSort={skaterSort.toggle} />
+                      <SortableHead label="PTS/M" colKey="ptsPerGame" active={skaterSort.key === "ptsPerGame"} dir={skaterSort.dir} onSort={skaterSort.toggle} accent />
                       <SortableHead label="+/-" colKey="plusMinus" active={skaterSort.key === "plusMinus"} dir={skaterSort.dir} onSort={skaterSort.toggle} />
                       <SortableHead label="PIM" colKey="pim" active={skaterSort.key === "pim"} dir={skaterSort.dir} onSort={skaterSort.toggle} />
                       <SortableHead label="SOG" colKey="shots" active={skaterSort.key === "shots"} dir={skaterSort.dir} onSort={skaterSort.toggle} />
@@ -336,16 +364,31 @@ export function Stats({ league, username }: { league: LeagueDetail; username: st
               <div className="stats-grid-scroll">
                 <table className="stats-grid">
                   <thead>
+                    <tr className="stats-group-row">
+                      <th className="stats-col-player stats-sortable" rowSpan={2} scope="col">
+                        <button type="button" className="stats-sort-btn" onClick={() => goalieSort.toggle("name")}>
+                          Player
+                          {goalieSort.key === "name" && (
+                            <ChevronDownIcon size={12} className={`stats-sort-icon${goalieSort.dir === "asc" ? " asc" : ""}`} />
+                          )}
+                        </button>
+                      </th>
+                      <GroupHead label="NHL" span={4} />
+                      <GroupHead label="Pool" span={2} accent />
+                      <GroupHead label="Extra" span={2} />
+                      <GroupHead label="Salary" span={2} />
+                    </tr>
                     <tr>
-                      <SortableHead label="Player" colKey="name" active={goalieSort.key === "name"} dir={goalieSort.dir} onSort={goalieSort.toggle} alignLeft />
                       <SortableHead label="GP" colKey="gamesPlayed" active={goalieSort.key === "gamesPlayed"} dir={goalieSort.dir} onSort={goalieSort.toggle} />
                       <SortableHead label="W" colKey="wins" active={goalieSort.key === "wins"} dir={goalieSort.dir} onSort={goalieSort.toggle} />
                       <SortableHead label="OTL" colKey="otLosses" active={goalieSort.key === "otLosses"} dir={goalieSort.dir} onSort={goalieSort.toggle} />
                       <SortableHead label="SO" colKey="shutouts" active={goalieSort.key === "shutouts"} dir={goalieSort.dir} onSort={goalieSort.toggle} />
                       <SortableHead label="PTS" colKey="fantasyPoints" active={goalieSort.key === "fantasyPoints"} dir={goalieSort.dir} onSort={goalieSort.toggle} accent />
+                      <SortableHead label="PTS/M" colKey="ptsPerGame" active={goalieSort.key === "ptsPerGame"} dir={goalieSort.dir} onSort={goalieSort.toggle} accent />
                       <SortableHead label="GAA" colKey="gaa" active={goalieSort.key === "gaa"} dir={goalieSort.dir} onSort={goalieSort.toggle} />
                       <SortableHead label="SV%" colKey="svPct" active={goalieSort.key === "svPct"} dir={goalieSort.dir} onSort={goalieSort.toggle} />
                       <SortableHead label="Salary" colKey="capHit" active={goalieSort.key === "capHit"} dir={goalieSort.dir} onSort={goalieSort.toggle} />
+                      <SortableHead label="$/PTS" colKey="costPerPoint" active={goalieSort.key === "costPerPoint"} dir={goalieSort.dir} onSort={goalieSort.toggle} />
                     </tr>
                   </thead>
                   <tbody>
@@ -360,9 +403,11 @@ export function Stats({ league, username }: { league: LeagueDetail; username: st
                         <td>{r.otLosses}</td>
                         <td>{r.shutouts}</td>
                         <td className="accent">{r.fantasyPoints}</td>
+                        <td className="accent">{displayRate(r.ptsPerGame, 2)}</td>
                         <td>{displayRate(r.gaa, 2)}</td>
                         <td>{displayRate(r.svPct, 3, true)}</td>
                         <td>{r.capHit != null ? formatMoneyCompact(r.capHit) : "—"}</td>
+                        <td>{r.costPerPoint != null ? formatMoneyCompact(r.costPerPoint) : "—"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -375,10 +420,12 @@ export function Stats({ league, username }: { league: LeagueDetail; username: st
                       <td className="accent">{sum(goalieRows, (r) => r.wins)}</td>
                       <td>{sum(goalieRows, (r) => r.otLosses)}</td>
                       <td>{sum(goalieRows, (r) => r.shutouts)}</td>
-                      <td className="accent">{sum(goalieRows, (r) => r.fantasyPoints)}</td>
+                      <td className="accent">{goaliesFp}</td>
+                      <td className="accent">{displayRate(goaliesGp > 0 ? goaliesFp / goaliesGp : null, 2)}</td>
                       <td>{displayRate(goaliesGp > 0 ? goaliesGa / goaliesGp : null, 2)}</td>
                       <td>{displayRate(goaliesShotsAgainst > 0 ? goaliesSaves / goaliesShotsAgainst : null, 3, true)}</td>
                       <td>{formatMoneyCompact(goaliesCap)}</td>
+                      <td>{goaliesFp > 0 ? formatMoneyCompact(goaliesCap / goaliesFp) : "—"}</td>
                     </tr>
                   </tfoot>
                 </table>

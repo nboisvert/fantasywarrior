@@ -41,14 +41,12 @@ export function Standings({ league, username }: { league: LeagueDetail; username
                 {team.players.map((p) => (
                   <li key={p.id}>
                     <button className="player-row clickable" onClick={() => setOpenPlayerId(p.id)}>
-                      <span className="player-info">
+                      <span className="player-info standing-player-info">
                         <span className="name">{p.name}</span>
-                        <small>
-                          <span className="pos-badge">{posGroup(p.position)}</span>
-                          {p.team}
-                        </small>
+                        <span className="pos-badge">{posGroup(p.position)}</span>
+                        <span className="standing-player-team">{p.team}</span>
                       </span>
-                      <span className="pts-small">{p.points} pts</span>
+                      <span className="pts-small">{p.nhlPoints} pts</span>
                     </button>
                   </li>
                 ))}

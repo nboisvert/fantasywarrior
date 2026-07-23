@@ -39,6 +39,60 @@ public sealed class Assignment
 
     [FirestoreProperty("createdUtc")]
     public Timestamp CreatedUtc { get; set; }
+
+    // --- per-assignment stats (2026-07-23): this player's NHL + pool
+    // production scoped to exactly this stint [From, To ?? today], not his
+    // whole season. Refreshed nightly by ScoreCalcJob while To is null;
+    // frozen at whatever they were the moment the assignment closes.
+
+    [FirestoreProperty("gamesPlayed")]
+    public int GamesPlayed { get; set; }
+
+    [FirestoreProperty("goals")]
+    public int Goals { get; set; }
+
+    [FirestoreProperty("assists")]
+    public int Assists { get; set; }
+
+    [FirestoreProperty("plusMinus")]
+    public int PlusMinus { get; set; }
+
+    [FirestoreProperty("pim")]
+    public int Pim { get; set; }
+
+    [FirestoreProperty("shots")]
+    public int Shots { get; set; }
+
+    [FirestoreProperty("hits")]
+    public int Hits { get; set; }
+
+    [FirestoreProperty("blockedShots")]
+    public int BlockedShots { get; set; }
+
+    [FirestoreProperty("wins")]
+    public int Wins { get; set; }
+
+    [FirestoreProperty("otLosses")]
+    public int OtLosses { get; set; }
+
+    [FirestoreProperty("shutouts")]
+    public int Shutouts { get; set; }
+
+    [FirestoreProperty("goalsAgainst")]
+    public int GoalsAgainst { get; set; }
+
+    [FirestoreProperty("saves")]
+    public int Saves { get; set; }
+
+    [FirestoreProperty("shotsAgainst")]
+    public int ShotsAgainst { get; set; }
+
+    /// <summary>Fantasy points earned during this stint, per the league's RuleConfig.</summary>
+    [FirestoreProperty("fantasyPoints")]
+    public double FantasyPoints { get; set; }
+
+    [FirestoreProperty("statsUpdatedUtc")]
+    public Timestamp? StatsUpdatedUtc { get; set; }
 }
 
 /// <summary>

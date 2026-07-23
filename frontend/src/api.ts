@@ -24,6 +24,7 @@ export interface LeagueSummary {
 export interface RosterPlayer extends PlayerDto {
   points: number;
   counted: boolean;
+  nhlPoints: number;
 }
 
 export interface TeamDto {
@@ -86,6 +87,9 @@ export interface PlayerSeasonStatsRow {
   goalsAgainst: number;
   saves: number;
   shotsAgainst: number;
+  assignmentFrom: string | null;
+  assignmentGamesPlayed: number;
+  assignmentFantasyPoints: number;
 }
 
 export interface TeamSeasonStats {
