@@ -10,6 +10,7 @@ import { Standings } from "./screens/Standings";
 import { Roster } from "./screens/Roster";
 import { Stats } from "./screens/Stats";
 import { Settings } from "./screens/Settings";
+import { NewsTicker } from "./components/NewsTicker";
 import "./App.css";
 
 type Tab = "dashboard" | "standings" | "roster" | "stats" | "settings";
@@ -148,6 +149,8 @@ export default function App() {
         )}
         {league && tab === "stats" && <Stats league={league} username={username} />}
       </main>
+
+      <NewsTicker leagueId={leagueId} />
 
       <nav className="bottom-nav" aria-label="Main navigation">
         <button

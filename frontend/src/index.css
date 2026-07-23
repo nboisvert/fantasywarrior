@@ -23,6 +23,7 @@
   --font-body: "Chakra Petch", system-ui, sans-serif;
 
   --nav-height: 64px;
+  --ticker-height: 34px;
 
   font-family: var(--font-body);
   font-size: 16px;

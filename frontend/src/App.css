@@ -10,7 +10,7 @@
 
 .shell-content {
   flex: 1;
-  padding: 0 1rem calc(var(--nav-height) + env(safe-area-inset-bottom) + 1.5rem);
+  padding: 0 1rem calc(var(--nav-height) + var(--ticker-height) + env(safe-area-inset-bottom) + 1.5rem);
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -74,6 +74,72 @@
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-top: 1px solid var(--border);
+}
+
+/* ---------- news ticker ----------
+   Global horizontal marquee of recent league activity (adds/drops/trades),
+   mounted once in App.tsx so it's visible on every tab — sits in its own
+   fixed band directly above the bottom nav. Revives a Dashboard-only
+   vertical-carousel ticker that was removed in an earlier redesign, this
+   time app-wide and as a plain CSS marquee (no JS timer/windowing needed). */
+.news-ticker {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--nav-height) + env(safe-area-inset-bottom));
+  z-index: 40;
+  height: var(--ticker-height);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  background: rgba(13, 18, 34, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid var(--border);
+}
+
+.news-ticker-track {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  white-space: nowrap;
+  padding-left: 1.5rem;
+  animation: news-ticker-scroll 30s linear infinite;
+}
+
+/* Pauseable motion (WCAG 2.2.2) — hover for desktop, focus-within so a
+   keyboard user tabbing through can also stop it moving. */
+.news-ticker:hover .news-ticker-track,
+.news-ticker:focus-within .news-ticker-track {
+  animation-play-state: paused;
+}
+
+@keyframes news-ticker-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .news-ticker-track {
+    animation: none;
+  }
+}
+
+.news-ticker-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.news-ticker-icon {
+  flex-shrink: 0;
+  color: var(--ice-bright);
 }
 
 /* 5-tab fit (2026-07-23, Stats tab added): gap/padding tightened above and
