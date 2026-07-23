@@ -235,7 +235,11 @@
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--surface);
-  overflow: hidden;
+  /* Its own internal scroll (2026-07-23, per Nick) — don't rely solely on
+     the outer .pc-body scrolling to reach the rest of the 10 rows. */
+  max-height: 12rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .pc-game-row {
