@@ -19,6 +19,20 @@ function formatCapCompact(amount: number): string {
   return `$${abs}`;
 }
 
+/** Per-row salary format for the roster list: "9.6M$" — number, then unit
+ * letter, then the dollar sign (deliberately reversed from the usual "$9.6M"
+ * reading, per Nick's spec) so it reads compactly on the row's second line
+ * next to the team code. Millions get one decimal, thousands round to whole
+ * K, anything smaller is shown as a plain integer. Distinct from both
+ * `formatCapCompact` above (cap gauge, "$"-first) and api.ts's long-form
+ * `formatCap` (still used for the cap gauge's committed/cap sub-line). */
+function formatSalaryCompact(amount: number): string {
+  const abs = Math.abs(amount);
+  if (abs >= 1_000_000) return `${(abs / 1_000_000).toFixed(1)}M$`;
+  if (abs >= 1_000) return `${Math.round(abs / 1_000)}K$`;
+  return `${abs}$`;
+}
+
 type PosGroup = "F" | "D" | "G";
 
 /** Collapse a raw NHL position code (C, L, R, LW, RW, D, G, ...) to the three
@@ -49,26 +63,6 @@ export function Roster({ league, username }: { league: LeagueDetail; username: s
     <section className="fade-in" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
       <div className="card roster-header">
         <span className="roster-team-name">{myTeam.name}</span>
-
-        <div className="roster-score-block">
-          <div className="roster-score-main">
-            <span className="roster-score-value">{myTeam.score}</span>
-            {myTeam.adjustmentsTotal !== 0 && (
-              <span
-                className={`roster-adj-pill ${
-                  myTeam.adjustmentsTotal > 0 ? "roster-adj-pill-pos" : "roster-adj-pill-neg"
-                }`}
-              >
-                {myTeam.adjustmentsTotal > 0 ? "+" : ""}
-                {myTeam.adjustmentsTotal}
-              </span>
-            )}
-          </div>
-          <span className="roster-score-label">Points</span>
-          {myTeam.adjustmentsTotal !== 0 && (
-            <small className="muted roster-score-detail">Raw top-X score: {myTeam.rawTopXScore} pts</small>
-          )}
-        </div>
 
         {capMax != null && capAvailable != null ? (
           <div className="roster-cap">
@@ -116,16 +110,17 @@ export function Roster({ league, username }: { league: LeagueDetail; username: s
             >
               <img className="headshot" src={p.headshotUrl ?? ""} alt="" loading="lazy" />
               <span className="player-info">
-                <span className="name">{p.name}</span>
-                <small className="player-sub">
+                <span className="player-name-line">
                   <span className={`roster-pos-pill roster-pos-pill-${posGroup(p.position).toLowerCase()}`}>
                     {posGroup(p.position)}
                   </span>
+                  <span className="name">{p.name}</span>
+                </span>
+                <small className="player-sub">
                   <span>{p.team}</span>
-                  {p.capHit != null && <span className="player-cap-hit">{formatCap(p.capHit)}</span>}
+                  {p.capHit != null && <span className="player-cap-hit">{formatSalaryCompact(p.capHit)}</span>}
                 </small>
               </span>
-              <span className="pts-small">{p.points} pts</span>
             </button>
           </li>
         ))}

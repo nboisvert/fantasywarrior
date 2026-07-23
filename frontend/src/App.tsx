@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, formatSeason } from "./api";
 import type { LeagueDetail } from "./api";
-import { ChevronDownIcon, HomeIcon, SettingsIcon, TrophyIcon, UsersIcon } from "./components/Icons";
+import { ActivityIcon, ChevronDownIcon, HomeIcon, SettingsIcon, TrophyIcon, UsersIcon } from "./components/Icons";
 import logo from "./assets/logo.webp";
 import { Login } from "./screens/Login";
 import { LeagueGate } from "./screens/LeagueGate";
 import { Dashboard } from "./screens/Dashboard";
 import { Standings } from "./screens/Standings";
 import { Roster } from "./screens/Roster";
+import { Stats } from "./screens/Stats";
 import { Settings } from "./screens/Settings";
 import "./App.css";
 
-type Tab = "dashboard" | "standings" | "roster" | "settings";
+type Tab = "dashboard" | "standings" | "roster" | "stats" | "settings";
 
 export default function App() {
   const [username, setUsername] = useState<string | null>(localStorage.getItem("fw-username"));
@@ -145,6 +146,7 @@ export default function App() {
         {league && tab === "roster" && (
           <Roster league={league} username={username} />
         )}
+        {league && tab === "stats" && <Stats league={league} username={username} />}
       </main>
 
       <nav className="bottom-nav" aria-label="Main navigation">
@@ -171,6 +173,14 @@ export default function App() {
         >
           <UsersIcon size={22} />
           Roster
+        </button>
+        <button
+          className={`nav-tab${tab === "stats" ? " active" : ""}`}
+          onClick={() => setTab("stats")}
+          aria-current={tab === "stats" ? "page" : undefined}
+        >
+          <ActivityIcon size={22} />
+          Stats
         </button>
         <button
           className={`nav-tab${tab === "settings" ? " active" : ""}`}

@@ -65,15 +65,18 @@
   z-index: 50;
   display: flex;
   justify-content: center;
-  gap: 0.25rem;
+  gap: 0.15rem;
   height: calc(var(--nav-height) + env(safe-area-inset-bottom));
-  padding: 0.4rem max(1rem, env(safe-area-inset-left)) env(safe-area-inset-bottom);
+  padding: 0.4rem max(0.5rem, env(safe-area-inset-left)) env(safe-area-inset-bottom);
   background: rgba(13, 18, 34, 0.92);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-top: 1px solid var(--border);
 }
 
+/* 5-tab fit (2026-07-23, Stats tab added): gap/padding tightened above and
+   label type tightened here so "Dashboard"/"Standings" still fit without
+   wrapping at a 375px viewport now that there are 5 tabs instead of 4. */
 .nav-tab {
   flex: 1;
   max-width: 220px;
@@ -85,8 +88,8 @@
   border: none;
   background: none;
   color: var(--text-muted);
-  font: 600 0.72rem/1 var(--font-body);
-  letter-spacing: 0.08em;
+  font: 600 0.62rem/1 var(--font-body);
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   border-radius: 12px;
   cursor: pointer;
@@ -461,8 +464,11 @@
 
 /* ---------- roster header (redesigned 2026-07-22, per Nick: "gros travail
    de UI UX" — points made the headline, adjustments a pill, cap gauge given
-   real "available $ / % used" framing, Mint-app style). `.cap-track`/
-   `.cap-fill` below are the shared progress-bar mechanics — untouched. ---- */
+   real "available $ / % used" framing, Mint-app style). Split 2026-07-23:
+   the score/points headline moved out to Stats.tsx (see `.stats-score-*`
+   further down) — Roster keeps just the team name + cap gauge, so this
+   header is now purely about team/cap management. `.cap-track`/`.cap-fill`
+   below are the shared progress-bar mechanics — untouched. ---- */
 
 .roster-header {
   display: flex;
@@ -479,65 +485,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* ---- score: the headline element of the header ---- */
-
-.roster-score-block {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.roster-score-main {
-  display: flex;
-  align-items: baseline;
-  gap: 0.65rem;
-  flex-wrap: wrap;
-}
-
-.roster-score-value {
-  font-family: var(--font-display);
-  font-size: clamp(2.75rem, 11vw, 3.5rem);
-  line-height: 1;
-  color: var(--ice-bright);
-  text-shadow: 0 0 22px var(--ice-glow);
-}
-
-.roster-score-label {
-  font-size: 0.72rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  font-weight: 700;
-}
-
-.roster-score-detail {
-  font-size: 0.8rem;
-}
-
-/* adjustment pill next to the score — signed, hidden entirely at zero */
-.roster-adj-pill {
-  display: inline-block;
-  padding: 0.15rem 0.55rem;
-  border-radius: 999px;
-  font-family: var(--font-body);
-  font-size: 0.8rem;
-  font-weight: 700;
-  border: 1px solid transparent;
-  white-space: nowrap;
-}
-
-.roster-adj-pill-pos {
-  color: var(--ice-bright);
-  background: rgba(56, 189, 248, 0.14);
-  border-color: rgba(56, 189, 248, 0.4);
-}
-
-.roster-adj-pill-neg {
-  color: var(--danger);
-  background: rgba(244, 63, 94, 0.14);
-  border-color: rgba(244, 63, 94, 0.4);
 }
 
 /* ---- cap gauge: the second visual centerpiece ---- */
@@ -650,6 +597,9 @@
 .player-info {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
 }
 
 .player-info .name {
@@ -657,6 +607,22 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Roster row, line 1: F/D/G pill + player name side by side, with clear gap
+   between them (2026-07-23, per Nick — was jammed on the sub-line before).
+   `.name` keeps `min-width: 0` here so it's the element that truncates with
+   an ellipsis, never the fixed-width pill next to it. */
+.player-name-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.player-name-line .name {
+  flex: 1;
+  min-width: 0;
 }
 
 .player-info small {
@@ -720,8 +686,10 @@
   border-color: rgba(251, 191, 36, 0.35);
 }
 
-/* player-row sub-line: pill + team + (optional) cap hit, laid out with flex
-   gap instead of a "·" separator character. */
+/* Roster row, line 2: team code + (optional) compact salary, laid out with
+   flex gap instead of a "·" separator character. The F/D/G pill used to live
+   here too — it moved up to `.player-name-line` on 2026-07-23 so each row is
+   exactly two lines: name+pill, then team+salary. */
 .player-sub {
   display: inline-flex;
   align-items: center;
@@ -868,6 +836,210 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+}
+
+/* ---------- stats screen (added 2026-07-23, split out of Roster) ----------
+   Header below reuses the same score/adjustment-pill idea Roster's header
+   used to show, but noticeably compacted (smaller headline, tighter gaps)
+   since the grid beneath it is the main event here, not a hero moment —
+   see `.stats-score-value`'s font-size vs. the old `.roster-score-value`'s
+   clamp(2.75rem, 11vw, 3.5rem). */
+
+.stats-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.85rem 1rem;
+}
+
+.stats-score-main {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.stats-score-value {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  line-height: 1;
+  color: var(--ice-bright);
+  text-shadow: 0 0 14px var(--ice-glow);
+}
+
+.stats-score-label {
+  font-size: 0.66rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+}
+
+.stats-score-detail {
+  font-size: 0.76rem;
+}
+
+.stats-adj-pill {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: 0.74rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.stats-adj-pill-pos {
+  color: var(--ice-bright);
+  background: rgba(56, 189, 248, 0.14);
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+.stats-adj-pill-neg {
+  color: var(--danger);
+  background: rgba(244, 63, 94, 0.14);
+  border-color: rgba(244, 63, 94, 0.4);
+}
+
+.stats-table-title {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 0 0 0.5rem;
+}
+
+/* Horizontal scroll is contained to this wrapper only (the page itself never
+   scrolls sideways) — it's also the nearest scrolling ancestor for the
+   sticky player-name column below, which is exactly the axis we want that
+   stickiness measured against. */
+.stats-grid-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.stats-grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-grid th,
+.stats-grid td {
+  padding: 0.55rem 0.7rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.stats-grid thead th {
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  border-bottom: 1px solid var(--border);
+}
+
+.stats-grid tbody tr + tr td {
+  border-top: 1px solid var(--border);
+}
+
+.stats-grid th.accent,
+.stats-grid td.accent {
+  color: var(--ice-bright);
+  font-weight: 700;
+}
+
+/* Sticky first column (player identity) — stays put while the row's other
+   columns scroll under it, common data-grid pattern on narrow screens. Needs
+   an opaque background matching the row so scrolled-under cells don't show
+   through, and a z-index above the rest of the (unpositioned) row cells. */
+.stats-col-player {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  text-align: left;
+  min-width: 9.5rem;
+  background: var(--bg-elevated);
+}
+
+.stats-grid thead .stats-col-player {
+  z-index: 3;
+}
+
+.stats-player-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 8.5rem;
+  font-weight: 600;
+}
+
+/* ---- "gros footer": sticky column-totals bar ----
+   Sits in normal document flow as the last element of the screen, so
+   `.shell-content`'s existing bottom padding (nav height + safe-area + 1.5rem)
+   is exactly the runway this needs to detach and pin while the page scrolls
+   through the grids above it — no extra plumbing required. `bottom` matches
+   the bottom-nav's own height + safe-area exactly so the two sit flush
+   against each other without ever overlapping in either direction; z-index
+   just needs to clear normal in-flow content (cards, tables) scrolling
+   underneath it, well below the bottom-nav's 50 and PlayerCard's 100. */
+.stats-totals-bar {
+  position: sticky;
+  bottom: calc(var(--nav-height) + env(safe-area-inset-bottom));
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.85rem 1rem;
+  border-radius: 16px;
+  border: 1px solid var(--border-strong);
+  background: rgba(16, 22, 42, 0.94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.stats-totals-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.75rem;
+}
+
+.stats-totals-label {
+  flex: 0 0 auto;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.stats-totals-chip {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.stats-totals-chip b {
+  margin-left: 0.3rem;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-weight: 400;
+}
+
+.stats-totals-chip.accent b {
+  color: var(--ice-bright);
+  text-shadow: 0 0 10px var(--ice-glow);
 }
 
 /* ---------- transitions ---------- */
