@@ -11,7 +11,7 @@
 // inside so keyboard users don't have to tab past a hidden panel.
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeftIcon, LogOutIcon, MessageCircleIcon, SendIcon, SettingsIcon, UsersIcon } from "./Icons";
+import { ArrowLeftIcon, LogOutIcon, MessageSquareIcon, SendIcon, SettingsIcon, UsersIcon } from "./Icons";
 import "./ProfileMenu.css";
 
 /* ---------- mock presence (placeholder until real presence tracking exists) ----------
@@ -300,19 +300,21 @@ export function ProfileMenu({
             <ul className="profile-member-list">
               {withPresence.map(({ member, presence }) => (
                 <li key={member} className="profile-member-row">
+                  {presence.online && (
+                    <button
+                      className="profile-msg-btn"
+                      onClick={() => openChat(member)}
+                      aria-label={`Message ${member}`}
+                    >
+                      <MessageSquareIcon size={15} />
+                    </button>
+                  )}
                   <span
                     className={`profile-status-dot${presence.online ? " online" : ""}`}
                     aria-hidden="true"
                   />
                   <span className="profile-member-name">{member}</span>
                   <span className="profile-member-seen muted">{presence.lastSeenLabel}</span>
-                  <button
-                    className="profile-msg-btn"
-                    onClick={() => openChat(member)}
-                    aria-label={`Message ${member}`}
-                  >
-                    <MessageCircleIcon size={16} />
-                  </button>
                 </li>
               ))}
             </ul>
