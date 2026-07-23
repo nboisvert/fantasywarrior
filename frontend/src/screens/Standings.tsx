@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { posGroup } from "../api";
+import { posGroup, posGroupClass } from "../api";
 import type { LeagueDetail } from "../api";
 import { PlayerCard } from "../components/PlayerCard";
 
@@ -43,7 +43,9 @@ export function Standings({ league, username }: { league: LeagueDetail; username
                     <button className="player-row clickable" onClick={() => setOpenPlayerId(p.id)}>
                       <span className="player-info standing-player-info">
                         <span className="name">{p.name}</span>
-                        <span className="pos-badge">{posGroup(p.position)}</span>
+                        <span className={`roster-pos-pill roster-pos-pill-${posGroupClass(p.position)}`}>
+                          {posGroup(p.position)}
+                        </span>
                         <span className="standing-player-team">{p.team}</span>
                       </span>
                       <span className="pts-small">{p.nhlPoints} pts</span>

@@ -6,7 +6,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
-import { api, posGroup } from "../api";
+import { api, posGroup, posGroupClass } from "../api";
 import type { LeagueDetail, RosterPlayer } from "../api";
 import { XIcon } from "./Icons";
 import "./PlayerCard.css";
@@ -33,7 +33,9 @@ function PlayerCheckList({
               onChange={() => onToggle(p.id)}
             />
             <span className="cts-player-name">{p.name}</span>
-            <span className="cts-player-pos">{posGroup(p.position)}</span>
+            <span className={`cts-player-pos pos-compact-${posGroupClass(p.position)}`}>
+              {posGroup(p.position)}
+            </span>
           </label>
         </li>
       ))}

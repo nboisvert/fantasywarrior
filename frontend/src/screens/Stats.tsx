@@ -11,7 +11,7 @@
 // everywhere else in the app (Standings/Dashboard/Roster).
 
 import { useEffect, useState } from "react";
-import { api, posGroup } from "../api";
+import { api, posGroup, posGroupClass } from "../api";
 import type { LeagueDetail, PlayerSeasonStatsRow } from "../api";
 import { LoadingLogo } from "../components/LoadingLogo";
 import { ChevronDownIcon } from "../components/Icons";
@@ -349,7 +349,9 @@ export function Stats({ league, username }: { league: LeagueDetail; username: st
                       <tr key={r.id}>
                         <td className="stats-col-player">
                           <span className="stats-player-name">{r.name}</span>
-                          <span className="stats-player-pos">{posGroup(r.position)}</span>
+                          <span className={`stats-player-pos pos-compact-${posGroupClass(r.position)}`}>
+                            {posGroup(r.position)}
+                          </span>
                         </td>
                         <td className="stats-group-start">{r.gamesPlayed}</td>
                         <td>{r.goals}</td>
@@ -431,7 +433,9 @@ export function Stats({ league, username }: { league: LeagueDetail; username: st
                       <tr key={r.id}>
                         <td className="stats-col-player">
                           <span className="stats-player-name">{r.name}</span>
-                          <span className="stats-player-pos">{posGroup(r.position)}</span>
+                          <span className={`stats-player-pos pos-compact-${posGroupClass(r.position)}`}>
+                            {posGroup(r.position)}
+                          </span>
                         </td>
                         <td className="stats-group-start">{r.gamesPlayed}</td>
                         <td className="accent">{r.wins}</td>

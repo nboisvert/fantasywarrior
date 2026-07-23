@@ -234,3 +234,11 @@ export function posGroup(position: string): PosGroup {
   if (position === "G") return "G";
   return "F";
 }
+
+/** Lowercase class suffix ("f"/"d"/"g") for the app-wide position-indicator
+ * color convention (see CLAUDE.md's "Position indicator pattern") — combine
+ * with `.roster-pos-pill-` (pill) or `.pos-compact-` (bare letter) depending
+ * on the screen's data density. Never hardcode `.toLowerCase()` inline. */
+export function posGroupClass(position: string): string {
+  return posGroup(position).toLowerCase();
+}

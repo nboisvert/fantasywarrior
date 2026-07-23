@@ -5,7 +5,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { JSX, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
-import { posGroup } from "../api";
+import { posGroup, posGroupClass } from "../api";
 import { XIcon } from "./Icons";
 import "./PlayerCard.css";
 
@@ -304,7 +304,9 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
                     {player.name}
                   </h2>
                   <div className="pc-header-meta">
-                    <span className="pos-badge">{posGroup(player.position)}</span>
+                    <span className={`roster-pos-pill roster-pos-pill-${posGroupClass(player.position)}`}>
+                      {posGroup(player.position)}
+                    </span>
                     <span className="pc-team">{player.team}</span>
                     {player.sweaterNumber != null && (
                       <span className="pc-number">#{player.sweaterNumber}</span>

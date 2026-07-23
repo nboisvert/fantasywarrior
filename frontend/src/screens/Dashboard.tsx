@@ -7,7 +7,7 @@
 // re-derived and re-tightened.
 
 import { useState } from "react";
-import { posGroup } from "../api";
+import { posGroup, posGroupClass } from "../api";
 import type { LeagueDetail } from "../api";
 import { PlayerCard } from "../components/PlayerCard";
 
@@ -119,7 +119,7 @@ export function Dashboard({ league, username }: { league: LeagueDetail; username
                   <img className="headshot" src={p.headshotUrl ?? ""} alt="" loading="lazy" />
                   <span className="player-info dash-scorer-info">
                     <span className="name">{formatShortName(p.name)}</span>
-                    <span className={`roster-pos-pill roster-pos-pill-${posGroup(p.position).toLowerCase()}`}>
+                    <span className={`roster-pos-pill roster-pos-pill-${posGroupClass(p.position)}`}>
                       {posGroup(p.position)}
                     </span>
                     <span className="dash-scorer-team muted">{p.team}</span>

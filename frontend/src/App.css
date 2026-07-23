@@ -741,33 +741,21 @@
   color: var(--text-muted);
 }
 
-.pos-badge {
-  display: inline-block;
-  min-width: 1.6rem;
-  text-align: center;
-  padding: 0.1rem 0.35rem;
-  border-radius: 6px;
-  background: rgba(56, 189, 248, 0.12);
-  color: var(--ice-bright);
-  font-size: 0.72rem;
-  font-weight: 700;
-  margin-right: 0.4rem;
-}
-
 .player-cap {
   color: var(--text-muted);
   font-size: 0.85rem;
   white-space: nowrap;
 }
 
-/* ---------- roster player-row: F/D/G group pill + sub-line layout ----------
-   Roster-scoped: same visual shape/size as `.pos-badge` (shared elsewhere,
-   e.g. PlayerCard, with the raw position code) but this pill shows the
-   collapsed F/D/G group and is color-coded per group. Colors are existing
-   Night Arena tokens only: ice-cyan for forwards (the app's offense/energy
-   accent), silver for defense (steadier/cooler), gold for goalies (elevated,
-   same token used for 1st place in Standings). The letter itself is always
-   rendered — color is never the only signal. */
+/* ---------- position indicator: "normal" pattern (pill) ----------
+   Canonical F/D/G pill — see CLAUDE.md's "Position indicator pattern" rule.
+   Used app-wide (Roster, Dashboard, Standings, PlayerCard) wherever the
+   screen isn't data-dense; the "compact" bare-letter variant below is for
+   data-dense grids/lists instead. Colors are existing Night Arena tokens
+   only: ice-cyan for forwards (the app's offense/energy accent), violet for
+   defense (`--defense`), gold for goalies (elevated, same token used for 1st
+   place in Standings). The letter itself is always rendered — color is
+   never the only signal. */
 
 .roster-pos-pill {
   display: inline-block;
@@ -799,6 +787,25 @@
   background: rgba(251, 191, 36, 0.14);
   color: var(--gold);
   border-color: rgba(251, 191, 36, 0.35);
+}
+
+/* ---------- position indicator: "compact" pattern (bare letter) ----------
+   Same color code as the pill above, applied to font color only — no
+   background/border. For data-dense grids/lists (Stats' tables, a
+   multi-select roster checklist) where a full pill would be too heavy.
+   Combine with the screen's own sizing class, e.g.
+   `stats-player-pos pos-compact-${posGroupClass(position)}`. */
+
+.pos-compact-f {
+  color: var(--ice-bright);
+}
+
+.pos-compact-d {
+  color: var(--defense);
+}
+
+.pos-compact-g {
+  color: var(--gold);
 }
 
 /* Roster row, line 2: team code + (optional) compact salary, laid out with
@@ -987,6 +994,12 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 0.4rem;
+}
+
+/* Same double-spacing fix as .pc-header-meta .roster-pos-pill: this parent
+   already has its own flex-gap, so zero the pill's own margin-inline. */
+.standing-player-info .roster-pos-pill {
+  margin-inline: 0;
 }
 
 .standing-player-info .name {
@@ -1235,8 +1248,9 @@
   flex-shrink: 0;
   font-size: 0.68rem;
   font-weight: 700;
-  color: var(--text-muted);
   text-transform: uppercase;
+  /* Color comes from the compact position-indicator pattern
+     (.pos-compact-f/d/g) applied alongside this class — see CLAUDE.md. */
 }
 
 /* ---- sortable column headers ---- */

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { formatCap, posGroup } from "../api";
+import { formatCap, posGroup, posGroupClass } from "../api";
 import type { LeagueDetail } from "../api";
 import { PlayerCard } from "../components/PlayerCard";
 
@@ -88,7 +88,7 @@ export function Roster({ league, username }: { league: LeagueDetail; username: s
               <span className="player-info">
                 <span className="player-name-line">
                   <span className="name">{p.name}</span>
-                  <span className={`roster-pos-pill roster-pos-pill-${posGroup(p.position).toLowerCase()}`}>
+                  <span className={`roster-pos-pill roster-pos-pill-${posGroupClass(p.position)}`}>
                     {posGroup(p.position)}
                   </span>
                   {p.capHit != null && <span className="player-salary">{formatCapCompact(p.capHit)}</span>}

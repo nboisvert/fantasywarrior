@@ -5,6 +5,13 @@
 
 ## Current state
 
+**Position indicator: new durable convention + app-wide audit fix (2026-07-23)**
+
+Nick asked to settle this "once and for all": added a hard rule to CLAUDE.md's design system section — every F/D/G indicator app-wide must use one of exactly two patterns, **normal** (pill: `.roster-pos-pill` + `.roster-pos-pill-f/d/g`) or **compact** (bare colored letter, no pill: new `.pos-compact-f/d/g`), chosen per screen by data density, always built via a new shared `posGroupClass()` helper in `api.ts` (never inline `.toLowerCase()`).
+- Audited every `posGroup()` call site app-wide and found the rule was **not** actually being followed 4/8 places: Standings and PlayerCard used a flat single-color `.pos-badge` pill (same cyan regardless of F/D/G); Stats' tables and CreateTradeSheet's roster checklist used plain `--text-muted` grey text with zero color coding. Fixed all four — Standings/PlayerCard now use the real `.roster-pos-pill-*` pill classes (retired `.pos-badge` entirely, only 2 call sites existed), Stats/CreateTradeSheet now add `.pos-compact-f/d/g` alongside their existing sizing classes. Also fixed a stale App.css comment that said "silver for defense" (code/CLAUDE.md have used violet `--defense` since 2026-07-23 already) and two double-spacing bugs that surfaced once `.roster-pos-pill` (which carries its own `margin-inline`) got reused inside two parents that already had their own flex `gap` (`.pc-header-meta`, `.standing-player-info`) — zeroed the pill's margin in those two contexts.
+- Roster/Dashboard already had this right, just refactored their inline `posGroup(...).toLowerCase()` onto the new shared helper for consistency.
+- Build clean.
+
 **Profile menu — first piece of the social/interactive push (2026-07-23, styling only)**
 
 Nick's framing: this kicks off "the social/interactive side that will differentiate the app from others." First piece: the topbar's plain username text + Settings gear button rebranded into a single profile-indicator button (circular ice-cyan initials avatar + name, pill-shaped) that opens an anchored dropdown (not a bottom-sheet — content's too short for that weight): name header, Settings/Log out actions, divider, "In this league" presence list of the other poolers with an online/offline dot + last-seen label. Built by a React Exposito subagent (isolated worktree), scope-checked (only `App.tsx`'s topbar + two new files touched), integrated, build clean.

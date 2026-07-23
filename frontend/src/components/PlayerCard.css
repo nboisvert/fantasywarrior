@@ -125,8 +125,12 @@
   flex-wrap: wrap;
 }
 
-.pc-header-meta .pos-badge {
-  margin-right: 0;
+/* .roster-pos-pill has its own margin-inline (0.3rem both sides) for
+   contexts with no parent flex-gap — but .pc-header-meta already has its own
+   gap:0.5rem, so zero the pill's own margin here to avoid double-spacing
+   (same reasoning as .player-name-line elsewhere in the app). */
+.pc-header-meta .roster-pos-pill {
+  margin-inline: 0;
 }
 
 .pc-team {

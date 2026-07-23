@@ -74,8 +74,9 @@
   flex-shrink: 0;
   font-size: 0.72rem;
   font-weight: 700;
-  color: var(--text-muted);
   text-transform: uppercase;
+  /* Color comes from the compact position-indicator pattern
+     (.pos-compact-f/d/g) applied alongside this class — see CLAUDE.md. */
 }
 
 .cts-empty {
