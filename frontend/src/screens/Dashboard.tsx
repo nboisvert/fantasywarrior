@@ -74,10 +74,12 @@ export function Dashboard({
   const topScorers = myTeam ? myTeam.players.slice(0, TOP_SCORERS) : [];
 
   return (
-    <section className="fade-in" style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-      <div className="dashboard-hero">
-        <span className="dashboard-eyebrow">Season {formatSeason(league.season)}</span>
-        <h1 className="dashboard-title">{league.name}</h1>
+    <section className="fade-in" style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+        <div className="dashboard-hero">
+          <h1 className="dashboard-title">{league.name}</h1>
+          <span className="dashboard-eyebrow">{formatSeason(league.season)}</span>
+        </div>
         <div className="dashboard-stats">
           <div className="stat-chip">
             <span className="value">{rank ? `#${rank}` : "—"}</span>
@@ -130,10 +132,10 @@ export function Dashboard({
         ) : topScorers.length === 0 ? (
           <p className="empty-state">Empty roster — add players from the Roster tab.</p>
         ) : (
-          <ul className="player-list">
+          <ul className="player-list dash-compact">
             {topScorers.map((p) => (
               <li key={p.id}>
-                <button className="player-row clickable" onClick={() => setOpenPlayerId(p.id)}>
+                <button className="player-row clickable dash-compact" onClick={() => setOpenPlayerId(p.id)}>
                   <img className="headshot" src={p.headshotUrl ?? ""} alt="" loading="lazy" />
                   <span className="player-info">
                     <span className="name">

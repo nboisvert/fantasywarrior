@@ -664,15 +664,17 @@
 }
 
 /* ---------- dashboard ---------- */
+/* Density reference: PlayerCard.css (.pc-bio-grid / .pc-tiles / .pc-game-row) —
+   tiny uppercase labels, tight paddings, big numbers only where they matter. */
 
 .dashboard-hero {
-  position: relative;
-  overflow: hidden;
   display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
-  padding: 1.35rem 1.25rem;
-  border-radius: 20px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  min-height: 56px;
+  padding: 0.6rem 1rem;
+  border-radius: 14px;
   border: 1px solid var(--border);
   background:
     radial-gradient(120% 140% at 100% 0%, rgba(56, 189, 248, 0.16), transparent 60%),
@@ -681,32 +683,39 @@
   -webkit-backdrop-filter: blur(10px);
 }
 
-.dashboard-eyebrow {
-  font: 700 0.75rem var(--font-body);
+.dashboard-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 1.05rem;
   text-transform: uppercase;
-  letter-spacing: 0.16em;
-  color: var(--ice-bright);
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.dashboard-title {
-  font-size: 1.6rem;
+.dashboard-eyebrow {
+  flex-shrink: 0;
+  font: 700 0.72rem var(--font-body);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
-  line-height: 1.15;
+  letter-spacing: 0.1em;
+  color: var(--ice-bright);
+  white-space: nowrap;
 }
 
 .dashboard-stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0.6rem;
+  gap: 0.5rem;
 }
 
 .stat-chip {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
-  padding: 0.65rem 0.7rem;
-  border-radius: 14px;
+  gap: 0.15rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--border);
   min-width: 0;
@@ -714,7 +723,7 @@
 
 .stat-chip .value {
   font-family: var(--font-display);
-  font-size: 1.2rem;
+  font-size: 1rem;
   color: var(--ice-bright);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -722,9 +731,9 @@
 }
 
 .stat-chip .label {
-  font-size: 0.66rem;
+  font-size: 0.62rem;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.06em;
   color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -742,7 +751,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  min-height: 36px;
+  min-height: 44px;
   padding: 0.3rem 0.5rem;
   border: none;
   border-radius: 8px;
@@ -759,19 +768,43 @@
   background: var(--surface-strong);
 }
 
+/* Dashboard-only: tighter than the base .standing-row (unchanged, used by
+   Standings.tsx). Two lines of text (team + @handle) keep it above the
+   pc-game-row single-line floor of ~38px, landing around ~48px/row. */
 .standing-row.compact {
-  padding: 0.6rem 0.85rem;
-  gap: 0.7rem;
+  padding: 0.5rem 0.75rem;
+  gap: 0.6rem;
 }
 
 .standing-row.compact .rank {
-  flex: 0 0 26px;
-  height: 26px;
-  font-size: 0.78rem;
+  flex: 0 0 24px;
+  height: 24px;
+  font-size: 0.72rem;
+}
+
+.standing-row.compact .standing-info .team {
+  font-size: 0.92rem;
+  line-height: 1.25;
+}
+
+.standing-row.compact .standing-info small {
+  font-size: 0.72rem;
 }
 
 .standing-row.compact .standing-points .pts {
-  font-size: 1rem;
+  font-size: 0.95rem;
+}
+
+/* Dashboard-only tight row modifier for the shared .player-list/.player-row
+   (base styles untouched — still used as-is by Roster.tsx/Standings.tsx).
+   Row stays >= 44px (headshot 40px + padding) to preserve the tap target. */
+.player-list.dash-compact {
+  gap: 0.4rem;
+}
+
+.player-row.dash-compact {
+  padding: 0.4rem 0.65rem;
+  gap: 0.6rem;
 }
 
 .activity-list {
@@ -780,14 +813,14 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .activity-row {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
-  padding: 0.6rem 0.8rem;
+  gap: 0.6rem;
+  padding: 0.45rem 0.7rem;
   border-radius: 14px;
   border: 1px solid var(--border);
   background: var(--surface);
@@ -803,8 +836,8 @@
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: rgba(56, 189, 248, 0.12);
   color: var(--ice-bright);
@@ -818,14 +851,14 @@
 .activity-text {
   flex: 1;
   min-width: 0;
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   overflow-wrap: break-word;
 }
 
 .activity-time {
   flex-shrink: 0;
   color: var(--text-muted);
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   white-space: nowrap;
 }
 
