@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { api, formatCap } from "../api";
 import type { LeagueSummary } from "../api";
 import { LogOutIcon, XIcon } from "../components/Icons";
+import { LoadingLogo } from "../components/LoadingLogo";
 import logo from "../assets/logo.webp";
 
 export function LeagueGate({
@@ -55,7 +56,7 @@ export function LeagueGate({
 
         <span className="section-title">Choose a league</span>
         {leagues === null ? (
-          <p className="empty-state">Loading…</p>
+          <LoadingLogo />
         ) : leagues.length === 0 ? (
           <div className="empty-state" style={{ display: "flex", flexDirection: "column", gap: "0.9rem", alignItems: "center" }}>
             <p style={{ margin: 0 }}>No league yet — create one or join with an invite code.</p>

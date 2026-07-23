@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, formatCap } from "../api";
 import type { LeagueDetail, LeagueSummary } from "../api";
 import { LogOutIcon, SettingsIcon } from "../components/Icons";
+import { LoadingLogo } from "../components/LoadingLogo";
 import { RulesPanel } from "./RulesPanel";
 
 export function Settings({
@@ -66,7 +67,7 @@ export function Settings({
       <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
         <span className="section-title">My leagues</span>
         {leagues === null ? (
-          <p className="empty-state">Loading…</p>
+          <LoadingLogo />
         ) : leagues.length === 0 ? (
           <p className="empty-state">No league yet — create one or join with an invite code below.</p>
         ) : (

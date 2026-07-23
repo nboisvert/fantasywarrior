@@ -1310,3 +1310,46 @@
     transform: none;
   }
 }
+
+/* ---------- loading logo (simple breathing-glow loader, replaces plain-text "Loading…") ---------- */
+
+.loading-logo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.loading-logo-img {
+  width: 56px;
+  height: 56px;
+  animation: loading-logo-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes loading-logo-pulse {
+  0%,
+  100% {
+    transform: scale(0.92);
+    opacity: 0.65;
+    filter: drop-shadow(0 0 8px var(--ice-glow));
+  }
+  50% {
+    transform: scale(1);
+    opacity: 1;
+    filter: drop-shadow(0 0 24px var(--ice-glow));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-logo-img {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    filter: drop-shadow(0 0 16px var(--ice-glow));
+  }
+}
+
+.loading-logo-label {
+  margin: 0;
+  font-size: 0.85rem;
+}

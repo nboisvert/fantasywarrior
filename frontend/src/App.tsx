@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, formatSeason } from "./api";
 import type { LeagueDetail } from "./api";
 import { ActivityIcon, ChevronDownIcon, HomeIcon, SettingsIcon, TrophyIcon, UsersIcon } from "./components/Icons";
+import { LoadingLogo } from "./components/LoadingLogo";
 import logo from "./assets/logo.webp";
 import { Login } from "./screens/Login";
 import { LeagueGate } from "./screens/LeagueGate";
@@ -141,7 +142,7 @@ export default function App() {
             to create or join one.
           </p>
         )}
-        {tab !== "settings" && leagueId && !league && !error && <p className="empty-state">Loading league…</p>}
+        {tab !== "settings" && leagueId && !league && !error && <LoadingLogo label="Loading league…" />}
         {league && tab === "dashboard" && <Dashboard league={league} username={username} />}
         {league && tab === "standings" && <Standings league={league} username={username} />}
         {league && tab === "roster" && (

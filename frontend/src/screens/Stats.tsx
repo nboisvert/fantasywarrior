@@ -13,6 +13,7 @@
 import { useEffect, useState } from "react";
 import { api, posGroup } from "../api";
 import type { LeagueDetail, PlayerSeasonStatsRow } from "../api";
+import { LoadingLogo } from "../components/LoadingLogo";
 import { ChevronDownIcon } from "../components/Icons";
 
 const formatGaa = (goalsAgainst: number, gamesPlayed: number): number | null =>
@@ -300,7 +301,7 @@ export function Stats({ league, username }: { league: LeagueDetail; username: st
         )}
       </div>
 
-      {loading && <p className="empty-state">Loading stats…</p>}
+      {loading && <LoadingLogo label="Loading stats…" />}
       {!loading && error && <p className="error-banner">{error}</p>}
 
       {!loading && !error && (
