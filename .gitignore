@@ -30,3 +30,6 @@ Thumbs.db
 # Firebase emulator
 firebase-debug.log
 firestore-debug.log
+
+# Claude Code agent worktrees
+.claude/worktrees/
