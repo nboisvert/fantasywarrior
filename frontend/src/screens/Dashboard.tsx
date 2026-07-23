@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api, formatCap } from "../api";
 import type { ActivityEntry, LeagueDetail } from "../api";
 import { ActivityIcon, ArrowLeftRightIcon, PlusIcon, XIcon } from "../components/Icons";
@@ -7,9 +7,27 @@ import { PlayerCard } from "../components/PlayerCard";
 const TOP_STANDINGS = 5;
 const TOP_SCORERS = 7;
 const TICKER_INTERVAL_MS = 3600;
+const TICKER_VISIBLE_ROWS = 3;
+/** Must match the inline `transitionDuration` set on `.ticker-track` — this is how the
+ * "rewind the loop" timer below stays in lockstep with the CSS slide animation it's timing. */
+const TICKER_SLIDE_MS = 420;
 
 function capitalize(s: string): string {
   return s.length === 0 ? s : s[0].toUpperCase() + s.slice(1);
+}
+
+/** Mirrors the backend's `PositionGroups.From` mapping (FantasyWarrior.Core/Scoring/RuleConfig.cs):
+ * "D" -> Defense, "G" -> Goalie, anything else (C/L/R/LW/RW/...) -> Forward. Frontend-only,
+ * no backend import — just the same handful of lines. */
+function positionGroupLabel(position: string): "F" | "D" | "G" {
+  switch (position) {
+    case "D":
+      return "D";
+    case "G":
+      return "G";
+    default:
+      return "F";
+  }
 }
 
 function formatRelativeTime(dateUtc: string): string {
@@ -47,8 +65,32 @@ function usePrefersReducedMotion(): boolean {
   return reduced;
 }
 
-/** Single-item auto-looping activity carousel. Reserves a fixed-height slot so
- * loading/empty/error/entry states never shift surrounding layout. */
+function ActivityRow({ entry, mine }: { entry: ActivityEntry; mine: boolean }) {
+  const { verb, suffix } = activityText(entry);
+  return (
+    <div className={`activity-row ticker-row${mine ? " mine" : ""}`}>
+      <span className={`activity-icon${entry.type === "drop" ? " drop" : ""}`}>
+        {entry.source === "trade" ? (
+          <ArrowLeftRightIcon size={12} />
+        ) : entry.type === "add" ? (
+          <PlusIcon size={12} />
+        ) : (
+          <XIcon size={12} />
+        )}
+      </span>
+      <span className="activity-text">
+        <strong>{capitalize(entry.teamUsername)}</strong> {verb} {entry.playerName}
+        {suffix && <span className="muted">{suffix}</span>}
+      </span>
+      <span className="activity-time">{formatRelativeTime(entry.dateUtc)}</span>
+    </div>
+  );
+}
+
+/** Vertical sliding carousel over the full activity list: shows a 3-row window that
+ * auto-advances one row at a time on a smooth CSS `translateY` transition (new entry
+ * slides in at the bottom, oldest slides out the top). Reserves a fixed 3-row-tall slot
+ * so loading/empty/error/entry states never shift surrounding layout. */
 function ActivityTicker({
   activity,
   error,
@@ -58,24 +100,67 @@ function ActivityTicker({
   error: string;
   username: string;
 }) {
-  const [index, setIndex] = useState(0);
-  const [paused, setPaused] = useState(false);
+  const list = useMemo(() => activity ?? [], [activity]);
+  const total = list.length;
+  const canSlide = total > TICKER_VISIBLE_ROWS;
   const reducedMotion = usePrefersReducedMotion();
+  const showStatic = !canSlide || reducedMotion;
 
+  const [windowStart, setWindowStart] = useState(0);
+  const [instant, setInstant] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const [announcement, setAnnouncement] = useState("");
+  const prevWindowStartRef = useRef(0);
+
+  // New data (e.g. a fresh fetch) always restarts the loop from the top.
   useEffect(() => {
-    setIndex(0);
+    setWindowStart(0);
+    setInstant(false);
+    setAnnouncement("");
+    prevWindowStartRef.current = 0;
   }, [activity]);
 
+  // Auto-advance one row every TICKER_INTERVAL_MS. Off entirely when reduced-motion is
+  // requested, when there's nothing to cycle through, or while paused (hover/focus).
   useEffect(() => {
-    if (reducedMotion || paused || !activity || activity.length <= 1) return;
-    const t = setInterval(() => {
-      setIndex((i) => (i + 1) % activity.length);
-    }, TICKER_INTERVAL_MS);
+    if (showStatic || paused) return;
+    const t = setInterval(() => setWindowStart((i) => i + 1), TICKER_INTERVAL_MS);
     return () => clearInterval(t);
-  }, [activity, paused, reducedMotion]);
+  }, [showStatic, paused]);
 
-  const entry = activity && activity.length > 0 ? activity[index % activity.length] : null;
-  const { verb, suffix } = entry ? activityText(entry) : { verb: "", suffix: "" };
+  // The visible track renders `list` doubled so the window can slide continuously past
+  // the "end" — once a full cycle has played out (windowStart reaches `total`), rewind
+  // to 0 with the transition switched off for one frame, which is visually seamless
+  // because doubled[i] === doubled[i + total].
+  useEffect(() => {
+    if (!canSlide || windowStart < total) return;
+    const t = setTimeout(() => {
+      setInstant(true);
+      setWindowStart((i) => i - total);
+    }, TICKER_SLIDE_MS);
+    return () => clearTimeout(t);
+  }, [windowStart, total, canSlide]);
+
+  useEffect(() => {
+    if (!instant) return;
+    const raf = requestAnimationFrame(() => setInstant(false));
+    return () => cancelAnimationFrame(raf);
+  }, [instant]);
+
+  // Announce only the single row that just entered the window — not the whole 3-row
+  // block — so assistive tech gets one short, meaningful update per advance instead of
+  // being re-read the same 3 lines on every tick.
+  useEffect(() => {
+    const prev = prevWindowStartRef.current;
+    prevWindowStartRef.current = windowStart;
+    if (!canSlide || windowStart <= prev) return;
+    const entering = list[(windowStart + TICKER_VISIBLE_ROWS - 1) % total];
+    if (!entering) return;
+    const { verb } = activityText(entering);
+    setAnnouncement(`${capitalize(entering.teamUsername)} ${verb} ${entering.playerName}`);
+  }, [windowStart, canSlide, list, total]);
+
+  const doubled = total > 0 ? [...list, ...list] : [];
 
   return (
     <div
@@ -88,32 +173,50 @@ function ActivityTicker({
       role="group"
       aria-label="Recent pool activity, auto-updating. Pauses on hover or focus."
     >
-      <div className="ticker-viewport" aria-live="polite" aria-atomic="true">
+      <div className="ticker-viewport">
         {error ? (
-          <p className="empty-state ticker-empty">{error}</p>
+          <p className="empty-state ticker-empty" aria-live="polite">
+            {error}
+          </p>
         ) : activity === null ? (
-          <p className="empty-state ticker-empty">Loading…</p>
-        ) : !entry ? (
-          <p className="empty-state ticker-empty">No transactions yet this season.</p>
+          <p className="empty-state ticker-empty" aria-live="polite">
+            Loading…
+          </p>
+        ) : total === 0 ? (
+          <p className="empty-state ticker-empty" aria-live="polite">
+            No transactions yet this season.
+          </p>
+        ) : showStatic ? (
+          <div className="ticker-track">
+            {list.slice(0, TICKER_VISIBLE_ROWS).map((entry, i) => (
+              <ActivityRow
+                key={`${entry.playerId}-${entry.dateUtc}-${i}`}
+                entry={entry}
+                mine={entry.teamUsername === username}
+              />
+            ))}
+          </div>
         ) : (
-          <div className={`activity-row ticker-row${entry.teamUsername === username ? " mine" : ""}`}>
-            <span className={`activity-icon${entry.type === "drop" ? " drop" : ""}`}>
-              {entry.source === "trade" ? (
-                <ArrowLeftRightIcon size={16} />
-              ) : entry.type === "add" ? (
-                <PlusIcon size={16} />
-              ) : (
-                <XIcon size={16} />
-              )}
-            </span>
-            <span className="activity-text">
-              <strong>{capitalize(entry.teamUsername)}</strong> {verb} {entry.playerName}
-              {suffix && <span className="muted">{suffix}</span>}
-            </span>
-            <span className="activity-time">{formatRelativeTime(entry.dateUtc)}</span>
+          <div
+            className="ticker-track"
+            style={{
+              transform: `translateY(calc(var(--ticker-row-h) * ${-windowStart}))`,
+              transitionDuration: instant ? "0ms" : `${TICKER_SLIDE_MS}ms`,
+            }}
+          >
+            {doubled.map((entry, i) => (
+              <ActivityRow
+                key={`${entry.playerId}-${entry.dateUtc}-${i}`}
+                entry={entry}
+                mine={entry.teamUsername === username}
+              />
+            ))}
           </div>
         )}
       </div>
+      <span className="ticker-sr-status" aria-live="polite" aria-atomic="true">
+        {announcement}
+      </span>
     </div>
   );
 }
@@ -244,10 +347,11 @@ export function Dashboard({
           <div className="mini-table mini-scorers">
             {topScorers.map((p) => (
               <button key={p.id} className="mini-row clickable" onClick={() => setOpenPlayerId(p.id)}>
-                <span className="msr-name">{p.name}</span>
-                <span className="msr-pos">
-                  {p.position} <span className="msr-team-abbr">{p.team}</span>
+                <span className="msr-name">
+                  <span className="msr-name-text">{p.name}</span>
+                  <span className="msr-pos-pill">{positionGroupLabel(p.position)}</span>
                 </span>
+                <span className="msr-team-abbr">{p.team}</span>
                 <span className="msr-pts">{p.points}</span>
               </button>
             ))}
