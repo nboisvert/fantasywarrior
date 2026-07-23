@@ -6,31 +6,17 @@ import { PlayerCard } from "../components/PlayerCard";
 // Read-only roster view: rosters are season-long (see project docs) —
 // add/remove is intentionally not exposed here.
 
-/** Compact headline cap format: millions with one decimal ($9.2M), thousands
- * under a million. Used only for the gauge's big "available"/"over budget"
- * figure — the sub-line below it still uses api.ts's long-form `formatCap`
- * for the exact committed/cap numbers, so the header gives both a
- * glance-friendly figure and the precise one. No sign is embedded here;
- * callers already know which side (available vs. over) they're formatting. */
+/** Compact money format: millions with one decimal ($9.2M), thousands under a
+ * million ($850K) — used for the cap gauge's "available"/"over budget"
+ * figure and for each player row's salary, so the whole screen reads one
+ * consistent compact format. The gauge's sub-line still uses api.ts's
+ * long-form `formatCap` for the exact committed/cap numbers. No sign is
+ * embedded here; callers already know which side they're formatting. */
 function formatCapCompact(amount: number): string {
   const abs = Math.abs(amount);
   if (abs >= 1_000_000) return `$${(abs / 1_000_000).toFixed(1)}M`;
   if (abs >= 1_000) return `$${Math.round(abs / 1_000)}K`;
   return `$${abs}`;
-}
-
-/** Per-row salary format for the roster list: "9.6M$" — number, then unit
- * letter, then the dollar sign (deliberately reversed from the usual "$9.6M"
- * reading, per Nick's spec) so it reads compactly on the row's second line
- * next to the team code. Millions get one decimal, thousands round to whole
- * K, anything smaller is shown as a plain integer. Distinct from both
- * `formatCapCompact` above (cap gauge, "$"-first) and api.ts's long-form
- * `formatCap` (still used for the cap gauge's committed/cap sub-line). */
-function formatSalaryCompact(amount: number): string {
-  const abs = Math.abs(amount);
-  if (abs >= 1_000_000) return `${(abs / 1_000_000).toFixed(1)}M$`;
-  if (abs >= 1_000) return `${Math.round(abs / 1_000)}K$`;
-  return `${abs}$`;
 }
 
 type PosGroup = "F" | "D" | "G";
@@ -118,7 +104,7 @@ export function Roster({ league, username }: { league: LeagueDetail; username: s
                 </span>
                 <small className="player-sub">
                   <span>{p.team}</span>
-                  {p.capHit != null && <span className="player-cap-hit">{formatSalaryCompact(p.capHit)}</span>}
+                  {p.capHit != null && <span className="player-cap-hit">{formatCapCompact(p.capHit)}</span>}
                 </small>
               </span>
             </button>

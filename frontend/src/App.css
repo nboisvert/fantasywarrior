@@ -848,15 +848,23 @@
 .stats-header {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.35rem;
   padding: 0.85rem 1rem;
 }
 
-.stats-score-main {
+/* Team name and points total share one row, same baseline. */
+.stats-header-top {
   display: flex;
-  align-items: baseline;
-  gap: 0.55rem;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.stats-score-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
 }
 
 .stats-score-value {
@@ -868,15 +876,17 @@
 }
 
 .stats-score-label {
-  font-size: 0.66rem;
+  font-size: 0.62rem;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.14em;
   font-weight: 700;
 }
 
-.stats-score-detail {
-  font-size: 0.76rem;
+.stats-adj-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .stats-adj-pill {
@@ -983,61 +993,28 @@
   font-weight: 600;
 }
 
-/* ---- "gros footer": sticky column-totals bar ----
-   Sits in normal document flow as the last element of the screen, so
-   `.shell-content`'s existing bottom padding (nav height + safe-area + 1.5rem)
-   is exactly the runway this needs to detach and pin while the page scrolls
-   through the grids above it — no extra plumbing required. `bottom` matches
-   the bottom-nav's own height + safe-area exactly so the two sit flush
-   against each other without ever overlapping in either direction; z-index
-   just needs to clear normal in-flow content (cards, tables) scrolling
-   underneath it, well below the bottom-nav's 50 and PlayerCard's 100. */
-.stats-totals-bar {
-  position: sticky;
-  bottom: calc(var(--nav-height) + env(safe-area-inset-bottom));
-  z-index: 20;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.85rem 1rem;
-  border-radius: 16px;
-  border: 1px solid var(--border-strong);
-  background: rgba(16, 22, 42, 0.94);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.45);
-}
-
-.stats-totals-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.35rem 0.75rem;
-}
-
-.stats-totals-label {
-  flex: 0 0 auto;
-  font-family: var(--font-display);
-  font-size: 0.72rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.stats-totals-chip {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
-.stats-totals-chip b {
-  margin-left: 0.3rem;
-  color: var(--text);
+/* Simple in-table totals row (not sticky — just the last row of each grid,
+   sum/aggregate per column, aligned under the data it summarizes). */
+.stats-grid tfoot td,
+.stats-grid tfoot th {
+  border-top: 2px solid var(--border-strong);
+  background: var(--surface-strong);
   font-family: var(--font-display);
   font-weight: 400;
+  color: var(--text);
 }
 
-.stats-totals-chip.accent b {
+.stats-grid tfoot .stats-col-player {
+  background: var(--surface-strong);
+  font-family: var(--font-body);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.stats-grid tfoot td.accent {
   color: var(--ice-bright);
   text-shadow: 0 0 10px var(--ice-glow);
 }

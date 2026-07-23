@@ -32,6 +32,22 @@ const formatGaa = (goalsAgainst: number, gamesPlayed: number): string =>
 const formatSvPct = (saves: number, shotsAgainst: number): string =>
   shotsAgainst > 0 ? (saves / shotsAgainst).toFixed(3).replace(/^0\./, ".") : "—";
 
+const formatPerGame = (total: number, gamesPlayed: number): string =>
+  gamesPlayed > 0 ? (total / gamesPlayed).toFixed(2) : "—";
+
+/** Same compact format as Roster.tsx's cap gauge ($9.2M / $850K) — kept as a
+ * local copy per the project's small-screen-local-helper convention. */
+function formatMoneyCompact(amount: number): string {
+  const abs = Math.abs(amount);
+  if (abs >= 1_000_000) return `$${(abs / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000) return `$${Math.round(abs / 1_000)}K`;
+  return `$${abs}`;
+}
+
+/** Cost per point, compact; dashes out when there are no points to divide by. */
+const formatCostPerPoint = (capHit: number | null, points: number): string =>
+  capHit != null && points > 0 ? `${formatMoneyCompact(capHit / points)}` : "—";
+
 /** Numeric-only stat keys — the footer sums each of these across the roster.
  * Restricting to this union (rather than `keyof PlayerSeasonStatsRow`) keeps
  * `sum()` from being callable with non-numeric fields like `name`/`team`. */
@@ -52,6 +68,10 @@ type NumericStatKey =
 
 function sum(rows: PlayerSeasonStatsRow[], key: NumericStatKey): number {
   return rows.reduce((acc, r) => acc + r[key], 0);
+}
+
+function sumCap(rows: PlayerSeasonStatsRow[]): number {
+  return rows.reduce((acc, r) => acc + (r.capHit ?? 0), 0);
 }
 
 function PlayerCell({ p }: { p: PlayerSeasonStatsRow }) {
@@ -96,13 +116,24 @@ export function Stats({ league, username }: { league: LeagueDetail; username: st
   const skaters = (players ?? []).filter((p) => !p.isGoalie);
   const goalies = (players ?? []).filter((p) => p.isGoalie);
 
+  const skatersGp = sum(skaters, "gamesPlayed");
+  const skatersPts = sum(skaters, "points");
+  const skatersCap = sumCap(skaters);
+  const goaliesGp = sum(goalies, "gamesPlayed");
+  const goaliesCap = sumCap(goalies);
+
   return (
     <section className="fade-in" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
       <div className="card stats-header">
-        <span className="roster-team-name">{myTeam.name}</span>
-        <div className="stats-score-main">
-          <span className="stats-score-value">{myTeam.score}</span>
-          {myTeam.adjustmentsTotal !== 0 && (
+        <div className="stats-header-top">
+          <span className="roster-team-name">{myTeam.name}</span>
+          <span className="stats-score-col">
+            <span className="stats-score-value">{myTeam.score}</span>
+            <span className="stats-score-label">Points</span>
+          </span>
+        </div>
+        {myTeam.adjustmentsTotal !== 0 && (
+          <div className="stats-adj-line">
             <span
               className={`stats-adj-pill ${
                 myTeam.adjustmentsTotal > 0 ? "stats-adj-pill-pos" : "stats-adj-pill-neg"
@@ -111,11 +142,8 @@ export function Stats({ league, username }: { league: LeagueDetail; username: st
               {myTeam.adjustmentsTotal > 0 ? "+" : ""}
               {myTeam.adjustmentsTotal}
             </span>
-          )}
-          <span className="stats-score-label">Points</span>
-        </div>
-        {myTeam.adjustmentsTotal !== 0 && (
-          <small className="muted stats-score-detail">Raw top-X score: {myTeam.rawTopXScore} pts</small>
+            <small className="muted">adjustment · raw top-X score: {myTeam.rawTopXScore} pts</small>
+          </div>
         )}
       </div>
 
@@ -144,9 +172,12 @@ export function Stats({ league, username }: { league: LeagueDetail; username: st
                       <th className="accent" scope="col">
                         PTS
                       </th>
+                      <th scope="col">PTS/M</th>
                       <th scope="col">+/-</th>
                       <th scope="col">PIM</th>
                       <th scope="col">SOG</th>
+                      <th scope="col">Salary</th>
+                      <th scope="col">$/PTS</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -157,12 +188,32 @@ export function Stats({ league, username }: { league: LeagueDetail; username: st
                         <td>{p.goals}</td>
                         <td>{p.assists}</td>
                         <td className="accent">{p.points}</td>
+                        <td>{formatPerGame(p.points, p.gamesPlayed)}</td>
                         <td>{signed(p.plusMinus)}</td>
                         <td>{p.pim}</td>
                         <td>{p.shots}</td>
+                        <td>{p.capHit != null ? formatMoneyCompact(p.capHit) : "—"}</td>
+                        <td>{formatCostPerPoint(p.capHit, p.points)}</td>
                       </tr>
                     ))}
                   </tbody>
+                  <tfoot>
+                    <tr>
+                      <th className="stats-col-player" scope="row">
+                        Total
+                      </th>
+                      <td>{skatersGp}</td>
+                      <td>{sum(skaters, "goals")}</td>
+                      <td>{sum(skaters, "assists")}</td>
+                      <td className="accent">{skatersPts}</td>
+                      <td>{formatPerGame(skatersPts, skatersGp)}</td>
+                      <td>{signed(sum(skaters, "plusMinus"))}</td>
+                      <td>{sum(skaters, "pim")}</td>
+                      <td>{sum(skaters, "shots")}</td>
+                      <td>{formatMoneyCompact(skatersCap)}</td>
+                      <td>{formatCostPerPoint(skatersCap, skatersPts)}</td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             )}
@@ -186,6 +237,7 @@ export function Stats({ league, username }: { league: LeagueDetail; username: st
                       <th scope="col">SO</th>
                       <th scope="col">GAA</th>
                       <th scope="col">SV%</th>
+                      <th scope="col">Salary</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -198,65 +250,26 @@ export function Stats({ league, username }: { league: LeagueDetail; username: st
                         <td>{p.shutouts}</td>
                         <td>{formatGaa(p.goalsAgainst, p.gamesPlayed)}</td>
                         <td>{formatSvPct(p.saves, p.shotsAgainst)}</td>
+                        <td>{p.capHit != null ? formatMoneyCompact(p.capHit) : "—"}</td>
                       </tr>
                     ))}
                   </tbody>
+                  <tfoot>
+                    <tr>
+                      <th className="stats-col-player" scope="row">
+                        Total
+                      </th>
+                      <td>{goaliesGp}</td>
+                      <td className="accent">{sum(goalies, "wins")}</td>
+                      <td>{sum(goalies, "otLosses")}</td>
+                      <td>{sum(goalies, "shutouts")}</td>
+                      <td>{formatGaa(sum(goalies, "goalsAgainst"), goaliesGp)}</td>
+                      <td>{formatSvPct(sum(goalies, "saves"), sum(goalies, "shotsAgainst"))}</td>
+                      <td>{formatMoneyCompact(goaliesCap)}</td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
-            </div>
-          )}
-
-          {(skaters.length > 0 || goalies.length > 0) && (
-            <div className="stats-totals-bar">
-              {skaters.length > 0 && (
-                <div className="stats-totals-row">
-                  <span className="stats-totals-label">Skaters total</span>
-                  <span className="stats-totals-chip">
-                    GP<b>{sum(skaters, "gamesPlayed")}</b>
-                  </span>
-                  <span className="stats-totals-chip">
-                    G<b>{sum(skaters, "goals")}</b>
-                  </span>
-                  <span className="stats-totals-chip">
-                    A<b>{sum(skaters, "assists")}</b>
-                  </span>
-                  <span className="stats-totals-chip accent">
-                    PTS<b>{sum(skaters, "points")}</b>
-                  </span>
-                  <span className="stats-totals-chip">
-                    +/-<b>{signed(sum(skaters, "plusMinus"))}</b>
-                  </span>
-                  <span className="stats-totals-chip">
-                    PIM<b>{sum(skaters, "pim")}</b>
-                  </span>
-                  <span className="stats-totals-chip">
-                    SOG<b>{sum(skaters, "shots")}</b>
-                  </span>
-                </div>
-              )}
-              {goalies.length > 0 && (
-                <div className="stats-totals-row">
-                  <span className="stats-totals-label">Goalies total</span>
-                  <span className="stats-totals-chip">
-                    GP<b>{sum(goalies, "gamesPlayed")}</b>
-                  </span>
-                  <span className="stats-totals-chip accent">
-                    W<b>{sum(goalies, "wins")}</b>
-                  </span>
-                  <span className="stats-totals-chip">
-                    OTL<b>{sum(goalies, "otLosses")}</b>
-                  </span>
-                  <span className="stats-totals-chip">
-                    SO<b>{sum(goalies, "shutouts")}</b>
-                  </span>
-                  <span className="stats-totals-chip">
-                    GAA<b>{formatGaa(sum(goalies, "goalsAgainst"), sum(goalies, "gamesPlayed"))}</b>
-                  </span>
-                  <span className="stats-totals-chip">
-                    SV%<b>{formatSvPct(sum(goalies, "saves"), sum(goalies, "shotsAgainst"))}</b>
-                  </span>
-                </div>
-              )}
             </div>
           )}
         </>
