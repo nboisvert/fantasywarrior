@@ -1,17 +1,11 @@
 import { useEffect, useState } from "react";
 import { api, formatCap } from "../api";
 import type { ActivityEntry, LeagueDetail } from "../api";
-import { ActivityIcon, ArrowLeftRightIcon, ArrowRightIcon, PlusIcon, XIcon } from "../components/Icons";
+import { ActivityIcon, ArrowLeftRightIcon, PlusIcon, XIcon } from "../components/Icons";
 import { PlayerCard } from "../components/PlayerCard";
 
 const TOP_STANDINGS = 4;
 const TOP_SCORERS = 8;
-
-/** "20262027" -> "2026-27" */
-function formatSeason(season: string): string {
-  if (season.length !== 8) return season;
-  return `${season.slice(0, 4)}-${season.slice(6)}`;
-}
 
 function capitalize(s: string): string {
   return s.length === 0 ? s : s[0].toUpperCase() + s.slice(1);
@@ -41,11 +35,9 @@ function activityText(entry: ActivityEntry): { verb: string; suffix: string } {
 export function Dashboard({
   league,
   username,
-  onViewStandings,
 }: {
   league: LeagueDetail;
   username: string;
-  onViewStandings: () => void;
 }) {
   const [openPlayerId, setOpenPlayerId] = useState<number | null>(null);
   const [activity, setActivity] = useState<ActivityEntry[] | null>(null);
@@ -75,53 +67,41 @@ export function Dashboard({
 
   return (
     <section className="fade-in" style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-        <div className="dashboard-hero">
-          <h1 className="dashboard-title">{league.name}</h1>
-          <span className="dashboard-eyebrow">{formatSeason(league.season)}</span>
+      <div className="dashboard-stats">
+        <div className="stat-chip">
+          <span className="value">{rank ? `#${rank}` : "—"}</span>
+          <span className="label">Your rank</span>
         </div>
-        <div className="dashboard-stats">
-          <div className="stat-chip">
-            <span className="value">{rank ? `#${rank}` : "—"}</span>
-            <span className="label">Your rank</span>
-          </div>
-          <div className="stat-chip">
-            <span className="value">{myTeam ? myTeam.score : "—"}</span>
-            <span className="label">Your score</span>
-          </div>
-          <div className="stat-chip">
-            <span className="value">{myTeam ? formatCap(myTeam.capTotal) : "—"}</span>
-            <span className="label">Cap used{league.capAmount != null ? ` / ${formatCap(league.capAmount)}` : ""}</span>
-          </div>
+        <div className="stat-chip">
+          <span className="value">{myTeam ? myTeam.score : "—"}</span>
+          <span className="label">Your score</span>
+        </div>
+        <div className="stat-chip">
+          <span className="value">{myTeam ? formatCap(myTeam.capTotal) : "—"}</span>
+          <span className="label">Cap used{league.capAmount != null ? ` / ${formatCap(league.capAmount)}` : ""}</span>
         </div>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-        <div className="dashboard-section-head">
-          <span className="section-title">Top of the pool</span>
-          <button className="view-all-link" onClick={onViewStandings}>
-            View full standings <ArrowRightIcon size={14} />
-          </button>
-        </div>
+        <span className="section-title">Top of the pool</span>
         {topTeams.length === 0 ? (
           <p className="empty-state">No team in this league yet.</p>
         ) : (
-          <ol className="standings-list">
+          <div className="mini-table mini-standings">
             {topTeams.map((team, i) => (
-              <li key={team.ownerUsername}>
-                <div className={`standing-row compact${team.ownerUsername === username ? " mine" : ""}`}>
-                  <span className={`rank r${i + 1}`}>{i + 1}</span>
-                  <div className="standing-info">
-                    <div className="team">{team.name}</div>
-                    <small>@{team.ownerUsername}</small>
-                  </div>
-                  <div className="standing-points">
-                    <span className="pts">{team.score} pts</span>
-                  </div>
-                </div>
-              </li>
+              <div
+                key={team.ownerUsername}
+                className={`mini-row${team.ownerUsername === username ? " mine" : ""}`}
+              >
+                <span className={`msr-rank r${i + 1}`}>{i + 1}</span>
+                <span className="msr-team">
+                  <span className="msr-name">{team.name}</span>
+                  <span className="msr-handle">@{team.ownerUsername}</span>
+                </span>
+                <span className="msr-pts">{team.score}</span>
+              </div>
             ))}
-          </ol>
+          </div>
         )}
       </div>
 
@@ -132,26 +112,17 @@ export function Dashboard({
         ) : topScorers.length === 0 ? (
           <p className="empty-state">Empty roster — add players from the Roster tab.</p>
         ) : (
-          <ul className="player-list dash-compact">
+          <div className="mini-table mini-scorers">
             {topScorers.map((p) => (
-              <li key={p.id}>
-                <button className="player-row clickable dash-compact" onClick={() => setOpenPlayerId(p.id)}>
-                  <img className="headshot" src={p.headshotUrl ?? ""} alt="" loading="lazy" />
-                  <span className="player-info">
-                    <span className="name">
-                      {p.name}
-                      {p.counted && <span className="counted-badge">TOP</span>}
-                    </span>
-                    <small>
-                      <span className="pos-badge">{p.position}</span>
-                      {p.team}
-                    </small>
-                  </span>
-                  <span className="pts-small">{p.points} pts</span>
-                </button>
-              </li>
+              <button key={p.id} className="mini-row clickable" onClick={() => setOpenPlayerId(p.id)}>
+                <span className="msr-name">{p.name}</span>
+                <span className="msr-pos">
+                  {p.position} <span className="msr-team-abbr">{p.team}</span>
+                </span>
+                <span className="msr-pts">{p.points}</span>
+              </button>
             ))}
-          </ul>
+          </div>
         )}
       </div>
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api } from "./api";
+import { api, formatSeason } from "./api";
 import type { LeagueDetail } from "./api";
 import { ChevronDownIcon, HomeIcon, SettingsIcon, TrophyIcon, UsersIcon } from "./components/Icons";
 import logo from "./assets/logo.webp";
@@ -106,7 +106,10 @@ export default function App() {
       <header className="topbar">
         <img className="topbar-logo" src={logo} alt="" />
         <button className="league-switch" onClick={() => setShowPicker(true)} aria-label="Switch league">
-          <span className="name">{league?.name ?? (leagueId ? "…" : "Select league")}</span>
+          <span className="league-switch-text">
+            <span className="name">{league?.name ?? (leagueId ? "…" : "Select league")}</span>
+            {league && <span className="season">{formatSeason(league.season)}</span>}
+          </span>
           <ChevronDownIcon size={16} />
         </button>
         <span className="muted" style={{ fontSize: "0.85rem" }}>
@@ -137,9 +140,7 @@ export default function App() {
           </p>
         )}
         {tab !== "settings" && leagueId && !league && !error && <p className="empty-state">Loading league…</p>}
-        {league && tab === "dashboard" && (
-          <Dashboard league={league} username={username} onViewStandings={() => setTab("standings")} />
-        )}
+        {league && tab === "dashboard" && <Dashboard league={league} username={username} />}
         {league && tab === "standings" && <Standings league={league} username={username} />}
         {league && tab === "roster" && (
           <Roster league={league} username={username} onChanged={refreshLeague} />

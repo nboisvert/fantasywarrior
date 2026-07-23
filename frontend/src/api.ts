@@ -127,3 +127,7 @@ export const api = {
 
 export const formatCap = (amount: number | null | undefined) =>
   amount == null ? "—" : `$${amount.toLocaleString("en-US")}`;
+
+/** "20262027" -> "2026-27" */
+export const formatSeason = (season: string): string =>
+  season.length === 8 ? `${season.slice(0, 4)}-${season.slice(6)}` : season;

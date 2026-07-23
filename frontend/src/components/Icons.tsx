@@ -99,13 +99,6 @@ export const HomeIcon = (p: IconProps) => (
   </Icon>
 );
 
-export const ArrowRightIcon = (p: IconProps) => (
-  <Icon {...p}>
-    <path d="M5 12h14" />
-    <path d="m12 5 7 7-7 7" />
-  </Icon>
-);
-
 export const ActivityIcon = (p: IconProps) => (
   <Icon {...p}>
     <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
