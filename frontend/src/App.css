@@ -632,6 +632,203 @@
   color: var(--text-muted);
 }
 
+/* ---------- inline helpers ---------- */
+
+.link-btn {
+  display: inline;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: var(--ice-bright);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.link-btn:hover {
+  color: var(--text);
+}
+
+.inline-icon {
+  vertical-align: -2px;
+  margin-right: 0.3rem;
+}
+
+/* ---------- settings: league list active state ---------- */
+
+.league-card.active {
+  border-color: var(--ice);
+  background: rgba(56, 189, 248, 0.08);
+}
+
+/* ---------- dashboard ---------- */
+
+.dashboard-hero {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1.35rem 1.25rem;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background:
+    radial-gradient(120% 140% at 100% 0%, rgba(56, 189, 248, 0.16), transparent 60%),
+    var(--surface);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.dashboard-eyebrow {
+  font: 700 0.75rem var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--ice-bright);
+}
+
+.dashboard-title {
+  font-size: 1.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  line-height: 1.15;
+}
+
+.dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+}
+
+.stat-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.65rem 0.7rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  min-width: 0;
+}
+
+.stat-chip .value {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  color: var(--ice-bright);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stat-chip .label {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.view-all-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 36px;
+  padding: 0.3rem 0.5rem;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--ice-bright);
+  font: 600 0.78rem var(--font-body);
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: color 0.2s, background-color 0.2s;
+}
+
+.view-all-link:hover {
+  color: var(--text);
+  background: var(--surface-strong);
+}
+
+.standing-row.compact {
+  padding: 0.6rem 0.85rem;
+  gap: 0.7rem;
+}
+
+.standing-row.compact .rank {
+  flex: 0 0 26px;
+  height: 26px;
+  font-size: 0.78rem;
+}
+
+.standing-row.compact .standing-points .pts {
+  font-size: 1rem;
+}
+
+.activity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.activity-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  transition: border-color 0.2s;
+}
+
+.activity-row.mine {
+  border-color: rgba(56, 189, 248, 0.35);
+  background: rgba(56, 189, 248, 0.05);
+}
+
+.activity-icon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(56, 189, 248, 0.12);
+  color: var(--ice-bright);
+}
+
+.activity-icon.drop {
+  background: rgba(244, 63, 94, 0.12);
+  color: var(--danger);
+}
+
+.activity-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.88rem;
+  overflow-wrap: break-word;
+}
+
+.activity-time {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
 /* ---------- transitions ---------- */
 
 .fade-in {

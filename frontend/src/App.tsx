@@ -1,42 +1,44 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "./api";
 import type { LeagueDetail } from "./api";
-import { ChevronDownIcon, LogOutIcon, SettingsIcon, TrophyIcon, UsersIcon } from "./components/Icons";
+import { ChevronDownIcon, HomeIcon, SettingsIcon, TrophyIcon, UsersIcon } from "./components/Icons";
 import logo from "./assets/logo.webp";
 import { Login } from "./screens/Login";
 import { LeagueGate } from "./screens/LeagueGate";
+import { Dashboard } from "./screens/Dashboard";
 import { Standings } from "./screens/Standings";
 import { Roster } from "./screens/Roster";
-import { RulesPanel } from "./screens/RulesPanel";
+import { Settings } from "./screens/Settings";
 import "./App.css";
 
-type Tab = "standings" | "roster";
+type Tab = "dashboard" | "standings" | "roster" | "settings";
 
 export default function App() {
   const [username, setUsername] = useState<string | null>(localStorage.getItem("fw-username"));
   const [leagueId, setLeagueId] = useState<string | null>(localStorage.getItem("fw-league"));
   const [league, setLeague] = useState<LeagueDetail | null>(null);
-  const [tab, setTab] = useState<Tab>("standings");
-  const [showRules, setShowRules] = useState(false);
+  const [tab, setTab] = useState<Tab>("dashboard");
+  const [showPicker, setShowPicker] = useState(false);
+  const [defaultChecked, setDefaultChecked] = useState(false);
   const [error, setError] = useState("");
 
   const openLeague = (id: string) => {
     localStorage.setItem("fw-league", id);
     setLeague(null);
     setLeagueId(id);
-    setTab("standings");
-  };
-
-  const closeLeague = () => {
-    localStorage.removeItem("fw-league");
-    setLeagueId(null);
-    setLeague(null);
+    setTab("dashboard");
+    setShowPicker(false);
   };
 
   const logout = () => {
     localStorage.removeItem("fw-username");
-    closeLeague();
+    localStorage.removeItem("fw-league");
     setUsername(null);
+    setLeagueId(null);
+    setLeague(null);
+    setShowPicker(false);
+    setDefaultChecked(false);
+    setTab("dashboard");
   };
 
   const refreshLeague = useCallback(() => {
@@ -51,6 +53,30 @@ export default function App() {
   }, [leagueId]);
   useEffect(refreshLeague, [refreshLeague]);
 
+  // First-time landing logic: with no remembered league, decide where returning
+  // vs. brand-new users go — one league auto-selects it, several open the
+  // picker, zero sends the user straight to Settings (create/join lives there).
+  useEffect(() => {
+    if (!username || leagueId || defaultChecked) return;
+    api
+      .myLeagues(username)
+      .then((list) => {
+        if (list.length === 0) {
+          setTab("settings");
+        } else if (list.length === 1) {
+          openLeague(list[0].id);
+        } else {
+          setShowPicker(true);
+        }
+        setDefaultChecked(true);
+      })
+      .catch((e) => {
+        setError((e as Error).message);
+        setDefaultChecked(true);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [username, leagueId, defaultChecked]);
+
   if (!username)
     return (
       <Login
@@ -61,44 +87,58 @@ export default function App() {
       />
     );
 
-  if (!leagueId)
-    return <LeagueGate username={username} onOpen={openLeague} onLogout={logout} />;
+  if (showPicker)
+    return (
+      <LeagueGate
+        username={username}
+        onOpen={openLeague}
+        onLogout={logout}
+        onGoSettings={() => {
+          setShowPicker(false);
+          setTab("settings");
+        }}
+        onClose={leagueId ? () => setShowPicker(false) : undefined}
+      />
+    );
 
   return (
     <div className="shell">
       <header className="topbar">
         <img className="topbar-logo" src={logo} alt="" />
-        <button className="league-switch" onClick={closeLeague} aria-label="Switch league">
-          <span className="name">{league?.name ?? "…"}</span>
+        <button className="league-switch" onClick={() => setShowPicker(true)} aria-label="Switch league">
+          <span className="name">{league?.name ?? (leagueId ? "…" : "Select league")}</span>
           <ChevronDownIcon size={16} />
         </button>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
-          {league?.commissionerUsername === username && (
-            <button
-              className="icon-btn"
-              onClick={() => setShowRules(!showRules)}
-              aria-label="League rules"
-              style={showRules ? { color: "var(--ice-bright)" } : undefined}
-            >
-              <SettingsIcon size={18} />
-            </button>
-          )}
-          <button className="btn-ghost" onClick={logout}>
-            <LogOutIcon size={16} /> {username}
-          </button>
+        <span className="muted" style={{ fontSize: "0.85rem" }}>
+          {username}
         </span>
       </header>
 
       <main className="shell-content" style={{ paddingTop: "1rem" }}>
         {error && <p className="error-banner">{error}</p>}
-        {!league && !error && <p className="empty-state">Loading league…</p>}
-        {league && showRules && (
-          <RulesPanel
-            league={league}
+
+        {tab === "settings" && (
+          <Settings
             username={username}
-            onSaved={refreshLeague}
-            onClose={() => setShowRules(false)}
+            league={league}
+            onOpen={openLeague}
+            onLogout={logout}
+            onRulesSaved={refreshLeague}
           />
+        )}
+
+        {tab !== "settings" && !leagueId && (
+          <p className="empty-state">
+            No league selected yet. Head to{" "}
+            <button className="link-btn" onClick={() => setTab("settings")}>
+              Settings
+            </button>{" "}
+            to create or join one.
+          </p>
+        )}
+        {tab !== "settings" && leagueId && !league && !error && <p className="empty-state">Loading league…</p>}
+        {league && tab === "dashboard" && (
+          <Dashboard league={league} username={username} onViewStandings={() => setTab("standings")} />
         )}
         {league && tab === "standings" && <Standings league={league} username={username} />}
         {league && tab === "roster" && (
@@ -107,6 +147,14 @@ export default function App() {
       </main>
 
       <nav className="bottom-nav" aria-label="Main navigation">
+        <button
+          className={`nav-tab${tab === "dashboard" ? " active" : ""}`}
+          onClick={() => setTab("dashboard")}
+          aria-current={tab === "dashboard" ? "page" : undefined}
+        >
+          <HomeIcon size={22} />
+          Dashboard
+        </button>
         <button
           className={`nav-tab${tab === "standings" ? " active" : ""}`}
           onClick={() => setTab("standings")}
@@ -122,6 +170,14 @@ export default function App() {
         >
           <UsersIcon size={22} />
           Roster
+        </button>
+        <button
+          className={`nav-tab${tab === "settings" ? " active" : ""}`}
+          onClick={() => setTab("settings")}
+          aria-current={tab === "settings" ? "page" : undefined}
+        >
+          <SettingsIcon size={22} />
+          Settings
         </button>
       </nav>
     </div>

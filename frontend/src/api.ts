@@ -62,6 +62,18 @@ export interface LeagueDetail {
   teams: TeamDto[];
 }
 
+export interface ActivityEntry {
+  type: "add" | "drop";
+  dateUtc: string;
+  playerId: number;
+  playerName: string;
+  position: string;
+  teamUsername: string;
+  teamName: string;
+  source: "initial" | "free_agency" | "trade" | "draft";
+  sourceRefId: string | null;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     headers: { "Content-Type": "application/json" },
@@ -91,6 +103,10 @@ export const api = {
       body: JSON.stringify({ username }),
     }),
   league: (leagueId: string) => request<LeagueDetail>(`/api/leagues/${encodeURIComponent(leagueId)}`),
+  activity: (leagueId: string, limit = 15) =>
+    request<ActivityEntry[]>(
+      `/api/leagues/${encodeURIComponent(leagueId)}/activity?limit=${encodeURIComponent(String(limit))}`,
+    ),
   updateRules: (leagueId: string, username: string, ruleConfig: RuleConfig) =>
     request<{ ok: boolean }>(`/api/leagues/${encodeURIComponent(leagueId)}/rules`, {
       method: "PATCH",

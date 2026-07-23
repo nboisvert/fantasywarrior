@@ -5,9 +5,10 @@
 
 ## Current state
 
-**In progress (2026-07-22 evening): GM Dashboard redesign** — Nick wants the post-login landing to be a per-league "GM dashboard" (mini top-4 standings, top 7-8 scorers of my roster, recent pool activity feed) instead of the league picker; league creation/join moves into a new Settings tab; bottom nav becomes 4 tabs (Dashboard default, Standings, Roster, Settings).
-- [x] Backend: `GET /api/leagues/{id}/activity?limit=` — recent add/drop events (assignments-derived), enriched with player name/position/team name; `Assignment.closedUtc` added so drop events are orderable. Verified live against the E2E test league.
-- [ ] Frontend IA rework — delegated to a React Exposito subagent (worktree `agent-a1b19d1c815ffd79a` at time of writing); integrate its output into `frontend/src/` when it reports back.
+**DONE (2026-07-22 evening): GM Dashboard redesign**
+- [x] Backend: `GET /api/leagues/{id}/activity?limit=` — recent add/drop events (assignments-derived), enriched with player name/position/team name; `Assignment.closedUtc` added so drop events are orderable.
+- [x] Frontend IA rework (built by a React Exposito subagent, reviewed and integrated): bottom nav is now 4 tabs — **Dashboard** (new default: hero header, rank/score/cap stat chips, top-4 mini standings, top-8 scorers of my roster tappable to PlayerCard, relative-time activity feed) · Standings · Roster · **Settings** (create/join league forms + my-leagues switch list + commissioner RulesPanel + logout — moved out of the main flow). `LeagueGate` trimmed to a pure picker, shown only when the user has 2+ leagues and no remembered one, or via the topbar league-switch. 0-league users land straight on Settings; exactly 1 league auto-selects. `fw-league` in localStorage still drives "last opened league" persistence.
+- Verified: build clean, lint clean, landing-logic traced against real accounts (freshgm=0 leagues→Settings, testa=1 league→auto Dashboard, nick=2 leagues→picker).
 
 **🚀 LIVE since 2026-07-22** — full stack in production, all free-tier:
 - App: https://nboisvert.github.io/fantasywarrior/ (GitHub Pages, auto-deploy on push)
