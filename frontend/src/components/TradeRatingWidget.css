@@ -1,0 +1,77 @@
+.trw {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.trw-anchor {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.trw-scale {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.trw-seg {
+  flex: 1;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font: 700 0.78rem var(--font-body);
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s, background-color 0.2s;
+}
+
+.trw-seg:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.trw-seg-left.selected {
+  color: var(--ice-bright);
+  border-color: rgba(56, 189, 248, 0.5);
+  background: rgba(56, 189, 248, 0.12);
+}
+
+.trw-seg-mid.selected {
+  color: var(--text);
+  border-color: var(--border-strong);
+  background: var(--surface-strong);
+}
+
+.trw-seg-right.selected {
+  color: var(--defense);
+  border-color: rgba(167, 139, 250, 0.5);
+  background: rgba(167, 139, 250, 0.12);
+}
+
+.trw-track {
+  position: relative;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--border);
+}
+
+.trw-marker {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ice-bright);
+  box-shadow: 0 0 8px var(--ice-glow);
+  transform: translate(-50%, -50%);
+}
+
+.trw-summary {
+  align-self: center;
+}

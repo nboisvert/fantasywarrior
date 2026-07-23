@@ -1,0 +1,84 @@
+/* CreateTradeSheet — body content only; overlay/sheet/close/handle chrome
+   comes from PlayerCard.css's generic "pc-*" classes (imported alongside). */
+
+.cts-title {
+  font-size: 1.15rem;
+  margin: 0;
+}
+
+.cts-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.cts-sides {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.cts-side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.cts-player-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow: hidden;
+  max-height: 11rem;
+  overflow-y: auto;
+}
+
+.cts-player-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.8rem;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.cts-player-row:hover {
+  background: var(--surface-strong);
+}
+
+.cts-player-row + .cts-player-row,
+.cts-player-list li + li .cts-player-row {
+  border-top: 1px solid var(--border);
+}
+
+.cts-player-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: var(--ice);
+  cursor: pointer;
+}
+
+.cts-player-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cts-player-pos {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.cts-empty {
+  margin: 0;
+  padding: 0.75rem;
+}

@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, formatSeason } from "./api";
 import type { LeagueDetail } from "./api";
-import { ActivityIcon, ChevronDownIcon, HomeIcon, SettingsIcon, TrophyIcon, UsersIcon } from "./components/Icons";
+import {
+  ActivityIcon,
+  ArrowLeftRightIcon,
+  ChevronDownIcon,
+  HomeIcon,
+  SettingsIcon,
+  TrophyIcon,
+  UsersIcon,
+} from "./components/Icons";
 import { LoadingLogo } from "./components/LoadingLogo";
 import logo from "./assets/logo.webp";
 import { Login } from "./screens/Login";
@@ -10,11 +18,12 @@ import { Dashboard } from "./screens/Dashboard";
 import { Standings } from "./screens/Standings";
 import { Roster } from "./screens/Roster";
 import { Stats } from "./screens/Stats";
+import { Trades } from "./screens/Trades";
 import { Settings } from "./screens/Settings";
 import { NewsTicker } from "./components/NewsTicker";
 import "./App.css";
 
-type Tab = "dashboard" | "standings" | "roster" | "stats" | "settings";
+type Tab = "dashboard" | "standings" | "roster" | "stats" | "trades" | "settings";
 
 export default function App() {
   const [username, setUsername] = useState<string | null>(localStorage.getItem("fw-username"));
@@ -118,6 +127,9 @@ export default function App() {
         <span className="muted" style={{ fontSize: "0.85rem" }}>
           {username}
         </span>
+        <button className="topbar-icon-btn" onClick={() => setTab("settings")} aria-label="Settings">
+          <SettingsIcon size={20} />
+        </button>
       </header>
 
       <main className="shell-content" style={{ paddingTop: "1rem" }}>
@@ -149,6 +161,7 @@ export default function App() {
           <Roster league={league} username={username} />
         )}
         {league && tab === "stats" && <Stats league={league} username={username} />}
+        {league && tab === "trades" && <Trades league={league} username={username} />}
       </main>
 
       <NewsTicker leagueId={leagueId} />
@@ -187,12 +200,12 @@ export default function App() {
           Stats
         </button>
         <button
-          className={`nav-tab${tab === "settings" ? " active" : ""}`}
-          onClick={() => setTab("settings")}
-          aria-current={tab === "settings" ? "page" : undefined}
+          className={`nav-tab${tab === "trades" ? " active" : ""}`}
+          onClick={() => setTab("trades")}
+          aria-current={tab === "trades" ? "page" : undefined}
         >
-          <SettingsIcon size={22} />
-          Settings
+          <ArrowLeftRightIcon size={22} />
+          Trades
         </button>
       </nav>
     </div>

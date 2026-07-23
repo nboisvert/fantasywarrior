@@ -39,5 +39,7 @@ jobs:
           dotnet run --project backend/FantasyWarrior.Jobs -c Release -- stats-sync $ARGS
       - name: Score calc
         run: dotnet run --project backend/FantasyWarrior.Jobs -c Release -- score-calc
+      - name: Process trades
+        run: dotnet run --project backend/FantasyWarrior.Jobs -c Release -- process-trades
       - name: Player sync
         run: dotnet run --project backend/FantasyWarrior.Jobs -c Release -- player-sync

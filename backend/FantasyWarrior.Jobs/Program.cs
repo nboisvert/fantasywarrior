@@ -7,6 +7,9 @@ using Google.Cloud.Firestore;
 //   stats-sync [--date YYYY-MM-DD | --from A --to B]   (default: yesterday UTC)
 //   stats-check [--date YYYY-MM-DD]
 //   score-calc [--league <leagueId>]
+//   process-trades
+//     Executes every `accepted` trade (roster swap via RosterChange) and
+//     marks it `processed`. Run nightly, right after score-calc.
 //   league-init-assignments
 //   estimate-salaries [--season 20252026] [--top 200] [--top-max 14000000]
 //                     [--top-min 3000000] [--default 1000000]
@@ -79,6 +82,11 @@ switch (job)
     case "score-calc":
     {
         await new FantasyWarrior.Jobs.Scoring.ScoreCalcJob(db).RunAsync(GetOption(args, "--league"));
+        return 0;
+    }
+    case "process-trades":
+    {
+        await new FantasyWarrior.Jobs.Trades.ProcessTradesJob(db).RunAsync();
         return 0;
     }
     case "league-init-assignments":

@@ -109,6 +109,31 @@ export interface ActivityEntry {
   sourceRefId: string | null;
 }
 
+export interface TradePlayer {
+  id: number;
+  name: string;
+  position: string | null;
+}
+
+export type TradeStatus = "pending" | "declined" | "accepted" | "processed";
+
+export interface Trade {
+  id: string;
+  proposerUsername: string;
+  proposerTeamName: string;
+  counterpartyUsername: string;
+  counterpartyTeamName: string;
+  playersFromProposer: TradePlayer[];
+  playersFromCounterparty: TradePlayer[];
+  status: TradeStatus;
+  createdUtc: string;
+  respondedUtc: string | null;
+  processedUtc: string | null;
+  avgRating: number | null;
+  voteCount: number;
+  myVote: number | null;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     headers: { "Content-Type": "application/json" },
@@ -161,6 +186,31 @@ export const api = {
     request<void>(
       `/api/leagues/${encodeURIComponent(leagueId)}/teams/${encodeURIComponent(username)}/roster/${playerId}`,
       { method: "DELETE" },
+    ),
+  trades: (leagueId: string, username?: string) =>
+    request<Trade[]>(
+      `/api/leagues/${encodeURIComponent(leagueId)}/trades${username ? `?username=${encodeURIComponent(username)}` : ""}`,
+    ),
+  proposeTrade: (
+    leagueId: string,
+    username: string,
+    counterpartyUsername: string,
+    playersFromProposer: number[],
+    playersFromCounterparty: number[],
+  ) =>
+    request<{ id: string }>(`/api/leagues/${encodeURIComponent(leagueId)}/trades`, {
+      method: "POST",
+      body: JSON.stringify({ username, counterpartyUsername, playersFromProposer, playersFromCounterparty }),
+    }),
+  respondTrade: (leagueId: string, tradeId: string, username: string, accept: boolean) =>
+    request<{ ok: boolean; status: TradeStatus }>(
+      `/api/leagues/${encodeURIComponent(leagueId)}/trades/${encodeURIComponent(tradeId)}/respond`,
+      { method: "POST", body: JSON.stringify({ username, accept }) },
+    ),
+  voteTrade: (leagueId: string, tradeId: string, username: string, level: number) =>
+    request<{ ok: boolean }>(
+      `/api/leagues/${encodeURIComponent(leagueId)}/trades/${encodeURIComponent(tradeId)}/vote`,
+      { method: "POST", body: JSON.stringify({ username, level }) },
     ),
 };
 

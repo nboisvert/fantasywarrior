@@ -207,47 +207,12 @@ app.MapPost("/api/leagues/{leagueId}/teams/{username}/roster", async (
     if (taken is not null)
         return Results.Conflict(new { error = $"{player.FirstName} {player.LastName} is already on team '{taken.GetValue<string>("name")}'." });
 
-    // Compensation: the displayed score must not move on a transaction.
-    var totals = await PlayerTotalsSource.FetchAsync(db, [req.PlayerId], league.Season);
-    var newPlayerPoints = ScoringEngine.PlayerPoints(totals[req.PlayerId], league.RuleConfig.PointValues);
-    var rosterPositions = await RosterPositions(players, team.PlayerIds);
-    var entriesBefore = team.PlayerIds
-        .Select(id => (id, rosterPositions.GetValueOrDefault(id, "C"), team.PlayerPoints.GetValueOrDefault(id.ToString(), 0)))
-        .ToList();
-    var before = ScoringEngine.TeamScoreFromPoints(entriesBefore, league.RuleConfig.TopCount);
-    var after = ScoringEngine.TeamScoreFromPoints(
-        [.. entriesBefore, (req.PlayerId, player.Position, newPlayerPoints)], league.RuleConfig.TopCount);
-    var delta = ScoringEngine.TransactionAdjustment(before.RawTopX, after.RawTopX);
-
-    if (delta != 0)
-        await teamDoc.Collection("adjustments").AddAsync(new Adjustment
-        {
-            Delta = delta,
-            Reason = "add",
-            PlayerIdsIn = [req.PlayerId],
-            DateUtc = Timestamp.GetCurrentTimestamp(),
-        });
-
-    await leagueDoc.Collection("assignments").AddAsync(new Assignment
-    {
-        PlayerId = req.PlayerId,
-        TeamUsername = team.OwnerUsername,
-        From = EtToday(),
-        Source = req.Source ?? "free_agency",
-        SourceRefId = req.SourceRefId,
-        CreatedUtc = Timestamp.GetCurrentTimestamp(),
-    });
-
-    var adjustmentsTotal = team.AdjustmentsTotal + delta;
-    await teamDoc.UpdateAsync(new Dictionary<string, object>
-    {
-        ["playerIds"] = FieldValue.ArrayUnion(req.PlayerId),
-        [$"playerPoints.{req.PlayerId}"] = newPlayerPoints,
-        ["rawTopXScore"] = after.RawTopX,
-        ["adjustmentsTotal"] = adjustmentsTotal,
-        ["score"] = after.RawTopX + adjustmentsTotal,
-        ["countedPlayerIds"] = after.CountedPlayerIds.ToList(),
-    });
+    var positions = await RosterPositions(players, [.. team.PlayerIds, req.PlayerId]);
+    await RosterChange.ApplyAsync(
+        db, leagueDoc, league, teamDoc, team, positions,
+        playersOut: [], playersIn: [req.PlayerId],
+        reason: "add", source: req.Source ?? "free_agency", sourceRefId: req.SourceRefId,
+        effectiveDate: EtToday());
     return Results.Ok(PlayerDto.From(player));
 });
 
@@ -268,55 +233,12 @@ app.MapDelete("/api/leagues/{leagueId}/teams/{username}/roster/{playerId:long}",
     if (!team.PlayerIds.Contains(playerId))
         return Results.BadRequest(new { error = "Player is not on this roster." });
 
-    var rosterPositions = await RosterPositions(players, team.PlayerIds);
-    var entriesBefore = team.PlayerIds
-        .Select(id => (id, rosterPositions.GetValueOrDefault(id, "C"), team.PlayerPoints.GetValueOrDefault(id.ToString(), 0)))
-        .ToList();
-    var before = ScoringEngine.TeamScoreFromPoints(entriesBefore, league.RuleConfig.TopCount);
-    var after = ScoringEngine.TeamScoreFromPoints(
-        entriesBefore.Where(e => e.Item1 != playerId).ToList(), league.RuleConfig.TopCount);
-    var delta = ScoringEngine.TransactionAdjustment(before.RawTopX, after.RawTopX);
-
-    if (delta != 0)
-        await teamDoc.Collection("adjustments").AddAsync(new Adjustment
-        {
-            Delta = delta,
-            Reason = "drop",
-            PlayerIdsOut = [playerId],
-            DateUtc = Timestamp.GetCurrentTimestamp(),
-        });
-
-    // Close the open assignment, freezing its per-stint stats one final time
-    // (they stop refreshing nightly the moment `to` is set).
-    var openAssignments = await leagueDoc.Collection("assignments")
-        .WhereEqualTo("playerId", playerId)
-        .WhereEqualTo("teamUsername", team.OwnerUsername)
-        .WhereEqualTo("to", null)
-        .GetSnapshotAsync();
-    var closeDate = EtToday();
-    var closeNow = Timestamp.GetCurrentTimestamp();
-    foreach (var assignment in openAssignments.Documents)
-    {
-        var a = assignment.ConvertTo<Assignment>();
-        var lines = await PlayerTotalsSource.FetchLinesAsync(db, playerId);
-        var finalTotals = PlayerTotalsSource.AggregateRange(lines, league.Season, a.From, closeDate);
-        var finalFantasyPoints = ScoringEngine.PlayerPoints(finalTotals, league.RuleConfig.PointValues);
-        var fields = AssignmentStats.ToFieldMap(finalTotals, finalFantasyPoints, closeNow);
-        fields["to"] = closeDate;
-        fields["closedUtc"] = closeNow;
-        await assignment.Reference.UpdateAsync(fields);
-    }
-
-    var adjustmentsTotal = team.AdjustmentsTotal + delta;
-    await teamDoc.UpdateAsync(new Dictionary<string, object>
-    {
-        ["playerIds"] = FieldValue.ArrayRemove(playerId),
-        [$"playerPoints.{playerId}"] = FieldValue.Delete,
-        ["rawTopXScore"] = after.RawTopX,
-        ["adjustmentsTotal"] = adjustmentsTotal,
-        ["score"] = after.RawTopX + adjustmentsTotal,
-        ["countedPlayerIds"] = after.CountedPlayerIds.ToList(),
-    });
+    var positions = await RosterPositions(players, team.PlayerIds);
+    await RosterChange.ApplyAsync(
+        db, leagueDoc, league, teamDoc, team, positions,
+        playersOut: [playerId], playersIn: [],
+        reason: "drop", source: "free_agency", sourceRefId: null,
+        effectiveDate: EtToday());
     return Results.Ok();
 });
 
@@ -356,6 +278,175 @@ app.MapGet("/api/leagues/{leagueId}/activity", async (string leagueId, int? limi
             sourceRefId = e.SourceRefId,
         };
     }));
+});
+
+app.MapPost("/api/leagues/{leagueId}/trades", async (
+    string leagueId, ProposeTradeRequest req, FirestoreDb db) =>
+{
+    if (string.IsNullOrWhiteSpace(req.Username) || string.IsNullOrWhiteSpace(req.CounterpartyUsername))
+        return Results.BadRequest(new { error = "Username and counterpartyUsername are required." });
+    var proposer = Normalize(req.Username);
+    var counterparty = Normalize(req.CounterpartyUsername);
+    if (proposer == counterparty)
+        return Results.BadRequest(new { error = "Cannot trade with yourself." });
+
+    var playersFromProposer = req.PlayersFromProposer ?? [];
+    var playersFromCounterparty = req.PlayersFromCounterparty ?? [];
+    if (playersFromProposer.Count == 0 && playersFromCounterparty.Count == 0)
+        return Results.BadRequest(new { error = "Trade must include at least one player." });
+    if (TradeValidation.HasOverlap(playersFromProposer, playersFromCounterparty))
+        return Results.BadRequest(new { error = "A player can't appear on both sides of a trade." });
+
+    var leagueDoc = db.Collection("leagues").Document(leagueId);
+    if (!(await leagueDoc.GetSnapshotAsync()).Exists)
+        return Results.NotFound(new { error = "League not found." });
+
+    var proposerSnap = await leagueDoc.Collection("teams").Document(proposer).GetSnapshotAsync();
+    var counterpartySnap = await leagueDoc.Collection("teams").Document(counterparty).GetSnapshotAsync();
+    if (!proposerSnap.Exists || !counterpartySnap.Exists)
+        return Results.NotFound(new { error = "Team not found." });
+    var proposerTeam = proposerSnap.ConvertTo<Team>();
+    var counterpartyTeam = counterpartySnap.ConvertTo<Team>();
+
+    if (playersFromProposer.Except(proposerTeam.PlayerIds).Any())
+        return Results.BadRequest(new { error = "You can only offer players on your own roster." });
+    if (playersFromCounterparty.Except(counterpartyTeam.PlayerIds).Any())
+        return Results.BadRequest(new { error = "Requested players aren't on that team's roster." });
+
+    var tradeRef = await leagueDoc.Collection("trades").AddAsync(new Trade
+    {
+        ProposerUsername = proposer,
+        CounterpartyUsername = counterparty,
+        PlayersFromProposer = playersFromProposer,
+        PlayersFromCounterparty = playersFromCounterparty,
+        Status = TradeStatus.Pending,
+        CreatedUtc = Timestamp.GetCurrentTimestamp(),
+    });
+    return Results.Ok(new { id = tradeRef.Id });
+});
+
+app.MapPost("/api/leagues/{leagueId}/trades/{tradeId}/respond", async (
+    string leagueId, string tradeId, RespondTradeRequest req, FirestoreDb db) =>
+{
+    if (string.IsNullOrWhiteSpace(req.Username))
+        return Results.BadRequest(new { error = "Username is required." });
+    var username = Normalize(req.Username);
+
+    var tradeDoc = db.Collection("leagues").Document(leagueId).Collection("trades").Document(tradeId);
+    var tradeSnap = await tradeDoc.GetSnapshotAsync();
+    if (!tradeSnap.Exists)
+        return Results.NotFound(new { error = "Trade not found." });
+    var trade = tradeSnap.ConvertTo<Trade>();
+
+    if (req.Accept)
+    {
+        if (!TradeValidation.CanAccept(trade, username))
+            return Results.Json(new { error = "Only the receiving team can accept this trade." }, statusCode: 403);
+        await tradeDoc.UpdateAsync(new Dictionary<string, object>
+        {
+            ["status"] = TradeStatus.Accepted,
+            ["respondedUtc"] = Timestamp.GetCurrentTimestamp(),
+        });
+        return Results.Ok(new { ok = true, status = TradeStatus.Accepted, note = "Processed the night after the next scoring update." });
+    }
+
+    if (!TradeValidation.CanDecline(trade, username))
+        return Results.Json(new { error = "Only the two teams in this trade can decline/cancel it." }, statusCode: 403);
+    await tradeDoc.UpdateAsync(new Dictionary<string, object>
+    {
+        ["status"] = TradeStatus.Declined,
+        ["respondedUtc"] = Timestamp.GetCurrentTimestamp(),
+    });
+    return Results.Ok(new { ok = true, status = TradeStatus.Declined });
+});
+
+app.MapGet("/api/leagues/{leagueId}/trades", async (string leagueId, string? username, FirestoreDb db, PlayerCache players) =>
+{
+    var leagueDoc = db.Collection("leagues").Document(leagueId);
+    if (!(await leagueDoc.GetSnapshotAsync()).Exists)
+        return Results.NotFound(new { error = "League not found." });
+
+    var teamsSnap = await leagueDoc.Collection("teams").GetSnapshotAsync();
+    var teamNames = teamsSnap.Documents.ToDictionary(d => d.Id, d => d.GetValue<string>("name"));
+
+    var tradesSnap = await leagueDoc.Collection("trades").GetSnapshotAsync();
+    var trades = tradesSnap.Documents
+        .Select(d => (Doc: d, Trade: d.ConvertTo<Trade>()))
+        .OrderByDescending(t => t.Trade.CreatedUtc.ToDateTime())
+        .ToList();
+
+    var allPlayerIds = trades.SelectMany(t => t.Trade.PlayersFromProposer.Concat(t.Trade.PlayersFromCounterparty)).Distinct();
+    var playersById = await players.GetByIdsAsync(allPlayerIds);
+    var normalizedViewer = username is null ? null : Normalize(username);
+
+    List<object> PlayerList(List<long> ids) => ids.Select(id =>
+    {
+        var p = playersById.GetValueOrDefault(id);
+        return (object)new { id, name = p is null ? "Unknown player" : $"{p.FirstName} {p.LastName}", position = p?.Position };
+    }).ToList();
+
+    var result = new List<object>();
+    foreach (var (doc, trade) in trades)
+    {
+        int? myVote = null;
+        double? avgRating = null;
+        var voteCount = 0;
+        if (trade.Status == TradeStatus.Processed)
+        {
+            var votesSnap = await doc.Reference.Collection("votes").GetSnapshotAsync();
+            var levels = votesSnap.Documents.Select(v => v.ConvertTo<TradeVote>().Level).ToList();
+            voteCount = levels.Count;
+            avgRating = voteCount > 0 ? Math.Round(levels.Average(), 2) : null;
+            if (normalizedViewer is not null)
+            {
+                var mine = votesSnap.Documents.FirstOrDefault(v => v.Id == normalizedViewer);
+                myVote = mine?.ConvertTo<TradeVote>().Level;
+            }
+        }
+
+        result.Add(new
+        {
+            id = doc.Id,
+            proposerUsername = trade.ProposerUsername,
+            proposerTeamName = teamNames.GetValueOrDefault(trade.ProposerUsername, trade.ProposerUsername),
+            counterpartyUsername = trade.CounterpartyUsername,
+            counterpartyTeamName = teamNames.GetValueOrDefault(trade.CounterpartyUsername, trade.CounterpartyUsername),
+            playersFromProposer = PlayerList(trade.PlayersFromProposer),
+            playersFromCounterparty = PlayerList(trade.PlayersFromCounterparty),
+            status = trade.Status,
+            createdUtc = trade.CreatedUtc.ToDateTime(),
+            respondedUtc = trade.RespondedUtc?.ToDateTime(),
+            processedUtc = trade.ProcessedUtc?.ToDateTime(),
+            avgRating,
+            voteCount,
+            myVote,
+        });
+    }
+    return Results.Ok(result);
+});
+
+app.MapPost("/api/leagues/{leagueId}/trades/{tradeId}/vote", async (
+    string leagueId, string tradeId, VoteTradeRequest req, FirestoreDb db) =>
+{
+    if (string.IsNullOrWhiteSpace(req.Username))
+        return Results.BadRequest(new { error = "Username is required." });
+    if (req.Level is < 1 or > 5)
+        return Results.BadRequest(new { error = "Level must be between 1 and 5." });
+
+    var tradeDoc = db.Collection("leagues").Document(leagueId).Collection("trades").Document(tradeId);
+    var tradeSnap = await tradeDoc.GetSnapshotAsync();
+    if (!tradeSnap.Exists)
+        return Results.NotFound(new { error = "Trade not found." });
+    if (tradeSnap.ConvertTo<Trade>().Status != TradeStatus.Processed)
+        return Results.BadRequest(new { error = "Only processed trades can be rated." });
+
+    var username = Normalize(req.Username);
+    await tradeDoc.Collection("votes").Document(username).SetAsync(new TradeVote
+    {
+        Level = req.Level,
+        VotedUtc = Timestamp.GetCurrentTimestamp(),
+    });
+    return Results.Ok(new { ok = true });
 });
 
 app.MapGet("/api/players", async (string? q, PlayerCache players) =>
@@ -526,6 +617,9 @@ record CreateLeagueRequest(string? Name, string? Username, string? TeamName, str
 record JoinLeagueRequest(string? Username, string? TeamName);
 record RosterChangeRequest(long PlayerId, string? Source, string? SourceRefId);
 record UpdateRulesRequest(string? Username, RuleConfig? RuleConfig);
+record ProposeTradeRequest(string? Username, string? CounterpartyUsername, List<long>? PlayersFromProposer, List<long>? PlayersFromCounterparty);
+record RespondTradeRequest(string? Username, bool Accept);
+record VoteTradeRequest(string? Username, int Level);
 
 record PlayerDto(long Id, string Name, string Position, string Team, string Status, long? CapHit, string? HeadshotUrl)
 {
