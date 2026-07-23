@@ -1,0 +1,225 @@
+/* ProfileMenu — topbar profile-indicator button + its anchored dropdown
+   panel. Night Arena glass-card language (surface/border tokens, blur), same
+   radii/motion rules as the rest of the app. Scoped with a "profile-" prefix. */
+
+.profile-menu {
+  position: relative;
+  flex-shrink: 0;
+  /* Last item in the topbar's space-between row — anchors the dropdown to
+     the actual right edge instead of wherever flex distribution lands it. */
+  margin-left: auto;
+}
+
+/* ---------- trigger ---------- */
+
+.profile-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  height: 34px;
+  padding: 0.2rem 0.7rem 0.2rem 0.2rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.profile-trigger:hover {
+  border-color: var(--ice);
+  background: var(--surface-strong);
+}
+
+.profile-avatar {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--ice) 0%, var(--ice-bright) 100%);
+  box-shadow: 0 0 10px var(--ice-glow);
+  color: #06121f;
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+}
+
+.profile-avatar-lg {
+  width: 40px;
+  height: 40px;
+  font-size: 0.95rem;
+}
+
+.profile-trigger-name {
+  max-width: 22vw;
+  font: 600 0.82rem var(--font-body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Mirrors .league-switch's season label — drop secondary text first when
+   the topbar gets tight, keep the avatar (still identifiable + tappable). */
+@media (max-width: 480px) {
+  .profile-trigger-name {
+    display: none;
+  }
+
+  .profile-trigger {
+    padding-right: 0.2rem;
+  }
+}
+
+/* ---------- dropdown panel ---------- */
+
+.profile-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 5;
+  width: min(280px, 84vw);
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 1rem;
+  background: linear-gradient(180deg, #141b31 0%, var(--bg-elevated) 100%);
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  box-shadow: 0 20px 56px rgba(0, 0, 0, 0.55);
+  animation: profile-panel-in 0.2s ease;
+}
+
+@keyframes profile-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-panel {
+    animation: none;
+  }
+}
+
+.profile-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.profile-panel-name {
+  min-width: 0;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-panel-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.profile-action {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 44px;
+  padding: 0 0.5rem;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  color: var(--text);
+  font: 600 0.9rem var(--font-body);
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.profile-action:hover {
+  background: var(--surface-strong);
+  color: var(--ice-bright);
+}
+
+.profile-action-danger:hover {
+  background: rgba(244, 63, 94, 0.1);
+  color: var(--danger);
+}
+
+.profile-panel-divider {
+  height: 1px;
+  background: var(--border);
+}
+
+.profile-panel-section {
+  display: flex;
+  align-items: center;
+}
+
+.profile-empty {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.profile-member-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.profile-member-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.4rem 0.1rem;
+}
+
+.profile-status-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.profile-status-dot.online {
+  background: var(--ice-bright);
+  box-shadow: 0 0 6px var(--ice-glow);
+}
+
+.profile-member-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.86rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-member-seen {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+/* ---------- desktop: a touch more breathing room ---------- */
+
+@media (min-width: 768px) {
+  .profile-panel {
+    width: 300px;
+  }
+}

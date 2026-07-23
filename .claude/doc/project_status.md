@@ -5,6 +5,12 @@
 
 ## Current state
 
+**Profile menu — first piece of the social/interactive push (2026-07-23, styling only)**
+
+Nick's framing: this kicks off "the social/interactive side that will differentiate the app from others." First piece: the topbar's plain username text + Settings gear button rebranded into a single profile-indicator button (circular ice-cyan initials avatar + name, pill-shaped) that opens an anchored dropdown (not a bottom-sheet — content's too short for that weight): name header, Settings/Log out actions, divider, "In this league" presence list of the other poolers with an online/offline dot + last-seen label. Built by a React Exposito subagent (isolated worktree), scope-checked (only `App.tsx`'s topbar + two new files touched), integrated, build clean.
+- **Online/last-seen is mocked** — deliberately, per Nick ("that's only styling," no backend this round). `ProfileMenu.tsx`'s `getPresence()` derives a stable pseudo-random status from a hash of the username (not `Math.random()`, so it doesn't flicker on re-render) — clearly commented as a placeholder. Real presence needs a future backend piece (e.g. a `presence/{username}` doc + heartbeat); `User.LastLoginUtc` already exists in Firestore but nothing surfaces it via the API yet.
+- Accessibility: Escape closes + returns focus to trigger, click-outside closes, opening moves focus into the panel, `aria-haspopup`/`aria-expanded`, status never color-only (dot + text label).
+
 **Trade feature: propose → accept/decline → nightly-processed, with a community rating (2026-07-23) — DONE, Phase 6 pulled forward** (plan: `C:\Users\nicolasc\.claude\plans\plusieurs-points-ici-param-trable-concurrent-mango.md`)
 
 First real transaction feature since the read-only Roster era — any pooler can propose an N-for-M trade with another team; only the receiving pooler can accept/decline (either side can also decline to withdraw a still-pending offer). **Acceptance doesn't execute the trade immediately** — it sits `accepted` until the new nightly `process-trades` job (wired right after `score-calc` in `daily-jobs.yml`) actually swaps the rosters, so a given day's score is always computed on that day's rosters before any trade takes effect. Every `processed` trade becomes ratable by any league member on a 1-5 "who won" scale (1=proposer's team clearly won, 3=fair, 5=counterparty clearly won), one vote per member, average shown to everyone.

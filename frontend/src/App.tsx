@@ -6,11 +6,11 @@ import {
   ArrowLeftRightIcon,
   ChevronDownIcon,
   HomeIcon,
-  SettingsIcon,
   TrophyIcon,
   UsersIcon,
 } from "./components/Icons";
 import { LoadingLogo } from "./components/LoadingLogo";
+import { ProfileMenu } from "./components/ProfileMenu";
 import logo from "./assets/logo.webp";
 import { Login } from "./screens/Login";
 import { LeagueGate } from "./screens/LeagueGate";
@@ -124,12 +124,12 @@ export default function App() {
           </span>
           <ChevronDownIcon size={16} />
         </button>
-        <span className="muted" style={{ fontSize: "0.85rem" }}>
-          {username}
-        </span>
-        <button className="topbar-icon-btn" onClick={() => setTab("settings")} aria-label="Settings">
-          <SettingsIcon size={20} />
-        </button>
+        <ProfileMenu
+          username={username}
+          otherMembers={league?.members.filter((m) => m !== username) ?? []}
+          onSettings={() => setTab("settings")}
+          onLogout={logout}
+        />
       </header>
 
       <main className="shell-content" style={{ paddingTop: "1rem" }}>
