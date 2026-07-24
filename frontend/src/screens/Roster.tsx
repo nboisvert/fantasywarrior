@@ -74,10 +74,10 @@ export function Roster({ league, username }: { league: LeagueDetail; username: s
         )}
       </div>
 
-      <span className="section-title">My roster ({myTeam.players.length})</span>
-      {myTeam.players.length === 0 && <p className="empty-state">Empty roster.</p>}
+      <span className="section-title">My roster ({league.myRoster.length})</span>
+      {league.myRoster.length === 0 && <p className="empty-state">Empty roster.</p>}
       <ul className="player-list">
-        {myTeam.players.map((p) => (
+        {league.myRoster.map((p) => (
           <li key={p.id} className={`player-row${p.counted ? " counted" : ""}`}>
             <button
               className="player-hit"

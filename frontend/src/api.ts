@@ -27,6 +27,10 @@ export interface RosterPlayer extends PlayerDto {
   nhlPoints: number;
 }
 
+/** Light team row from league-detail — team-level display only, no roster.
+ * Rosters/stats for a team are fetched on demand (Stats, CreateTradeSheet).
+ * `playerNhlPoints` maps playerId (string) -> season goals+assists, used to
+ * rank players in Trades/NewsTicker without shipping full rosters. */
 export interface TeamDto {
   name: string;
   ownerUsername: string;
@@ -35,7 +39,8 @@ export interface TeamDto {
   adjustmentsTotal: number;
   ptsPerGame: number | null;
   capTotal: number;
-  players: RosterPlayer[];
+  playerCount: number;
+  playerNhlPoints: Record<string, number>;
 }
 
 export interface RuleConfig {
@@ -62,6 +67,9 @@ export interface LeagueDetail {
   ruleConfig: RuleConfig;
   members: string[];
   teams: TeamDto[];
+  /** The requesting user's own roster (empty if they have no team here).
+   * Other teams' rosters are fetched on demand. */
+  myRoster: RosterPlayer[];
 }
 
 export interface PlayerSeasonStatsRow {
@@ -177,7 +185,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ username }),
     }),
-  league: (leagueId: string) => request<LeagueDetail>(`/api/leagues/${encodeURIComponent(leagueId)}`),
+  league: (leagueId: string, username: string) =>
+    request<LeagueDetail>(
+      `/api/leagues/${encodeURIComponent(leagueId)}?username=${encodeURIComponent(username)}`,
+    ),
   activity: (leagueId: string, limit = 15) =>
     request<ActivityEntry[]>(
       `/api/leagues/${encodeURIComponent(leagueId)}/activity?limit=${encodeURIComponent(String(limit))}`,

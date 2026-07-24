@@ -44,6 +44,21 @@ public sealed class Team
     [FirestoreProperty("playerPoints")]
     public Dictionary<string, double> PlayerPoints { get; set; } = [];
 
+    // --- team-level display fields, precomputed nightly so league-detail can
+    // stay a light read (no per-player season-stats / PlayerCache lookups). ---
+
+    /// <summary>Sum of games played across the roster (drives ptsPerGame = score / this).</summary>
+    [FirestoreProperty("rosterGamesPlayed")]
+    public int RosterGamesPlayed { get; set; }
+
+    /// <summary>Sum of the roster's cap hits (0 for players with no salary).</summary>
+    [FirestoreProperty("capTotal")]
+    public long CapTotal { get; set; }
+
+    /// <summary>NHL points (goals + assists) per rostered player — for player ranking in Trades/NewsTicker. Keys are playerIds as strings.</summary>
+    [FirestoreProperty("playerNhlPoints")]
+    public Dictionary<string, int> PlayerNhlPoints { get; set; } = [];
+
     [FirestoreProperty("scoreUpdatedUtc")]
     public Timestamp? ScoreUpdatedUtc { get; set; }
 }

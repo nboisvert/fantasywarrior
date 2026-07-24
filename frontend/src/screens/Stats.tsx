@@ -14,7 +14,7 @@ import { useEffect, useState } from "react";
 import { api, posGroup, posGroupClass } from "../api";
 import type { LeagueDetail, PlayerSeasonStatsRow } from "../api";
 import { LoadingLogo } from "../components/LoadingLogo";
-import { ChevronDownIcon } from "../components/Icons";
+import { ArrowLeftIcon, ChevronDownIcon } from "../components/Icons";
 
 const formatGaa = (goalsAgainst: number, gamesPlayed: number): number | null =>
   gamesPlayed > 0 ? goalsAgainst / gamesPlayed : null;
@@ -176,7 +176,19 @@ function SortableHead({
   );
 }
 
-export function Stats({ league, username }: { league: LeagueDetail; username: string }) {
+export function Stats({
+  league,
+  username,
+  targetUsername,
+  onBackToStandings,
+}: {
+  league: LeagueDetail;
+  username: string;
+  /** Whose stats to show — the signed-in user by default, or a team picked
+   * from Standings. */
+  targetUsername: string;
+  onBackToStandings: () => void;
+}) {
   const [players, setPlayers] = useState<PlayerSeasonStatsRow[] | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -186,7 +198,7 @@ export function Stats({ league, username }: { league: LeagueDetail; username: st
     setLoading(true);
     setError("");
     api
-      .teamSeasonStats(league.id, username)
+      .teamSeasonStats(league.id, targetUsername)
       .then((res) => {
         if (ignore) return;
         setPlayers(res.players);
@@ -200,10 +212,11 @@ export function Stats({ league, username }: { league: LeagueDetail; username: st
     return () => {
       ignore = true;
     };
-  }, [league.id, username]);
+  }, [league.id, targetUsername]);
 
-  const myTeam = league.teams.find((t) => t.ownerUsername === username);
-  if (!myTeam) return <p className="empty-state">You don't have a team in this league.</p>;
+  const viewedTeam = league.teams.find((t) => t.ownerUsername === targetUsername);
+  const isOwnTeam = targetUsername === username;
+  if (!viewedTeam) return <p className="empty-state">Team not found in this league.</p>;
 
   // NHL group is season-complete (goals/assists as raw hockey points, GP/M
   // over the whole year). Pool group is scoped to this player's *current
@@ -275,27 +288,35 @@ export function Stats({ league, username }: { league: LeagueDetail; username: st
 
   return (
     <section className="fade-in" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+      {!isOwnTeam && (
+        <button type="button" className="btn-ghost stats-back" onClick={onBackToStandings}>
+          <ArrowLeftIcon size={16} />
+          Back to standings
+        </button>
+      )}
+
       <div className="card stats-header">
         <div className="stats-header-top">
-          <span className="roster-team-name">{myTeam.name}</span>
+          <span className="roster-team-name">{viewedTeam.name}</span>
           <span className="stats-score-col">
-            <span className="stats-score-value">{myTeam.score}</span>
+            <span className="stats-score-value">{viewedTeam.score}</span>
             <span className="stats-score-label">Points</span>
           </span>
         </div>
-        {myTeam.adjustmentsTotal !== 0 && (
+        {!isOwnTeam && <small className="muted stats-team-owner">@{viewedTeam.ownerUsername}</small>}
+        {viewedTeam.adjustmentsTotal !== 0 && (
           <div className="stats-adj-line">
             <span
               className={`stats-adj-pill ${
-                myTeam.adjustmentsTotal > 0 ? "stats-adj-pill-pos" : "stats-adj-pill-neg"
+                viewedTeam.adjustmentsTotal > 0 ? "stats-adj-pill-pos" : "stats-adj-pill-neg"
               }`}
             >
-              {myTeam.adjustmentsTotal > 0 ? "+" : ""}
-              {myTeam.adjustmentsTotal} pts
+              {viewedTeam.adjustmentsTotal > 0 ? "+" : ""}
+              {viewedTeam.adjustmentsTotal} pts
             </span>
             <small className="muted">
-              carried over from past trades/roster moves, so your total stayed fair at the time —
-              your current roster alone has scored {myTeam.rawTopXScore} pts
+              carried over from past trades/roster moves, so the total stayed fair at the time —
+              the current roster alone has scored {viewedTeam.rawTopXScore} pts
             </small>
           </div>
         )}

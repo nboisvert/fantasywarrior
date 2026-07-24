@@ -7,17 +7,26 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import { api, posGroup, posGroupClass } from "../api";
-import type { LeagueDetail, RosterPlayer } from "../api";
+import type { LeagueDetail } from "../api";
 import { XIcon } from "./Icons";
 import "./PlayerCard.css";
 import "./CreateTradeSheet.css";
+
+/** Minimal shape both sides of the trade picker need — the signed-in user's
+ * roster comes from `league.myRoster` (RosterPlayer, a superset), the
+ * counterparty's is fetched on demand. */
+interface PickPlayer {
+  id: number;
+  name: string;
+  position: string;
+}
 
 function PlayerCheckList({
   players,
   selected,
   onToggle,
 }: {
-  players: RosterPlayer[];
+  players: PickPlayer[];
   selected: Set<number>;
   onToggle: (id: number) => void;
 }) {
@@ -63,16 +72,38 @@ export function CreateTradeSheet({
   const [counterparty, setCounterparty] = useState(otherTeams[0]?.ownerUsername ?? "");
   const [mine, setMine] = useState<Set<number>>(new Set());
   const [theirs, setTheirs] = useState<Set<number>>(new Set());
+  const [theirPlayers, setTheirPlayers] = useState<PickPlayer[]>([]);
+  const [theirLoading, setTheirLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   const counterpartyTeam = league.teams.find((t) => t.ownerUsername === counterparty);
 
-  // Switching the counterparty invalidates whatever was picked from the
-  // previous team's roster.
+  // Switching the counterparty invalidates the previous team's picks and
+  // fetches the newly selected team's roster on demand (rosters other than the
+  // signed-in user's aren't shipped with the league payload anymore).
   useEffect(() => {
     setTheirs(new Set());
-  }, [counterparty]);
+    setTheirPlayers([]);
+    if (!counterparty) return;
+    let ignore = false;
+    setTheirLoading(true);
+    api
+      .teamSeasonStats(league.id, counterparty)
+      .then((res) => {
+        if (ignore) return;
+        setTheirPlayers(res.players.map((p) => ({ id: p.id, name: p.name, position: p.position })));
+      })
+      .catch(() => {
+        if (!ignore) setError("Could not load that team's roster.");
+      })
+      .finally(() => {
+        if (!ignore) setTheirLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [counterparty, league.id]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -182,18 +213,22 @@ export function CreateTradeSheet({
                 <div className="cts-side">
                   <span className="section-title">You give ({myTeam.name})</span>
                   <PlayerCheckList
-                    players={myTeam.players}
+                    players={league.myRoster}
                     selected={mine}
                     onToggle={(id) => toggle(mine, setMine, id)}
                   />
                 </div>
                 <div className="cts-side">
                   <span className="section-title">You get ({counterpartyTeam?.name ?? "—"})</span>
-                  <PlayerCheckList
-                    players={counterpartyTeam?.players ?? []}
-                    selected={theirs}
-                    onToggle={(id) => toggle(theirs, setTheirs, id)}
-                  />
+                  {theirLoading ? (
+                    <p className="empty-state cts-empty">Loading roster…</p>
+                  ) : (
+                    <PlayerCheckList
+                      players={theirPlayers}
+                      selected={theirs}
+                      onToggle={(id) => toggle(theirs, setTheirs, id)}
+                    />
+                  )}
                 </div>
               </div>
 

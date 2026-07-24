@@ -126,7 +126,12 @@ app.MapMethods("/api/leagues/{leagueId}/rules", ["PATCH"], async (string leagueI
     return Results.Ok(new { ok = true, note = "Scores refresh at the next nightly calculation (or run score-calc)." });
 });
 
-app.MapGet("/api/leagues/{leagueId}", async (string leagueId, FirestoreDb db, PlayerCache players) =>
+// Light league read: team-level rows for all teams (everything precomputed on
+// the team doc — no per-player season-stats loop, no full PlayerCache load) plus
+// ONLY the requesting user's own roster, fetched with a direct batched read of
+// just those player docs. Other teams' rosters/stats are loaded on demand by
+// their own screens (Stats, CreateTradeSheet).
+app.MapGet("/api/leagues/{leagueId}", async (string leagueId, string? username, FirestoreDb db) =>
 {
     var leagueSnap = await db.Collection("leagues").Document(leagueId).GetSnapshotAsync();
     if (!leagueSnap.Exists)
@@ -135,8 +140,20 @@ app.MapGet("/api/leagues/{leagueId}", async (string leagueId, FirestoreDb db, Pl
     var league = leagueSnap.ConvertTo<League>();
     var teamsSnap = await leagueSnap.Reference.Collection("teams").GetSnapshotAsync();
     var teams = teamsSnap.Documents.Select(d => d.ConvertTo<Team>()).ToList();
-    var playersById = await players.GetByIdsAsync(teams.SelectMany(t => t.PlayerIds));
-    var totalsById = await PlayerTotalsSource.FetchWithCacheAsync(db, teams.SelectMany(t => t.PlayerIds).ToList(), league.Season);
+
+    var normalized = username is null ? null : Normalize(username);
+    var myTeam = normalized is null ? null : teams.FirstOrDefault(t => t.OwnerUsername == normalized);
+    var myRosterIds = myTeam?.PlayerIds ?? [];
+
+    var myPlayersById = new Dictionary<long, Player>();
+    if (myRosterIds.Count > 0)
+    {
+        var refs = myRosterIds.Select(id => db.Collection("players").Document(id.ToString())).ToArray();
+        var playerSnaps = await db.GetAllSnapshotsAsync(refs);
+        myPlayersById = playerSnaps.Where(s => s.Exists)
+            .Select(s => s.ConvertTo<Player>())
+            .ToDictionary(p => p.NhlId);
+    }
 
     return Results.Ok(new
     {
@@ -157,25 +174,26 @@ app.MapGet("/api/leagues/{leagueId}", async (string leagueId, FirestoreDb db, Pl
                 t.Score,
                 t.RawTopXScore,
                 t.AdjustmentsTotal,
-                ptsPerGame = PtsPerGame(t, totalsById),
-                capTotal = t.PlayerIds.Sum(id => playersById.GetValueOrDefault(id)?.CapHit ?? 0),
-                players = t.PlayerIds
-                    .Select(id => playersById.GetValueOrDefault(id))
-                    .Where(p => p is not null)
-                    .Select(p => new
-                    {
-                        Dto = PlayerDto.From(p!),
-                        Points = t.PlayerPoints.GetValueOrDefault(p!.NhlId.ToString(), 0),
-                        Counted = t.CountedPlayerIds.Contains(p.NhlId),
-                        NhlPoints = (totalsById.GetValueOrDefault(p.NhlId)?.Goals ?? 0)
-                            + (totalsById.GetValueOrDefault(p.NhlId)?.Assists ?? 0),
-                    })
-                    .OrderByDescending(x => x.Points)
-                    .Select(x => new
-                    {
-                        x.Dto.Id, x.Dto.Name, x.Dto.Position, x.Dto.Team, x.Dto.Status,
-                        x.Dto.CapHit, x.Dto.HeadshotUrl, x.Points, x.Counted, x.NhlPoints,
-                    }),
+                ptsPerGame = t.RosterGamesPlayed > 0 ? Math.Round(t.Score / t.RosterGamesPlayed, 2) : (double?)null,
+                capTotal = t.CapTotal,
+                playerCount = t.PlayerIds.Count,
+                playerNhlPoints = t.PlayerNhlPoints,
+            }),
+        myRoster = myRosterIds
+            .Select(id => myPlayersById.GetValueOrDefault(id))
+            .Where(p => p is not null)
+            .Select(p => new
+            {
+                Dto = PlayerDto.From(p!),
+                Points = myTeam!.PlayerPoints.GetValueOrDefault(p!.NhlId.ToString(), 0),
+                Counted = myTeam.CountedPlayerIds.Contains(p.NhlId),
+                NhlPoints = myTeam.PlayerNhlPoints.GetValueOrDefault(p.NhlId.ToString(), 0),
+            })
+            .OrderByDescending(x => x.Points)
+            .Select(x => new
+            {
+                x.Dto.Id, x.Dto.Name, x.Dto.Position, x.Dto.Team, x.Dto.Status,
+                x.Dto.CapHit, x.Dto.HeadshotUrl, x.Points, x.Counted, x.NhlPoints,
             }),
     });
 });
@@ -630,12 +648,6 @@ app.MapGet("/api/players/{playerId:long}", async (long playerId, FirestoreDb db,
 });
 
 app.Run();
-
-static double? PtsPerGame(Team team, Dictionary<long, PlayerRawTotals> totalsById)
-{
-    var gamesPlayed = team.PlayerIds.Sum(id => totalsById.GetValueOrDefault(id)?.GamesPlayed ?? 0);
-    return gamesPlayed > 0 ? Math.Round(team.Score / (double)gamesPlayed, 2) : null;
-}
 
 static async Task<Dictionary<long, string>> RosterPositions(PlayerCache players, IReadOnlyCollection<long> playerIds)
 {

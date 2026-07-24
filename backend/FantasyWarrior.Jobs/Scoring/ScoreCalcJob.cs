@@ -63,6 +63,12 @@ public sealed class ScoreCalcJob(FirestoreDb db)
                     ["adjustmentsTotal"] = adjustmentsTotal,
                     ["countedPlayerIds"] = result.CountedPlayerIds.ToList(),
                     ["playerPoints"] = result.PlayerPoints.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value),
+                    // Team-level display fields, so league-detail stays a light read.
+                    ["rosterGamesPlayed"] = team.PlayerIds.Sum(id => totals.GetValueOrDefault(id)?.GamesPlayed ?? 0),
+                    ["capTotal"] = team.PlayerIds.Sum(id => playersById.GetValueOrDefault(id)?.CapHit ?? 0),
+                    ["playerNhlPoints"] = team.PlayerIds.ToDictionary(
+                        id => id.ToString(),
+                        id => (totals.GetValueOrDefault(id)?.Goals ?? 0) + (totals.GetValueOrDefault(id)?.Assists ?? 0)),
                     ["scoreUpdatedUtc"] = Timestamp.GetCurrentTimestamp(),
                 }, cancellationToken: ct);
 

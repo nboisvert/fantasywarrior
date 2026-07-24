@@ -108,7 +108,8 @@ export function NewsTicker({
 
   const pointsById = useMemo(() => {
     const map = new Map<number, number>();
-    for (const team of league?.teams ?? []) for (const p of team.players) map.set(p.id, p.nhlPoints);
+    for (const team of league?.teams ?? [])
+      for (const [id, pts] of Object.entries(team.playerNhlPoints)) map.set(Number(id), pts);
     return map;
   }, [league]);
 

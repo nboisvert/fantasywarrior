@@ -30,6 +30,9 @@ export default function App() {
   const [leagueId, setLeagueId] = useState<string | null>(localStorage.getItem("fw-league"));
   const [league, setLeague] = useState<LeagueDetail | null>(null);
   const [tab, setTab] = useState<Tab>("dashboard");
+  // Which team the Stats screen shows: null = the signed-in user's own team.
+  // Set when navigating from a Standings row; reset when the Stats tab is tapped.
+  const [statsTeam, setStatsTeam] = useState<string | null>(null);
   const [showPicker, setShowPicker] = useState(false);
   const [defaultChecked, setDefaultChecked] = useState(false);
   const [error, setError] = useState("");
@@ -54,15 +57,15 @@ export default function App() {
   };
 
   const refreshLeague = useCallback(() => {
-    if (!leagueId) return;
+    if (!leagueId || !username) return;
     api
-      .league(leagueId)
+      .league(leagueId, username)
       .then((detail) => {
         setLeague(detail);
         setError("");
       })
       .catch((e) => setError((e as Error).message));
-  }, [leagueId]);
+  }, [leagueId, username]);
   useEffect(refreshLeague, [refreshLeague]);
 
   // First-time landing logic: with no remembered league, decide where returning
@@ -156,11 +159,27 @@ export default function App() {
         )}
         {tab !== "settings" && leagueId && !league && !error && <LoadingLogo label="Loading league…" />}
         {league && tab === "dashboard" && <Dashboard league={league} username={username} />}
-        {league && tab === "standings" && <Standings league={league} username={username} />}
+        {league && tab === "standings" && (
+          <Standings
+            league={league}
+            username={username}
+            onOpenTeamStats={(owner) => {
+              setStatsTeam(owner);
+              setTab("stats");
+            }}
+          />
+        )}
         {league && tab === "roster" && (
           <Roster league={league} username={username} />
         )}
-        {league && tab === "stats" && <Stats league={league} username={username} />}
+        {league && tab === "stats" && (
+          <Stats
+            league={league}
+            username={username}
+            targetUsername={statsTeam ?? username}
+            onBackToStandings={() => setTab("standings")}
+          />
+        )}
         {league && tab === "trades" && <Trades league={league} username={username} />}
       </main>
 
@@ -193,7 +212,10 @@ export default function App() {
         </button>
         <button
           className={`nav-tab${tab === "stats" ? " active" : ""}`}
-          onClick={() => setTab("stats")}
+          onClick={() => {
+            setStatsTeam(null);
+            setTab("stats");
+          }}
           aria-current={tab === "stats" ? "page" : undefined}
         >
           <ActivityIcon size={22} />

@@ -551,11 +551,20 @@
   display: flex;
   align-items: center;
   gap: 0.9rem;
+  width: 100%;
   padding: 0.85rem 1rem;
   border-radius: 16px;
   border: 1px solid var(--border);
   background: var(--surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
   transition: border-color 0.2s;
+}
+
+.standing-row:hover {
+  border-color: var(--border-strong);
 }
 
 .standing-row.mine {
@@ -1103,6 +1112,14 @@
    since the grid beneath it is the main event here, not a hero moment —
    see `.stats-score-value`'s font-size vs. the old `.roster-score-value`'s
    clamp(2.75rem, 11vw, 3.5rem). */
+
+.stats-back {
+  align-self: flex-start;
+}
+
+.stats-team-owner {
+  font-size: 0.78rem;
+}
 
 .stats-header {
   display: flex;

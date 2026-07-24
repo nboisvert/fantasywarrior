@@ -74,7 +74,7 @@ export function Dashboard({ league, username }: { league: LeagueDetail; username
   const capValue =
     league.capAmount == null ? "No cap" : formatCapCompact(league.capAmount - myTeam.capTotal);
 
-  const topScorers = myTeam.players.slice(0, TOP_SCORERS);
+  const topScorers = league.myRoster.slice(0, TOP_SCORERS);
 
   return (
     <section className="fade-in dash-stack">
@@ -82,7 +82,7 @@ export function Dashboard({ league, username }: { league: LeagueDetail; username
         <span className="section-title">At a glance</span>
         <div className="pc-tiles">
           <div className="pc-tile">
-            <span className="pc-tile-value">{myTeam.players.length}</span>
+            <span className="pc-tile-value">{league.myRoster.length}</span>
             <span className="pc-tile-label">Players</span>
           </div>
           <div className={`pc-tile${capOver ? " danger" : ""}`}>
