@@ -38,23 +38,40 @@ public static class PlayerTotalsSource
     }
 
     /// <summary>
-    /// Cache-first totals — for on-demand views (e.g. a roster stats page)
-    /// where nightly-fresh data is fine. Falls back to a live per-game
-    /// aggregation (and populates the cache) for any player not yet cached.
+    /// Cache-first totals — for on-demand views (e.g. league detail, a roster
+    /// stats page) where nightly-fresh data is fine. Reads every player's
+    /// consolidated <c>playerSeasonStats</c> doc in a single batched lookup
+    /// (Firestore has no joins; this is the data-access-layer equivalent —
+    /// gather the ids, fetch them all in one BatchGetDocuments round-trip
+    /// instead of the N+1 per-player reads this used to do). Falls back to a
+    /// live per-game aggregation (and populates the cache) for any player not
+    /// yet cached.
     /// </summary>
     public static async Task<Dictionary<long, PlayerRawTotals>> FetchWithCacheAsync(
         FirestoreDb db, IReadOnlyCollection<long> playerIds, string season, CancellationToken ct = default)
     {
+        var distinct = playerIds.Distinct().ToList();
+        if (distinct.Count == 0)
+            return [];
+
+        var refs = distinct
+            .Select(id => db.Collection("playerSeasonStats").Document(SeasonStatsDocId(season, id)))
+            .ToArray();
+        var snaps = await db.GetAllSnapshotsAsync(refs, ct);
+
         var results = new Dictionary<long, PlayerRawTotals>();
         var misses = new List<long>();
-        foreach (var id in playerIds.Distinct())
+        foreach (var snap in snaps)
         {
-            var cached = await TryGetCachedAsync(db, season, id, ct);
-            if (cached is not null)
-                results[id] = cached;
+            // Doc id is "{season}_{playerId}" — parse the id rather than relying
+            // on snapshot ordering (same approach as ScoreCalcJob/ProcessTradesJob).
+            var playerId = long.Parse(snap.Id[(snap.Id.LastIndexOf('_') + 1)..]);
+            if (snap.Exists)
+                results[playerId] = FromCacheDoc(snap);
             else
-                misses.Add(id);
+                misses.Add(playerId);
         }
+
         if (misses.Count > 0)
             foreach (var (id, totals) in await FetchAsync(db, misses, season, ct))
                 results[id] = totals;
@@ -115,8 +132,12 @@ public static class PlayerTotalsSource
         var snap = await db.Collection("playerSeasonStats")
             .Document(SeasonStatsDocId(season, playerId))
             .GetSnapshotAsync(ct);
-        if (!snap.Exists)
-            return null;
+        return snap.Exists ? FromCacheDoc(snap) : null;
+    }
+
+    /// <summary>Maps a consolidated <c>playerSeasonStats</c> snapshot to raw totals.</summary>
+    private static PlayerRawTotals FromCacheDoc(DocumentSnapshot snap)
+    {
         var s = snap.ConvertTo<PlayerSeasonStats>();
         return new PlayerRawTotals(
             s.GamesPlayed, s.Goals, s.Assists, s.Wins, s.OtLosses, s.Shutouts,
