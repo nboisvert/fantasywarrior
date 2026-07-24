@@ -1485,50 +1485,85 @@
   gap: 0.6rem;
 }
 
-.trade-row-teams {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  flex-wrap: wrap;
+/* small "Received" / "Sent" labels above each pending sub-list */
+.trade-subhead {
+  display: block;
+  margin: 0.5rem 0 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+/* ---------- trade card visual: two team columns, headliners underneath ---------- */
+
+.trade-teams-split {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: start;
+  gap: 0.5rem;
+  width: 100%;
 }
 
 .trade-row-arrow {
   flex-shrink: 0;
+  align-self: center;
   color: var(--text-muted);
 }
 
-.trade-status-pill {
-  margin-left: auto;
+.trade-side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.trade-side-right {
+  text-align: right;
+}
+
+.trade-side-name {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trade-side-given {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.trade-side-given .muted {
+  font-size: 0.75rem;
+}
+
+/* the only status indicator left: accepted-but-not-yet-processed trades */
+.trade-awaiting-pill {
+  align-self: flex-start;
   padding: 0.15rem 0.55rem;
   border-radius: 99px;
   font-size: 0.66rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  border: 1px solid var(--border);
-}
-
-.trade-status-pending {
   color: var(--gold);
-  border-color: rgba(251, 191, 36, 0.4);
+  border: 1px solid rgba(251, 191, 36, 0.4);
   background: rgba(251, 191, 36, 0.1);
 }
 
-.trade-status-accepted {
-  color: var(--ice-bright);
-  border-color: rgba(56, 189, 248, 0.4);
-  background: rgba(56, 189, 248, 0.1);
-}
-
-.trade-status-declined,
-.trade-status-cancelled {
-  color: var(--danger);
-  border-color: rgba(244, 63, 94, 0.35);
-  background: rgba(244, 63, 94, 0.08);
-}
-
-.trade-status-processed {
-  color: var(--text-muted);
+.trade-row-meta {
+  display: flex;
+  align-items: center;
+  min-height: 1rem;
+  font-size: 0.72rem;
 }
 
 .trade-row-players {
@@ -1539,97 +1574,19 @@
   color: var(--text-muted);
 }
 
-.trade-row-recap {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
-
-/* ---------- trade stage dates (compact, on pending + expanded past cards) ---------- */
-
-.trade-stage-dates {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.15rem 0.75rem;
-  font-size: 0.72rem;
-  color: var(--text-muted);
-}
-
-.trade-stage-dates strong {
-  color: var(--text);
-  font-weight: 700;
-}
-
-/* ---------- trade history (past trades as one chronological vertical timeline) ---------- */
-
-.trade-history {
-  list-style: none;
-  margin: 0.5rem 0 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.trade-history-stop {
-  position: relative;
-  padding-left: 1.4rem;
-}
-
-.trade-history-stop:not(:last-child)::before {
-  content: "";
-  position: absolute;
-  left: 5px;
-  top: 1.9rem;
-  bottom: -1rem;
-  width: 1px;
-  background: var(--border);
-}
-
-.trade-history-dot {
-  position: absolute;
-  left: 0;
-  top: 1.05rem;
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  border: 2px solid var(--border-strong);
-  background: var(--surface);
-}
-
-.trade-history-positive .trade-history-dot {
-  background: var(--ice-bright);
-  border-color: var(--ice-bright);
-  box-shadow: 0 0 6px var(--ice-glow);
-}
-
-.trade-history-negative .trade-history-dot {
-  background: var(--danger);
-  border-color: var(--danger);
-  box-shadow: 0 0 6px rgba(244, 63, 94, 0.4);
-}
-
-.trade-history .trade-row {
-  margin: 0;
-}
-
 .trade-actions {
   display: flex;
   gap: 0.5rem;
 }
 
-.trade-actions .btn {
+.trade-actions .btn,
+.trade-actions .btn-ghost {
   flex: 1;
 }
 
 .trade-row-toggle {
   width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
+  display: block;
   border: none;
   background: none;
   color: inherit;
@@ -1645,8 +1602,4 @@
   gap: 0.75rem;
   padding-top: 0.4rem;
   border-top: 1px solid var(--border);
-}
-
-.trade-row-date {
-  font-size: 0.72rem;
 }

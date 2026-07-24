@@ -257,3 +257,17 @@ export function posGroup(position: string): PosGroup {
 export function posGroupClass(position: string): string {
   return posGroup(position).toLowerCase();
 }
+
+/** The N most notable players on one side of a trade, ranked by NHL points
+ * (looked up from already-loaded roster data — the trade endpoint carries no
+ * stats). Shared by the Trades screen (N=2 headliners per side) and the
+ * NewsTicker (N=1), so the ranking rule lives in exactly one place. */
+export function topPlayersByNhlPoints(
+  players: TradePlayer[],
+  pointsById: Map<number, number>,
+  n: number,
+): TradePlayer[] {
+  return [...players]
+    .sort((a, b) => (pointsById.get(b.id) ?? 0) - (pointsById.get(a.id) ?? 0))
+    .slice(0, n);
+}

@@ -1,13 +1,20 @@
-// Trades — propose/accept/decline trades between teams in this league, and
-// rate processed ("past") trades on a star-based who-won scale. Reached via
-// the bottom nav (took Settings' old slot — Settings moved to a topbar icon).
+// Trades — propose trades, act on offers you've received or sent, and browse
+// the league's public trade history (with a star-based who-won rating on each
+// processed trade). Reached via the bottom nav.
+//
+// Two areas, by intent rather than by raw status:
+//   • Pending — offers awaiting action, split into Received (accept/decline)
+//     and Sent (cancel). An offer leaves this area the moment it's answered.
+//   • History — the whole league's processed trades, plus accepted ones still
+//     awaiting tonight's processing (marked with the only status pill left in
+//     the UI). Declined/cancelled trades are never shown anywhere.
 //
 // Privacy: the server already filters out pending/declined/cancelled trades
 // the viewer isn't party to (see TradeValidation.IsVisibleTo) — everything
-// this screen receives is safe to render without further filtering.
+// this screen receives is safe to render.
 
 import { useEffect, useMemo, useState } from "react";
-import { api } from "../api";
+import { api, topPlayersByNhlPoints } from "../api";
 import type { LeagueDetail, Trade, TradePlayer } from "../api";
 import { ArrowLeftRightIcon } from "../components/Icons";
 import { CreateTradeSheet } from "../components/CreateTradeSheet";
@@ -23,42 +30,8 @@ const formatDateTime = (iso: string) =>
     minute: "2-digit",
   });
 
-/** The single most relevant timestamp for a trade's current state — used as
- * the quick-glance date on both pending cards and history timeline nodes. */
-function primaryDate(t: Trade): string {
-  if (t.status === "processed" && t.processedUtc) return formatDateTime(t.processedUtc);
-  if (t.respondedUtc) return formatDateTime(t.respondedUtc);
-  return formatDateTime(t.createdUtc);
-}
-
-/** Every stage of a trade's life that actually happened, each with its own
- * timestamp — proposed always happens; what follows depends on how (or
- * whether) it was resolved. Shown as a compact label:date list rather than
- * a stage stepper, since the "timeline" treatment belongs to the history
- * list itself (each past trade is one stop on that timeline), not to a
- * single trade's internal lifecycle. */
-function stageTimestamps(t: Trade): { label: string; date: string }[] {
-  const rows = [{ label: "Proposed", date: formatDateTime(t.createdUtc) }];
-  if (t.status === "declined") rows.push({ label: "Declined", date: t.respondedUtc ? formatDateTime(t.respondedUtc) : "—" });
-  else if (t.status === "cancelled") rows.push({ label: "Cancelled", date: t.respondedUtc ? formatDateTime(t.respondedUtc) : "—" });
-  else if (t.status === "accepted" || t.status === "processed") {
-    rows.push({ label: "Accepted", date: t.respondedUtc ? formatDateTime(t.respondedUtc) : "—" });
-    if (t.status === "processed") rows.push({ label: "Processed", date: t.processedUtc ? formatDateTime(t.processedUtc) : "—" });
-  }
-  return rows;
-}
-
-function StageDates({ trade }: { trade: Trade }) {
-  return (
-    <div className="trade-stage-dates">
-      {stageTimestamps(trade).map((s) => (
-        <span key={s.label}>
-          <strong>{s.label}:</strong> {s.date}
-        </span>
-      ))}
-    </div>
-  );
-}
+const playersLabel = (players: TradePlayer[]) =>
+  players.length === 0 ? "nothing" : players.map((p) => p.name).join(", ");
 
 export function Trades({ league, username }: { league: LeagueDetail; username: string }) {
   const [trades, setTrades] = useState<Trade[] | null>(null);
@@ -85,23 +58,12 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
     return map;
   }, [league]);
 
-  /** Timeline node / collapsed-row recap: the 2-3 best players by NHL points
-   * per side, plus a "+N others" tail — full lists are still available in
-   * the expanded view via playersLabel below. */
-  const sideRecap = (players: TradePlayer[]): string => {
-    if (players.length === 0) return "nothing";
-    const sorted = [...players].sort((a, b) => (pointsById.get(b.id) ?? 0) - (pointsById.get(a.id) ?? 0));
-    if (sorted.length <= 3) return sorted.map((p) => p.name).join(", ");
-    const shown = sorted.slice(0, 2);
-    return `${shown.map((p) => p.name).join(", ")} +${sorted.length - shown.length} others`;
-  };
-
-  const playersLabel = (players: TradePlayer[]) =>
-    players.length === 0 ? "nothing" : players.map((p) => p.name).join(", ");
-
   const myTeam = league.teams.find((t) => t.ownerUsername === username);
-  const pending = (trades ?? []).filter((t) => t.status === "pending" || t.status === "accepted");
-  const past = (trades ?? []).filter((t) => t.status === "processed" || t.status === "declined" || t.status === "cancelled");
+
+  // Split by intent, not raw status. Declined/cancelled are dropped entirely.
+  const received = (trades ?? []).filter((t) => t.status === "pending" && t.counterpartyUsername === username);
+  const sent = (trades ?? []).filter((t) => t.status === "pending" && t.proposerUsername === username);
+  const history = (trades ?? []).filter((t) => t.status === "processed" || t.status === "accepted");
 
   const respond = async (tradeId: string, accept: boolean) => {
     setBusyId(tradeId);
@@ -114,6 +76,67 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
       setBusyId(null);
     }
   };
+
+  /** One team's column: name on top, its 2 headliners (by NHL points) below,
+   * "+N more" if it's giving up more than two. */
+  const tradeSide = (teamName: string, gives: TradePlayer[], align: "left" | "right" = "left") => {
+    const top = topPlayersByNhlPoints(gives, pointsById, 2);
+    const extra = gives.length - top.length;
+    return (
+      <div className={`trade-side trade-side-${align}`}>
+        <span className="trade-side-name">{teamName}</span>
+        <div className="trade-side-given">
+          {top.length === 0 ? (
+            <span className="muted">nothing</span>
+          ) : (
+            top.map((p) => <span key={p.id}>{p.name}</span>)
+          )}
+          {extra > 0 && <span className="muted">+{extra} more</span>}
+        </div>
+      </div>
+    );
+  };
+
+  /** The full-width visual shared by every trade card: two team-name-topped
+   * columns with each side's headliners underneath, split by the ⇄ icon. */
+  const teamsSplit = (trade: Trade) => (
+    <div className="trade-teams-split">
+      {tradeSide(trade.proposerTeamName, trade.playersFromProposer)}
+      <ArrowLeftRightIcon size={16} className="trade-row-arrow" />
+      {tradeSide(trade.counterpartyTeamName, trade.playersFromCounterparty, "right")}
+    </div>
+  );
+
+  /** A history card: the teams/headliners visual, an expand toggle, and, once
+   * open, the full player lists plus the rating (processed) or an awaiting
+   * note (accepted). */
+  const historyCard = (trade: Trade) => (
+    <li key={trade.id} className="card trade-row">
+      <button className="trade-row-toggle" onClick={() => setExpanded(expanded === trade.id ? null : trade.id)}>
+        {teamsSplit(trade)}
+      </button>
+      <div className="trade-row-meta">
+        {trade.status === "accepted" ? (
+          <span className="trade-awaiting-pill">Awaiting processing</span>
+        ) : (
+          trade.processedUtc && <small className="muted">{formatDateTime(trade.processedUtc)}</small>
+        )}
+      </div>
+      {expanded === trade.id && (
+        <div className="trade-row-expanded">
+          <div className="trade-row-players">
+            <div>{trade.proposerTeamName} gave: {playersLabel(trade.playersFromProposer)}</div>
+            <div>{trade.counterpartyTeamName} gave: {playersLabel(trade.playersFromCounterparty)}</div>
+          </div>
+          {trade.status === "processed" ? (
+            <TradeRatingWidget leagueId={league.id} trade={trade} username={username} onVoted={load} />
+          ) : (
+            <small className="muted">Accepted — the rosters swap with tonight's scoring update.</small>
+          )}
+        </div>
+      )}
+    </li>
+  );
 
   return (
     <section className="fade-in" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
@@ -130,96 +153,57 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
 
       {trades !== null && (
         <>
-          <div>
-            <span className="section-title">Pending</span>
-            {pending.length === 0 ? (
-              <p className="empty-state">No pending trades.</p>
-            ) : (
-              <ul className="trade-list">
-                {pending.map((t) => (
-                  <li key={t.id} className="card trade-row">
-                    <div className="trade-row-teams">
-                      <strong>{t.proposerTeamName}</strong>
-                      <ArrowLeftRightIcon size={14} className="trade-row-arrow" />
-                      <strong>{t.counterpartyTeamName}</strong>
-                      <span className={`trade-status-pill trade-status-${t.status}`}>{t.status}</span>
-                    </div>
-                    <div className="trade-row-players">
-                      <div>{t.proposerTeamName} gives: {playersLabel(t.playersFromProposer)}</div>
-                      <div>{t.counterpartyTeamName} gives: {playersLabel(t.playersFromCounterparty)}</div>
-                    </div>
-                    <StageDates trade={t} />
-                    {t.status === "pending" && t.counterpartyUsername === username && (
-                      <div className="trade-actions">
-                        <button className="btn" disabled={busyId === t.id} onClick={() => respond(t.id, true)}>
-                          Accept
-                        </button>
-                        <button className="btn-ghost" disabled={busyId === t.id} onClick={() => respond(t.id, false)}>
-                          Decline
-                        </button>
-                      </div>
-                    )}
-                    {t.status === "pending" && t.proposerUsername === username && (
-                      <div className="trade-actions">
-                        <button className="btn-ghost" disabled={busyId === t.id} onClick={() => respond(t.id, false)}>
-                          Cancel offer
-                        </button>
-                      </div>
-                    )}
-                    {t.status === "accepted" && (
-                      <small className="muted">Accepted — processing with tonight's scoring update.</small>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          {(received.length > 0 || sent.length > 0) && (
+            <div>
+              <span className="section-title">Pending</span>
+
+              {received.length > 0 && (
+                <>
+                  <span className="trade-subhead">Received</span>
+                  <ul className="trade-list">
+                    {received.map((t) => (
+                      <li key={t.id} className="card trade-row">
+                        {teamsSplit(t)}
+                        <div className="trade-actions">
+                          <button className="btn" disabled={busyId === t.id} onClick={() => respond(t.id, true)}>
+                            Accept
+                          </button>
+                          <button className="btn-ghost" disabled={busyId === t.id} onClick={() => respond(t.id, false)}>
+                            Decline
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+
+              {sent.length > 0 && (
+                <>
+                  <span className="trade-subhead">Sent</span>
+                  <ul className="trade-list">
+                    {sent.map((t) => (
+                      <li key={t.id} className="card trade-row">
+                        {teamsSplit(t)}
+                        <div className="trade-actions">
+                          <button className="btn-ghost" disabled={busyId === t.id} onClick={() => respond(t.id, false)}>
+                            Cancel offer
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+          )}
 
           <div>
-            <span className="section-title">Past trades</span>
-            {past.length === 0 ? (
-              <p className="empty-state">No past trades yet.</p>
+            <span className="section-title">League trades</span>
+            {history.length === 0 ? (
+              <p className="empty-state">No trades yet.</p>
             ) : (
-              <ol className="trade-history">
-                {past.map((t) => (
-                  <li
-                    key={t.id}
-                    className={`trade-history-stop trade-history-${t.status === "processed" ? "positive" : "negative"}`}
-                  >
-                    <span className="trade-history-dot" />
-                    <div className="card trade-row">
-                      <button
-                        className="trade-row-toggle"
-                        onClick={() => setExpanded(expanded === t.id ? null : t.id)}
-                      >
-                        <span className="trade-row-teams">
-                          <strong>{t.proposerTeamName}</strong>
-                          <ArrowLeftRightIcon size={14} className="trade-row-arrow" />
-                          <strong>{t.counterpartyTeamName}</strong>
-                        </span>
-                        <span className={`trade-status-pill trade-status-${t.status}`}>{t.status}</span>
-                      </button>
-                      <small className="muted trade-row-date">{primaryDate(t)}</small>
-                      <div className="trade-row-recap">
-                        <div>{t.proposerTeamName}: {sideRecap(t.playersFromProposer)}</div>
-                        <div>{t.counterpartyTeamName}: {sideRecap(t.playersFromCounterparty)}</div>
-                      </div>
-                      {expanded === t.id && (
-                        <div className="trade-row-expanded">
-                          <div className="trade-row-players">
-                            <div>{t.proposerTeamName} gave: {playersLabel(t.playersFromProposer)}</div>
-                            <div>{t.counterpartyTeamName} gave: {playersLabel(t.playersFromCounterparty)}</div>
-                          </div>
-                          <StageDates trade={t} />
-                          {t.status === "processed" && (
-                            <TradeRatingWidget leagueId={league.id} trade={t} username={username} onVoted={load} />
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ol>
+              <ul className="trade-list">{history.map((t) => historyCard(t))}</ul>
             )}
           </div>
         </>

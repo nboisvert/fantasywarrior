@@ -24,7 +24,7 @@
 // the user left it.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api } from "../api";
+import { api, topPlayersByNhlPoints } from "../api";
 import type { ActivityEntry, LeagueDetail, Trade, TradePlayer } from "../api";
 import { ArrowLeftRightIcon, MinusIcon, PlusIcon } from "./Icons";
 
@@ -72,8 +72,8 @@ type NewsItem =
  * already-loaded roster data instead of adding a new backend field). */
 function tradeSideLabel(players: TradePlayer[], pointsById: Map<number, number>): string {
   if (players.length === 0) return "nothing";
-  const sorted = [...players].sort((a, b) => (pointsById.get(b.id) ?? 0) - (pointsById.get(a.id) ?? 0));
-  return sorted.length > 1 ? `${sorted[0].name} (+${sorted.length - 1})` : sorted[0].name;
+  const [top] = topPlayersByNhlPoints(players, pointsById, 1);
+  return players.length > 1 ? `${top.name} (+${players.length - 1})` : top.name;
 }
 
 function tradeLabel(trade: Trade, pointsById: Map<number, number>): string {
