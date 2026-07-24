@@ -33,6 +33,9 @@ export function TradeRatingWidget({
   onVoted: () => void;
 }) {
   const [voting, setVoting] = useState(false);
+  // Optimistic selection: reflect the just-clicked option immediately, before
+  // the parent's full refetch round-trips `trade.myVote` back to us.
+  const [pendingVote, setPendingVote] = useState<{ favoredUsername: string | null; magnitude: number } | null>(null);
 
   const options: RatingOption[] = [
     { key: "proposer-2", favoredUsername: trade.proposerUsername, magnitude: 2, stars: 2, side: "proposer", label: `${trade.proposerTeamName} clearly won` },
@@ -44,19 +47,24 @@ export function TradeRatingWidget({
 
   const vote = async (opt: RatingOption) => {
     if (voting) return;
+    setPendingVote({ favoredUsername: opt.favoredUsername, magnitude: opt.magnitude });
     setVoting(true);
     try {
       await api.voteTrade(leagueId, trade.id, username, opt.favoredUsername, opt.magnitude);
       onVoted();
+    } catch {
+      setPendingVote(null); // failed — drop the optimistic highlight
     } finally {
       setVoting(false);
     }
   };
 
+  // Optimistic pick wins until the refetched trade catches up to it.
+  const selected = pendingVote ?? trade.myVote;
   const isSelected = (opt: RatingOption) =>
-    trade.myVote != null &&
-    trade.myVote.favoredUsername === opt.favoredUsername &&
-    trade.myVote.magnitude === opt.magnitude;
+    selected != null &&
+    selected.favoredUsername === opt.favoredUsername &&
+    selected.magnitude === opt.magnitude;
 
   const { proposerClear, proposerLean, fair, counterpartyLean, counterpartyClear, total } = trade.votes;
   const proposerSum = proposerClear + proposerLean;
@@ -84,7 +92,7 @@ export function TradeRatingWidget({
         <span>{trade.proposerTeamName}</span>
         <span>{trade.counterpartyTeamName}</span>
       </div>
-      <div className="trw-scale">
+      <div className={`trw-scale${voting ? " saving" : ""}`}>
         {options.map((opt) => (
           <button
             key={opt.key}
@@ -112,7 +120,7 @@ export function TradeRatingWidget({
           <span className="trw-marker" style={{ left: `${markerPct}%` }} />
         </div>
       )}
-      <small className="muted trw-summary">{summary}</small>
+      <small className="muted trw-summary">{voting ? "Saving your vote…" : summary}</small>
     </div>
   );
 }

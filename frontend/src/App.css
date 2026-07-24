@@ -1547,7 +1547,7 @@
 
 /* the only status indicator left: accepted-but-not-yet-processed trades */
 .trade-awaiting-pill {
-  align-self: flex-start;
+  flex-shrink: 0;
   padding: 0.15rem 0.55rem;
   border-radius: 99px;
   font-size: 0.66rem;
@@ -1559,11 +1559,34 @@
   background: rgba(251, 191, 36, 0.1);
 }
 
-.trade-row-meta {
+/* prominent header line at the top of every card: date left, awaiting pill right */
+.trade-row-head {
   display: flex;
   align-items: center;
-  min-height: 1rem;
-  font-size: 0.72rem;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.trade-row-date {
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.trade-row-date-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+/* Received offers stand out — gold border + soft glow, same visual family as
+   the news ticker's alert state (kept static, not pulsing, since several cards
+   can show at once). */
+.trade-row-received {
+  border-color: var(--gold);
+  background: rgba(251, 191, 36, 0.08);
+  box-shadow: 0 0 16px rgba(251, 191, 36, 0.28);
 }
 
 .trade-row-players {

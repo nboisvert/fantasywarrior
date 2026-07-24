@@ -33,6 +33,15 @@ const formatDateTime = (iso: string) =>
 const playersLabel = (players: TradePlayer[]) =>
   players.length === 0 ? "nothing" : players.map((p) => p.name).join(", ");
 
+/** The one date worth putting at the top of a card, labelled by what it marks:
+ * when the offer was proposed (still pending), accepted (awaiting tonight's
+ * processing), or actually processed. */
+function primaryDate(t: Trade): { label: string; date: string } {
+  if (t.status === "processed" && t.processedUtc) return { label: "Processed", date: formatDateTime(t.processedUtc) };
+  if (t.status === "accepted" && t.respondedUtc) return { label: "Accepted", date: formatDateTime(t.respondedUtc) };
+  return { label: "Proposed", date: formatDateTime(t.createdUtc) };
+}
+
 export function Trades({ league, username }: { league: LeagueDetail; username: string }) {
   const [trades, setTrades] = useState<Trade[] | null>(null);
   const [error, setError] = useState("");
@@ -97,6 +106,20 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
     );
   };
 
+  /** The card's top line: the relevant date (prominent, left) and, for an
+   * accepted-not-yet-processed trade, the awaiting pill (right). */
+  const cardHead = (trade: Trade) => {
+    const { label, date } = primaryDate(trade);
+    return (
+      <div className="trade-row-head">
+        <span className="trade-row-date">
+          <span className="trade-row-date-label">{label}</span> {date}
+        </span>
+        {trade.status === "accepted" && <span className="trade-awaiting-pill">Awaiting processing</span>}
+      </div>
+    );
+  };
+
   /** The full-width visual shared by every trade card: two team-name-topped
    * columns with each side's headliners underneath, split by the ⇄ icon. */
   const teamsSplit = (trade: Trade) => (
@@ -112,16 +135,10 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
    * note (accepted). */
   const historyCard = (trade: Trade) => (
     <li key={trade.id} className="card trade-row">
+      {cardHead(trade)}
       <button className="trade-row-toggle" onClick={() => setExpanded(expanded === trade.id ? null : trade.id)}>
         {teamsSplit(trade)}
       </button>
-      <div className="trade-row-meta">
-        {trade.status === "accepted" ? (
-          <span className="trade-awaiting-pill">Awaiting processing</span>
-        ) : (
-          trade.processedUtc && <small className="muted">{formatDateTime(trade.processedUtc)}</small>
-        )}
-      </div>
       {expanded === trade.id && (
         <div className="trade-row-expanded">
           <div className="trade-row-players">
@@ -162,7 +179,8 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
                   <span className="trade-subhead">Received</span>
                   <ul className="trade-list">
                     {received.map((t) => (
-                      <li key={t.id} className="card trade-row">
+                      <li key={t.id} className="card trade-row trade-row-received">
+                        {cardHead(t)}
                         {teamsSplit(t)}
                         <div className="trade-actions">
                           <button className="btn" disabled={busyId === t.id} onClick={() => respond(t.id, true)}>
@@ -184,6 +202,7 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
                   <ul className="trade-list">
                     {sent.map((t) => (
                       <li key={t.id} className="card trade-row">
+                        {cardHead(t)}
                         {teamsSplit(t)}
                         <div className="trade-actions">
                           <button className="btn-ghost" disabled={busyId === t.id} onClick={() => respond(t.id, false)}>
