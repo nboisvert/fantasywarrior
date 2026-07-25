@@ -10,9 +10,9 @@
 //    NHL points among the players on that side, per the current roster
 //    data) plus a "+N" for any others involved.
 //
-// Only a processed trade counts as "hot" for 30 minutes after it processed
-// (an accepted-not-yet-processed trade hasn't actually moved any rosters
-// yet, so it doesn't get the alert treatment). While
+// Any trade item — accepted or processed — counts as "hot" for 30 minutes
+// after its own stage timestamp (accepted -> respondedUtc, processed ->
+// processedUtc). While
 // a hot trade's ticker item is actually scrolled into view (tracked via
 // IntersectionObserver against the ticker's own visible band, not just
 // "present in the data"), the whole ticker switches to an alert treatment to
@@ -176,7 +176,7 @@ export function NewsTicker({
   // Which trades currently qualify as "hot" — a plain string so the effect
   // below only re-runs when the actual set changes, not on every 30s tick.
   const hotKey = items
-    .filter((it) => it.kind === "trade" && it.status === "processed" && now - it.ts < HOT_WINDOW_MS)
+    .filter((it) => it.kind === "trade" && now - it.ts < HOT_WINDOW_MS)
     .map((it) => it.key)
     .join(",");
 
@@ -301,7 +301,7 @@ export function NewsTicker({
       )}
       <div className="news-ticker-track">
         {displayItems.map((item, i) => {
-          const isHot = item.kind === "trade" && item.status === "processed" && now - item.ts < HOT_WINDOW_MS;
+          const isHot = item.kind === "trade" && now - item.ts < HOT_WINDOW_MS;
           return (
             <span
               className={`news-ticker-item${isHot ? " hot" : ""}`}
