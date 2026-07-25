@@ -1,9 +1,17 @@
 # Fantasy Warrior — Project Status
 
 > **MUST be read at the start of every session and kept updated along the way.**
-> Last updated: 2026-07-23 (by Macklin Softwarini) — end-of-session wrap-up
+> Last updated: 2026-07-25 (by Macklin Softwarini) — merged + deployed the Standings→Stats branch
 
 ## Current state
+
+**Merged + deployed: light `league-detail` + on-demand rosters; Standings row opens team Stats (2026-07-25)**
+
+Nick had a branch (`claude/qui-es-tu-y0dihy`, commit `5ee0c2c`) from a prior session sitting unmerged — this was the "Standings click should go to Stats, not expand a player list" feature he was expecting. Fast-forward merged onto `main` (no conflicts, branch was already based on current `main`), Cloud Run API redeployed (run `30174265381`), and `daily-jobs.yml` run manually (`30174269339`) to populate the new precomputed team fields — both green.
+- **Backend**: `GET /api/leagues/{id}` is now a light read — team rows carry precomputed `rosterGamesPlayed`/`capTotal`/`playerNhlPoints` (written nightly by `score-calc`, no more per-request season-stats loop or full `PlayerCache` load) plus just the requesting user's own roster (`myRoster`, `?username=` param, batched `GetAllSnapshotsAsync`). Other teams' rosters load on demand (Stats screen, `CreateTradeSheet`).
+- **Frontend**: Standings rows no longer expand an inline roster — tapping one navigates to that team's Stats screen (own team by default, back link when viewing someone else's). `Dashboard`/`Roster` read `myRoster`; `Trades`/`NewsTicker` rank players via `teams[].playerNhlPoints`.
+- Also folded in earlier same-day work: the N+1 fix in `FetchWithCacheAsync` (`714556d`) and the full Trades privacy/cancelled-status/rating overhaul, which had been sitting undeployed since 2026-07-23 — that Cloud Run redeploy debt is now cleared too.
+- Not build/test-verified locally this round (no `dotnet` SDK in this session's sandbox) — frontend `tsc -b && vite build` confirmed clean; backend relied on CI + the green `api-deploy`/`daily-jobs` runs as the correctness signal. Worth Nick's own click-through once he's on the app, especially `ptsPerGame`/cap/points-behind values that depend on the new nightly-precomputed team fields.
 
 **Session wrap-up (2026-07-23)** — 33 commits today, ~6,200 lines generated / ~1,100 removed (net +5,091, via `git log --numstat`), spanning: Roster/Stats screen split, score ledger + per-assignment stats, Dashboard/Roster/Standings position-pill + row-density pass, breathing-logo loading state, global news ticker (built, then iterated on alert styling/scroll speed/starvation fix/user-scrollability across ~8 follow-up rounds), full trade feature (propose → accept/decline → nightly-process → community rating) plus its full privacy/cancelled-status/star-rating/history-timeline overhaul (2 rounds), profile menu + online GM list + inline chat mock, assignment creation/close field rename + one-command demo reseed, and a PlayerCard scroll fix. Everything is committed and pushed to `main`; **the Cloud Run API redeploy for the trade-privacy/rating backend changes is still on Nick to trigger** — see that entry below for what depends on it.
 
