@@ -4,11 +4,15 @@
 //  - plain player movements (add/drop) that are NOT part of a trade — trade
 //    moves get their own richer representation below instead of showing up
 //    twice.
-//  - recently processed trades: both sides' "star" player (highest NHL
-//    points among the players on that side, per the current roster data)
-//    plus a "+N" for any others involved.
+//  - trades that are either accepted (both sides agreed, nightly
+//    process-trades hasn't swapped the rosters yet — labeled "Agreed —")
+//    or processed (already executed): both sides' "star" player (highest
+//    NHL points among the players on that side, per the current roster
+//    data) plus a "+N" for any others involved.
 //
-// A processed trade counts as "hot" for 30 minutes after it processed. While
+// Only a processed trade counts as "hot" for 30 minutes after it processed
+// (an accepted-not-yet-processed trade hasn't actually moved any rosters
+// yet, so it doesn't get the alert treatment). While
 // a hot trade's ticker item is actually scrolled into view (tracked via
 // IntersectionObserver against the ticker's own visible band, not just
 // "present in the data"), the whole ticker switches to an alert treatment to
@@ -64,7 +68,7 @@ function usePrefersReducedMotion(): boolean {
 
 type NewsItem =
   | { kind: "movement"; key: string; ts: number; type: "add" | "drop"; text: string }
-  | { kind: "trade"; key: string; ts: number; label: string };
+  | { kind: "trade"; key: string; ts: number; label: string; status: "accepted" | "processed" };
 
 /** "Star" player per side = highest NHL points among the current roster data
  * (a proxy for "the name worth putting in the ticker" — the trade endpoint
@@ -142,11 +146,24 @@ export function NewsTicker({
           .filter((t): t is Trade & { processedUtc: string } => t.status === "processed" && t.processedUtc != null)
           .map((t) => ({
             kind: "trade",
-            key: `tr-${t.id}`,
+            key: `tr-${t.id}-processed`,
             ts: new Date(t.processedUtc).getTime(),
             label: tradeLabel(t, pointsById),
+            status: "processed",
           }));
-        setItems([...movements, ...processed].sort((a, b) => b.ts - a.ts).slice(0, 16));
+        // Accepted-but-not-yet-processed trades (the nightly process-trades
+        // job hasn't swapped the rosters yet) — still newsworthy the moment
+        // both sides agree, not just once it actually executes.
+        const accepted: NewsItem[] = trades
+          .filter((t): t is Trade & { respondedUtc: string } => t.status === "accepted" && t.respondedUtc != null)
+          .map((t) => ({
+            kind: "trade",
+            key: `tr-${t.id}-accepted`,
+            ts: new Date(t.respondedUtc).getTime(),
+            label: `Agreed — ${tradeLabel(t, pointsById)}`,
+            status: "accepted",
+          }));
+        setItems([...movements, ...processed, ...accepted].sort((a, b) => b.ts - a.ts).slice(0, 16));
       })
       .catch(() => {
         if (!ignore) setItems([]);
@@ -159,7 +176,7 @@ export function NewsTicker({
   // Which trades currently qualify as "hot" — a plain string so the effect
   // below only re-runs when the actual set changes, not on every 30s tick.
   const hotKey = items
-    .filter((it) => it.kind === "trade" && now - it.ts < HOT_WINDOW_MS)
+    .filter((it) => it.kind === "trade" && it.status === "processed" && now - it.ts < HOT_WINDOW_MS)
     .map((it) => it.key)
     .join(",");
 
@@ -284,7 +301,7 @@ export function NewsTicker({
       )}
       <div className="news-ticker-track">
         {displayItems.map((item, i) => {
-          const isHot = item.kind === "trade" && now - item.ts < HOT_WINDOW_MS;
+          const isHot = item.kind === "trade" && item.status === "processed" && now - item.ts < HOT_WINDOW_MS;
           return (
             <span
               className={`news-ticker-item${isHot ? " hot" : ""}`}
