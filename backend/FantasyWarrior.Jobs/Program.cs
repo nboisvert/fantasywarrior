@@ -3,6 +3,11 @@ using Google.Cloud.Firestore;
 
 // Usage: dotnet run -- <job> [options]
 //   player-sync [--season 20262027]
+//   draft-sync
+//     Backfills NHL entry draft details (round/overall pick/year/team) for
+//     every player not yet checked (draftChecked=false) via the per-player
+//     landing endpoint -- one HTTP call per player, so this is separate
+//     from the nightly team-roster-based player-sync. Safe to re-run.
 //   salary-import --file <path.csv>   (columns: nhlId?,firstName,lastName,teamAbbrev,capHit)
 //   stats-sync [--date YYYY-MM-DD | --from A --to B]   (default: yesterday UTC)
 //   stats-check [--date YYYY-MM-DD]
@@ -73,6 +78,11 @@ switch (job)
     {
         var season = GetOption(args, "--season") ?? CurrentSeason();
         await new PlayerSyncJob(new NhlApiClient(http), db).RunAsync(season);
+        return 0;
+    }
+    case "draft-sync":
+    {
+        await new DraftSyncJob(new NhlApiClient(http), db).RunAsync();
         return 0;
     }
     case "stats-sync":

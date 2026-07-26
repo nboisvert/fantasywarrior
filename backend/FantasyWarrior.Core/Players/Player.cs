@@ -51,6 +51,27 @@ public sealed class Player
     [FirestoreProperty("headshotUrl")]
     public string? HeadshotUrl { get; set; }
 
+    /// <summary>NHL entry draft — null fields mean undrafted. Comes from the
+    /// per-player landing endpoint (not the team roster/prospect endpoints
+    /// PlayerSyncJob uses), so it's backfilled separately by DraftSyncJob.</summary>
+    [FirestoreProperty("draftYear")]
+    public int? DraftYear { get; set; }
+
+    [FirestoreProperty("draftRound")]
+    public int? DraftRound { get; set; }
+
+    [FirestoreProperty("draftOverall")]
+    public int? DraftOverall { get; set; }
+
+    [FirestoreProperty("draftTeamAbbrev")]
+    public string? DraftTeamAbbrev { get; set; }
+
+    /// <summary>True once DraftSyncJob has looked this player up (even if
+    /// undrafted) — lets re-runs skip everyone already checked instead of
+    /// re-querying the NHL API for the whole collection every time.</summary>
+    [FirestoreProperty("draftChecked")]
+    public bool DraftChecked { get; set; }
+
     /// <summary>Annual cap hit in USD. Null until salary data is imported (PuckPedia/CSV).</summary>
     [FirestoreProperty("capHit")]
     public long? CapHit { get; set; }

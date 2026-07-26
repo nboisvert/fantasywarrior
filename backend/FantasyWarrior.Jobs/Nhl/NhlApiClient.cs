@@ -80,6 +80,17 @@ public sealed class NhlApiClient(HttpClient http)
         return JsonSerializer.Deserialize<BoxscoreDto>(await response.Content.ReadAsStringAsync(ct), JsonOptions);
     }
 
+    /// <summary>Per-player detail page — only source for draft info (the
+    /// team roster/prospect endpoints don't carry it), so this is one HTTP
+    /// call per player, used by DraftSyncJob rather than the nightly sync.</summary>
+    public async Task<PlayerLandingDto?> GetPlayerLandingAsync(long playerId, CancellationToken ct = default)
+    {
+        using var response = await http.GetAsync($"https://api-web.nhle.com/v1/player/{playerId}/landing", ct);
+        if (!response.IsSuccessStatusCode)
+            return null;
+        return JsonSerializer.Deserialize<PlayerLandingDto>(await response.Content.ReadAsStringAsync(ct), JsonOptions);
+    }
+
     private async Task<JsonDocument> GetJsonAsync(string url, CancellationToken ct)
     {
         using var response = await http.GetAsync(url, ct);
@@ -105,5 +116,18 @@ public sealed class NhlPlayerDto
     public sealed class LocalizedName
     {
         public string? Default { get; set; }
+    }
+}
+
+public sealed class PlayerLandingDto
+{
+    public DraftDetailsDto? DraftDetails { get; set; }
+
+    public sealed class DraftDetailsDto
+    {
+        public int? Year { get; set; }
+        public int? Round { get; set; }
+        public int? OverallPick { get; set; }
+        public string? TeamAbbrev { get; set; }
     }
 }

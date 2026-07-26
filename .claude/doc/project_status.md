@@ -1,9 +1,17 @@
 # Fantasy Warrior — Project Status
 
 > **MUST be read at the start of every session and kept updated along the way.**
-> Last updated: 2026-07-25 (by Macklin Softwarini) — merged + deployed the Standings→Stats branch
+> Last updated: 2026-07-26 (by Macklin Softwarini) — added NHL draft info to PlayerCard
 
 ## Current state
+
+**PlayerCard: NHL entry draft info (2026-07-26)**
+
+Nick asked for draft round/pick/year/team on the PlayerCard, replacing the Shoots/Catches bio item ("Rnd 1 #3ov 1997(PIT)", bio order now Born/Draft/Cap hit). We didn't have this data — the roster/prospect endpoints `PlayerSyncJob` uses don't carry it, only the per-player `/v1/player/{id}/landing` endpoint does. Added `Player.DraftYear/DraftRound/DraftOverall/DraftTeamAbbrev/DraftChecked` (Firestore, merge-field protected like `capHit`), `NhlApiClient.GetPlayerLandingAsync`, and a new **`draft-sync`** job that backfills every player not yet `draftChecked` (one HTTP call per player — separate from the nightly roster sync on purpose, but wired into `daily-jobs.yml` right after `player-sync` since it's cheap/idempotent once the initial backfill is done — new prospects just get checked automatically going forward). `GET /api/players/{id}` now returns the four draft fields; `PlayerCard.tsx` formats them or shows "Undrafted".
+- **Not build/test-verified locally** — no dotnet SDK in this session's sandbox, and the NHL API domain (`api-web.nhle.com`) is blocked by this sandbox's outbound proxy, so the `draftDetails` JSON shape (`year`/`round`/`overallPick`/`teamAbbrev`) is unverified against a live response — built from well-established NHL API documentation, not confirmed live. **Needs a real check**: after the first `draft-sync` run (via the next `daily-jobs.yml` run, manual or scheduled), verify actual players in prod show correct draft info, not all "Undrafted" (which would indicate the DTO field names are wrong).
+- Frontend build clean. **API changed — needs a manual Cloud Run redeploy.**
+
+**Merged + deployed: light `league-detail` + on-demand rosters; Standings row opens team Stats (2026-07-25)**
 
 **Merged + deployed: light `league-detail` + on-demand rosters; Standings row opens team Stats (2026-07-25)**
 

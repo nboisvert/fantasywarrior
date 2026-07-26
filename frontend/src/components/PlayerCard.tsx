@@ -62,6 +62,10 @@ interface PlayerDetail {
   weightKg: number | null;
   headshotUrl: string | null;
   capHit: number | null;
+  draftYear: number | null;
+  draftRound: number | null;
+  draftOverall: number | null;
+  draftTeamAbbrev: string | null;
   isGoalie: boolean;
   season: string;
   seasonTotals: SeasonTotals | null;
@@ -91,6 +95,14 @@ function formatBirthDate(birthDate: string): string {
   const d = new Date(`${birthDate}T00:00:00`);
   if (Number.isNaN(d.getTime())) return birthDate;
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" });
+}
+
+/** "Rnd 1 #3ov 1997(PIT)", or "Undrafted" — round/overall from the entry
+ * draft, not to be confused with the fantasy pool's own draft mechanic. */
+function formatDraft(p: PlayerDetail): string {
+  if (p.draftYear == null) return "Undrafted";
+  const team = p.draftTeamAbbrev ? `(${p.draftTeamAbbrev})` : "";
+  return `Rnd ${p.draftRound} #${p.draftOverall}ov ${p.draftYear}${team}`;
 }
 
 function formatGameDate(date: string): string {
@@ -322,10 +334,6 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
               {/* bio */}
               <div className="pc-bio-grid">
                 <div className="pc-bio-item">
-                  <span className="pc-bio-label">{player.isGoalie ? "Catches" : "Shoots"}</span>
-                  <span className="pc-bio-value">{player.shootsCatches ?? "—"}</span>
-                </div>
-                <div className="pc-bio-item">
                   <span className="pc-bio-label">Born</span>
                   <span className="pc-bio-value pc-bio-nowrap">
                     {player.birthDate != null ? (
@@ -337,6 +345,10 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
                       "—"
                     )}
                   </span>
+                </div>
+                <div className="pc-bio-item">
+                  <span className="pc-bio-label">Draft</span>
+                  <span className="pc-bio-value">{formatDraft(player)}</span>
                 </div>
                 <div className="pc-bio-item">
                   <span className="pc-bio-label">Cap hit</span>

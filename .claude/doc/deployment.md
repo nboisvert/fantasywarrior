@@ -40,7 +40,7 @@ GitHub Pages: Settings → Pages → Source = **GitHub Actions** (done).
 - Secrets dir (never in git): `C:\Nick\secrets\fantasywarriordb-sa.json`.
 - API: `ASPNETCORE_URLS=http://localhost:5099 GOOGLE_APPLICATION_CREDENTIALS=<key> FIRESTORE_PROJECT_ID=fantasywarriordb dotnet run --project backend/FantasyWarrior.Api --no-launch-profile`
 - Frontend: `cd frontend && npm run dev` → http://localhost:5173
-- Jobs: same env vars, `dotnet run --project backend/FantasyWarrior.Jobs -- <job>`; jobs: `player-sync`, `salary-import --file x.csv`, `stats-sync [--from A --to B]`, `score-calc [--league id]`, `league-init-assignments`, `stats-check`, `player-check`.
+- Jobs: same env vars, `dotnet run --project backend/FantasyWarrior.Jobs -- <job>`; jobs: `player-sync`, `draft-sync` (backfills NHL draft round/pick/year/team, one HTTP call per player not yet checked), `salary-import --file x.csv`, `stats-sync [--from A --to B]`, `score-calc [--league id]`, `league-init-assignments`, `stats-check`, `player-check`.
 - Solution file is `FantasyWarrior.slnx` (new .NET 10 format).
 
 ## Changing things later
