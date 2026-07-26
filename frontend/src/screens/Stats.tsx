@@ -11,10 +11,11 @@
 // everywhere else in the app (Standings/Dashboard/Roster).
 
 import { useEffect, useState } from "react";
-import { api, posGroup, posGroupClass } from "../api";
+import { api, formatCap, posGroup, posGroupClass } from "../api";
 import type { LeagueDetail, PlayerSeasonStatsRow } from "../api";
 import { LoadingLogo } from "../components/LoadingLogo";
-import { ArrowLeftIcon, ChevronDownIcon } from "../components/Icons";
+import { PlayerCard } from "../components/PlayerCard";
+import { ArrowLeftIcon, ChevronDownIcon, InfoIcon } from "../components/Icons";
 
 const formatGaa = (goalsAgainst: number, gamesPlayed: number): number | null =>
   gamesPlayed > 0 ? goalsAgainst / gamesPlayed : null;
@@ -30,8 +31,8 @@ const displayRate = (v: number | null, decimals: number, stripLeadingZero = fals
 
 const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
 
-/** Same compact format as Roster.tsx's cap gauge ($9.2M / $850K) — kept as a
- * local copy per the project's small-screen-local-helper convention. */
+/** Compact money format ($9.2M / $850K) — used for both the player-row
+ * salary/cost columns and the cap-gauge disclosure below. */
 function formatMoneyCompact(amount: number): string {
   const abs = Math.abs(amount);
   if (abs >= 1_000_000) return `$${(abs / 1_000_000).toFixed(1)}M`;
@@ -192,6 +193,8 @@ export function Stats({
   const [players, setPlayers] = useState<PlayerSeasonStatsRow[] | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [capExpanded, setCapExpanded] = useState(false);
+  const [openPlayerId, setOpenPlayerId] = useState<number | null>(null);
 
   useEffect(() => {
     let ignore = false;
@@ -217,6 +220,18 @@ export function Stats({
   const viewedTeam = league.teams.find((t) => t.ownerUsername === targetUsername);
   const isOwnTeam = targetUsername === username;
   if (!viewedTeam) return <p className="empty-state">Team not found in this league.</p>;
+
+  // Cap gauge figures — moved here verbatim from the retired Roster screen
+  // (2026-07-26, per Nick): the Stats grids already list every rostered
+  // player, so a separate roster-list screen was redundant; only the cap
+  // detail itself was worth keeping, tucked behind a disclosure.
+  const capUsed = viewedTeam.capTotal;
+  const capMax = league.capAmount;
+  const over = capMax != null && capUsed > capMax;
+  const pctRaw = capMax ? (capUsed / capMax) * 100 : 0;
+  const pctBarWidth = Math.min(100, Math.max(0, pctRaw));
+  const pctDisplay = Math.round(pctRaw);
+  const capAvailable = capMax != null ? capMax - capUsed : null;
 
   // NHL group is season-complete (goals/assists as raw hockey points, GP/M
   // over the whole year). Pool group is scoped to this player's *current
@@ -304,6 +319,52 @@ export function Stats({
           </span>
         </div>
         {!isOwnTeam && <small className="muted stats-team-owner">@{viewedTeam.ownerUsername}</small>}
+        {capMax != null && (
+          <>
+            <button
+              type="button"
+              className="stats-cap-summary"
+              onClick={() => setCapExpanded((v) => !v)}
+              aria-expanded={capExpanded}
+            >
+              <InfoIcon size={14} />
+              <span>
+                Cap {formatMoneyCompact(capUsed)} / {formatMoneyCompact(capMax)}
+              </span>
+              <ChevronDownIcon size={14} className={`stats-cap-chevron${capExpanded ? " asc" : ""}`} />
+            </button>
+            {capExpanded && capAvailable != null && (
+              <div className="roster-cap">
+                <div className="pc-tiles roster-cap-tiles">
+                  <div className={`pc-tile${over ? " danger" : " accent"}`}>
+                    <span className="pc-tile-value">{formatMoneyCompact(Math.abs(capAvailable))}</span>
+                    <span className="pc-tile-label">{over ? "Over budget" : "Available"}</span>
+                  </div>
+                  <div className={`pc-tile${over ? " danger" : ""}`}>
+                    <span className="pc-tile-value">{pctDisplay}%</span>
+                    <span className="pc-tile-label">Used</span>
+                  </div>
+                </div>
+                <div
+                  className="cap-track"
+                  role="progressbar"
+                  aria-valuenow={Math.round(pctBarWidth)}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuetext={`${pctDisplay}% of cap used, ${formatMoneyCompact(Math.abs(capAvailable))} ${
+                    over ? "over budget" : "available"
+                  }`}
+                  aria-label="Salary cap used"
+                >
+                  <div className={`cap-fill${over ? " over" : ""}`} style={{ width: `${pctBarWidth}%` }} />
+                </div>
+                <small className="muted roster-cap-sub">
+                  {formatCap(capUsed)} committed of {formatCap(capMax)} cap
+                </small>
+              </div>
+            )}
+          </>
+        )}
         {viewedTeam.adjustmentsTotal !== 0 && (
           <div className="stats-adj-line">
             <span
@@ -369,10 +430,12 @@ export function Stats({
                     {skaterSort.sorted.map((r) => (
                       <tr key={r.id}>
                         <td className="stats-col-player">
-                          <span className="stats-player-name">{r.name}</span>
-                          <span className={`stats-player-pos pos-compact-${posGroupClass(r.position)}`}>
-                            {posGroup(r.position)}
-                          </span>
+                          <button type="button" className="stats-player-btn" onClick={() => setOpenPlayerId(r.id)}>
+                            <span className="stats-player-name">{r.name}</span>
+                            <span className={`stats-player-pos pos-compact-${posGroupClass(r.position)}`}>
+                              {posGroup(r.position)}
+                            </span>
+                          </button>
                         </td>
                         <td className="stats-group-start">{r.gamesPlayed}</td>
                         <td>{r.goals}</td>
@@ -453,10 +516,12 @@ export function Stats({
                     {goalieSort.sorted.map((r) => (
                       <tr key={r.id}>
                         <td className="stats-col-player">
-                          <span className="stats-player-name">{r.name}</span>
-                          <span className={`stats-player-pos pos-compact-${posGroupClass(r.position)}`}>
-                            {posGroup(r.position)}
-                          </span>
+                          <button type="button" className="stats-player-btn" onClick={() => setOpenPlayerId(r.id)}>
+                            <span className="stats-player-name">{r.name}</span>
+                            <span className={`stats-player-pos pos-compact-${posGroupClass(r.position)}`}>
+                              {posGroup(r.position)}
+                            </span>
+                          </button>
                         </td>
                         <td className="stats-group-start">{r.gamesPlayed}</td>
                         <td className="accent">{r.wins}</td>
@@ -495,6 +560,9 @@ export function Stats({
             </div>
           )}
         </>
+      )}
+      {openPlayerId != null && (
+        <PlayerCard playerId={openPlayerId} onClose={() => setOpenPlayerId(null)} />
       )}
     </section>
   );

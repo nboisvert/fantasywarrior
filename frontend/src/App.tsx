@@ -7,7 +7,6 @@ import {
   ChevronDownIcon,
   HomeIcon,
   TrophyIcon,
-  UsersIcon,
 } from "./components/Icons";
 import { LoadingLogo } from "./components/LoadingLogo";
 import { ProfileMenu } from "./components/ProfileMenu";
@@ -16,14 +15,13 @@ import { Login } from "./screens/Login";
 import { LeagueGate } from "./screens/LeagueGate";
 import { Dashboard } from "./screens/Dashboard";
 import { Standings } from "./screens/Standings";
-import { Roster } from "./screens/Roster";
 import { Stats } from "./screens/Stats";
 import { Trades } from "./screens/Trades";
 import { Settings } from "./screens/Settings";
 import { NewsTicker } from "./components/NewsTicker";
 import "./App.css";
 
-type Tab = "dashboard" | "standings" | "roster" | "stats" | "trades" | "settings";
+type Tab = "dashboard" | "standings" | "stats" | "trades" | "settings";
 
 export default function App() {
   const [username, setUsername] = useState<string | null>(localStorage.getItem("fw-username"));
@@ -169,9 +167,6 @@ export default function App() {
             }}
           />
         )}
-        {league && tab === "roster" && (
-          <Roster league={league} username={username} />
-        )}
         {league && tab === "stats" && (
           <Stats
             league={league}
@@ -203,14 +198,6 @@ export default function App() {
           Standings
         </button>
         <button
-          className={`nav-tab${tab === "roster" ? " active" : ""}`}
-          onClick={() => setTab("roster")}
-          aria-current={tab === "roster" ? "page" : undefined}
-        >
-          <UsersIcon size={22} />
-          Roster
-        </button>
-        <button
           className={`nav-tab${tab === "stats" ? " active" : ""}`}
           onClick={() => {
             setStatsTeam(null);
@@ -219,7 +206,7 @@ export default function App() {
           aria-current={tab === "stats" ? "page" : undefined}
         >
           <ActivityIcon size={22} />
-          Stats
+          Team
         </button>
         <button
           className={`nav-tab${tab === "trades" ? " active" : ""}`}

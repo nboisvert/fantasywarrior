@@ -632,20 +632,14 @@
   color: var(--text-muted);
 }
 
-/* ---------- roster header (redesigned 2026-07-22, per Nick: "gros travail
-   de UI UX" — points made the headline, adjustments a pill, cap gauge given
-   real "available $ / % used" framing, Mint-app style). Split 2026-07-23:
-   the score/points headline moved out to Stats.tsx (see `.stats-score-*`
-   further down) — Roster keeps just the team name + cap gauge, so this
-   header is now purely about team/cap management. `.cap-track`/`.cap-fill`
-   below are the shared progress-bar mechanics — untouched. ---- */
-
-.roster-header {
-  display: flex;
-  flex-direction: column;
-  gap: 1.1rem;
-  padding: 1.1rem 1.15rem;
-}
+/* ---------- team name + cap gauge ----------
+   Originally the Roster screen's header (redesigned 2026-07-22: points made
+   the headline, adjustments a pill, cap gauge given real "available $ / %
+   used" framing, Mint-app style); the score/points headline moved out to
+   Stats.tsx in a 2026-07-23 split, and the Roster screen itself was retired
+   2026-07-26 (its player list was redundant with the Stats grids) — the cap
+   gauge lives on here as Stats' collapsible `.stats-cap-summary` detail.
+   `.cap-track`/`.cap-fill` below are the shared progress-bar mechanics. ---- */
 
 .roster-team-name {
   font-family: var(--font-display);
@@ -676,12 +670,6 @@
 .roster-cap-sub {
   text-align: center;
   font-size: 0.8rem;
-}
-
-.roster-cap-none {
-  margin: 0;
-  font-size: 0.85rem;
-  text-align: center;
 }
 
 .cap-track {
@@ -801,19 +789,6 @@
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Salary sits at the far right of line 1 (name + pill stay snug at the
-   start) — margin-left: auto claims all the remaining row width for it
-   alone. Slightly more prominent than plain muted text (2026-07-23, per
-   Nick), mirroring .pts-small's treatment. */
-.player-salary {
-  margin-left: auto;
-  flex-shrink: 0;
-  font-family: var(--font-display);
-  font-size: 0.85rem;
-  color: var(--ice-bright);
   white-space: nowrap;
 }
 
@@ -994,8 +969,8 @@
    below reuse PlayerCard.css's `.pc-tiles`/`.pc-tile` classes verbatim
    (that stylesheet ships in the same bundle, via Dashboard.tsx's PlayerCard
    import) so the padding/type-scale match PlayerCard exactly instead of
-   being re-derived and re-tightened. The scorers list below that reuses
-   Roster.tsx's own `.player-list`/`.player-row`/`.headshot`/`.player-info`
+   being re-derived and re-tightened. The scorers list below that reuses the
+   shared `.player-list`/`.player-row`/`.headshot`/`.player-info` row
    pattern for the same reason. */
 
 .dash-stack {
@@ -1188,6 +1163,40 @@
   border-color: rgba(244, 63, 94, 0.4);
 }
 
+/* Cap summary disclosure — sits below the team name, expands into the same
+   cap-gauge markup the retired Roster screen used (2026-07-26, per Nick). */
+.stats-cap-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  align-self: flex-start;
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--text-muted);
+  font: 600 0.8rem var(--font-body);
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.stats-cap-summary:hover {
+  color: var(--text);
+}
+
+.stats-cap-chevron {
+  transition: transform 0.15s ease;
+}
+
+.stats-cap-chevron.asc {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stats-cap-chevron {
+    transition: none;
+  }
+}
+
 .stats-table-title {
   display: block;
   font-size: 0.78rem;
@@ -1322,16 +1331,39 @@
   z-index: 3;
 }
 
+/* Wraps the name+pos cell content so the whole row opens the PlayerCard
+   (2026-07-26, per Nick) — same flex/gap the plain cell used to carry
+   directly, moved onto the button since it's now the only flex child. */
+.stats-player-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.stats-player-btn:hover .stats-player-name {
+  color: var(--ice-bright);
+}
+
 .stats-player-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 7.4rem;
   font-weight: 600;
+  transition: color 0.2s;
 }
 
 /* Plain-text position, right of the name, before the numeric columns start —
-   no pill/badge chrome on this screen (kept on Roster.tsx only). */
+   no pill/badge chrome on this data-dense screen (compact convention; see
+   CLAUDE.md's position-indicator pattern). */
 .stats-player-pos {
   flex-shrink: 0;
   font-size: 0.68rem;

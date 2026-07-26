@@ -39,7 +39,7 @@ const RESUME_AFTER_MS = 1500;
 const LOOP_SECONDS = 60;
 
 /** Small local helper, not shared — same "duplicated per file" convention as
- * formatMoneyCompact in Stats.tsx/Roster.tsx. */
+ * formatMoneyCompact in Stats.tsx. */
 function timeAgo(dateUtc: string): string {
   const ms = Date.now() - new Date(dateUtc).getTime();
   const minutes = Math.floor(ms / 60_000);

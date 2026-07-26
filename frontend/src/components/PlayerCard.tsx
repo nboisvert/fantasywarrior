@@ -164,7 +164,7 @@ function Skeleton() {
         </div>
       </div>
       <div className="pc-bio-grid">
-        {Array.from({ length: 6 }, (_, i) => (
+        {Array.from({ length: 3 }, (_, i) => (
           <span key={i} className="pc-skel pc-skel-bio" />
         ))}
       </div>
@@ -266,6 +266,8 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 10);
 
+  const age = player?.birthDate != null ? computeAge(player.birthDate) : null;
+
   return (
     <div className="pc-overlay" onClick={onBackdrop}>
       <div
@@ -311,6 +313,7 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
                     {player.sweaterNumber != null && (
                       <span className="pc-number">#{player.sweaterNumber}</span>
                     )}
+                    {age != null && <span className="pc-age">{age}y</span>}
                   </div>
                 </div>
               </div>
@@ -322,35 +325,10 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
                   <span className="pc-bio-value">{player.shootsCatches ?? "—"}</span>
                 </div>
                 <div className="pc-bio-item">
-                  <span className="pc-bio-label">Height</span>
-                  <span className="pc-bio-value">
-                    {player.heightCm != null ? `${player.heightCm} cm` : "—"}
-                  </span>
-                </div>
-                <div className="pc-bio-item">
-                  <span className="pc-bio-label">Weight</span>
-                  <span className="pc-bio-value">
-                    {player.weightKg != null ? `${player.weightKg} kg` : "—"}
-                  </span>
-                </div>
-                <div className="pc-bio-item">
                   <span className="pc-bio-label">Born</span>
                   <span className="pc-bio-value">
-                    {player.birthDate != null ? (
-                      <>
-                        {formatBirthDate(player.birthDate)}
-                        {computeAge(player.birthDate) != null && (
-                          <span className="muted"> ({computeAge(player.birthDate)})</span>
-                        )}
-                      </>
-                    ) : (
-                      "—"
-                    )}
+                    {player.birthDate != null ? formatBirthDate(player.birthDate) : "—"}
                   </span>
-                </div>
-                <div className="pc-bio-item">
-                  <span className="pc-bio-label">Country</span>
-                  <span className="pc-bio-value">{player.birthCountry ?? "—"}</span>
                 </div>
                 <div className="pc-bio-item">
                   <span className="pc-bio-label">Cap hit</span>
