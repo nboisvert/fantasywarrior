@@ -97,12 +97,13 @@ function formatBirthDate(birthDate: string): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" });
 }
 
-/** "Rnd 1 #3ov 1997(PIT)", or "Undrafted" — round/overall from the entry
- * draft, not to be confused with the fantasy pool's own draft mechanic. */
-function formatDraft(p: PlayerDetail): string {
-  if (p.draftYear == null) return "Undrafted";
+/** Round/pick on line 1, year+team on line 2 ("Rnd 1 #3ov" / "1997(PIT)")
+ * — split across two lines so the bio cell has the same fixed shape as
+ * Born instead of wrapping unpredictably (2026-07-26, per Nick). */
+function formatDraftLines(p: PlayerDetail): { line1: string; line2: string | null } {
+  if (p.draftYear == null) return { line1: "Undrafted", line2: null };
   const team = p.draftTeamAbbrev ? `(${p.draftTeamAbbrev})` : "";
-  return `Rnd ${p.draftRound} #${p.draftOverall}ov ${p.draftYear}${team}`;
+  return { line1: `Rnd ${p.draftRound} #${p.draftOverall}ov`, line2: `${p.draftYear}${team}` };
 }
 
 function formatGameDate(date: string): string {
@@ -281,6 +282,7 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
     .slice(0, 10);
 
   const age = player?.birthDate != null ? computeAge(player.birthDate) : null;
+  const draftLines = player != null ? formatDraftLines(player) : { line1: "", line2: null };
 
   return (
     <div className="pc-overlay" onClick={onBackdrop}>
@@ -335,20 +337,15 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
               <div className="pc-bio-grid">
                 <div className="pc-bio-item">
                   <span className="pc-bio-label">Born</span>
-                  <span className="pc-bio-value pc-bio-nowrap">
-                    {player.birthDate != null ? (
-                      <>
-                        {formatBirthDate(player.birthDate)}
-                        {age != null && <span className="muted"> ({age})</span>}
-                      </>
-                    ) : (
-                      "—"
-                    )}
+                  <span className="pc-bio-value">
+                    {player.birthDate != null ? formatBirthDate(player.birthDate) : "—"}
                   </span>
+                  {age != null && <span className="pc-bio-sub">{age}y</span>}
                 </div>
                 <div className="pc-bio-item">
                   <span className="pc-bio-label">Draft</span>
-                  <span className="pc-bio-value">{formatDraft(player)}</span>
+                  <span className="pc-bio-value">{draftLines.line1}</span>
+                  {draftLines.line2 != null && <span className="pc-bio-sub">{draftLines.line2}</span>}
                 </div>
                 <div className="pc-bio-item">
                   <span className="pc-bio-label">Cap hit</span>

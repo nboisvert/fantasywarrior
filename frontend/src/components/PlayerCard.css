@@ -186,13 +186,17 @@
   overflow-wrap: break-word;
 }
 
-/* Born value carries a date + age suffix — keep it on one line (2-digit
-   year already trims it to fit; 2026-07-26, per Nick) rather than letting
-   the age wrap to its own line. */
-.pc-bio-nowrap {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+/* Second line under .pc-bio-value (age under Born, year+team under Draft)
+   — a fixed two-line shape per cell instead of relying on organic text
+   wrap, so the three bio cells line up evenly regardless of which one has
+   the longest content (2026-07-26, per Nick: Draft's wrap alone was
+   throwing the row off-balance). Cap hit has no second line and that's
+   fine — CSS Grid sizes the row to the tallest cell and top-aligns the
+   rest. */
+.pc-bio-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  overflow-wrap: break-word;
 }
 
 /* ---------- season stat tiles ---------- */
