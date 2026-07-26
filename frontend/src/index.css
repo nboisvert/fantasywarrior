@@ -25,7 +25,7 @@
   --font-body: "Chakra Petch", system-ui, sans-serif;
 
   --nav-height: 64px;
-  --ticker-height: 24px; /* 34px, cut 30% (2026-07-26, per Nick) */
+  --ticker-height: 44px; /* 34px, up 30% (2026-07-26, per Nick) */
 
   font-family: var(--font-body);
   font-size: 16px;
