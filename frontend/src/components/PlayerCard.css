@@ -153,13 +153,6 @@
   flex-shrink: 0;
 }
 
-/* Age chip — sits right after the sweater number (2026-07-26, per Nick). */
-.pc-age {
-  color: var(--text-muted);
-  font-size: 0.82rem;
-  flex-shrink: 0;
-}
-
 /* ---------- bio grid ---------- */
 
 .pc-bio-grid {
@@ -191,6 +184,15 @@
   font-size: 0.9rem;
   font-weight: 600;
   overflow-wrap: break-word;
+}
+
+/* Born value carries a date + age suffix — keep it on one line (2-digit
+   year already trims it to fit; 2026-07-26, per Nick) rather than letting
+   the age wrap to its own line. */
+.pc-bio-nowrap {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ---------- season stat tiles ---------- */

@@ -85,10 +85,12 @@ function computeAge(birthDate: string): number | null {
   return age;
 }
 
+/** 2-digit year ("Jan 15, 98") — saves the room needed to fit the age
+ * suffix back on the same line (2026-07-26, per Nick). */
 function formatBirthDate(birthDate: string): string {
   const d = new Date(`${birthDate}T00:00:00`);
   if (Number.isNaN(d.getTime())) return birthDate;
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" });
 }
 
 function formatGameDate(date: string): string {
@@ -313,7 +315,6 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
                     {player.sweaterNumber != null && (
                       <span className="pc-number">#{player.sweaterNumber}</span>
                     )}
-                    {age != null && <span className="pc-age">{age}y</span>}
                   </div>
                 </div>
               </div>
@@ -326,8 +327,15 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
                 </div>
                 <div className="pc-bio-item">
                   <span className="pc-bio-label">Born</span>
-                  <span className="pc-bio-value">
-                    {player.birthDate != null ? formatBirthDate(player.birthDate) : "—"}
+                  <span className="pc-bio-value pc-bio-nowrap">
+                    {player.birthDate != null ? (
+                      <>
+                        {formatBirthDate(player.birthDate)}
+                        {age != null && <span className="muted"> ({age})</span>}
+                      </>
+                    ) : (
+                      "—"
+                    )}
                   </span>
                 </div>
                 <div className="pc-bio-item">
