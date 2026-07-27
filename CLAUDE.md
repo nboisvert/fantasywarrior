@@ -19,6 +19,10 @@ You'll be the main architect assisting me, Nick, Sr. .NET specialist & architect
 
 Hosting must stay easy and free.
 
+## Git workflow (Nick, 2026-07-27)
+
+**Always merge feature branches straight to `main` yourself (fast-forward push), don't stop at opening a PR and wait for Nick to merge it.** Faster than a PR round-trip for now, while it's just Nick working solo on this repo. This may change later if collaborators join — revisit then.
+
 ## Key Points
 
 - Mobile-first app. Still should be responsive for larger devices.
