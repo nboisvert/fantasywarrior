@@ -566,7 +566,6 @@ app.MapGet("/api/leagues/{leagueId}/teams/{username}/season-stats", async (
                 assignmentGamesPlayed = assignment?.GamesPlayed ?? 0,
                 assignmentGoals = assignment?.Goals ?? 0,
                 assignmentAssists = assignment?.Assists ?? 0,
-                assignmentWins = assignment?.Wins ?? 0,
                 assignmentFantasyPoints = assignment?.FantasyPoints ?? 0,
             };
         })

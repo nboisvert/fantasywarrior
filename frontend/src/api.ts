@@ -103,7 +103,6 @@ export interface PlayerSeasonStatsRow {
   assignmentGamesPlayed: number;
   assignmentGoals: number;
   assignmentAssists: number;
-  assignmentWins: number;
   assignmentFantasyPoints: number;
 }
 

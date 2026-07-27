@@ -59,7 +59,6 @@ interface PlayerRow {
   poolGoals: number;
   poolAssists: number;
   poolPoints: number;
-  poolWins: number;
   poolPtsPerGame: number | null;
   // NHL group — full season totals.
   gamesPlayed: number;
@@ -67,6 +66,10 @@ interface PlayerRow {
   assists: number;
   nhlPoints: number;
   nhlPtsPerGame: number | null;
+  // Goalie — season totals, dash-rendered for skaters.
+  wins: number;
+  otLosses: number;
+  shutouts: number;
   // Extra
   plusMinus: number;
   pim: number;
@@ -251,13 +254,15 @@ export function Stats({
       poolGoals: p.assignmentGoals,
       poolAssists: p.assignmentAssists,
       poolPoints: p.assignmentFantasyPoints,
-      poolWins: p.assignmentWins,
       poolPtsPerGame: p.assignmentGamesPlayed > 0 ? p.assignmentFantasyPoints / p.assignmentGamesPlayed : null,
       gamesPlayed: p.gamesPlayed,
       goals: p.goals,
       assists: p.assists,
       nhlPoints,
       nhlPtsPerGame: p.gamesPlayed > 0 ? nhlPoints / p.gamesPlayed : null,
+      wins: p.wins,
+      otLosses: p.otLosses,
+      shutouts: p.shutouts,
       plusMinus: p.plusMinus,
       pim: p.pim,
       shots: p.shots,
@@ -279,11 +284,13 @@ export function Stats({
   const poolGoalsTotal = sum(rows, (r) => r.poolGoals);
   const poolAssistsTotal = sum(rows, (r) => r.poolAssists);
   const poolPtsTotal = sum(rows, (r) => r.poolPoints);
-  const poolWinsTotal = sum(rows, (r) => r.poolWins);
   const nhlGp = sum(rows, (r) => r.gamesPlayed);
   const nhlGoalsTotal = sum(rows, (r) => r.goals);
   const nhlAssistsTotal = sum(rows, (r) => r.assists);
   const nhlPtsTotal = sum(rows, (r) => r.nhlPoints);
+  const winsTotal = sum(rows, (r) => r.wins);
+  const otLossesTotal = sum(rows, (r) => r.otLosses);
+  const shutoutsTotal = sum(rows, (r) => r.shutouts);
   const plusMinusTotal = sum(rows, (r) => r.plusMinus);
   const pimTotal = sum(rows, (r) => r.pim);
   const shotsTotal = sum(rows, (r) => r.shots);
@@ -405,7 +412,8 @@ export function Stats({
                         )}
                       </button>
                     </th>
-                    <GroupHead label="Fantasy point" span={6} accent />
+                    <GroupHead label="Fantasy point" span={5} accent />
+                    <GroupHead label="Goalie" span={3} />
                     <GroupHead label="NHL" span={5} />
                     <GroupHead label="Extra" span={5} />
                     <GroupHead label="Salary" span={2} />
@@ -415,8 +423,10 @@ export function Stats({
                     <SortableHead label="G" colKey="poolGoals" active={sort.key === "poolGoals"} dir={sort.dir} onSort={sort.toggle} accent />
                     <SortableHead label="A" colKey="poolAssists" active={sort.key === "poolAssists"} dir={sort.dir} onSort={sort.toggle} accent />
                     <SortableHead label="PTS" colKey="poolPoints" active={sort.key === "poolPoints"} dir={sort.dir} onSort={sort.toggle} accent spotlight />
-                    <SortableHead label="W" colKey="poolWins" active={sort.key === "poolWins"} dir={sort.dir} onSort={sort.toggle} accent />
                     <SortableHead label="PTS/G" colKey="poolPtsPerGame" active={sort.key === "poolPtsPerGame"} dir={sort.dir} onSort={sort.toggle} accent />
+                    <SortableHead label="W" colKey="wins" active={sort.key === "wins"} dir={sort.dir} onSort={sort.toggle} groupStart />
+                    <SortableHead label="OTL" colKey="otLosses" active={sort.key === "otLosses"} dir={sort.dir} onSort={sort.toggle} />
+                    <SortableHead label="SO" colKey="shutouts" active={sort.key === "shutouts"} dir={sort.dir} onSort={sort.toggle} />
                     <SortableHead label="GP" colKey="gamesPlayed" active={sort.key === "gamesPlayed"} dir={sort.dir} onSort={sort.toggle} groupStart />
                     <SortableHead label="G" colKey="goals" active={sort.key === "goals"} dir={sort.dir} onSort={sort.toggle} />
                     <SortableHead label="A" colKey="assists" active={sort.key === "assists"} dir={sort.dir} onSort={sort.toggle} />
@@ -446,8 +456,10 @@ export function Stats({
                       <td className="accent">{r.poolGoals}</td>
                       <td className="accent">{r.poolAssists}</td>
                       <td className="accent stats-col-spotlight">{r.poolPoints}</td>
-                      <td className="accent">{r.isGoalie ? r.poolWins : "—"}</td>
                       <td className="accent">{displayRate(r.poolPtsPerGame, 2)}</td>
+                      <td className="stats-group-start">{r.isGoalie ? r.wins : "—"}</td>
+                      <td>{r.isGoalie ? r.otLosses : "—"}</td>
+                      <td>{r.isGoalie ? r.shutouts : "—"}</td>
                       <td className="stats-group-start">{r.gamesPlayed}</td>
                       <td>{r.goals}</td>
                       <td>{r.assists}</td>
@@ -472,8 +484,10 @@ export function Stats({
                     <td className="accent">{poolGoalsTotal}</td>
                     <td className="accent">{poolAssistsTotal}</td>
                     <td className="accent stats-col-spotlight">{poolPtsTotal}</td>
-                    <td className="accent">{poolWinsTotal}</td>
                     <td className="accent">{displayRate(poolGp > 0 ? poolPtsTotal / poolGp : null, 2)}</td>
+                    <td className="stats-group-start">{winsTotal}</td>
+                    <td>{otLossesTotal}</td>
+                    <td>{shutoutsTotal}</td>
                     <td className="stats-group-start">{nhlGp}</td>
                     <td>{nhlGoalsTotal}</td>
                     <td>{nhlAssistsTotal}</td>

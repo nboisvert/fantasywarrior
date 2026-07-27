@@ -1,9 +1,13 @@
 # Fantasy Warrior — Project Status
 
 > **MUST be read at the start of every session and kept updated along the way.**
-> Last updated: 2026-07-27 (by Macklin Softwarini) — merged Team screen's Skaters/Goalies grids into one Roster grid
+> Last updated: 2026-07-27 (by Macklin Softwarini) — split a dedicated Goalie column group out of the merged Roster grid
 
 ## Current state
+
+**Team screen: dedicated "Goalie" column group (W/OTL/SO) split out of Fantasy point (2026-07-27)**
+
+Follow-up to the same-day Roster-grid merge below, per Nick: pulled the "W" column back out of the "Fantasy point" group and, alongside it, brought back OTL/Shutouts (dropped in the merge just before this) into their own new **"Goalie"** column group (3 cols: W, OTL, SO — all season totals, dash `—` for skater rows), placed right after "Fantasy point". "Fantasy point"'s GP and PTS stay exactly where they were — still the single shared column for every position, per Nick's explicit ask. Removed the now-unused `assignmentWins`/`poolWins` (backend projection field + frontend field) added earlier the same day, since nothing references it anymore now that W moved to a season-total field. Frontend build clean; backend not build-verified (no local dotnet SDK) but the change is a pure removal, no new backend surface.
 
 **Team screen: merged Skaters+Goalies into one "Roster" grid + PlayerCard tweaks + git workflow note (2026-07-27)**
 
