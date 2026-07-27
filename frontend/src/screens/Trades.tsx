@@ -30,9 +30,6 @@ const formatDateTime = (iso: string) =>
     minute: "2-digit",
   });
 
-const playersLabel = (players: TradePlayer[]) =>
-  players.length === 0 ? "nothing" : players.map((p) => p.name).join(", ");
-
 /** The one date worth putting at the top of a card, labelled by what it marks:
  * when the offer was proposed (still pending), accepted (awaiting tonight's
  * processing), or actually processed. */
@@ -87,11 +84,21 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
     }
   };
 
-  /** One team's column: name on top, its 2 headliners (by NHL points) below,
-   * "+N more" if it's giving up more than two. */
-  const tradeSide = (teamName: string, gives: TradePlayer[], align: "left" | "right" = "left") => {
+  /** One team's column: name on top, its 2 headliners (by NHL points) below.
+   * Collapsed: "+N more" for anyone beyond the top 2. Expanded: those extra
+   * players are listed right below the headliners instead — no "+N more",
+   * and the headliners are never repeated a second time anywhere else on
+   * the card (2026-07-27, per Nick — the old expanded view duplicated the
+   * top players by also dumping the full "X gave: ..." list underneath). */
+  const tradeSide = (
+    teamName: string,
+    gives: TradePlayer[],
+    expanded: boolean,
+    align: "left" | "right" = "left",
+  ) => {
     const top = topPlayersByNhlPoints(gives, pointsById, 2);
-    const extra = gives.length - top.length;
+    const topIds = new Set(top.map((p) => p.id));
+    const rest = gives.filter((p) => !topIds.has(p.id));
     return (
       <div className={`trade-side trade-side-${align}`}>
         <span className="trade-side-name">{teamName}</span>
@@ -101,7 +108,8 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
           ) : (
             top.map((p) => <span key={p.id}>{p.name}</span>)
           )}
-          {extra > 0 && <span className="muted">+{extra} more</span>}
+          {!expanded && rest.length > 0 && <span className="muted">+{rest.length} more</span>}
+          {expanded && rest.map((p) => <span key={p.id}>{p.name}</span>)}
         </div>
       </div>
     );
@@ -123,38 +131,37 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
 
   /** The full-width visual shared by every trade card: two team-name-topped
    * columns with each side's headliners underneath, split by the ⇄ icon. */
-  const teamsSplit = (trade: Trade) => (
+  const teamsSplit = (trade: Trade, expanded = false) => (
     <div className="trade-teams-split">
-      {tradeSide(trade.proposerTeamName, trade.playersFromProposer)}
+      {tradeSide(trade.proposerTeamName, trade.playersFromProposer, expanded)}
       <ArrowLeftRightIcon size={16} className="trade-row-arrow" />
-      {tradeSide(trade.counterpartyTeamName, trade.playersFromCounterparty, "right")}
+      {tradeSide(trade.counterpartyTeamName, trade.playersFromCounterparty, expanded, "right")}
     </div>
   );
 
-  /** A history card: the teams/headliners visual, an expand toggle, and, once
-   * open, the full player lists plus the rating (processed) or an awaiting
-   * note (accepted). */
-  const historyCard = (trade: Trade) => (
-    <li key={trade.id} className="card trade-row">
-      {cardHead(trade)}
-      <button className="trade-row-toggle" onClick={() => setExpanded(expanded === trade.id ? null : trade.id)}>
-        {teamsSplit(trade)}
-      </button>
-      {expanded === trade.id && (
-        <div className="trade-row-expanded">
-          <div className="trade-row-players">
-            <div>{trade.proposerTeamName} gave: {playersLabel(trade.playersFromProposer)}</div>
-            <div>{trade.counterpartyTeamName} gave: {playersLabel(trade.playersFromCounterparty)}</div>
+  /** A history card: the teams/headliners visual (expanding in place to show
+   * every player, no separate duplicate list), an expand toggle, and, once
+   * open, the rating (processed) or an awaiting note (accepted). */
+  const historyCard = (trade: Trade) => {
+    const isOpen = expanded === trade.id;
+    return (
+      <li key={trade.id} className="card trade-row">
+        {cardHead(trade)}
+        <button className="trade-row-toggle" onClick={() => setExpanded(isOpen ? null : trade.id)}>
+          {teamsSplit(trade, isOpen)}
+        </button>
+        {isOpen && (
+          <div className="trade-row-expanded">
+            {trade.status === "processed" ? (
+              <TradeRatingWidget leagueId={league.id} trade={trade} username={username} onVoted={load} />
+            ) : (
+              <small className="muted">Accepted — the rosters swap with tonight's scoring update.</small>
+            )}
           </div>
-          {trade.status === "processed" ? (
-            <TradeRatingWidget leagueId={league.id} trade={trade} username={username} onVoted={load} />
-          ) : (
-            <small className="muted">Accepted — the rosters swap with tonight's scoring update.</small>
-          )}
-        </div>
-      )}
-    </li>
-  );
+        )}
+      </li>
+    );
+  };
 
   return (
     <section className="fade-in" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
