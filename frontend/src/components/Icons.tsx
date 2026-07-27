@@ -153,3 +153,30 @@ export const StarIcon = (p: IconProps) => (
     <path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z" />
   </Icon>
 );
+
+/** Cockcoin — deliberately NOT the shared flat-stroke `Icon` wrapper above.
+ * A filled/gradient "glossy 3D" coin (Garry Cockman's fake token), built to
+ * clash with the rest of this file on purpose: multi-ring bevel + radial
+ * gradient face + an off-axis highlight ellipse is the standard cheap trick
+ * for faking a glossy sphere in flat SVG (2026-07-27, per Nick). Kept in a
+ * warmer/richer gold range than `--gold` so it never reads as the goalie-pill/
+ * podium gold used elsewhere — this is a coin, not a badge. Always pair with
+ * the word "cockcoin" in surrounding text; never icon-alone. */
+export const CockcoinIcon = ({ size = 20, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" className={className} aria-hidden="true">
+    <defs>
+      <radialGradient id="cockcoin-face" cx="35%" cy="30%" r="75%">
+        <stop offset="0%" stopColor="#fff9c4" />
+        <stop offset="35%" stopColor="#ffd54f" />
+        <stop offset="75%" stopColor="#f5a623" />
+        <stop offset="100%" stopColor="#c9780a" />
+      </radialGradient>
+    </defs>
+    <circle cx="12" cy="12" r="11" fill="#8a5a06" />
+    <circle cx="12" cy="12" r="9.5" fill="#e08e12" />
+    <circle cx="12" cy="12" r="8.5" fill="url(#cockcoin-face)" stroke="#a86608" strokeWidth="0.5" />
+    <path d="M14.5 9a3 3 0 1 0 0 6" fill="none" stroke="#8a5a06" strokeWidth="1.8" strokeLinecap="round" />
+    <ellipse cx="9" cy="8" rx="3.2" ry="1.8" fill="#ffffff" opacity="0.75" transform="rotate(-25 9 8)" />
+    <circle cx="16.5" cy="16" r="0.9" fill="#ffffff" opacity="0.5" />
+  </svg>
+);

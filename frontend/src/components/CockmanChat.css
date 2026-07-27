@@ -1,0 +1,270 @@
+/* CockmanChat — deliberately self-contained "corporate helpdesk widget" skin.
+   Nothing here references index.css's custom properties (--ice, --bg, --gold,
+   --font-display, etc.) on purpose — the clash with the rest of the app's
+   dark "Night Arena" theme is the point, not an oversight (2026-07-27, per
+   Nick). Literal values only, own small design system, floating widget
+   layout (docks bottom-right on desktop) instead of a page-modal/bottom-sheet. */
+
+.gc-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(15, 23, 42, 0.25);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: gc-overlay-in 200ms ease-out;
+}
+
+@keyframes gc-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.gc-sheet {
+  width: 100%;
+  max-width: 400px;
+  max-height: 80dvh;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18);
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: #1f2430;
+  margin: 8px;
+  animation: gc-sheet-in 220ms ease-out;
+}
+
+@keyframes gc-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (min-width: 768px) {
+  .gc-overlay {
+    align-items: unset;
+    justify-content: unset;
+  }
+
+  .gc-sheet {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 360px;
+    max-height: 560px;
+    margin: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gc-overlay,
+  .gc-sheet {
+    animation: none;
+  }
+}
+
+.gc-header {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.85rem 0.9rem;
+  background: #2f5fdb;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.gc-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+}
+
+.gc-header-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 0.1rem;
+}
+
+.gc-header-name {
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.gc-online-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #22c55e;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+  flex-shrink: 0;
+}
+
+.gc-header-sub {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gc-close {
+  margin-left: auto;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: #ffffff;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.gc-close:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.gc-close:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: -2px;
+}
+
+.gc-mock-note {
+  margin: 0;
+  padding: 0.55rem 0.9rem;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #6b7280;
+  background: #f4f6f9;
+  border-bottom: 1px solid #e2e6ed;
+  flex-shrink: 0;
+}
+
+.gc-thread {
+  list-style: none;
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: #ffffff;
+}
+
+.gc-bubble {
+  align-self: flex-start;
+  max-width: 82%;
+  padding: 0.55rem 0.75rem;
+  border-radius: 18px;
+  background: #eef0f4;
+  color: #1f2430;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.gc-bubble-mine {
+  align-self: flex-end;
+  background: #2f5fdb;
+  color: #ffffff;
+}
+
+.gc-coin-mention {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-weight: 600;
+}
+
+.gc-coin-icon {
+  flex-shrink: 0;
+}
+
+.gc-composer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.9rem;
+  border-top: 1px solid #e2e6ed;
+  background: #ffffff;
+  flex-shrink: 0;
+}
+
+.gc-input {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  padding: 0 0.9rem;
+  border-radius: 20px;
+  border: 1px solid #e2e6ed;
+  background: #f4f6f9;
+  color: #1f2430;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.gc-input::placeholder {
+  color: #9aa2b1;
+}
+
+.gc-input:focus-visible {
+  outline: 2px solid #2f5fdb;
+  outline-offset: 1px;
+}
+
+.gc-send {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: none;
+  background: #2f5fdb;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.gc-send:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.gc-send:focus-visible {
+  outline: 2px solid #2f5fdb;
+  outline-offset: 2px;
+}
+
+.gc-footer {
+  padding: 0.4rem 0.9rem;
+  font-size: 12px;
+  color: #6b7280;
+  text-align: center;
+  border-top: 1px solid #e2e6ed;
+  background: #f4f6f9;
+  flex-shrink: 0;
+}

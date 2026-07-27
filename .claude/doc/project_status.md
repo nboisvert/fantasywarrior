@@ -1,9 +1,20 @@
 # Fantasy Warrior — Project Status
 
 > **MUST be read at the start of every session and kept updated along the way.**
-> Last updated: 2026-07-27 (by Macklin Softwarini) — split a dedicated Goalie column group out of the merged Roster grid
+> Last updated: 2026-07-27 (by Macklin Softwarini) — added the Garry Cockman AI-mascot chat skeleton (pure UI mock)
 
 ## Current state
+
+**Garry Cockman — AI-mascot chat skeleton, pure UI mock (2026-07-27)**
+
+First concrete step on the "social/interactive" chat-mock lineage, closing the loop on the "Gary Coleman" idea explored-then-deferred on 2026-07-23 (see that entry below). Nick asked for a joke feature: **Garry Cockman**, a parody AI chatbot "President" of the league, "produced and sponsored by Fantasy Warrior," who talks about a fake token system (**cockcoin**). Explicitly a UI/visual mock only — no backend, no real AI, no real token system, evaluated on UI quality only.
+- New commissioner-only trigger ("Chat with Cockman") in `Settings.tsx`'s existing commissioner-gated block, sibling to "League rules."
+- New `frontend/src/components/CockmanChat.tsx` + `CockmanChat.css`: reuses `PlayerCard`'s modal-shell mechanics (overlay, focus trap, Escape/backdrop close, scroll lock, focus restore) and `ProfileMenu`'s scripted mock-chat state pattern (local-only thread, typed replies appended locally, a visible "not real" disclosure note), but with an entirely self-contained visual system — **deliberately clashes** with the Night Arena theme by design: literal hex values only (no shared CSS custom properties), light corporate-SaaS palette (`#2f5fdb` brand blue, white/light-grey surfaces, no blur/glass), system-UI font stack (not Russo One/Chakra Petch), and floats as a bottom-right-docked widget on desktop (not a page modal) — reads as a real embedded 3rd-party helpdesk widget (Intercom/Zendesk-style) bolted onto the app, on purpose.
+- New `CockcoinIcon` in `Icons.tsx` — deliberately breaks the shared flat-stroke icon convention on purpose (multi-ring bevel + radial gradient + off-axis highlight ellipse, faking a glossy "Candy Crush"-style 3D gold coin), shown inline next to every "cockcoin" mention in the scripted script.
+- Nick supplied a reference avatar (AI-generated cartoon caricature portrait) mid-session; saved as `frontend/src/assets/cockman.png` (resized 1024px→256px via a quick Pillow pass to keep the asset small).
+- Scripted intro (4 fixed messages: self-introduction, cockcoin explainer ×2, "how can I not help you") + one canned auto-reply deflection on any user-sent message, so the composer never feels like a dead end. Mock disclosure note always visible, in-character but unambiguous ("not a real president," "no messages here go anywhere").
+- **Visually verified in a real browser this round** (Playwright against a temporary standalone preview harness, not committed) — both desktop-docked and mobile-floating layouts confirmed to render as designed; harness files deleted after screenshotting.
+- Frontend-only, build clean (`tsc -b && vite build`). No backend involved, nothing to redeploy.
 
 **Team screen: dedicated "Goalie" column group (W/OTL/SO) split out of Fantasy point (2026-07-27)**
 
