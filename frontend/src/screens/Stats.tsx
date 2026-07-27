@@ -393,8 +393,8 @@ export function Stats({
             Roster
             <span className="stats-table-title-sub">
               {" "}
-              ({rows.length}
-              {maxRosterSize != null ? ` / ${maxRosterSize}` : ""} player)
+              {rows.length}
+              {maxRosterSize != null ? ` / ${maxRosterSize}` : ""} player
             </span>
           </span>
           {rows.length === 0 ? (
