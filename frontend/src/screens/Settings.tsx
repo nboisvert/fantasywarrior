@@ -170,7 +170,7 @@ export function Settings({
       )}
 
       {showCockman && league && (
-        <CockmanChat leagueName={league.name} onClose={() => setShowCockman(false)} />
+        <CockmanChat league={league} onClose={() => setShowCockman(false)} />
       )}
 
       <button className="btn-ghost" onClick={onLogout} style={{ alignSelf: "flex-start" }}>
