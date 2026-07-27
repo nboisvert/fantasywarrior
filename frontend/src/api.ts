@@ -56,6 +56,10 @@ export interface RuleConfig {
     defense: number | null;
     goalies: number | null;
   };
+  rosterSize: {
+    min: number | null;
+    max: number | null;
+  };
 }
 
 export interface LeagueDetail {
@@ -97,6 +101,9 @@ export interface PlayerSeasonStatsRow {
   shotsAgainst: number;
   assignmentFrom: string | null;
   assignmentGamesPlayed: number;
+  assignmentGoals: number;
+  assignmentAssists: number;
+  assignmentWins: number;
   assignmentFantasyPoints: number;
 }
 

@@ -1,9 +1,19 @@
 # Fantasy Warrior — Project Status
 
 > **MUST be read at the start of every session and kept updated along the way.**
-> Last updated: 2026-07-26 (by Macklin Softwarini) — added NHL draft info to PlayerCard
+> Last updated: 2026-07-27 (by Macklin Softwarini) — merged Team screen's Skaters/Goalies grids into one Roster grid
 
 ## Current state
+
+**Team screen: merged Skaters+Goalies into one "Roster" grid + PlayerCard tweaks + git workflow note (2026-07-27)**
+
+Several small UI rounds in one session, all merged straight to `main` per Nick's new git workflow (see below):
+- **PlayerCard bio row**: collapsed each cell to one line (Age replaces Born: `32y Dec 25th`, Draft becomes `1st 2005 PIT`), then a follow-up dropped the parens in favor of a smaller/muted inline span (new `.pc-bio-inline-sub`) for the secondary bit (birth day/month; draft team).
+- **Trades history card bug fix**: expanding a trade card used to keep the collapsed "top 2 + N more" view visible *and* dump every player's full name again below it — a headliner could appear twice while "+N more" stayed on screen. `tradeSide()` now takes an `expanded` flag: collapsed shows top 2 + "+N more"; expanded drops "+N more" and lists the remaining players right below instead, no repeats. Removed the dead duplicate-list JSX/CSS.
+- **Team screen — Skaters/Goalies merged into one "Roster" grid**: single sortable table for the whole roster instead of two separate tables. New column order/grouping: **"Fantasy point"** group (renamed from "Pool", still accent-tinted) = GP/G/A/PTS(spotlight)/W/PTS-per-G, all scoped to the player's *current roster stint* (assignment-scoped) — this required exposing 3 new fields from the backend (`assignmentGoals`/`assignmentAssists`/`assignmentWins`, sourced from `Assignment`'s already-fetched-but-previously-discarded per-stint stat line in the `season-stats` endpoint); then **"NHL"** group (full season) = GP/G/A/PTS(spotlight)/PTS-per-G; then **Extra** (unchanged: +/-, PIM, SOG, GAA, SV% — GAA/SV% show "—" for skaters, W shows "—" for skaters) and **Salary** (unchanged). Title changed from "Skaters" to **"Roster (N / max player)"** with the count de-emphasized via the same muted-inline-span treatment as PlayerCard's bio row (new `.stats-table-title-sub`). Old goalie-only NHL columns (OTL, shutouts) were dropped from this grid entirely per the literal new column spec — still visible via PlayerCard's own season tiles, just not in this team-wide grid.
+- **New (unenforced) roster-size rule**: `RuleConfig.RosterSize { Min, Max }` (nullable ints, null = no limit), added to `RulesPanel.tsx` as a third settings block following the existing `topCount` nullable-int UI pattern. **Does nothing yet except save/display** (drives the new Roster grid's title count) — no add/drop enforcement, deliberately deferred. Nick's own league (Shemalz Pool) should be set to Max 18 / no min via the Rules panel.
+- **Git workflow formalized**: Nick asked to always merge feature branches straight to `main` (fast-forward push) instead of stopping at a PR, while he's solo on the repo — documented as a durable rule in CLAUDE.md so it isn't re-asked every session.
+- **Not build-verified for the backend** (no `dotnet` SDK in this session's sandbox, same constraint as prior sessions) — frontend `tsc -b && vite build` confirmed clean. **API changed (new `RosterSize` rule fields + 3 new season-stats response fields) — needs a manual Cloud Run redeploy** before the new Roster grid's Fantasy-point G/A/W columns show real numbers (they'll read 0 until then) and before the Rules panel's new roster-size fields persist.
 
 **PlayerCard: NHL entry draft info (2026-07-26)**
 

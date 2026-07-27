@@ -15,6 +15,9 @@ public sealed class RuleConfig
 
     [FirestoreProperty("topCount")]
     public TopCount TopCount { get; set; } = new();
+
+    [FirestoreProperty("rosterSize")]
+    public RosterSize RosterSize { get; set; } = new();
 }
 
 [FirestoreData]
@@ -58,6 +61,20 @@ public sealed class TopCount
         PositionGroup.Defense => Defense,
         _ => Goalies,
     };
+}
+
+/// <summary>
+/// Roster size bounds (null = no limit). Not enforced anywhere yet — saved
+/// and displayed only, per Nick (2026-07-27); enforcement is a future round.
+/// </summary>
+[FirestoreData]
+public sealed class RosterSize
+{
+    [FirestoreProperty("min")]
+    public int? Min { get; set; }
+
+    [FirestoreProperty("max")]
+    public int? Max { get; set; }
 }
 
 public enum PositionGroup

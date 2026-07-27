@@ -33,6 +33,12 @@ export function RulesPanel({
       topCount: { ...config.topCount, [key]: value === "" ? null : Math.max(0, Number(value) || 0) },
     });
 
+  const setRosterSize = (key: keyof RuleConfig["rosterSize"], value: string) =>
+    setConfig({
+      ...config,
+      rosterSize: { ...config.rosterSize, [key]: value === "" ? null : Math.max(0, Number(value) || 0) },
+    });
+
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
@@ -58,6 +64,10 @@ export function RulesPanel({
     ["forwards", "Top forwards"],
     ["defense", "Top defense"],
     ["goalies", "Top goalies"],
+  ];
+  const rosterSizes: [keyof RuleConfig["rosterSize"], string][] = [
+    ["min", "Min roster size"],
+    ["max", "Max roster size"],
   ];
 
   return (
@@ -93,6 +103,24 @@ export function RulesPanel({
               placeholder="all"
               value={config.topCount[key] ?? ""}
               onChange={(e) => setTop(key, e.target.value)}
+            />
+          </label>
+        ))}
+      </div>
+
+      <span className="section-title" style={{ letterSpacing: "0.05em" }}>
+        Roster size (not enforced yet — empty = no limit)
+      </span>
+      <div className="rules-grid">
+        {rosterSizes.map(([key, label]) => (
+          <label key={key}>
+            {label}
+            <input
+              className="field"
+              inputMode="numeric"
+              placeholder="no limit"
+              value={config.rosterSize[key] ?? ""}
+              onChange={(e) => setRosterSize(key, e.target.value)}
             />
           </label>
         ))}

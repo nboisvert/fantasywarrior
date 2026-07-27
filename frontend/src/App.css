@@ -1206,6 +1206,16 @@
   margin: 0 0 0.5rem;
 }
 
+/* De-emphasized count next to the ROSTER title (2026-07-27, per Nick — same
+ * lighter/muted-font treatment as PlayerCard's bio secondary values, no
+ * parens-as-punctuation styling trick, just type). */
+.stats-table-title-sub {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--text-muted);
+}
+
 /* Horizontal scroll is contained to this wrapper only (the page itself never
    scrolls sideways) — it's also the nearest scrolling ancestor for the
    sticky player-name column below, which is exactly the axis we want that
