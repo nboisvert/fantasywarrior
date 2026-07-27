@@ -89,21 +89,36 @@ function computeAge(birthDate: string): number | null {
   return age;
 }
 
-/** 2-digit year ("Jan 15, 98") — saves the room needed to fit the age
- * suffix back on the same line (2026-07-26, per Nick). */
-function formatBirthDate(birthDate: string): string {
-  const d = new Date(`${birthDate}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return birthDate;
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" });
+/** Ordinal suffix: 1 -> "1st", 3 -> "3rd", 11 -> "11th", 123 -> "123rd". */
+function ordinal(n: number): string {
+  const rem100 = n % 100;
+  if (rem100 >= 11 && rem100 <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1:
+      return `${n}st`;
+    case 2:
+      return `${n}nd`;
+    case 3:
+      return `${n}rd`;
+    default:
+      return `${n}th`;
+  }
 }
 
-/** Round/pick on line 1, year+team on line 2 ("Rnd 1 #3ov" / "1997(PIT)")
- * — split across two lines so the bio cell has the same fixed shape as
- * Born instead of wrapping unpredictably (2026-07-26, per Nick). */
-function formatDraftLines(p: PlayerDetail): { line1: string; line2: string | null } {
-  if (p.draftYear == null) return { line1: "Undrafted", line2: null };
-  const team = p.draftTeamAbbrev ? `(${p.draftTeamAbbrev})` : "";
-  return { line1: `Rnd ${p.draftRound} #${p.draftOverall}ov`, line2: `${p.draftYear}${team}` };
+/** "Dec 25th" — no year, month/day only (2026-07-27, per Nick: bio row
+ * collapsed to one line per cell, age is now the headline value). */
+function formatBirthDayMonth(birthDate: string): string {
+  const d = new Date(`${birthDate}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return birthDate;
+  const month = d.toLocaleDateString("en-US", { month: "short" });
+  return `${month} ${ordinal(d.getDate())}`;
+}
+
+/** "1st 2005 (PIT)" / "123rd 2014 (CHI)" — single line (2026-07-27, per Nick). */
+function formatDraft(p: PlayerDetail): string {
+  if (p.draftYear == null || p.draftOverall == null) return "Undrafted";
+  const team = p.draftTeamAbbrev ? ` (${p.draftTeamAbbrev})` : "";
+  return `${ordinal(p.draftOverall)} ${p.draftYear}${team}`;
 }
 
 function formatGameDate(date: string): string {
@@ -282,7 +297,6 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
     .slice(0, 10);
 
   const age = player?.birthDate != null ? computeAge(player.birthDate) : null;
-  const draftLines = player != null ? formatDraftLines(player) : { line1: "", line2: null };
 
   return (
     <div className="pc-overlay" onClick={onBackdrop}>
@@ -336,16 +350,15 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
               {/* bio */}
               <div className="pc-bio-grid">
                 <div className="pc-bio-item">
-                  <span className="pc-bio-label">Born</span>
+                  <span className="pc-bio-label">Age</span>
                   <span className="pc-bio-value">
-                    {player.birthDate != null ? formatBirthDate(player.birthDate) : "—"}
+                    {age != null ? `${age}y` : "—"}
+                    {player.birthDate != null && ` (${formatBirthDayMonth(player.birthDate)})`}
                   </span>
-                  {age != null && <span className="pc-bio-sub">{age}y</span>}
                 </div>
                 <div className="pc-bio-item">
                   <span className="pc-bio-label">Draft</span>
-                  <span className="pc-bio-value">{draftLines.line1}</span>
-                  {draftLines.line2 != null && <span className="pc-bio-sub">{draftLines.line2}</span>}
+                  <span className="pc-bio-value">{formatDraft(player)}</span>
                 </div>
                 <div className="pc-bio-item">
                   <span className="pc-bio-label">Cap hit</span>

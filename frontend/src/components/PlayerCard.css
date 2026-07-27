@@ -180,23 +180,14 @@
   font-weight: 700;
 }
 
+/* Each cell is a single line (2026-07-27, per Nick) — truncate rather than
+   wrap so the three bio cells always stay the same height. */
 .pc-bio-value {
   font-size: 0.9rem;
   font-weight: 600;
-  overflow-wrap: break-word;
-}
-
-/* Second line under .pc-bio-value (age under Born, year+team under Draft)
-   — a fixed two-line shape per cell instead of relying on organic text
-   wrap, so the three bio cells line up evenly regardless of which one has
-   the longest content (2026-07-26, per Nick: Draft's wrap alone was
-   throwing the row off-balance). Cap hit has no second line and that's
-   fine — CSS Grid sizes the row to the tallest cell and top-aligns the
-   rest. */
-.pc-bio-sub {
-  font-size: 0.72rem;
-  color: var(--text-muted);
-  overflow-wrap: break-word;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ---------- season stat tiles ---------- */
