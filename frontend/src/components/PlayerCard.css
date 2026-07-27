@@ -190,6 +190,15 @@
   text-overflow: ellipsis;
 }
 
+/* Secondary bit of a bio value (birth day/month next to age, draft team next
+   to round+year) — de-emphasized via type instead of parens (2026-07-27,
+   per Nick: no more "()", just a lighter/muted inline span). */
+.pc-bio-inline-sub {
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
 /* ---------- season stat tiles ---------- */
 
 .pc-tiles {

@@ -114,11 +114,12 @@ function formatBirthDayMonth(birthDate: string): string {
   return `${month} ${ordinal(d.getDate())}`;
 }
 
-/** "1st 2005 (PIT)" / "123rd 2014 (CHI)" — single line (2026-07-27, per Nick). */
-function formatDraft(p: PlayerDetail): string {
-  if (p.draftYear == null || p.draftOverall == null) return "Undrafted";
-  const team = p.draftTeamAbbrev ? ` (${p.draftTeamAbbrev})` : "";
-  return `${ordinal(p.draftOverall)} ${p.draftYear}${team}`;
+/** "1st 2005" main + "PIT" team, rendered as two segments so the team can
+ * get the muted de-emphasized treatment instead of parens (2026-07-27, per
+ * Nick — no more "()", just a lighter/muted font for the secondary bit). */
+function formatDraft(p: PlayerDetail): { main: string; team: string | null } {
+  if (p.draftYear == null || p.draftOverall == null) return { main: "Undrafted", team: null };
+  return { main: `${ordinal(p.draftOverall)} ${p.draftYear}`, team: p.draftTeamAbbrev };
 }
 
 function formatGameDate(date: string): string {
@@ -297,6 +298,7 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
     .slice(0, 10);
 
   const age = player?.birthDate != null ? computeAge(player.birthDate) : null;
+  const draft = player != null ? formatDraft(player) : { main: "", team: null };
 
   return (
     <div className="pc-overlay" onClick={onBackdrop}>
@@ -353,12 +355,17 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
                   <span className="pc-bio-label">Age</span>
                   <span className="pc-bio-value">
                     {age != null ? `${age}y` : "—"}
-                    {player.birthDate != null && ` (${formatBirthDayMonth(player.birthDate)})`}
+                    {player.birthDate != null && (
+                      <span className="pc-bio-inline-sub"> {formatBirthDayMonth(player.birthDate)}</span>
+                    )}
                   </span>
                 </div>
                 <div className="pc-bio-item">
                   <span className="pc-bio-label">Draft</span>
-                  <span className="pc-bio-value">{formatDraft(player)}</span>
+                  <span className="pc-bio-value">
+                    {draft.main}
+                    {draft.team != null && <span className="pc-bio-inline-sub"> {draft.team}</span>}
+                  </span>
                 </div>
                 <div className="pc-bio-item">
                   <span className="pc-bio-label">Cap hit</span>
