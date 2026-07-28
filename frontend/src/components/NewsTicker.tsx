@@ -1,9 +1,9 @@
 // Global "news" ticker — a horizontal marquee mounted once at the app-shell
 // level, visible on every tab, sitting in its own fixed band just above the
 // bottom nav. Two kinds of items:
-//  - plain player movements (add/drop) that are NOT part of a trade — trade
-//    moves get their own richer representation below instead of showing up
-//    twice.
+//  - real NHL news articles from external feeds (Rotowire, FantasySP —
+//    see backend NewsSyncJob), unfiltered by league/roster — a generic NHL
+//    news feed, not scoped to who's actually rostered.
 //  - trades that are either accepted (both sides agreed, nightly
 //    process-trades hasn't swapped the rosters yet — labeled "Agreed —")
 //    or processed (already executed): both sides' "star" player (highest
@@ -29,8 +29,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, topPlayersByNhlPoints } from "../api";
-import type { ActivityEntry, LeagueDetail, Trade, TradePlayer } from "../api";
-import { ArrowLeftRightIcon, MinusIcon, PlusIcon } from "./Icons";
+import type { LeagueDetail, NewsArticle, Trade, TradePlayer } from "../api";
+import { ArrowLeftRightIcon, NewspaperIcon } from "./Icons";
 
 const HOT_WINDOW_MS = 30 * 60 * 1000;
 /** How long after the user's last touch/wheel input before auto-advance resumes. */
@@ -67,7 +67,7 @@ function usePrefersReducedMotion(): boolean {
 }
 
 type NewsItem =
-  | { kind: "movement"; key: string; ts: number; type: "add" | "drop"; text: string }
+  | { kind: "article"; key: string; ts: number; source: NewsArticle["source"]; text: string }
   | { kind: "trade"; key: string; ts: number; label: string; status: "accepted" | "processed" };
 
 /** "Star" player per side = highest NHL points among the current roster data
@@ -123,25 +123,19 @@ export function NewsTicker({
       return;
     }
     let ignore = false;
-    // Fetch a generous raw batch (50 is the endpoint's max) and filter out
-    // trade-sourced events BEFORE capping the display count — a burst of
-    // trade activity produces 4 raw events each (2 opens + 2 closes), which
-    // can fill a small fetch limit entirely and starve out freeagent
-    // movements before this filter even runs. Capping the *filtered* list
-    // instead keeps a real mix of both news types on screen.
-    Promise.all([api.activity(leagueId, 50), api.trades(leagueId, username)])
-      .then(([activity, trades]: [ActivityEntry[], Trade[]]) => {
+    // News is a global (unfiltered) NHL feed, not scoped to this league's
+    // rosters — trades stay league-scoped via the leagueId/username-bound
+    // api.trades() call.
+    Promise.all([api.news(30), api.trades(leagueId, username)])
+      .then(([news, trades]: [NewsArticle[], Trade[]]) => {
         if (ignore) return;
-        const movements: NewsItem[] = activity
-          .filter((e) => e.source !== "trade")
-          .slice(0, 10)
-          .map((e) => ({
-            kind: "movement",
-            key: `mv-${e.playerId}-${e.dateUtc}`,
-            ts: new Date(e.dateUtc).getTime(),
-            type: e.type,
-            text: `${e.teamName} ${e.type === "add" ? "added" : "dropped"} ${e.playerName} · ${timeAgo(e.dateUtc)}`,
-          }));
+        const articles: NewsItem[] = news.map((a) => ({
+          kind: "article",
+          key: `nw-${a.id}`,
+          ts: new Date(a.publishedUtc).getTime(),
+          source: a.source,
+          text: `${a.headline} · ${timeAgo(a.publishedUtc)}`,
+        }));
         const processed: NewsItem[] = trades
           .filter((t): t is Trade & { processedUtc: string } => t.status === "processed" && t.processedUtc != null)
           .map((t) => ({
@@ -163,7 +157,7 @@ export function NewsTicker({
             label: `Agreed — ${tradeLabel(t, pointsById)}`,
             status: "accepted",
           }));
-        setItems([...movements, ...processed, ...accepted].sort((a, b) => b.ts - a.ts).slice(0, 16));
+        setItems([...articles, ...processed, ...accepted].sort((a, b) => b.ts - a.ts).slice(0, 16));
       })
       .catch(() => {
         if (!ignore) setItems([]);
@@ -292,7 +286,7 @@ export function NewsTicker({
     <div
       ref={tickerRef}
       className={`news-ticker${alertActive ? " alert" : ""}`}
-      aria-label="Recent league activity"
+      aria-label="NHL news and league trades"
     >
       {alertActive && (
         <span className="news-ticker-alert-label">
@@ -310,10 +304,8 @@ export function NewsTicker({
             >
               {item.kind === "trade" ? (
                 <ArrowLeftRightIcon size={13} className="news-ticker-icon news-ticker-icon-trade" />
-              ) : item.type === "add" ? (
-                <PlusIcon size={13} className="news-ticker-icon news-ticker-icon-add" />
               ) : (
-                <MinusIcon size={13} className="news-ticker-icon news-ticker-icon-drop" />
+                <NewspaperIcon size={13} className="news-ticker-icon news-ticker-icon-article" />
               )}
               {item.kind === "trade" ? item.label : item.text}
             </span>

@@ -1,3 +1,4 @@
+using FantasyWarrior.Jobs.News;
 using FantasyWarrior.Jobs.Nhl;
 using Google.Cloud.Firestore;
 
@@ -11,6 +12,11 @@ using Google.Cloud.Firestore;
 //   salary-import --file <path.csv>   (columns: nhlId?,firstName,lastName,teamAbbrev,capHit)
 //   stats-sync [--date YYYY-MM-DD | --from A --to B]   (default: yesterday UTC)
 //   stats-check [--date YYYY-MM-DD]
+//   news-sync [--rotowire-url <url>] [--fantasysp-url <url>]
+//     Fetches NHL news from Rotowire + FantasySP's public RSS feeds into the
+//     global `news` collection (idempotent upserts, 30-day retention prune).
+//     Default feed URLs are best-effort and may need correcting via the
+//     override flags if a source changes its feed location.
 //   score-calc [--league <leagueId>]
 //   process-trades
 //     Executes every `accepted` trade (roster swap via RosterChange) and
@@ -100,6 +106,16 @@ switch (job)
         }
         Console.WriteLine($"StatsSync: {fromDate:yyyy-MM-dd} -> {toDate:yyyy-MM-dd}");
         await new StatsSyncJob(new NhlApiClient(http), db).RunAsync(fromDate, toDate);
+        return 0;
+    }
+    case "news-sync":
+    {
+        var sources = new[]
+        {
+            new NewsFeedSource("rotowire", GetOption(args, "--rotowire-url") ?? "https://www.rotowire.com/rss/news.php?sport=NHL"),
+            new NewsFeedSource("fantasysp", GetOption(args, "--fantasysp-url") ?? "https://www.fantasysp.com/rss/nhl.xml"),
+        };
+        await new NewsSyncJob(new RssNewsClient(http), db).RunAsync(sources);
         return 0;
     }
     case "score-calc":

@@ -77,8 +77,8 @@
 }
 
 /* ---------- news ticker ----------
-   Global horizontal marquee of recent league activity (adds/drops/trades),
-   mounted once in App.tsx so it's visible on every tab — sits in its own
+   Global horizontal marquee of NHL news (Rotowire/FantasySP) and league
+   trades, mounted once in App.tsx so it's visible on every tab — sits in its own
    fixed band directly above the bottom nav. Revives a Dashboard-only
    vertical-carousel ticker that was removed in an earlier redesign, this
    time app-wide.
@@ -134,12 +134,8 @@
 /* Per-news-type icon color — trade reuses the same gold/ArrowLeftRightIcon
    pairing used everywhere else a trade is represented (the Trades nav tab,
    CreateTradeSheet's propose button uses the icon too). */
-.news-ticker-icon-add {
+.news-ticker-icon-article {
   color: var(--ice-bright);
-}
-
-.news-ticker-icon-drop {
-  color: var(--text-muted);
 }
 
 .news-ticker-icon-trade {

@@ -1,5 +1,6 @@
 using FantasyWarrior.Api;
 using FantasyWarrior.Core.Leagues;
+using FantasyWarrior.Core.News;
 using FantasyWarrior.Core.Players;
 using FantasyWarrior.Core.Scoring;
 using FantasyWarrior.Core.Users;
@@ -300,6 +301,30 @@ app.MapGet("/api/leagues/{leagueId}/activity", async (string leagueId, int? limi
             teamName = teamNames.GetValueOrDefault(e.TeamUsername, e.TeamUsername),
             source = e.Source,
             sourceRefId = e.SourceRefId,
+        };
+    }));
+});
+
+app.MapGet("/api/news", async (int? limit, FirestoreDb db) =>
+{
+    var take = Math.Clamp(limit ?? 30, 1, 50);
+    var newsSnap = await db.Collection("news")
+        .OrderByDescending("publishedUtc")
+        .Limit(take)
+        .GetSnapshotAsync();
+
+    return Results.Ok(newsSnap.Documents.Select(doc =>
+    {
+        var item = doc.ConvertTo<NewsItem>();
+        return new
+        {
+            id = doc.Id,
+            source = item.Source,
+            headline = item.Headline,
+            url = item.Url,
+            playerId = item.PlayerId,
+            playerName = item.PlayerName,
+            publishedUtc = item.PublishedUtc.ToDateTime(),
         };
     }));
 });

@@ -125,6 +125,16 @@ export interface ActivityEntry {
   sourceRefId: string | null;
 }
 
+export interface NewsArticle {
+  id: string;
+  source: "rotowire" | "fantasysp";
+  headline: string;
+  url: string;
+  playerId: number | null;
+  playerName: string | null;
+  publishedUtc: string;
+}
+
 export interface TradePlayer {
   id: number;
   name: string;
@@ -199,6 +209,8 @@ export const api = {
     request<ActivityEntry[]>(
       `/api/leagues/${encodeURIComponent(leagueId)}/activity?limit=${encodeURIComponent(String(limit))}`,
     ),
+  news: (limit = 30) =>
+    request<NewsArticle[]>(`/api/news?limit=${encodeURIComponent(String(limit))}`),
   updateRules: (leagueId: string, username: string, ruleConfig: RuleConfig) =>
     request<{ ok: boolean }>(`/api/leagues/${encodeURIComponent(leagueId)}/rules`, {
       method: "PATCH",

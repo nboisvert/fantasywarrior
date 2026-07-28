@@ -10,7 +10,7 @@
 | Frontend (React/Vite) | GitHub Pages — https://nboisvert.github.io/fantasywarrior/ | Auto on every push to `main` touching `frontend/**` (`frontend-deploy.yml`) |
 | API (.NET 10 minimal API) | Google Cloud Run — **https://fantasy-warrior-api-197228637471.northamerica-northeast1.run.app** — service `fantasy-warrior-api`, region `northamerica-northeast1`, scales to zero (first deploy 2026-07-22) | Manual trigger: Actions → "Deploy API to Cloud Run" → Run workflow (`api-deploy.yml`) |
 | Database | Firestore (Native), project `fantasywarriordb`, region `northamerica-northeast1` | — |
-| Nightly data jobs | GitHub Actions cron 09:30 UTC (`daily-jobs.yml`): stats-sync → score-calc → player-sync | Auto; manual backfill via Run workflow with from/to inputs |
+| Nightly data jobs | GitHub Actions cron 09:30 UTC (`daily-jobs.yml`): stats-sync → score-calc → process-trades → player-sync → draft-sync → news-sync | Auto; manual backfill via Run workflow with from/to inputs |
 | Auth | TEMPORARY username-only (API trusts client). Firebase Auth (Google + email/password) planned. | — |
 
 ## GCP one-time setup (done 2026-07-22 by Nick)
@@ -40,7 +40,7 @@ GitHub Pages: Settings → Pages → Source = **GitHub Actions** (done).
 - Secrets dir (never in git): `C:\Nick\secrets\fantasywarriordb-sa.json`.
 - API: `ASPNETCORE_URLS=http://localhost:5099 GOOGLE_APPLICATION_CREDENTIALS=<key> FIRESTORE_PROJECT_ID=fantasywarriordb dotnet run --project backend/FantasyWarrior.Api --no-launch-profile`
 - Frontend: `cd frontend && npm run dev` → http://localhost:5173
-- Jobs: same env vars, `dotnet run --project backend/FantasyWarrior.Jobs -- <job>`; jobs: `player-sync`, `draft-sync` (backfills NHL draft round/pick/year/team, one HTTP call per player not yet checked), `salary-import --file x.csv`, `stats-sync [--from A --to B]`, `score-calc [--league id]`, `league-init-assignments`, `stats-check`, `player-check`.
+- Jobs: same env vars, `dotnet run --project backend/FantasyWarrior.Jobs -- <job>`; jobs: `player-sync`, `draft-sync` (backfills NHL draft round/pick/year/team, one HTTP call per player not yet checked), `salary-import --file x.csv`, `stats-sync [--from A --to B]`, `score-calc [--league id]`, `news-sync [--rotowire-url <url>] [--fantasysp-url <url>]` (Rotowire + FantasySP RSS → global `news` collection; default feed URLs are best-effort — override the flags if a source's feed location changes), `league-init-assignments`, `stats-check`, `player-check`.
 - Solution file is `FantasyWarrior.slnx` (new .NET 10 format).
 
 ## Changing things later
@@ -54,3 +54,4 @@ GitHub Pages: Settings → Pages → Source = **GitHub Actions** (done).
 - **`Repository "fantasy-warrior" not found` on Build and push** (2026-07-22): Artifact Registry repo missing; the "Ensure repo exists" step can't create it with Writer role (`|| true` masks it). Fix: create the repo manually (see above).
 - **Pages deploy failure right after enabling**: Pages source must be set to GitHub Actions in repo settings first.
 - **firebase-tools emulator requires Java 21+**: local machine has Java 17 → use `npx firebase-tools@13` (we currently develop against live Firestore instead).
+- **`news-sync` feed URLs unverified** (2026-07-28): the sandbox this job was built in has rotowire.com/fantasysp.com blocked by its egress policy, so the default RSS URLs in `Jobs/Program.cs` (`--rotowire-url`/`--fantasysp-url` defaults) couldn't be fetched live to confirm they're still correct/return the expected RSS 2.0 shape. First real run needs a manual check — if `news-sync` logs 0 items for a source, the feed URL or its schema likely moved; verify by opening the URL in a browser and pass the corrected one via the override flag (or update the default once confirmed).

@@ -1,9 +1,18 @@
 # Fantasy Warrior — Project Status
 
 > **MUST be read at the start of every session and kept updated along the way.**
-> Last updated: 2026-07-27 (by Macklin Softwarini) — added the Garry Cockman AI-mascot chat skeleton (pure UI mock)
+> Last updated: 2026-07-28 (by Macklin Softwarini) — news service (Rotowire + FantasySP) added, roster-move ticker items removed
 
 ## Current state
+
+**News service: Rotowire + FantasySP feed the ticker, roster moves removed (2026-07-28)**
+
+First real content source for the ticker beyond league trades. Nick asked for a **news service** — first two sources **Rotowire** and **FantasySP** — with articles riding in the same ticker as trades, and roster-move (add/drop) items dropped from the ticker entirely.
+- Decisions confirmed with Nick: source via each site's public **RSS/XML feed** (not HTML scraping — more stable, standard syndication); cadence is **one step in the existing `daily-jobs.yml`** (same 09:30 UTC run as everything else, no new workflow); scope is **unfiltered** — the ticker's news half is a generic NHL feed, not filtered to a league's rostered players (trades stay league-scoped as before).
+- **Backend**: new global `news/{id}` collection (not per-league), model `Core/News/NewsItem.cs` (source, headline, url, best-effort `playerId`/`playerName` match, publishedUtc/fetchedUtc). New `Jobs/News/RssNewsClient.cs` (generic RSS 2.0 fetch+parse via `XDocument`, same "return `[]` on failure" convention as `NhlApiClient`) + `Jobs/News/NewsSyncJob.cs` (fetches both feeds, matches player names via the existing `NameNormalizer` against a full `players` scan — heuristic: text before the first `:` in the headline, e.g. Rotowire-style "Player Name: blurb" — idempotent upsert via a doc id hashed from source+guid, 30-day retention prune each run). New `news-sync [--rotowire-url] [--fantasysp-url]` job case in `Jobs/Program.cs`; new `GET /api/news?limit=` endpoint (global, not league-scoped). `daily-jobs.yml` gained a `News sync` step after `draft-sync`.
+- **⚠️ Feed URLs unverified**: this session's sandbox has rotowire.com/fantasysp.com blocked by its egress policy, so the default RSS URLs baked into `Jobs/Program.cs` couldn't be fetched live to confirm they're current/correct. First real `news-sync` run needs a manual check — see the new troubleshooting entry in `deployment.md`.
+- **Frontend**: `NewsTicker.tsx`'s `movement` (roster add/drop, sourced from `/activity`) kind is gone, replaced by an `article` kind sourced from new `api.news()`; new `NewspaperIcon` in `Icons.tsx`, `.news-ticker-icon-add`/`-drop` CSS classes replaced by a single `.news-ticker-icon-article`. Trade "hot" 30-min alert logic untouched (was already trade-only). `ActivityEntry`/`api.activity()` (frontend) and `GET /api/leagues/{id}/activity` (backend) are intentionally left in place even though NewsTicker was their only caller — that endpoint is flagged elsewhere in this doc as "deferred, to return later" for a possible Dashboard activity feed, not something to delete as a side effect of this change.
+- Not build/test-verified locally this round (no `dotnet`/`npm` build run in this session — see build notes on the PR/commit). **API changed (new `/api/news` endpoint, new `news` collection) — needs a manual Cloud Run redeploy** before news shows up in prod, and the next `daily-jobs.yml` run (manual or scheduled) needs to succeed once the real feed URLs are confirmed.
 
 **Garry Cockman — AI-mascot chat skeleton, pure UI mock (2026-07-27)**
 

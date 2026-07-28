@@ -45,3 +45,5 @@ jobs:
         run: dotnet run --project backend/FantasyWarrior.Jobs -c Release -- player-sync
       - name: Draft sync
         run: dotnet run --project backend/FantasyWarrior.Jobs -c Release -- draft-sync
+      - name: News sync
+        run: dotnet run --project backend/FantasyWarrior.Jobs -c Release -- news-sync
