@@ -3,12 +3,22 @@
 > Supplied by Nick 2026-07-29 after the first live `news-sync` run showed 0
 > items from both sources. Written against a Python/BeautifulSoup stack as a
 > reference — the actual implementation (`backend/FantasyWarrior.Jobs/News/`)
-> is C# (RssNewsClient for Rotowire's RSS, FantasySpScraper + HtmlAgilityPack
-> for FantasySP's HTML table), but follows this guide's URLs, page
-> structures, and constraints. Kept verbatim below for reference; see
-> `project_status.md` for what's actually built vs. still a placeholder
+> is C# (RssNewsClient for Rotowire's RSS, FantasySpScraper + RotowireInjuryScraper
+> via HtmlAgilityPack for the HTML-scraped sources), but follows this guide's
+> URLs, page structures, and constraints. Kept verbatim below for reference;
+> see `project_status.md` for what's actually built vs. still a placeholder
 > (e.g. the "Autres endpoints RotoWire utiles" section — rumors, free
 > agents, lineups — isn't wired up yet).
+>
+> **v2 update (same day):** Nick supplied a follow-up confirming the three
+> URLs already in use are the right ones — `rotowire.com/rss/news.php?sport=NHL`,
+> `rotowire.com/hockey/news.php?view=injuries`, `fantasysp.com/injuries/nhl/` —
+> and explicitly says not to go looking for variants or undocumented API
+> endpoints. The CSS selectors for the two HTML-scraped pages are still
+> marked as unverified placeholders in both versions of the guide — FantasySP's
+> guess matched live DOM on the first try; Rotowire's (`div.news-item`) did
+> not (confirmed via a live `news-sync` run, 0 items), so `RotowireInjuryScraper`
+> has extra diagnostic logging to reveal the real structure from the next run.
 
 ---
 
