@@ -13,10 +13,12 @@ using Google.Cloud.Firestore;
 //   stats-sync [--date YYYY-MM-DD | --from A --to B]   (default: yesterday UTC)
 //   stats-check [--date YYYY-MM-DD]
 //   news-sync [--rotowire-url <url>] [--fantasysp-url <url>]
-//     Fetches NHL news from Rotowire + FantasySP's public RSS feeds into the
-//     global `news` collection (idempotent upserts, 30-day retention prune).
-//     Default feed URLs are best-effort and may need correcting via the
-//     override flags if a source changes its feed location.
+//     Fetches NHL news into the global `news` collection (idempotent
+//     upserts, 30-day retention prune): Rotowire via its public RSS feed
+//     (--rotowire-url overrides the feed URL), FantasySP via HTML scrape of
+//     its injuries table (--fantasysp-url overrides the *page* URL, not a
+//     feed -- FantasySP has no public RSS). Personal/non-commercial use
+//     only per both sites' terms; see FantasySpScraper's doc comment.
 //   score-calc [--league <leagueId>]
 //   process-trades
 //     Executes every `accepted` trade (roster swap via RosterChange) and
@@ -110,12 +112,21 @@ switch (job)
     }
     case "news-sync":
     {
+        // Rotowire publishes a real RSS feed; FantasySP doesn't (confirmed
+        // live: no /rss endpoint exists), so it's scraped from its
+        // server-rendered injuries table instead. See NewsSource's doc
+        // comment for why FantasySP is flagged as not having a reliable
+        // per-item published date.
+        var rotowireUrl = GetOption(args, "--rotowire-url") ?? "https://www.rotowire.com/rss/news.php?sport=NHL";
+        var fantasySpUrl = GetOption(args, "--fantasysp-url") ?? "https://www.fantasysp.com/injuries/nhl/";
+        var rss = new RssNewsClient(http);
+        var fantasySpScraper = new FantasySpScraper(http);
         var sources = new[]
         {
-            new NewsFeedSource("rotowire", GetOption(args, "--rotowire-url") ?? "https://www.rotowire.com/rss/news.php?sport=NHL"),
-            new NewsFeedSource("fantasysp", GetOption(args, "--fantasysp-url") ?? "https://www.fantasysp.com/rss/nhl.xml"),
+            new NewsSource("rotowire", ct => rss.GetItemsAsync(rotowireUrl, ct), HasReliablePublishedDate: true),
+            new NewsSource("fantasysp", ct => fantasySpScraper.GetInjuryItemsAsync(fantasySpUrl, ct), HasReliablePublishedDate: false),
         };
-        await new NewsSyncJob(new RssNewsClient(http), db).RunAsync(sources);
+        await new NewsSyncJob(db).RunAsync(sources);
         return 0;
     }
     case "score-calc":

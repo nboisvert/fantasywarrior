@@ -1,9 +1,20 @@
 # Fantasy Warrior — Project Status
 
 > **MUST be read at the start of every session and kept updated along the way.**
-> Last updated: 2026-07-28 (by Macklin Softwarini) — news service (Rotowire + FantasySP) added, roster-move ticker items removed
+> Last updated: 2026-07-29 (by Macklin Softwarini) — FantasySP switched from (nonexistent) RSS to HTML scraping, per Nick's integration guide
 
 ## Current state
+
+**News service follow-up: FantasySP HTML scraping, diagnostic logging, standalone workflow (2026-07-29)**
+
+First live `news-sync` run (triggered manually to test, since this sandbox can't reach rotowire.com/fantasysp.com directly — see prior entry) came back `rotowire: 0 items` / `fantasysp: 0 items`, silently, because `RssNewsClient`'s original design swallowed all failures without logging why. Fixed in stages:
+- **Diagnostics first**: `RssNewsClient` now logs the HTTP status/content-type, or a body snippet on parse failure/0-`<item>` results, instead of just returning `[]` silently. Also split `news-sync` into its own standalone `news-sync.yml` workflow (manual trigger, feed-URL override inputs) so it can be iterated on without re-running the whole `daily-jobs.yml` chain (which also runs `process-trades` — re-triggering that early each time we wanted to test wasn't great).
+- **Root cause, from the new logs**: Rotowire's URL was actually already correct (`200 OK`, real `application/xml`) — 0 items is most likely NHL off-season quiet (per Nick's guide: "quasi nul hors-saison sauf transactions"), not a bug. FantasySP's guessed `/rss/nhl.xml` came back a clean `404` — **confirmed FantasySP has no public RSS feed at all**.
+- **Nick supplied an integration guide** (saved verbatim at `.claude/doc/news-integration-guide.md`) confirming the above and specifying FantasySP's real approach: scrape `https://www.fantasysp.com/injuries/nhl/`'s server-rendered table (h5 team headers + table rows: #, Player, Team, Pos, Injury, News).
+- **Architecture refactor**: fetch mechanism decoupled from orchestration — new shared `NewsFeedItem` record + `NewsFetcher` delegate (`Jobs/News/NewsFeedItem.cs`), `RssNewsClient` and new `FantasySpScraper` (HtmlAgilityPack, new package ref in `FantasyWarrior.Jobs.csproj`) both produce it, `NewsSyncJob` now takes a list of `NewsSource(Name, Fetch, HasReliablePublishedDate)` instead of being RSS-specific. FantasySP's scraped table has no per-item date, so `HasReliablePublishedDate: false` makes `NewsSyncJob` preserve a scraped item's original `PublishedUtc` across reruns (looked up from the existing `news` collection by doc id) instead of re-stamping "now" every night, which would otherwise make an unchanged standing injury look freshly published forever. `MatchPlayer` now prefers the source's own player identification (FantasySP's dedicated column) over the headline-colon heuristic when available.
+- **Not yet re-verified live** — this refactor was written and pushed but the next `news-sync` run (to confirm FantasySP's scraper actually finds real rows against the live DOM, whose exact selectors are unverified per the guide's own caveat) hadn't completed as of this entry. Check the next `news-sync.yml` run's log.
+- Also flagged, not yet built: Rotowire's guide lists further endpoints (`rumors.php`, `news.php?view=free-agents`, `nhl-lineups.php`) as potentially interesting additional sources — the new `NewsSource` list makes adding them straightforward, but each needs its own scraper (HTML, not RSS) with real DOM structure unverified, same caveat as FantasySP. Deferred until Nick confirms priority.
+- **Personal/non-commercial use only** per both sites' terms — no redistribution, never scrape Rotowire's locked "ANALYSIS" content. See the guide doc for full constraints (robots.txt, rate limiting).
 
 **News service: Rotowire + FantasySP feed the ticker, roster moves removed (2026-07-28)**
 

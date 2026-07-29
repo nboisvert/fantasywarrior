@@ -12,7 +12,7 @@ on:
         description: "Override Rotowire feed URL (optional)"
         required: false
       fantasySpUrl:
-        description: "Override FantasySP feed URL (optional)"
+        description: "Override FantasySP injuries page URL to scrape (optional, not a feed)"
         required: false
 
 jobs:

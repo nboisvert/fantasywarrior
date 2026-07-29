@@ -4,6 +4,12 @@
     <ProjectReference Include="..\FantasyWarrior.Core\FantasyWarrior.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- HTML parsing for FantasySP (no public RSS feed exists for it, unlike
+         Rotowire — see NewsSyncJob/FantasySpScraper). -->
+    <PackageReference Include="HtmlAgilityPack" Version="1.11.*" />
+  </ItemGroup>
+
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>

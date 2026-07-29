@@ -6,44 +6,54 @@ using Google.Cloud.Firestore;
 
 namespace FantasyWarrior.Jobs.News;
 
-public sealed record NewsFeedSource(string Source, string FeedUrl);
+/// <summary>One news source's fetch operation, registered with a name and
+/// whether it carries a genuine per-item publish date. RSS (Rotowire) does;
+/// the FantasySP HTML table doesn't, so NewsSyncJob preserves that item's
+/// original PublishedUtc across reruns instead of re-stamping "now" every
+/// time — otherwise an unchanged standing injury would look freshly
+/// published in the ticker on every nightly run.</summary>
+public sealed record NewsSource(string Name, NewsFetcher Fetch, bool HasReliablePublishedDate);
 
 /// <summary>
-/// Fetches NHL news from external RSS feeds (Rotowire, FantasySP) and
-/// upserts them into the global `news` collection. Idempotent: doc id is a
-/// hash of source+guid, so re-running never duplicates an item. Also prunes
-/// items older than <see cref="RetentionDays"/> so the collection doesn't
-/// grow forever.
+/// Fetches NHL news from external sources (Rotowire RSS, FantasySP HTML —
+/// see RssNewsClient/FantasySpScraper) and upserts them into the global
+/// `news` collection. Idempotent: doc id is a hash of source+external id, so
+/// re-running never duplicates an item. Also prunes items older than
+/// <see cref="RetentionDays"/> so the collection doesn't grow forever.
 /// </summary>
-public sealed class NewsSyncJob(RssNewsClient client, FirestoreDb db)
+public sealed class NewsSyncJob(FirestoreDb db)
 {
     private const int FirestoreBatchLimit = 500;
     private const int RetentionDays = 30;
 
-    public async Task<int> RunAsync(IReadOnlyList<NewsFeedSource> sources, CancellationToken ct = default)
+    public async Task<int> RunAsync(IReadOnlyList<NewsSource> sources, CancellationToken ct = default)
     {
         var playersByName = await LoadPlayerNameIndexAsync(ct);
-
         var collection = db.Collection("news");
+        var existingPublishedById = await LoadExistingPublishedDatesAsync(collection, ct);
         var now = Timestamp.GetCurrentTimestamp();
         var writes = new List<(DocumentReference Doc, NewsItem Item)>();
 
         foreach (var source in sources)
         {
-            var feedItems = await client.GetItemsAsync(source.FeedUrl, ct);
-            Console.WriteLine($"  {source.Source}: {feedItems.Count} items");
+            var feedItems = await source.Fetch(ct);
+            Console.WriteLine($"  {source.Name}: {feedItems.Count} items");
             foreach (var feedItem in feedItems)
             {
-                var (playerName, playerId) = MatchPlayer(feedItem.Title, playersByName);
-                var docId = DocId(source.Source, feedItem.Guid);
+                var (playerName, playerId) = MatchPlayer(feedItem, playersByName);
+                var docId = DocId(source.Name, feedItem.ExternalId);
+                var publishedUtc = Timestamp.FromDateTime(feedItem.PublishedUtc.UtcDateTime);
+                if (!source.HasReliablePublishedDate && existingPublishedById.TryGetValue(docId, out var firstSeen))
+                    publishedUtc = firstSeen;
+
                 writes.Add((collection.Document(docId), new NewsItem
                 {
-                    Source = source.Source,
-                    Headline = feedItem.Title,
-                    Url = feedItem.Link,
+                    Source = source.Name,
+                    Headline = feedItem.Headline,
+                    Url = feedItem.Url,
                     PlayerId = playerId,
                     PlayerName = playerName,
-                    PublishedUtc = Timestamp.FromDateTime(feedItem.PublishedUtc.UtcDateTime),
+                    PublishedUtc = publishedUtc,
                     FetchedUtc = now,
                 }));
             }
@@ -62,16 +72,20 @@ public sealed class NewsSyncJob(RssNewsClient client, FirestoreDb db)
         return writes.Count;
     }
 
-    /// <summary>Rotowire/FantasySP headlines conventionally lead with the
-    /// player's name followed by a colon (e.g. "Auston Matthews: Day-to-day
-    /// with upper-body injury") — best-effort only, unmatched items are still
-    /// stored with PlayerId=null.</summary>
-    private static (string? PlayerName, long? PlayerId) MatchPlayer(string headline, IReadOnlyDictionary<string, long> playersByName)
+    /// <summary>Prefers the source's own player identification (e.g.
+    /// FantasySP's dedicated table column) over guessing from the headline.
+    /// Falls back to the Rotowire-style "Player Name: blurb" convention —
+    /// best-effort only, unmatched items are still stored with PlayerId=null.</summary>
+    private static (string? PlayerName, long? PlayerId) MatchPlayer(NewsFeedItem item, IReadOnlyDictionary<string, long> playersByName)
     {
-        var colonIndex = headline.IndexOf(':');
-        if (colonIndex <= 0)
-            return (null, null);
-        var candidate = headline[..colonIndex].Trim();
+        var candidate = item.PlayerNameHint;
+        if (string.IsNullOrEmpty(candidate))
+        {
+            var colonIndex = item.Headline.IndexOf(':');
+            if (colonIndex <= 0)
+                return (null, null);
+            candidate = item.Headline[..colonIndex].Trim();
+        }
         return playersByName.TryGetValue(NameNormalizer.Normalize(candidate), out var playerId)
             ? (candidate, playerId)
             : (candidate, null);
@@ -87,6 +101,15 @@ public sealed class NewsSyncJob(RssNewsClient client, FirestoreDb db)
             byName[NameNormalizer.Normalize($"{player.FirstName} {player.LastName}")] = player.NhlId;
         }
         return byName;
+    }
+
+    private static async Task<IReadOnlyDictionary<string, Timestamp>> LoadExistingPublishedDatesAsync(CollectionReference collection, CancellationToken ct)
+    {
+        var snapshot = await collection.GetSnapshotAsync(ct);
+        var byId = new Dictionary<string, Timestamp>();
+        foreach (var doc in snapshot.Documents)
+            byId[doc.Id] = doc.GetValue<Timestamp>("publishedUtc");
+        return byId;
     }
 
     private static async Task<int> PruneOldAsync(CollectionReference collection, CancellationToken ct)
@@ -105,9 +128,9 @@ public sealed class NewsSyncJob(RssNewsClient client, FirestoreDb db)
         return deleted;
     }
 
-    private static string DocId(string source, string guid)
+    private static string DocId(string source, string externalId)
     {
-        var hash = SHA256.HashData(Encoding.UTF8.GetBytes($"{source}|{guid}"));
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes($"{source}|{externalId}"));
         return $"{source}_{Convert.ToHexString(hash)[..24].ToLowerInvariant()}";
     }
 }
