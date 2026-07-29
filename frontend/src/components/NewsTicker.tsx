@@ -129,13 +129,21 @@ export function NewsTicker({
     Promise.all([api.news(30), api.trades(leagueId, username)])
       .then(([news, trades]: [NewsArticle[], Trade[]]) => {
         if (ignore) return;
-        const articles: NewsItem[] = news.map((a) => ({
-          kind: "article",
-          key: `nw-${a.id}`,
-          ts: new Date(a.publishedUtc).getTime(),
-          source: a.source,
-          text: `${a.headline} · ${timeAgo(a.publishedUtc)}`,
-        }));
+        // Cap articles BEFORE merging with trades (same guard the old
+        // movement/trade merge had) — two of the three news sources have no
+        // real per-item date, so a fresh sync can stamp dozens of items with
+        // essentially the same "just synced" timestamp. Without this cap,
+        // that burst wins every slot in the ts-sorted top-16 and trades
+        // vanish from the ticker entirely.
+        const articles: NewsItem[] = news
+          .slice(0, 10)
+          .map((a) => ({
+            kind: "article",
+            key: `nw-${a.id}`,
+            ts: new Date(a.publishedUtc).getTime(),
+            source: a.source,
+            text: `${a.headline} · ${timeAgo(a.publishedUtc)}`,
+          }));
         const processed: NewsItem[] = trades
           .filter((t): t is Trade & { processedUtc: string } => t.status === "processed" && t.processedUtc != null)
           .map((t) => ({
