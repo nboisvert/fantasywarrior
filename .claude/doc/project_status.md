@@ -1,9 +1,17 @@
 # Fantasy Warrior — Project Status
 
 > **MUST be read at the start of every session and kept updated along the way.**
-> Last updated: 2026-07-29 (by Macklin Softwarini) — FantasySP switched from (nonexistent) RSS to HTML scraping, per Nick's integration guide
+> Last updated: 2026-07-29 (by Macklin Softwarini) — added Rotowire's HTML-scraped injuries page as a third news source
 
 ## Current state
+
+**News service: Rotowire injuries page added as a third source (2026-07-29)**
+
+Following up the FantasySP HTML-scraping round (below): added `RotowireInjuryScraper` (`Jobs/News/RotowireInjuryScraper.cs`) targeting `rotowire.com/hockey/news.php?view=injuries`, per the integration guide's "Système 1, Étape 2" — Rotowire's RSS feed only carries plain-fact headlines and can be quiet off-season, so this HTML fallback adds team/injury-type/date detail as a supplement, not a replacement (both still run every sync). `NewsItem.Source` values now follow the guide's own normalized schema exactly: `rotowire_rss` | `rotowire_html` | `fantasysp` (renamed from the previous plain `rotowire`/`fantasysp` — harmless since no `rotowire`-sourced docs existed yet, RSS had returned 0 items on every live run so far). `news-sync` gained a third override flag, `--rotowire-injuries-url` (also added to `news-sync.yml`'s inputs). Frontend `NewsArticle.source` type widened to match; no other frontend code branches on the literal source string, so this was a mechanical, build-verified change (`tsc -b && vite build` clean).
+- Selectors (`.news-item` blocks, `.team-name`/`.injury-type`/`.date`/`.headline`/`.news-body`) are the guide's own documented placeholders, explicitly flagged there as unverified against live DOM — same "log loudly on a miss" convention as `FantasySpScraper` (which *did* work on the first real try against live FantasySP data, so there's a real chance this one does too, but it hasn't been confirmed by an actual `news-sync` run yet as of this entry).
+- Deliberately never captures Rotowire's "ANALYSIS" block (subscription-locked content) — only reads the factual news-body/headline, matching the guide's own placeholder which does the same, per the personal/non-commercial-use constraint.
+- Not yet live-verified or redeployed — check the next `news-sync.yml` log for `rotowire_html: N items` (or a `! https://...` diagnostic explaining why not), and the API needs another Cloud Run redeploy for the renamed source values to show correctly through `/api/news` (harmless either way — old `rotowire`-tagged docs never existed).
+- Still open, not built: Rotowire's other guide-listed endpoints (`rumors.php`, `news.php?view=free-agents`, `nhl-lineups.php`) — deferred pending Nick's priority call.
 
 **News service follow-up: FantasySP HTML scraping, diagnostic logging, standalone workflow (2026-07-29)**
 

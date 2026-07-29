@@ -12,13 +12,16 @@ using Google.Cloud.Firestore;
 //   salary-import --file <path.csv>   (columns: nhlId?,firstName,lastName,teamAbbrev,capHit)
 //   stats-sync [--date YYYY-MM-DD | --from A --to B]   (default: yesterday UTC)
 //   stats-check [--date YYYY-MM-DD]
-//   news-sync [--rotowire-url <url>] [--fantasysp-url <url>]
+//   news-sync [--rotowire-url <url>] [--rotowire-injuries-url <url>] [--fantasysp-url <url>]
 //     Fetches NHL news into the global `news` collection (idempotent
-//     upserts, 30-day retention prune): Rotowire via its public RSS feed
-//     (--rotowire-url overrides the feed URL), FantasySP via HTML scrape of
-//     its injuries table (--fantasysp-url overrides the *page* URL, not a
-//     feed -- FantasySP has no public RSS). Personal/non-commercial use
-//     only per both sites' terms; see FantasySpScraper's doc comment.
+//     upserts, 30-day retention prune) from three sources: Rotowire's
+//     public RSS feed (source "rotowire_rss", --rotowire-url), Rotowire's
+//     injuries page HTML-scraped for richer team/injury-type/date detail
+//     (source "rotowire_html", --rotowire-injuries-url), and FantasySP's
+//     injuries table HTML-scraped since it has no public RSS at all
+//     (source "fantasysp", --fantasysp-url -- a *page* URL, not a feed).
+//     Personal/non-commercial use only per both sites' terms; see
+//     FantasySpScraper/RotowireInjuryScraper's doc comments.
 //   score-calc [--league <leagueId>]
 //   process-trades
 //     Executes every `accepted` trade (roster swap via RosterChange) and
@@ -112,18 +115,27 @@ switch (job)
     }
     case "news-sync":
     {
-        // Rotowire publishes a real RSS feed; FantasySP doesn't (confirmed
-        // live: no /rss endpoint exists), so it's scraped from its
-        // server-rendered injuries table instead. See NewsSource's doc
-        // comment for why FantasySP is flagged as not having a reliable
-        // per-item published date.
-        var rotowireUrl = GetOption(args, "--rotowire-url") ?? "https://www.rotowire.com/rss/news.php?sport=NHL";
+        // Source names/schema follow the integration guide's normalized
+        // "source" values (rotowire_rss | rotowire_html | fantasysp).
+        // Rotowire's RSS feed is real but can be quiet off-season and only
+        // carries plain-fact headlines; rotowire_html scrapes its richer
+        // injuries page (team/injury-type/date) as a supplement, not a
+        // replacement. FantasySP has no public RSS at all (confirmed live:
+        // no /rss endpoint exists), so it's HTML-scraped exclusively. See
+        // NewsSource's doc comment for why the two HTML sources are flagged
+        // as not having a reliable per-item published date... except
+        // rotowire_html, whose injuries page does carry a real Date column
+        // (unlike FantasySP's table), so it's flagged reliable too.
+        var rotowireRssUrl = GetOption(args, "--rotowire-url") ?? "https://www.rotowire.com/rss/news.php?sport=NHL";
+        var rotowireInjuriesUrl = GetOption(args, "--rotowire-injuries-url") ?? "https://www.rotowire.com/hockey/news.php?view=injuries";
         var fantasySpUrl = GetOption(args, "--fantasysp-url") ?? "https://www.fantasysp.com/injuries/nhl/";
         var rss = new RssNewsClient(http);
+        var rotowireHtml = new RotowireInjuryScraper(http);
         var fantasySpScraper = new FantasySpScraper(http);
         var sources = new[]
         {
-            new NewsSource("rotowire", ct => rss.GetItemsAsync(rotowireUrl, ct), HasReliablePublishedDate: true),
+            new NewsSource("rotowire_rss", ct => rss.GetItemsAsync(rotowireRssUrl, ct), HasReliablePublishedDate: true),
+            new NewsSource("rotowire_html", ct => rotowireHtml.GetInjuryItemsAsync(rotowireInjuriesUrl, ct), HasReliablePublishedDate: true),
             new NewsSource("fantasysp", ct => fantasySpScraper.GetInjuryItemsAsync(fantasySpUrl, ct), HasReliablePublishedDate: false),
         };
         await new NewsSyncJob(db).RunAsync(sources);

@@ -9,7 +9,10 @@ on:
   workflow_dispatch:
     inputs:
       rotowireUrl:
-        description: "Override Rotowire feed URL (optional)"
+        description: "Override Rotowire RSS feed URL (optional)"
+        required: false
+      rotowireInjuriesUrl:
+        description: "Override Rotowire injuries page URL to scrape (optional, not a feed)"
         required: false
       fantasySpUrl:
         description: "Override FantasySP injuries page URL to scrape (optional, not a feed)"
@@ -34,5 +37,6 @@ jobs:
         run: |
           ARGS=""
           if [ -n "${{ inputs.rotowireUrl }}" ]; then ARGS="$ARGS --rotowire-url ${{ inputs.rotowireUrl }}"; fi
+          if [ -n "${{ inputs.rotowireInjuriesUrl }}" ]; then ARGS="$ARGS --rotowire-injuries-url ${{ inputs.rotowireInjuriesUrl }}"; fi
           if [ -n "${{ inputs.fantasySpUrl }}" ]; then ARGS="$ARGS --fantasysp-url ${{ inputs.fantasySpUrl }}"; fi
           dotnet run --project backend/FantasyWarrior.Jobs -c Release -- news-sync $ARGS

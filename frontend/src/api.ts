@@ -127,7 +127,7 @@ export interface ActivityEntry {
 
 export interface NewsArticle {
   id: string;
-  source: "rotowire" | "fantasysp";
+  source: "rotowire_rss" | "rotowire_html" | "fantasysp";
   headline: string;
   url: string;
   playerId: number | null;
