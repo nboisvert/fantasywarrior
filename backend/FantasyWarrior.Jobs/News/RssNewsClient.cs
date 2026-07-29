@@ -14,16 +14,35 @@ public sealed record RssFeedItem(string Guid, string Title, string Link, DateTim
 /// </summary>
 public sealed class RssNewsClient(HttpClient http)
 {
+    /// <summary>Never throws; a miss returns [] but always logs why (status
+    /// code, content-type, parse failure, or 0 &lt;item&gt; elements found) so a
+    /// bad feed URL is diagnosable from job output instead of silently
+    /// looking like "no news today".</summary>
     public async Task<IReadOnlyList<RssFeedItem>> GetItemsAsync(string feedUrl, CancellationToken ct = default)
     {
         try
         {
             using var response = await http.GetAsync(feedUrl, ct);
+            var contentType = response.Content.Headers.ContentType?.MediaType ?? "unknown";
             if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"    ! {feedUrl} -> {(int)response.StatusCode} {response.StatusCode} (content-type: {contentType})");
                 return [];
+            }
 
             var xml = await response.Content.ReadAsStringAsync(ct);
-            var doc = XDocument.Parse(xml);
+            XDocument doc;
+            try
+            {
+                doc = XDocument.Parse(xml);
+            }
+            catch (Exception ex)
+            {
+                var snippet = xml.Length > 120 ? xml[..120] : xml;
+                Console.WriteLine($"    ! {feedUrl} -> 200 OK (content-type: {contentType}) but not parseable XML: {ex.Message} | body starts: {snippet}");
+                return [];
+            }
+
             var items = new List<RssFeedItem>();
             foreach (var item in doc.Descendants("item"))
             {
@@ -39,10 +58,13 @@ public sealed class RssNewsClient(HttpClient http)
                     Link: link,
                     PublishedUtc: published));
             }
+            if (items.Count == 0)
+                Console.WriteLine($"    ! {feedUrl} -> 200 OK (content-type: {contentType}), parsed as XML, but found 0 <item> elements — feed shape may have changed");
             return items;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Console.WriteLine($"    ! {feedUrl} -> request failed: {ex.GetType().Name}: {ex.Message}");
             return [];
         }
     }

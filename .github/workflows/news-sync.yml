@@ -1,0 +1,38 @@
+# Standalone news sync — separate from daily-jobs.yml's full nightly chain
+# so Rotowire/FantasySP feed changes can be tested/rerun without also
+# re-running stats-sync/score-calc/process-trades/player-sync/draft-sync.
+# The nightly chain in daily-jobs.yml still runs news-sync every day too;
+# this is for on-demand runs and quick feed-URL overrides while debugging.
+name: News sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      rotowireUrl:
+        description: "Override Rotowire feed URL (optional)"
+        required: false
+      fantasySpUrl:
+        description: "Override FantasySP feed URL (optional)"
+        required: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      FIRESTORE_PROJECT_ID: fantasywarriordb
+      GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-sa.json
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Write service account key
+        run: echo "$FIREBASE_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
+        env:
+          FIREBASE_SA_KEY: ${{ secrets.FIREBASE_SA_KEY }}
+      - name: News sync
+        run: |
+          ARGS=""
+          if [ -n "${{ inputs.rotowireUrl }}" ]; then ARGS="$ARGS --rotowire-url ${{ inputs.rotowireUrl }}"; fi
+          if [ -n "${{ inputs.fantasySpUrl }}" ]; then ARGS="$ARGS --fantasysp-url ${{ inputs.fantasySpUrl }}"; fi
+          dotnet run --project backend/FantasyWarrior.Jobs -c Release -- news-sync $ARGS
