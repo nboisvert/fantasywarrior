@@ -71,10 +71,7 @@ public sealed class RotowireInjuryScraper(HttpClient http)
             }
 
             if (items.Count == 0)
-            {
-                var snippet = html.Length > 200 ? html[..200] : html;
-                Console.WriteLine($"    ! {pageUrl} -> 200 OK (content-type: {contentType}), but found 0 items via the documented '{ItemClass}' block structure — page layout may have changed | body starts: {snippet}");
-            }
+                LogZeroItemsDiagnostic(doc, pageUrl, contentType);
             return items;
         }
         catch (Exception ex)
@@ -82,6 +79,29 @@ public sealed class RotowireInjuryScraper(HttpClient http)
             Console.WriteLine($"    ! {pageUrl} -> request failed: {ex.GetType().Name}: {ex.Message}");
             return [];
         }
+    }
+
+    /// <summary>The generic "first N chars of the page" a plain body-snippet
+    /// diagnostic gives is always just &lt;head&gt; boilerplate, useless for
+    /// figuring out the real container structure. Instead: find a real
+    /// player link directly (independent of the failed 'news-item' guess),
+    /// walk up a few ancestors, and print that node's actual class names —
+    /// enough to write the correct selector next time without re-guessing.</summary>
+    private static void LogZeroItemsDiagnostic(HtmlDocument doc, string pageUrl, string contentType)
+    {
+        var anyPlayerLink = doc.DocumentNode.SelectSingleNode("//a[contains(@href, '/hockey/player/')]");
+        if (anyPlayerLink is null)
+        {
+            Console.WriteLine($"    ! {pageUrl} -> 200 OK (content-type: {contentType}), but no '/hockey/player/' links found anywhere in the parsed HTML at all — content may be client-rendered (JS), or the URL pattern assumption is wrong");
+            return;
+        }
+
+        var ancestor = anyPlayerLink;
+        for (var i = 0; i < 3 && ancestor.ParentNode is { Name: not "body" }; i++)
+            ancestor = ancestor.ParentNode;
+        var outerHtml = ancestor.OuterHtml;
+        var snippet = outerHtml.Length > 600 ? outerHtml[..600] : outerHtml;
+        Console.WriteLine($"    ! {pageUrl} -> 200 OK (content-type: {contentType}), found real player links but the '{ItemClass}' block guess didn't match — 3-levels-up ancestor of the first player link: {snippet}");
     }
 
     private static string TextOf(HtmlNode block, string className)
