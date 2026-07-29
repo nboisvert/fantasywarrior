@@ -16,7 +16,7 @@ using Google.Cloud.Firestore;
 //     Fetches NHL news into the global `news` collection (idempotent
 //     upserts, 30-day retention prune) from three sources: Rotowire's
 //     public RSS feed (source "rotowire_rss", --rotowire-url), Rotowire's
-//     injuries page HTML-scraped for richer team/injury-type/date detail
+//     injuries page HTML-scraped for richer headline/position/team detail
 //     (source "rotowire_html", --rotowire-injuries-url), and FantasySP's
 //     injuries table HTML-scraped since it has no public RSS at all
 //     (source "fantasysp", --fantasysp-url -- a *page* URL, not a feed).
@@ -119,13 +119,13 @@ switch (job)
         // "source" values (rotowire_rss | rotowire_html | fantasysp).
         // Rotowire's RSS feed is real but can be quiet off-season and only
         // carries plain-fact headlines; rotowire_html scrapes its richer
-        // injuries page (team/injury-type/date) as a supplement, not a
+        // injuries page (headline/position/team) as a supplement, not a
         // replacement. FantasySP has no public RSS at all (confirmed live:
-        // no /rss endpoint exists), so it's HTML-scraped exclusively. See
-        // NewsSource's doc comment for why the two HTML sources are flagged
-        // as not having a reliable per-item published date... except
-        // rotowire_html, whose injuries page does carry a real Date column
-        // (unlike FantasySP's table), so it's flagged reliable too.
+        // no /rss endpoint exists), so it's HTML-scraped exclusively. Both
+        // HTML sources are flagged as not having a reliable per-item
+        // published date (no per-item date field was found in either
+        // site's captured structure) — see NewsSource's doc comment for
+        // why that matters.
         var rotowireRssUrl = GetOption(args, "--rotowire-url") ?? "https://www.rotowire.com/rss/news.php?sport=NHL";
         var rotowireInjuriesUrl = GetOption(args, "--rotowire-injuries-url") ?? "https://www.rotowire.com/hockey/news.php?view=injuries";
         var fantasySpUrl = GetOption(args, "--fantasysp-url") ?? "https://www.fantasysp.com/injuries/nhl/";
@@ -135,7 +135,7 @@ switch (job)
         var sources = new[]
         {
             new NewsSource("rotowire_rss", ct => rss.GetItemsAsync(rotowireRssUrl, ct), HasReliablePublishedDate: true),
-            new NewsSource("rotowire_html", ct => rotowireHtml.GetInjuryItemsAsync(rotowireInjuriesUrl, ct), HasReliablePublishedDate: true),
+            new NewsSource("rotowire_html", ct => rotowireHtml.GetInjuryItemsAsync(rotowireInjuriesUrl, ct), HasReliablePublishedDate: false),
             new NewsSource("fantasysp", ct => fantasySpScraper.GetInjuryItemsAsync(fantasySpUrl, ct), HasReliablePublishedDate: false),
         };
         await new NewsSyncJob(db).RunAsync(sources);

@@ -7,11 +7,13 @@ using Google.Cloud.Firestore;
 namespace FantasyWarrior.Jobs.News;
 
 /// <summary>One news source's fetch operation, registered with a name and
-/// whether it carries a genuine per-item publish date. RSS (Rotowire) does;
-/// the FantasySP HTML table doesn't, so NewsSyncJob preserves that item's
-/// original PublishedUtc across reruns instead of re-stamping "now" every
-/// time — otherwise an unchanged standing injury would look freshly
-/// published in the ticker on every nightly run.</summary>
+/// whether it carries a genuine per-item publish date. Rotowire's RSS feed
+/// does; neither of the HTML-scraped sources (Rotowire's injuries page,
+/// FantasySP's injuries table) exposes a confirmed per-item date field, so
+/// for those NewsSyncJob preserves an item's original PublishedUtc across
+/// reruns instead of re-stamping "now" every time — otherwise an unchanged
+/// standing injury would look freshly published in the ticker on every
+/// nightly run.</summary>
 public sealed record NewsSource(string Name, NewsFetcher Fetch, bool HasReliablePublishedDate);
 
 /// <summary>
