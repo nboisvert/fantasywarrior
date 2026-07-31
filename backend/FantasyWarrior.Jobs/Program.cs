@@ -13,6 +13,13 @@ using Google.Cloud.Firestore;
 //   salary-import --file <path.csv>   (columns: nhlId?,firstName,lastName,teamAbbrev,capHit)
 //   stats-sync [--date YYYY-MM-DD | --from A --to B]   (default: yesterday UTC)
 //   stats-check [--date YYYY-MM-DD]
+//   seed-mordus [--file data/mordus-rosters.json] [--season 20252026]
+//               [--commissioner nicolas] [--cap 100000000] [--dry-run]
+//     Creates the real "Les Mordus" league (14 GMs, rosters imported from
+//     Nick's PoolExpert PDF -- see .claude/doc/mordus-pool.md). Verifies
+//     every player id against `players` before writing anything, and
+//     refuses to overwrite an existing league of that name. Does not
+//     create roster spots or lineups yet (those models land in C4/C5).
 //   check-indexes
 //     Probes every composite-index-requiring query shape with Limit(1) and
 //     reports the missing ones (with Firestore's own console creation URL).
@@ -467,6 +474,16 @@ switch (job)
             deletedLeagues++;
         }
         Console.WriteLine($"wipe-pools: deleted {deletedUsers} users, {deletedLeagues} leagues (with their teams/assignments/adjustments/trades). players/games/playerGameStats untouched.");
+        return 0;
+    }
+    case "seed-mordus":
+    {
+        await new FantasyWarrior.Jobs.Demo.SeedMordusJob(db).RunAsync(
+            file: GetOption(args, "--file") ?? "data/mordus-rosters.json",
+            season: GetOption(args, "--season") ?? "20252026",
+            commissioner: GetOption(args, "--commissioner") ?? "nicolas",
+            capAmount: long.TryParse(GetOption(args, "--cap"), out var mordusCap) ? mordusCap : 100_000_000,
+            dryRun: args.Contains("--dry-run"));
         return 0;
     }
     case "check-indexes":

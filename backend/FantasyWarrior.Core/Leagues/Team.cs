@@ -19,6 +19,19 @@ public sealed class Team
     [FirestoreProperty("playerIds")]
     public List<long> PlayerIds { get; set; } = [];
 
+    /// <summary>
+    /// The NHL franchise this team carries as its identity (e.g. "COL"), when
+    /// the league uses them. In "Les Mordus" every GM owns one franchise for
+    /// life -- it is never traded and costs no cap.
+    ///
+    /// Deliberately a field here rather than a roster spot: a spot that could
+    /// hold either a player or a whole team would make every roster, lineup
+    /// and trade code path polymorphic for one permanent, untradeable case.
+    /// Its points are derived from the `games` collection instead.
+    /// </summary>
+    [FirestoreProperty("franchiseAbbrev")]
+    public string? FranchiseAbbrev { get; set; }
+
     [FirestoreProperty("createdUtc")]
     public Timestamp CreatedUtc { get; set; }
 
