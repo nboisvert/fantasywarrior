@@ -93,4 +93,22 @@ public static class PositionGroups
         "G" => PositionGroup.Goalie,
         _ => PositionGroup.Forward,
     };
+
+    /// <summary>The persisted single-letter form: F, D or G.</summary>
+    public static string Code(PositionGroup group) => group switch
+    {
+        PositionGroup.Defense => "D",
+        PositionGroup.Goalie => "G",
+        _ => "F",
+    };
+
+    /// <summary>NHL position code straight to its persisted group letter.</summary>
+    public static string CodeFrom(string position) => Code(From(position));
+
+    public static PositionGroup FromCode(string code) => code switch
+    {
+        "D" => PositionGroup.Defense,
+        "G" => PositionGroup.Goalie,
+        _ => PositionGroup.Forward,
+    };
 }

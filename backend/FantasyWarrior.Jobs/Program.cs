@@ -13,6 +13,11 @@ using Google.Cloud.Firestore;
 //   salary-import --file <path.csv>   (columns: nhlId?,firstName,lastName,teamAbbrev,capHit)
 //   stats-sync [--date YYYY-MM-DD | --from A --to B]   (default: yesterday UTC)
 //   stats-check [--date YYYY-MM-DD]
+//   backfill-roster-spots [--league <id>] [--from-rosters] [--dry-run]
+//     Copies existing `assignments` into the new `rosterSpots` collection.
+//     Idempotent (deterministic doc ids). --from-rosters instead opens one
+//     spot per player in team.playerIds, for leagues seeded without any
+//     assignment history.
 //   period-init [--season 20252026] [--dry-run]
 //     Generates the season's weekly scoring calendar (Mon-Sun, ET) into the
 //     global `periods` collection. Season boundaries are derived from the
@@ -535,6 +540,11 @@ switch (job)
         Console.WriteLine($"wipe-pools: deleted {deletedUsers} users, {deletedLeagues} leagues (with their teams/assignments/adjustments/trades). players/games/playerGameStats untouched.");
         return 0;
     }
+    case "backfill-roster-spots":
+        return await new FantasyWarrior.Jobs.Leagues.BackfillRosterSpotsJob(db).RunAsync(
+            onlyLeagueId: GetOption(args, "--league"),
+            fromRosters: args.Contains("--from-rosters"),
+            dryRun: args.Contains("--dry-run"));
     case "period-init":
         return await new FantasyWarrior.Jobs.Periods.PeriodInitJob(db).RunAsync(
             season: GetOption(args, "--season") ?? "20252026",

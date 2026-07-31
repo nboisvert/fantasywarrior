@@ -138,6 +138,11 @@ public static class RosterChange
         foreach (var assignment in BuildOpenedAssignments(playersIn, team.OwnerUsername, creationEvent, creationEventReferenceId, effectiveDate, Timestamp.GetCurrentTimestamp()))
             await leagueDoc.Collection("assignments").AddAsync(assignment, ct);
 
+        await MirrorToRosterSpotsAsync(
+            leagueDoc, team, positions, playersOut, playersIn,
+            creationEvent, creationEventReferenceId, closeReason, closeReasonReferenceId,
+            effectiveDate, closeNow, ct);
+
         var newPlayerIds = BuildNewPlayerIds(team.PlayerIds, playersOut, playersIn);
         var adjustmentsTotal = team.AdjustmentsTotal + delta;
         var fieldUpdates = new Dictionary<string, object>
@@ -154,5 +159,57 @@ public static class RosterChange
             fieldUpdates[$"playerPoints.{id}"] = incomingPoints[id];
 
         await teamDoc.UpdateAsync(fieldUpdates, cancellationToken: ct);
+    }
+
+    /// <summary>
+    /// Writes the same roster change into the new <c>rosterSpots</c>
+    /// collection, alongside the legacy <c>assignments</c> one.
+    ///
+    /// Dual-writing rather than switching means the new collection accumulates
+    /// correct history from today, so when the scoring cutover lands it has
+    /// real data to run against instead of a migration. Nothing reads spots
+    /// yet, so a bug here cannot affect anyone — which is the point of doing it
+    /// in its own commit.
+    ///
+    /// Failures are logged and swallowed for the same reason: while this is a
+    /// shadow write, it must never be able to break a roster move that the
+    /// legacy path already completed successfully.
+    /// </summary>
+    private static async Task MirrorToRosterSpotsAsync(
+        DocumentReference leagueDoc,
+        Team team,
+        IReadOnlyDictionary<long, string> positions,
+        IReadOnlyCollection<long> playersOut,
+        IReadOnlyCollection<long> playersIn,
+        string startReason,
+        string? startRefId,
+        string endReason,
+        string? endRefId,
+        string effectiveDate,
+        Timestamp closedUtc,
+        CancellationToken ct)
+    {
+        try
+        {
+            foreach (var playerId in playersOut)
+            {
+                var open = await RosterSpots.Collection(leagueDoc)
+                    .WhereEqualTo("playerId", playerId)
+                    .WhereEqualTo("teamUsername", team.OwnerUsername)
+                    .WhereEqualTo("endDate", null)
+                    .GetSnapshotAsync(ct);
+                var fields = RosterSpots.BuildClosedFields(effectiveDate, closedUtc, endReason, endRefId);
+                foreach (var doc in open.Documents)
+                    await doc.Reference.UpdateAsync(fields, cancellationToken: ct);
+            }
+
+            foreach (var spot in RosterSpots.BuildOpened(
+                playersIn, team.OwnerUsername, positions, startReason, startRefId, effectiveDate, closedUtc))
+                await RosterSpots.Collection(leagueDoc).AddAsync(spot, ct);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"rosterSpots mirror failed for team {team.OwnerUsername}: {ex.Message}");
+        }
     }
 }
