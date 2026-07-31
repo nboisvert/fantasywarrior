@@ -185,19 +185,33 @@ public sealed class PeriodRollupJob(FirestoreDb db)
 
             if (dryRun) continue;
 
-            await Write(lineupRef.SetAsync(new Lineup
+            // The job owns results/points; the GM owns activeSpotIds/setBy.
+            // Writing only our own fields is what keeps a lineup submitted
+            // mid-run from being clobbered -- a read-then-Set would lose any
+            // change made between the read above and this write, and Firestore
+            // does not conflict updates touching different fields.
+            var jobFields = new Dictionary<string, object>
             {
-                TeamUsername = team.OwnerUsername,
-                PeriodIndex = period.Index,
-                Season = league.Season,
-                ActiveSpotIds = [.. active],
-                SubmittedUtc = lineup?.SubmittedUtc,
-                SetBy = lineup?.SetBy ?? LineupSetBy.Auto,
-                Results = results,
-                ActivePoints = activePoints,
-                BenchPoints = benchPoints,
-                ScoredUtc = Timestamp.GetCurrentTimestamp(),
-            }, cancellationToken: ct));
+                ["results"] = results,
+                ["activePoints"] = activePoints,
+                ["benchPoints"] = benchPoints,
+                ["scoredUtc"] = Timestamp.GetCurrentTimestamp(),
+            };
+            if (lineup is null)
+            {
+                // No lineup for this week yet: creating it is ours to do, and
+                // the carried-forward set is stamped "auto" so the UI can say so.
+                jobFields["teamUsername"] = team.OwnerUsername;
+                jobFields["periodIndex"] = period.Index;
+                jobFields["season"] = league.Season;
+                jobFields["activeSpotIds"] = active.ToList();
+                jobFields["setBy"] = LineupSetBy.Auto;
+                await Write(lineupRef.SetAsync(jobFields, cancellationToken: ct));
+            }
+            else
+            {
+                await Write(lineupRef.UpdateAsync(jobFields, cancellationToken: ct));
+            }
 
             var teamFields = new Dictionary<string, object>
             {

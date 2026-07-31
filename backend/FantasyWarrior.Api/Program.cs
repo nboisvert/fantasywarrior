@@ -1,6 +1,8 @@
 using FantasyWarrior.Api;
 using FantasyWarrior.Core.Leagues;
+using FantasyWarrior.Core.Lineups;
 using FantasyWarrior.Core.News;
+using FantasyWarrior.Core.Periods;
 using FantasyWarrior.Core.Players;
 using FantasyWarrior.Core.Scoring;
 using FantasyWarrior.Core.Time;
@@ -524,6 +526,141 @@ app.MapGet("/api/players", async (string? q, PlayerCache players) =>
     return Results.Ok(results.Select(PlayerDto.From));
 });
 
+// --- Weekly lineup -------------------------------------------------------
+// The one place in the app where a rule is actually enforced rather than
+// merely displayed: roster size and the salary cap are still advisory.
+
+app.MapGet("/api/leagues/{leagueId}/teams/{username}/lineup", async (
+    string leagueId, string username, int? period, string? viewer, FirestoreDb db, PlayerCache players) =>
+{
+    var leagueSnap = await db.Collection("leagues").Document(leagueId).GetSnapshotAsync();
+    if (!leagueSnap.Exists) return Results.NotFound(new { error = "League not found." });
+    var league = leagueSnap.ConvertTo<League>();
+
+    var owner = Normalize(username);
+    var teamSnap = await leagueSnap.Reference.Collection("teams").Document(owner).GetSnapshotAsync();
+    if (!teamSnap.Exists) return Results.NotFound(new { error = "Team not found." });
+
+    var (periodDoc, allPeriods) = await LineupEndpoints.ResolvePeriodAsync(db, league.Season, period);
+    if (periodDoc is null) return Results.NotFound(new { error = "No period calendar for this season." });
+
+    var locked = periodDoc.LockUtc.ToDateTime() <= DateTime.UtcNow;
+
+    // A rival's lineup is competitive information until it locks.
+    var isOwner = viewer is not null && Normalize(viewer) == owner;
+    if (!isOwner && !locked)
+        return Results.Ok(new
+        {
+            periodIndex = periodDoc.Index, startDate = periodDoc.StartDate, endDate = periodDoc.EndDate,
+            gameCount = periodDoc.GameCount, locked, finalized = periodDoc.FinalizedUtc is not null,
+            isOwner = false, hidden = true,
+            slots = LineupEndpoints.SlotsDto(league.RuleConfig), used = new { },
+            entries = Array.Empty<object>(),
+            periods = allPeriods,
+        });
+
+    var spots = await RosterSpots.OpenForTeamAsync(leagueSnap.Reference, owner);
+    var lineupSnap = await leagueSnap.Reference.Collection("lineups")
+        .Document(Lineup.DocId(owner, periodDoc.Index)).GetSnapshotAsync();
+    var lineup = lineupSnap.Exists ? lineupSnap.ConvertTo<Lineup>() : null;
+
+    var slots = LineupRules.SlotsFrom(league.RuleConfig);
+    var candidates = spots.Select(s => new LineupCandidate(
+        s.Ref.Id, s.Spot.PlayerId, s.Spot.PositionGroup, s.Spot.ActivePoints, s.Spot.OpenedUtc.ToDateTime())).ToList();
+    var active = lineup is not null
+        ? LineupRules.LegalActiveSet(candidates, lineup.ActiveSpotIds, slots)
+        : new HashSet<string>();
+
+    var playersById = await players.GetByIdsAsync([.. spots.Select(s => s.Spot.PlayerId)]);
+
+    return Results.Ok(new
+    {
+        periodIndex = periodDoc.Index, startDate = periodDoc.StartDate, endDate = periodDoc.EndDate,
+        gameCount = periodDoc.GameCount, locked, finalized = periodDoc.FinalizedUtc is not null,
+        isOwner, hidden = false,
+        setBy = lineup?.SetBy, submittedUtc = lineup?.SubmittedUtc?.ToDateTime(),
+        activePoints = lineup?.ActivePoints ?? 0, benchPoints = lineup?.BenchPoints ?? 0,
+        slots = LineupEndpoints.SlotsDto(league.RuleConfig),
+        used = LineupRules.Used(candidates, [.. active]),
+        entries = spots.Select(s =>
+        {
+            var p = playersById.GetValueOrDefault(s.Spot.PlayerId);
+            var result = lineup?.Results.GetValueOrDefault(s.Ref.Id);
+            return new
+            {
+                spotId = s.Ref.Id,
+                playerId = s.Spot.PlayerId,
+                name = p is null ? "Unknown player" : $"{p.FirstName} {p.LastName}",
+                position = p?.Position ?? s.Spot.Position,
+                positionGroup = s.Spot.PositionGroup,
+                team = p?.TeamAbbrev,
+                headshotUrl = p?.HeadshotUrl,
+                capHit = p?.CapHit,
+                active = active.Contains(s.Ref.Id),
+                points = result?.Points ?? 0,
+                gamesPlayed = result?.GamesPlayed ?? 0,
+                fromDate = result?.FromDate,
+                toDate = result?.ToDate,
+                seasonPoints = s.Spot.ActivePoints,
+            };
+        })
+        .OrderBy(e => e.positionGroup == "F" ? 0 : e.positionGroup == "D" ? 1 : 2)
+        .ThenByDescending(e => e.active)
+        .ThenByDescending(e => e.seasonPoints),
+        periods = allPeriods,
+    });
+});
+
+app.MapMethods("/api/leagues/{leagueId}/teams/{username}/lineup", ["PUT"], async (
+    string leagueId, string username, SetLineupRequest req, FirestoreDb db) =>
+{
+    if (string.IsNullOrWhiteSpace(req.Username))
+        return Results.BadRequest(new { error = "Username is required." });
+
+    var owner = Normalize(username);
+    // No real auth yet, so this only stops accidents, not attacks. Silently
+    // benching a rival's best player every Sunday would be undetectable --
+    // this endpoint wants a Firebase token check before real users touch it.
+    if (Normalize(req.Username) != owner)
+        return Results.Json(new { error = "You can only set your own lineup." }, statusCode: 403);
+
+    var leagueSnap = await db.Collection("leagues").Document(leagueId).GetSnapshotAsync();
+    if (!leagueSnap.Exists) return Results.NotFound(new { error = "League not found." });
+    var league = leagueSnap.ConvertTo<League>();
+
+    var teamSnap = await leagueSnap.Reference.Collection("teams").Document(owner).GetSnapshotAsync();
+    if (!teamSnap.Exists) return Results.NotFound(new { error = "Team not found." });
+
+    var (periodDoc, _) = await LineupEndpoints.ResolvePeriodAsync(db, league.Season, req.PeriodIndex);
+    if (periodDoc is null) return Results.NotFound(new { error = "Period not found." });
+
+    if (periodDoc.LockUtc.ToDateTime() <= DateTime.UtcNow)
+        return Results.Conflict(new { error = $"Week {periodDoc.Index} is locked. Set your lineup for the next week instead." });
+
+    var spots = await RosterSpots.OpenForTeamAsync(leagueSnap.Reference, owner);
+    var candidates = spots.Select(s => new LineupCandidate(
+        s.Ref.Id, s.Spot.PlayerId, s.Spot.PositionGroup, s.Spot.ActivePoints, s.Spot.OpenedUtc.ToDateTime())).ToList();
+    var requested = req.ActiveSpotIds ?? [];
+
+    var errors = LineupRules.Validate(candidates, requested, LineupRules.SlotsFrom(league.RuleConfig));
+    if (errors.Count > 0) return Results.BadRequest(new { error = string.Join(" ", errors), errors });
+
+    // The whole active set is one field, so this single write is atomic --
+    // two tabs racing cannot produce an illegal roster.
+    var lineupRef = leagueSnap.Reference.Collection("lineups").Document(Lineup.DocId(owner, periodDoc.Index));
+    await lineupRef.SetAsync(new Dictionary<string, object>
+    {
+        ["teamUsername"] = owner,
+        ["periodIndex"] = periodDoc.Index,
+        ["season"] = league.Season,
+        ["activeSpotIds"] = requested.Distinct().ToList(),
+        ["submittedUtc"] = Timestamp.GetCurrentTimestamp(),
+        ["setBy"] = owner,
+    }, SetOptions.MergeAll);
+
+    return Results.Ok(new { ok = true, periodIndex = periodDoc.Index, active = requested.Distinct().Count() });
+});
+
 app.MapGet("/api/leagues/{leagueId}/teams/{username}/season-stats", async (
     string leagueId, string username, FirestoreDb db, PlayerCache players) =>
 {
@@ -679,6 +816,44 @@ static async Task<Dictionary<long, string>> RosterPositions(PlayerCache players,
 {
     var byId = await players.GetByIdsAsync(playerIds);
     return byId.ToDictionary(kv => kv.Key, kv => kv.Value.Position);
+}
+
+record SetLineupRequest(string? Username, int? PeriodIndex, List<string>? ActiveSpotIds);
+
+/// <summary>Shared helpers for the lineup endpoints.</summary>
+static class LineupEndpoints
+{
+    /// <summary>
+    /// The requested period, or the current one. "Current" is the last period
+    /// whose start has passed — during a week that is the live week, and before
+    /// the season it is the first one.
+    /// </summary>
+    public static async Task<(Period? Period, object[] All)> ResolvePeriodAsync(
+        FirestoreDb db, string season, int? index)
+    {
+        var snap = await db.Collection("periods").WhereEqualTo("season", season).OrderBy("index").GetSnapshotAsync();
+        var periods = snap.Documents.Select(d => d.ConvertTo<Period>()).ToList();
+        if (periods.Count == 0) return (null, []);
+
+        var all = periods.Select(p => (object)new
+        {
+            index = p.Index, startDate = p.StartDate, endDate = p.EndDate,
+            gameCount = p.GameCount, finalized = p.FinalizedUtc is not null,
+        }).ToArray();
+
+        var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
+        var chosen = index is not null
+            ? periods.FirstOrDefault(p => p.Index == index)
+            : periods.LastOrDefault(p => string.CompareOrdinal(p.StartDate, today) <= 0) ?? periods[0];
+        return (chosen, all);
+    }
+
+    public static object SlotsDto(RuleConfig config) => new
+    {
+        forwards = config.TopCount.Forwards ?? 0,
+        defense = config.TopCount.Defense ?? 0,
+        goalies = config.TopCount.Goalies ?? 0,
+    };
 }
 
 record LoginRequest(string? Username);

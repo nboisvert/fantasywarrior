@@ -13,6 +13,9 @@ using Google.Cloud.Firestore;
 //   salary-import --file <path.csv>   (columns: nhlId?,firstName,lastName,teamAbbrev,capHit)
 //   stats-sync [--date YYYY-MM-DD | --from A --to B]   (default: yesterday UTC)
 //   stats-check [--date YYYY-MM-DD]
+//   period-lock --season <s> --index <n> --utc <ISO8601>
+//     Moves one period's lineup lock. For a real schedule change, and for
+//     testing the lineup endpoints against a week that isn't locked yet.
 //   period-rollup [--league <id>] [--commit-score] [--dry-run]
 //     Scores the current week and rolls it up lineup -> roster spot -> team.
 //     Replaces score-calc's cost model: one date-range query serves every
@@ -554,6 +557,27 @@ switch (job)
             deletedLeagues++;
         }
         Console.WriteLine($"wipe-pools: deleted {deletedUsers} users, {deletedLeagues} leagues (with their teams/assignments/adjustments/trades). players/games/playerGameStats untouched.");
+        return 0;
+    }
+    case "period-lock":
+    {
+        var season = GetOption(args, "--season") ?? "20252026";
+        var utc = GetOption(args, "--utc");
+        if (!int.TryParse(GetOption(args, "--index"), out var idx) || utc is null)
+        {
+            Console.Error.WriteLine("Usage: period-lock --season <s> --index <n> --utc <ISO8601>");
+            return 1;
+        }
+        var pid = FantasyWarrior.Core.Periods.PeriodId.For(season, idx);
+        var pref = db.Collection("periods").Document(pid);
+        if (!(await pref.GetSnapshotAsync()).Exists)
+        {
+            Console.Error.WriteLine($"Period {pid} not found.");
+            return 1;
+        }
+        var lockAt = DateTime.Parse(utc, null, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal);
+        await pref.UpdateAsync("lockUtc", Timestamp.FromDateTime(lockAt));
+        Console.WriteLine($"{pid}: lockUtc set to {lockAt:yyyy-MM-dd HH:mm:ss}Z.");
         return 0;
     }
     case "period-rollup":
