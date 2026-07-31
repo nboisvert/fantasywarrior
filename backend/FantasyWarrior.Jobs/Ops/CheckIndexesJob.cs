@@ -1,5 +1,8 @@
 using Google.Cloud.Firestore;
+using Google.Cloud.Firestore.Admin.V1;
 using Grpc.Core;
+// System.Index (the ^1 indexer type) collides with the Firestore Admin one.
+using FsIndex = Google.Cloud.Firestore.Admin.V1.Index;
 
 namespace FantasyWarrior.Jobs.Ops;
 
@@ -56,7 +59,20 @@ public sealed class CheckIndexesJob(FirestoreDb db)
                 .WhereEqualTo("teamUsername", "probe").WhereEqualTo("to", null));
     }
 
-    public async Task<int> RunAsync(CancellationToken ct = default)
+    /// <summary>
+    /// The composite indexes this app needs, mirroring firestore.indexes.json.
+    /// Single-field and range-only queries are auto-indexed by Firestore and
+    /// are deliberately absent.
+    /// </summary>
+    private static readonly (string Collection, (string Field, bool Descending)[] Fields)[] Required =
+    [
+        ("rosterSpots", [("teamUsername", false), ("endDate", false)]),
+        ("rosterSpots", [("playerId", false), ("endDate", false)]),
+        ("periods", [("season", false), ("index", false)]),
+        ("assignments", [("teamUsername", false), ("to", false)]),
+    ];
+
+    public async Task<int> RunAsync(bool create, CancellationToken ct = default)
     {
         if (Environment.GetEnvironmentVariable("FIRESTORE_EMULATOR_HOST") is { } emulator)
         {
@@ -65,6 +81,8 @@ public sealed class CheckIndexesJob(FirestoreDb db)
                 "composite indexes, so every shape would pass and tell you nothing. Point this at real Firestore.");
             return 1;
         }
+
+        if (create) await CreateMissingAsync(ct);
 
         // Any league id works — the index check happens before data is read.
         var leagues = await db.Collection("leagues").Limit(1).GetSnapshotAsync(ct);
@@ -83,9 +101,69 @@ public sealed class CheckIndexesJob(FirestoreDb db)
         }
 
         Console.Error.WriteLine(
-            $"check-indexes: {missing} query shape(s) MISSING an index. Create them via the URLs above, " +
-            "then mirror them into firestore.indexes.json.");
+            $"check-indexes: {missing} query shape(s) MISSING an index. Re-run with --create, "
+            + "or use the URLs above. Mirror anything new into firestore.indexes.json.");
         return 1;
+    }
+
+    /// <summary>
+    /// Creates the required composite indexes through the Firestore Admin API,
+    /// using the same service-account credentials as every other job. This
+    /// exists because neither the Firebase nor the gcloud CLI is installed on
+    /// the dev box, and hand-creating indexes from console error links leaves
+    /// no record of what exists.
+    ///
+    /// Index builds are asynchronous — Firestore returns immediately and the
+    /// index becomes queryable minutes later, so the probe that follows may
+    /// still report it missing on the first run.
+    /// </summary>
+    private async Task CreateMissingAsync(CancellationToken ct)
+    {
+        var admin = await new FirestoreAdminClientBuilder().BuildAsync(ct);
+        Console.WriteLine("check-indexes --create: ensuring composite indexes exist\n");
+        var permissionDenied = false;
+
+        foreach (var (collection, fields) in Required)
+        {
+            var parent = CollectionGroupName.FromProjectDatabaseCollection(db.ProjectId, "(default)", collection);
+            var label = $"{collection}({string.Join(", ", fields.Select(f => f.Field))})";
+            var index = new FsIndex { QueryScope = FsIndex.Types.QueryScope.Collection };
+            foreach (var (field, descending) in fields)
+                index.Fields.Add(new FsIndex.Types.IndexField
+                {
+                    FieldPath = field,
+                    Order = descending
+                        ? FsIndex.Types.IndexField.Types.Order.Descending
+                        : FsIndex.Types.IndexField.Types.Order.Ascending,
+                });
+
+            try
+            {
+                await admin.CreateIndexAsync(parent, index, ct);
+                Console.WriteLine($"  CREATED  {label}  (building, usable in a few minutes)");
+            }
+            catch (RpcException ex) when (ex.StatusCode == StatusCode.AlreadyExists)
+            {
+                Console.WriteLine($"  exists   {label}");
+            }
+            catch (RpcException ex) when (ex.StatusCode == StatusCode.PermissionDenied)
+            {
+                Console.Error.WriteLine($"  DENIED   {label}");
+                permissionDenied = true;
+            }
+            catch (RpcException ex)
+            {
+                Console.Error.WriteLine($"  FAILED   {label}: {ex.Status.Detail}");
+            }
+        }
+
+        if (permissionDenied)
+            Console.Error.WriteLine(
+                "\n  The service account can read and write data but not create indexes.\n"
+                + "  Grant it \"Cloud Datastore Index Admin\" (roles/datastore.indexAdmin) in\n"
+                + "  IAM for the project, then re-run. Until then, create them from the\n"
+                + "  console links the probe below prints.");
+        Console.WriteLine();
     }
 
     private static async Task<int> ProbeAsync(string name, Query query, CancellationToken ct)

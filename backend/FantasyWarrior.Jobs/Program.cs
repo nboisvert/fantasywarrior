@@ -26,12 +26,16 @@ using Google.Cloud.Firestore;
 //     every player id against `players` before writing anything, and
 //     refuses to overwrite an existing league of that name. Does not
 //     create roster spots or lineups yet (those models land in C4/C5).
-//   check-indexes
+//   check-indexes [--create]
 //     Probes every composite-index-requiring query shape with Limit(1) and
 //     reports the missing ones (with Firestore's own console creation URL).
 //     MUST be run against real Firestore -- the emulator ignores composite
 //     indexes entirely, so it would report success for everything. Refuses
 //     to run when FIRESTORE_EMULATOR_HOST is set.
+//     --create first creates any missing index via the Firestore Admin API
+//     using the same service-account credentials (no firebase/gcloud CLI
+//     needed). Builds are async, so the probe right after may still show
+//     them missing for a few minutes.
 //   news-sync [--rotowire-url <url>] [--rotowire-injuries-url <url>] [--fantasysp-url <url>]
 //     Fetches NHL news into the global `news` collection (idempotent
 //     upserts, 30-day retention prune) from three sources: Rotowire's
@@ -546,7 +550,7 @@ switch (job)
         return 0;
     }
     case "check-indexes":
-        return await new FantasyWarrior.Jobs.Ops.CheckIndexesJob(db).RunAsync();
+        return await new FantasyWarrior.Jobs.Ops.CheckIndexesJob(db).RunAsync(create: args.Contains("--create"));
     case "stats-check":
     {
         var date = GetOption(args, "--date") ?? PoolClock.LastStatDateIso(DateTimeOffset.UtcNow);
