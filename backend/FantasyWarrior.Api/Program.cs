@@ -139,6 +139,8 @@ app.MapGet("/api/leagues/{leagueId}", async (string leagueId, string? username, 
     var teamsSnap = await leagueSnap.Reference.Collection("teams").GetSnapshotAsync();
     var teams = teamsSnap.Documents.Select(d => d.ConvertTo<Team>()).ToList();
 
+    var (currentPeriod, _) = await LineupEndpoints.ResolvePeriodAsync(db, league.Season, null);
+
     var normalized = username is null ? null : Normalize(username);
     var myTeam = normalized is null ? null : teams.FirstOrDefault(t => t.OwnerUsername == normalized);
     var myRosterIds = myTeam?.PlayerIds ?? [];
@@ -162,6 +164,19 @@ app.MapGet("/api/leagues/{leagueId}", async (string leagueId, string? username, 
         league.CommissionerUsername,
         league.RuleConfig,
         members = league.MemberUsernames,
+        // Additive for now: the old fields stay until the frontend has moved
+        // over, because Pages deploys on push while Cloud Run is manual --
+        // removing a field in the same commit the client stops reading it
+        // would break whichever ships first.
+        currentPeriod = currentPeriod is null ? null : new
+        {
+            index = currentPeriod.Index,
+            startDate = currentPeriod.StartDate,
+            endDate = currentPeriod.EndDate,
+            gameCount = currentPeriod.GameCount,
+            locked = currentPeriod.LockUtc.ToDateTime() <= DateTime.UtcNow,
+            finalized = currentPeriod.FinalizedUtc is not null,
+        },
         teams = teams
             .OrderByDescending(t => t.Score)
             .ThenBy(t => t.Name)
@@ -176,6 +191,11 @@ app.MapGet("/api/leagues/{leagueId}", async (string leagueId, string? username, 
                 capTotal = t.CapTotal,
                 playerCount = t.PlayerIds.Count,
                 playerNhlPoints = t.PlayerNhlPoints,
+                franchiseAbbrev = t.FranchiseAbbrev,
+                // weekly-lineup scoring
+                periodPoints = t.PeriodPoints,
+                benchScore = t.BenchScore,
+                finalizedScore = t.FinalizedScore,
             }),
         myRoster = myRosterIds
             .Select(id => myPlayersById.GetValueOrDefault(id))
@@ -687,6 +707,12 @@ app.MapGet("/api/leagues/{leagueId}/teams/{username}/season-stats", async (
         .Documents.Select(d => d.ConvertTo<Assignment>())
         .ToDictionary(a => a.PlayerId);
 
+    // The weekly-lineup equivalents, emitted alongside the assignment ones so
+    // the frontend can switch over in its own deploy.
+    var spotsByPlayer = (await RosterSpots.OpenForTeamAsync(leagueSnap.Reference, Normalize(username)))
+        .GroupBy(s => s.Spot.PlayerId)
+        .ToDictionary(g => g.Key, g => g.First().Spot);
+
     var rows = team.PlayerIds
         .Select(id => playersById.GetValueOrDefault(id))
         .Where(p => p is not null)
@@ -695,6 +721,7 @@ app.MapGet("/api/leagues/{leagueId}/teams/{username}/season-stats", async (
             var t = totalsById.GetValueOrDefault(p!.NhlId) ?? new PlayerRawTotals();
             var isGoalie = p.Position == "G";
             var assignment = openAssignmentsByPlayer.GetValueOrDefault(p.NhlId);
+            var spot = spotsByPlayer.GetValueOrDefault(p.NhlId);
             return new
             {
                 id = p.NhlId,
@@ -724,6 +751,13 @@ app.MapGet("/api/leagues/{leagueId}/teams/{username}/season-stats", async (
                 assignmentGoals = assignment?.Goals ?? 0,
                 assignmentAssists = assignment?.Assists ?? 0,
                 assignmentFantasyPoints = assignment?.FantasyPoints ?? 0,
+                // weekly-lineup equivalents
+                spotStartDate = spot?.StartDate,
+                spotActiveGamesPlayed = spot?.ActiveGamesPlayed ?? 0,
+                spotActiveGoals = spot?.Stats()[StatKeys.Goals] ?? 0,
+                spotActiveAssists = spot?.Stats()[StatKeys.Assists] ?? 0,
+                spotActivePoints = spot?.ActivePoints ?? 0,
+                spotBenchPoints = spot?.BenchPoints ?? 0,
             };
         })
         .ToList();

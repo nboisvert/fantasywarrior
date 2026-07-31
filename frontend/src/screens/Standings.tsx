@@ -30,14 +30,19 @@ export function Standings({
                 <small>
                   @{team.ownerUsername} · {team.playerCount} player
                   {team.playerCount === 1 ? "" : "s"}
-                  {team.adjustmentsTotal !== 0 && (
-                    <> · adj {team.adjustmentsTotal > 0 ? "+" : ""}{team.adjustmentsTotal}</>
-                  )}
                 </small>
               </div>
               <div className="standing-points">
                 <span className="pts">{team.score} pts</span>
-                <small>{team.ptsPerGame != null ? `${team.ptsPerGame} pts/gm` : "—"}</small>
+                {/* This week's take, which is what actually moves during a
+                    week — the season total barely budges day to day. */}
+                <small>
+                  {league.currentPeriod
+                    ? `+${team.periodPoints ?? 0} this week`
+                    : team.ptsPerGame != null
+                      ? `${team.ptsPerGame} pts/gm`
+                      : "—"}
+                </small>
               </div>
             </button>
           </li>

@@ -34,6 +34,7 @@ export interface RosterPlayer extends PlayerDto {
 export interface TeamDto {
   name: string;
   ownerUsername: string;
+  /** Season total. Under weekly scoring this is finalizedScore + periodPoints. */
   score: number;
   rawTopXScore: number;
   adjustmentsTotal: number;
@@ -41,6 +42,14 @@ export interface TeamDto {
   capTotal: number;
   playerCount: number;
   playerNhlPoints: Record<string, number>;
+  /** The NHL franchise this GM owns for life, when the league uses them. */
+  franchiseAbbrev: string | null;
+  /** Points from this week's active players. */
+  periodPoints: number;
+  /** What this week's benched players scored — "left on the bench". */
+  benchScore: number;
+  /** Banked from every finished week; never moves again. */
+  finalizedScore: number;
 }
 
 export interface RuleConfig {
@@ -62,6 +71,56 @@ export interface RuleConfig {
   };
 }
 
+/** One scoring week. Weeks run Monday-Sunday on the NHL's Eastern game date. */
+export interface PeriodDto {
+  index: number;
+  startDate: string;
+  endDate: string;
+  /** 0 means a break week (Olympics, All-Star) — say so rather than showing 0 pts. */
+  gameCount: number;
+  locked: boolean;
+  finalized: boolean;
+}
+
+/** One roster spot's row in the weekly lineup. */
+export interface LineupEntry {
+  spotId: string;
+  playerId: number;
+  name: string;
+  position: string;
+  positionGroup: 'F' | 'D' | 'G';
+  team: string | null;
+  headshotUrl: string | null;
+  capHit: number | null;
+  active: boolean;
+  points: number;
+  gamesPlayed: number;
+  /** The days of the week this spot owned — set when a player was acquired mid-week. */
+  fromDate: string | null;
+  toDate: string | null;
+  seasonPoints: number;
+}
+
+export interface LineupDto {
+  periodIndex: number;
+  startDate: string;
+  endDate: string;
+  gameCount: number;
+  locked: boolean;
+  finalized: boolean;
+  isOwner: boolean;
+  /** A rival's lineup stays hidden until the week locks. */
+  hidden: boolean;
+  setBy?: string;
+  submittedUtc?: string;
+  activePoints: number;
+  benchPoints: number;
+  slots: { forwards: number; defense: number; goalies: number };
+  used: Record<string, number>;
+  entries: LineupEntry[];
+  periods: PeriodDto[];
+}
+
 export interface LeagueDetail {
   id: string;
   name: string;
@@ -70,6 +129,8 @@ export interface LeagueDetail {
   commissionerUsername: string;
   ruleConfig: RuleConfig;
   members: string[];
+  /** Null before a season's period calendar has been generated. */
+  currentPeriod: PeriodDto | null;
   teams: TeamDto[];
   /** The requesting user's own roster (empty if they have no team here).
    * Other teams' rosters are fetched on demand. */
@@ -99,30 +160,19 @@ export interface PlayerSeasonStatsRow {
   goalsAgainst: number;
   saves: number;
   shotsAgainst: number;
-  assignmentFrom: string | null;
-  assignmentGamesPlayed: number;
-  assignmentGoals: number;
-  assignmentAssists: number;
-  assignmentFantasyPoints: number;
+  /** Weekly-lineup scoring: totals for this player's stint with this team,
+   * counting only the weeks he was in the active lineup. */
+  spotStartDate: string | null;
+  spotActiveGamesPlayed: number;
+  spotActiveGoals: number;
+  spotActiveAssists: number;
+  spotActivePoints: number;
+  spotBenchPoints: number;
 }
 
 export interface TeamSeasonStats {
   season: string;
   players: PlayerSeasonStatsRow[];
-}
-
-export interface ActivityEntry {
-  type: "add" | "drop";
-  dateUtc: string;
-  playerId: number;
-  playerName: string;
-  position: string;
-  teamUsername: string;
-  teamName: string;
-  /** Creation reason (add events) or close reason (drop events) — the same
-   * field serves both, since which one applies depends on `type`. */
-  source: "freeagent" | "trade" | "draft" | "release";
-  sourceRefId: string | null;
 }
 
 export interface NewsArticle {
@@ -205,10 +255,6 @@ export const api = {
     request<LeagueDetail>(
       `/api/leagues/${encodeURIComponent(leagueId)}?username=${encodeURIComponent(username)}`,
     ),
-  activity: (leagueId: string, limit = 15) =>
-    request<ActivityEntry[]>(
-      `/api/leagues/${encodeURIComponent(leagueId)}/activity?limit=${encodeURIComponent(String(limit))}`,
-    ),
   news: (limit = 30) =>
     request<NewsArticle[]>(`/api/news?limit=${encodeURIComponent(String(limit))}`),
   updateRules: (leagueId: string, username: string, ruleConfig: RuleConfig) =>
@@ -220,16 +266,19 @@ export const api = {
     request<TeamSeasonStats>(
       `/api/leagues/${encodeURIComponent(leagueId)}/teams/${encodeURIComponent(username)}/season-stats`,
     ),
-  searchPlayers: (q: string) => request<PlayerDto[]>(`/api/players?q=${encodeURIComponent(q)}`),
-  addPlayer: (leagueId: string, username: string, playerId: number) =>
-    request<PlayerDto>(`/api/leagues/${encodeURIComponent(leagueId)}/teams/${encodeURIComponent(username)}/roster`, {
-      method: "POST",
-      body: JSON.stringify({ playerId }),
-    }),
-  removePlayer: (leagueId: string, username: string, playerId: number) =>
-    request<void>(
-      `/api/leagues/${encodeURIComponent(leagueId)}/teams/${encodeURIComponent(username)}/roster/${playerId}`,
-      { method: "DELETE" },
+  /** A team's week: roster, slot usage and per-player results. Omit `period`
+   * for the current one. `viewer` gates a rival's lineup until it locks. */
+  lineup: (leagueId: string, username: string, viewer: string, period?: number) =>
+    request<LineupDto>(
+      `/api/leagues/${encodeURIComponent(leagueId)}/teams/${encodeURIComponent(username)}/lineup` +
+        `?viewer=${encodeURIComponent(viewer)}${period ? `&period=${period}` : ""}`,
+    ),
+  /** Replaces the whole active set — the write is atomic, so two tabs can't
+   * race into an illegal roster. */
+  setLineup: (leagueId: string, username: string, periodIndex: number, activeSpotIds: string[]) =>
+    request<{ ok: boolean; periodIndex: number; active: number }>(
+      `/api/leagues/${encodeURIComponent(leagueId)}/teams/${encodeURIComponent(username)}/lineup`,
+      { method: "PUT", body: JSON.stringify({ username, periodIndex, activeSpotIds }) },
     ),
   trades: (leagueId: string, username: string) =>
     request<Trade[]>(

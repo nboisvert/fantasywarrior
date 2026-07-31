@@ -19,10 +19,29 @@
 
 import { useEffect, useState } from "react";
 import { api, formatCap, posGroup, posGroupClass } from "../api";
-import type { LeagueDetail, PlayerSeasonStatsRow } from "../api";
+import type { LeagueDetail, LineupDto, LineupEntry, PlayerSeasonStatsRow } from "../api";
 import { LoadingLogo } from "../components/LoadingLogo";
 import { PlayerCard } from "../components/PlayerCard";
-import { ArrowLeftIcon, ChevronDownIcon, InfoIcon } from "../components/Icons";
+import {
+  ArrowLeftIcon, ChevronDownIcon, CircleCheckIcon, CircleIcon, InfoIcon, LockIcon,
+} from "../components/Icons";
+
+/** Slots used per position group, for the "9/9 F · 4/4 D · 1/1 G" counter. */
+function countUsed(entries: LineupEntry[], activeSpotIds: string[]): Record<string, number> {
+  const active = new Set(activeSpotIds);
+  const used: Record<string, number> = { F: 0, D: 0, G: 0 };
+  for (const e of entries) if (active.has(e.spotId)) used[e.positionGroup] = (used[e.positionGroup] ?? 0) + 1;
+  return used;
+}
+
+/** "Mon Oct 6 – Sun Oct 12" */
+function weekLabel(startDate: string, endDate: string): string {
+  const fmt = (iso: string) =>
+    new Date(`${iso}T12:00:00Z`).toLocaleDateString(undefined, {
+      month: "short", day: "numeric", timeZone: "UTC",
+    });
+  return `${fmt(startDate)} – ${fmt(endDate)}`;
+}
 
 const formatGaa = (goalsAgainst: number, gamesPlayed: number): number | null =>
   gamesPlayed > 0 ? goalsAgainst / gamesPlayed : null;
@@ -45,6 +64,36 @@ function formatMoneyCompact(amount: number): string {
   if (abs >= 1_000_000) return `$${(abs / 1_000_000).toFixed(1)}M`;
   if (abs >= 1_000) return `$${Math.round(abs / 1_000)}K`;
   return `$${abs}`;
+}
+
+/** Active/bench control on a player row. Read-only once the week locks, or
+ * when looking at someone else's team. */
+function LineupToggle({
+  entry, editable, busy, onToggle,
+}: {
+  entry: LineupEntry;
+  editable: boolean;
+  busy: boolean;
+  onToggle: (spotId: string) => void;
+}) {
+  const label = `${entry.name} — ${entry.active ? "active" : "benched"}${editable ? ", tap to change" : ""}`;
+  const className = `lineup-toggle${entry.active ? " on" : ""}${editable ? "" : " static"}`;
+  const icon = entry.active ? <CircleCheckIcon size={16} /> : <CircleIcon size={16} />;
+
+  if (!editable) return <span className={className} title={label} aria-label={label}>{icon}</span>;
+  return (
+    <button
+      type="button"
+      className={className}
+      onClick={() => onToggle(entry.spotId)}
+      disabled={busy}
+      aria-pressed={entry.active}
+      aria-label={label}
+      title={label}
+    >
+      {icon}
+    </button>
+  );
 }
 
 /* ---------- row shape: raw + every derived value the grid can show or sort by ---------- */
@@ -198,6 +247,9 @@ export function Stats({
   const [loading, setLoading] = useState(true);
   const [capExpanded, setCapExpanded] = useState(false);
   const [openPlayerId, setOpenPlayerId] = useState<number | null>(null);
+  const [lineup, setLineup] = useState<LineupDto | null>(null);
+  const [lineupError, setLineupError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let ignore = false;
@@ -219,6 +271,46 @@ export function Stats({
       ignore = true;
     };
   }, [league.id, targetUsername]);
+
+  useEffect(() => {
+    let ignore = false;
+    setLineup(null);
+    api
+      .lineup(league.id, targetUsername, username)
+      .then((res) => !ignore && setLineup(res))
+      // A league with no period calendar yet simply has no lineup to show;
+      // that must not take the stats grid down with it.
+      .catch(() => !ignore && setLineup(null));
+    return () => {
+      ignore = true;
+    };
+  }, [league.id, targetUsername, username]);
+
+  /** Optimistic toggle: flip locally, PUT the whole set, roll back on refusal. */
+  async function toggleActive(spotId: string) {
+    if (!lineup || lineup.locked || !lineup.isOwner || saving) return;
+    const wasActive = lineup.entries.find((e) => e.spotId === spotId)?.active ?? false;
+    const next = wasActive
+      ? lineup.entries.filter((e) => e.active && e.spotId !== spotId).map((e) => e.spotId)
+      : [...lineup.entries.filter((e) => e.active).map((e) => e.spotId), spotId];
+
+    const previous = lineup;
+    setLineup({
+      ...lineup,
+      entries: lineup.entries.map((e) => (e.spotId === spotId ? { ...e, active: !wasActive } : e)),
+      used: countUsed(lineup.entries, next),
+    });
+    setLineupError("");
+    setSaving(true);
+    try {
+      await api.setLineup(league.id, targetUsername, lineup.periodIndex, next);
+    } catch (e: unknown) {
+      setLineup(previous);
+      setLineupError(e instanceof Error ? e.message : "Could not save the lineup.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const viewedTeam = league.teams.find((t) => t.ownerUsername === targetUsername);
   const isOwnTeam = targetUsername === username;
@@ -250,11 +342,14 @@ export function Stats({
       name: p.name,
       position: p.position,
       isGoalie,
-      poolGamesPlayed: p.assignmentGamesPlayed,
-      poolGoals: p.assignmentGoals,
-      poolAssists: p.assignmentAssists,
-      poolPoints: p.assignmentFantasyPoints,
-      poolPtsPerGame: p.assignmentGamesPlayed > 0 ? p.assignmentFantasyPoints / p.assignmentGamesPlayed : null,
+      // `?? 0` guards the window where the deployed API predates these fields:
+      // Pages deploys on push, Cloud Run is manual, so the two are briefly out
+      // of step and undefined here would render NaN across the grid.
+      poolGamesPlayed: p.spotActiveGamesPlayed ?? 0,
+      poolGoals: p.spotActiveGoals ?? 0,
+      poolAssists: p.spotActiveAssists ?? 0,
+      poolPoints: p.spotActivePoints ?? 0,
+      poolPtsPerGame: p.spotActiveGamesPlayed > 0 ? p.spotActivePoints / p.spotActiveGamesPlayed : null,
       gamesPlayed: p.gamesPlayed,
       goals: p.goals,
       assists: p.assists,
@@ -272,11 +367,17 @@ export function Stats({
       gaa: isGoalie ? formatGaa(p.goalsAgainst, p.gamesPlayed) : null,
       svPct: isGoalie ? formatSvPct(p.saves, p.shotsAgainst) : null,
       capHit: p.capHit,
-      costPerPoint: p.capHit != null && p.assignmentFantasyPoints > 0 ? p.capHit / p.assignmentFantasyPoints : null,
+      costPerPoint: p.capHit != null && p.spotActivePoints > 0 ? p.capHit / p.spotActivePoints : null,
     };
   });
 
   const sort = useSort<PlayerRow>(rows, "poolPoints");
+
+  // The grid is keyed by playerId; the lineup by roster-spot id. One open spot
+  // per player per team, so this mapping is unambiguous.
+  const lineupBySpotPlayer = new Map<number, LineupEntry>(
+    (lineup?.hidden ? [] : (lineup?.entries ?? [])).map((e) => [e.playerId, e]),
+  );
 
   const sum = <T,>(list: T[], pick: (r: T) => number) => list.reduce((acc, r) => acc + pick(r), 0);
   const goalieRows = rows.filter((r) => r.isGoalie);
@@ -366,23 +467,55 @@ export function Stats({
             )}
           </>
         )}
-        {viewedTeam.adjustmentsTotal !== 0 && (
-          <div className="stats-adj-line">
-            <span
-              className={`stats-adj-pill ${
-                viewedTeam.adjustmentsTotal > 0 ? "stats-adj-pill-pos" : "stats-adj-pill-neg"
-              }`}
-            >
-              {viewedTeam.adjustmentsTotal > 0 ? "+" : ""}
-              {viewedTeam.adjustmentsTotal} pts
-            </span>
-            <small className="muted">
-              carried over from past trades/roster moves, so the total stayed fair at the time —
-              the current roster alone has scored {viewedTeam.rawTopXScore} pts
-            </small>
-          </div>
-        )}
       </div>
+
+      {lineup && !lineup.hidden && (
+        <div className="card lineup-bar">
+          <div className="lineup-bar-top">
+            <span className="lineup-week">
+              Week {lineup.periodIndex}
+              <span className="lineup-week-dates"> · {weekLabel(lineup.startDate, lineup.endDate)}</span>
+            </span>
+            {lineup.locked && (
+              <span className="lineup-lock" title="This week's lineup is frozen">
+                <LockIcon size={13} /> Locked
+              </span>
+            )}
+          </div>
+
+          {lineup.gameCount === 0 ? (
+            <small className="muted">No NHL games this week — league break.</small>
+          ) : (
+            <>
+              <div className="lineup-slots">
+                {(["F", "D", "G"] as const).map((g) => {
+                  const max = g === "F" ? lineup.slots.forwards : g === "D" ? lineup.slots.defense : lineup.slots.goalies;
+                  const used = lineup.used[g] ?? 0;
+                  return (
+                    <span key={g} className={`lineup-slot${used >= max ? " full" : ""}`}>
+                      <span className={`pos-compact-${g.toLowerCase()}`}>{g}</span> {used}/{max}
+                    </span>
+                  );
+                })}
+                <span className="lineup-pts">
+                  {lineup.activePoints} pts
+                  {lineup.benchPoints > 0 && (
+                    <small className="muted"> · {lineup.benchPoints} on the bench</small>
+                  )}
+                </span>
+              </div>
+              <small className="muted">
+                {lineup.locked
+                  ? "Only these players scored for you this week."
+                  : lineup.isOwner
+                    ? "Tap a player below to activate or bench them. Locks when the week starts."
+                    : "Set by " + (lineup.setBy ?? "auto") + "."}
+              </small>
+            </>
+          )}
+          {lineupError && <p className="error-banner">{lineupError}</p>}
+        </div>
+      )}
 
       {loading && <LoadingLogo label="Loading stats…" />}
       {!loading && error && <p className="error-banner">{error}</p>}
@@ -445,6 +578,14 @@ export function Stats({
                   {sort.sorted.map((r) => (
                     <tr key={r.id}>
                       <td className="stats-col-player">
+                        {lineupBySpotPlayer.get(r.id) && (
+                          <LineupToggle
+                            entry={lineupBySpotPlayer.get(r.id)!}
+                            editable={!!lineup && lineup.isOwner && !lineup.locked}
+                            busy={saving}
+                            onToggle={toggleActive}
+                          />
+                        )}
                         <button type="button" className="stats-player-btn" onClick={() => setOpenPlayerId(r.id)}>
                           <span className="stats-player-name">{r.name}</span>
                           <span className={`stats-player-pos pos-compact-${posGroupClass(r.position)}`}>

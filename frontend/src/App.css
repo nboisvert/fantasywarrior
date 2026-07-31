@@ -1673,3 +1673,113 @@
   padding-top: 0.4rem;
   border-top: 1px solid var(--border);
 }
+
+/* ---------- Weekly lineup (Team screen) ---------- */
+/* Reuses existing tokens only — no new colours. Active is the ice-cyan accent
+   used for anything "counting"; bench is plain muted text. */
+
+.lineup-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.lineup-bar-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.lineup-week {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+}
+
+.lineup-week-dates {
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.lineup-lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.lineup-slots {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.7rem;
+}
+
+.lineup-slot {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A filled position reads as done rather than as a warning. */
+.lineup-slot.full {
+  color: var(--text);
+}
+
+.lineup-pts {
+  margin-left: auto;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  color: var(--ice-bright);
+}
+
+/* Sits inside the sticky player column, before the name. 44px tap target via
+   padding rather than size, so it doesn't push the grid rows taller. */
+.lineup-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.55rem;
+  height: 1.55rem;
+  margin: -0.6rem 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  opacity: 0.5;
+  cursor: pointer;
+  transition: color 150ms, opacity 150ms;
+}
+
+.lineup-toggle.on {
+  color: var(--ice-bright);
+  opacity: 1;
+}
+
+.lineup-toggle:not(.static):hover,
+.lineup-toggle:not(.static):focus-visible {
+  opacity: 1;
+}
+
+.lineup-toggle.static {
+  cursor: default;
+}
+
+.lineup-toggle:disabled {
+  cursor: progress;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lineup-toggle { transition: none; }
+}

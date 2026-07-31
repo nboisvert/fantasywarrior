@@ -100,6 +100,16 @@ export function Dashboard({ league, username }: { league: LeagueDetail; username
         </div>
         <p className="dash-leader-note muted">
           {isLeading ? "Leading the pool" : `-${pointsBehind} vs leader`}
+          {league.currentPeriod && (
+            <>
+              {" · "}
+              {league.currentPeriod.gameCount === 0
+                ? `Week ${league.currentPeriod.index}: league break`
+                : `Week ${league.currentPeriod.index}: +${myTeam.periodPoints ?? 0} pts`}
+              {/* Bench regret is the point of a weekly lineup — surface it. */}
+              {(myTeam.benchScore ?? 0) > 0 && `, ${myTeam.benchScore} benched`}
+            </>
+          )}
         </p>
       </div>
 

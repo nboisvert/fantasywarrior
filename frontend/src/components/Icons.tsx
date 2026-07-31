@@ -197,3 +197,26 @@ export const CockcoinIcon = ({ size = 20, className }: IconProps) => (
     <circle cx="16.5" cy="16" r="0.9" fill="#ffffff" opacity="0.5" />
   </svg>
 );
+
+/** Lucide `circle-check` — a player in this week's active lineup. */
+export const CircleCheckIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <circle cx="12" cy="12" r="10" />
+    <path d="m9 12 2 2 4-4" />
+  </Icon>
+);
+
+/** Lucide `circle` — a player on the bench this week. */
+export const CircleIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <circle cx="12" cy="12" r="10" />
+  </Icon>
+);
+
+/** Lucide `lock` — the week's lineup is frozen. */
+export const LockIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+  </Icon>
+);
