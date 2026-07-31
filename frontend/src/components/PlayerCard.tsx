@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { JSX, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import { posGroup, posGroupClass } from "../api";
-import { XIcon } from "./Icons";
+import { ExternalLinkIcon, XIcon } from "./Icons";
 import "./PlayerCard.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5099";
@@ -134,6 +134,13 @@ function formatSeason(season: string): string {
   return `${season.slice(0, 4)}-${season.slice(6)}`;
 }
 
+/** No per-player Hockey-Reference ID mapping exists, so we route through
+ * their name search — Sports Reference's search redirects straight to the
+ * player page on a unique name match. */
+function hockeyReferenceUrl(playerName: string): string {
+  return `https://www.hockey-reference.com/search/search.fcgi?search=${encodeURIComponent(playerName)}`;
+}
+
 const formatGaa = (t: SeasonTotals) =>
   t.gamesPlayed > 0 ? (t.goalsAgainst / t.gamesPlayed).toFixed(2) : "—";
 
@@ -167,19 +174,74 @@ const goalieTiles = (t: SeasonTotals): Tile[] => [
   { label: "SV%", value: formatSvPct(t) },
 ];
 
-/* ---------- game line ---------- */
+/* ---------- game log table ---------- */
 
-function gameLine(g: RecentGame, isGoalie: boolean): { text: string; hot: boolean } {
-  if (isGoalie) {
-    const parts: string[] = [];
-    if (g.decision) parts.push(g.decision);
-    parts.push(`${g.saves ?? 0}SV/${g.shotsAgainst ?? 0}SA`);
-    parts.push(`GA ${g.goalsAgainst ?? 0}`);
-    if (g.shutout) parts.push("SO");
-    return { text: parts.join(" · "), hot: g.decision === "W" };
-  }
-  const line = `${g.goals ?? 0}G ${g.assists ?? 0}A · ${signed(g.plusMinus ?? 0)} · ${g.toi ?? "--:--"}`;
-  return { text: line, hot: (g.goals ?? 0) > 0 };
+const isHotGame = (g: RecentGame, isGoalie: boolean): boolean =>
+  isGoalie ? g.decision === "W" : (g.goals ?? 0) > 0;
+
+/** Aligned columns instead of a single concatenated stat string, so the 10
+ * rows read as a scannable grid (2026-07-31, per Nick). */
+function GamesTable({ games, isGoalie }: { games: RecentGame[]; isGoalie: boolean }) {
+  return (
+    <table className="pc-games-table">
+      <colgroup>
+        <col style={{ width: "3rem" }} />
+        <col style={{ width: "3.4rem" }} />
+        <col />
+        <col />
+        <col />
+        <col />
+      </colgroup>
+      <thead>
+        <tr>
+          <th scope="col">Date</th>
+          <th scope="col">Opp</th>
+          {isGoalie ? (
+            <>
+              <th scope="col">Dec</th>
+              <th scope="col">SV</th>
+              <th scope="col">GA</th>
+              <th scope="col">SO</th>
+            </>
+          ) : (
+            <>
+              <th scope="col">G</th>
+              <th scope="col">A</th>
+              <th scope="col">+/-</th>
+              <th scope="col">TOI</th>
+            </>
+          )}
+        </tr>
+      </thead>
+      <tbody>
+        {games.map((g) => (
+          <tr key={g.gameId} className={isHotGame(g, isGoalie) ? "hot" : undefined}>
+            <td>{formatGameDate(g.date)}</td>
+            <td>
+              {g.isHome ? "vs" : "@"} {g.opponent}
+            </td>
+            {isGoalie ? (
+              <>
+                <td>{g.decision ?? "—"}</td>
+                <td>
+                  {g.saves ?? 0}/{g.shotsAgainst ?? 0}
+                </td>
+                <td>{g.goalsAgainst ?? 0}</td>
+                <td>{g.shutout ? "SO" : "—"}</td>
+              </>
+            ) : (
+              <>
+                <td>{g.goals ?? 0}</td>
+                <td>{g.assists ?? 0}</td>
+                <td>{signed(g.plusMinus ?? 0)}</td>
+                <td>{g.toi ?? "--:--"}</td>
+              </>
+            )}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
 }
 
 /* ---------- skeleton (loading state, no spinner) ---------- */
@@ -219,6 +281,8 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
   const [player, setPlayer] = useState<PlayerDetail | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [gameLogTab, setGameLogTab] = useState<"last10" | "career">("last10");
+  const [careerVisited, setCareerVisited] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
 
@@ -228,6 +292,8 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
     setLoading(true);
     setError("");
     setPlayer(null);
+    setGameLogTab("last10");
+    setCareerVisited(false);
     fetch(`${API_BASE}/api/players/${playerId}`, { signal: ctrl.signal })
       .then(async (res) => {
         const body: unknown = await res.json().catch(() => ({}));
@@ -354,9 +420,11 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
                 <div className="pc-bio-item">
                   <span className="pc-bio-label">Age</span>
                   <span className="pc-bio-value">
-                    {age != null ? `${age}y` : "—"}
+                    {age != null ? String(age) : "—"}
                     {player.birthDate != null && (
-                      <span className="pc-bio-inline-sub"> {formatBirthDayMonth(player.birthDate)}</span>
+                      <span className="pc-bio-inline-sub pc-bio-inline-sub-birthday">
+                        {formatBirthDayMonth(player.birthDate)}
+                      </span>
                     )}
                   </span>
                 </div>
@@ -364,7 +432,7 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
                   <span className="pc-bio-label">Draft</span>
                   <span className="pc-bio-value">
                     {draft.main}
-                    {draft.team != null && <span className="pc-bio-inline-sub"> {draft.team}</span>}
+                    {draft.team != null && <span className="pc-bio-inline-sub">{draft.team}</span>}
                   </span>
                 </div>
                 <div className="pc-bio-item">
@@ -391,26 +459,82 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
                 <p className="pc-empty muted">No stats this season.</p>
               )}
 
-              {/* recent games */}
-              <span className="section-title">Last 10 games</span>
-              {games.length === 0 ? (
-                <p className="pc-empty muted">No games played yet.</p>
-              ) : (
-                <ul className="pc-games">
-                  {games.map((g) => {
-                    const line = gameLine(g, player.isGoalie);
-                    return (
-                      <li key={g.gameId} className="pc-game-row">
-                        <span className="pc-game-date">{formatGameDate(g.date)}</span>
-                        <span className="pc-game-opp">
-                          {g.isHome ? "vs" : "@"} {g.opponent}
-                        </span>
-                        <span className={`pc-game-line${line.hot ? " hot" : ""}`}>{line.text}</span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
+              {/* game log: Last 10 games / Career (embedded Hockey-Reference) */}
+              <div className="pc-tabs" role="tablist" aria-label="Game log">
+                <button
+                  id="pc-tab-last10"
+                  role="tab"
+                  type="button"
+                  aria-selected={gameLogTab === "last10"}
+                  aria-controls="pc-panel-last10"
+                  className={`pc-tab${gameLogTab === "last10" ? " active" : ""}`}
+                  onClick={() => setGameLogTab("last10")}
+                >
+                  Last 10
+                </button>
+                <button
+                  id="pc-tab-career"
+                  role="tab"
+                  type="button"
+                  aria-selected={gameLogTab === "career"}
+                  aria-controls="pc-panel-career"
+                  className={`pc-tab${gameLogTab === "career" ? " active" : ""}`}
+                  onClick={() => {
+                    setGameLogTab("career");
+                    setCareerVisited(true);
+                  }}
+                >
+                  Career
+                </button>
+              </div>
+
+              <div
+                id="pc-panel-last10"
+                role="tabpanel"
+                aria-labelledby="pc-tab-last10"
+                hidden={gameLogTab !== "last10"}
+              >
+                {games.length === 0 ? (
+                  <p className="pc-empty muted">No games played yet.</p>
+                ) : (
+                  <div className="pc-games">
+                    <GamesTable games={games} isGoalie={player.isGoalie} />
+                  </div>
+                )}
+              </div>
+
+              <div
+                id="pc-panel-career"
+                role="tabpanel"
+                aria-labelledby="pc-tab-career"
+                hidden={gameLogTab !== "career"}
+              >
+                <div className="pc-career">
+                  <div className="pc-career-header">
+                    <span className="pc-career-source">Hockey-Reference</span>
+                    <a
+                      className="pc-career-link"
+                      href={hockeyReferenceUrl(player.name)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Open <ExternalLinkIcon size={14} />
+                    </a>
+                  </div>
+                  {careerVisited && (
+                    <iframe
+                      className="pc-career-frame"
+                      src={hockeyReferenceUrl(player.name)}
+                      title={`${player.name} — career stats on Hockey-Reference`}
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                    />
+                  )}
+                  <p className="pc-career-note muted">
+                    External data from Hockey-Reference.com — if it doesn't load below, use "Open" above.
+                  </p>
+                </div>
+              </div>
             </>
           )}
         </div>

@@ -1,9 +1,18 @@
 # Fantasy Warrior — Project Status
 
 > **MUST be read at the start of every session and kept updated along the way.**
-> Last updated: 2026-07-29 (by Macklin Softwarini) — added Rotowire's HTML-scraped injuries page as a third news source
+> Last updated: 2026-07-31 (by Macklin Softwarini) — PlayerCard polish pass (top bar, age/birthday, Last 10/Career tabs)
 
 ## Current state
+
+**PlayerCard polish: top bar frame, age without "y", Last 10 / Career tabs, embedded Hockey-Reference (2026-07-31)**
+
+Nick asked for a PlayerCard polish pass, four pieces:
+- **Top bar**: `.pc-top` (drag handle + close button) previously floated transparent over the sheet; now has a subtle background + `border-bottom` so it reads as a distinct framed header. Added `overflow: hidden` on `.pc-sheet` so that background respects the sheet's rounded corners.
+- **Age/birthday**: Age value dropped the trailing "y" (just `38`, not `38y`). The birthday sub-value (`Aug 7th`) gets its own wider `margin-left` (`.pc-bio-inline-sub-birthday`, 0.6rem vs. the base 0.35rem used by the draft-team sub-value) so the ordinal "th" doesn't read as glued to the age digit.
+- **Last 10 games is now a real `<table>`** (`GamesTable` component, `.pc-games-table`) instead of one concatenated stat string per row — aligned columns (Date/Opp + G/A/+/-/TOI for skaters, Date/Opp + Dec/SV/GA/SO for goalies), sticky header, tabular-nums, hot-game row highlight preserved.
+- **New tabs**: "Last 10" / "Career" (`.pc-tabs`, `role="tablist"`, segmented-control style matching the ice-cyan active-state convention) replace the old standalone "Last 10 games" section heading. **Career tab embeds Hockey-Reference** via an `<iframe>` — there's no per-player Hockey-Reference ID mapping in our data model, so it routes through HR's own name search (`hockey-reference.com/search/search.fcgi?search=<name>`, which redirects straight to the player page on a unique match) rather than a maintained ID lookup. Always paired with a visible "Open ↗" link (`ExternalLinkIcon`, new in `Icons.tsx`) since cross-origin iframes give no reliable signal if the embed gets blocked (e.g. `X-Frame-Options`) — this sandbox can't reach hockey-reference.com to confirm live framing behavior either way, so the fallback link is the safety net, not an edge case. The iframe is lazy-mounted (`careerVisited` state) so opening a player card never fires an external request unless the Career tab is actually opened.
+- **Visually verified in a real browser this round** (Playwright against a temporary standalone preview harness with a mocked `/api/players/{id}` fetch, both skater and goalie fixtures, mobile + desktop widths — harness files deleted after screenshotting, same pattern as the Cockman chat verification). Frontend build clean (`tsc -b && vite build`). Frontend-only change, no backend/API involved, nothing to redeploy.
 
 **News service: Rotowire injuries page added as a third source (2026-07-29)**
 

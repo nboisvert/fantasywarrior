@@ -28,6 +28,9 @@
   border-radius: 16px 16px 0 0;
   box-shadow: 0 -16px 48px rgba(0, 0, 0, 0.55);
   animation: pc-sheet-up 0.25s ease;
+  /* Keeps .pc-top's own background from squaring off the sheet's rounded
+     corners (2026-07-31, per Nick — "polish encadrer du haut"). */
+  overflow: hidden;
 }
 
 /* ---------- top bar: drag handle + close ---------- */
@@ -40,6 +43,8 @@
   align-items: flex-start;
   justify-content: center;
   padding-top: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--border);
 }
 
 .pc-handle {
@@ -197,6 +202,14 @@
   font-size: 0.78rem;
   font-weight: 400;
   color: var(--text-muted);
+  margin-left: 0.35rem;
+}
+
+/* Age's birthday sub-value needs more breathing room than the draft-team one
+   above it, so the "th" doesn't read as glued to the age digits (2026-07-31,
+   per Nick). */
+.pc-bio-inline-sub-birthday {
+  margin-left: 0.6rem;
 }
 
 /* ---------- season stat tiles ---------- */
@@ -247,12 +260,48 @@
   text-shadow: 0 0 14px var(--ice-glow);
 }
 
-/* ---------- recent games ---------- */
+/* ---------- game log tabs (Last 10 / Career) ---------- */
+
+.pc-tabs {
+  display: flex;
+  gap: 0.3rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.3rem;
+}
+
+.pc-tab {
+  flex: 1;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: none;
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 0.2s, background-color 0.2s, border-color 0.2s;
+}
+
+.pc-tab:hover {
+  color: var(--text);
+}
+
+.pc-tab.active {
+  background: rgba(56, 189, 248, 0.14);
+  border-color: rgba(56, 189, 248, 0.45);
+  color: var(--ice-bright);
+}
+
+/* ---------- Last 10 games table ---------- */
 
 .pc-games {
-  list-style: none;
-  margin: 0;
-  padding: 0;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--surface);
@@ -263,44 +312,107 @@
   overscroll-behavior: contain;
 }
 
-.pc-game-row {
-  display: flex;
-  align-items: baseline;
-  gap: 0.6rem;
-  padding: 0.55rem 0.9rem;
-  font-size: 0.85rem;
+.pc-games-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
 }
 
-.pc-game-row + .pc-game-row {
+.pc-games-table th,
+.pc-games-table td {
+  padding: 0.5rem 0.7rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pc-games-table th:first-child,
+.pc-games-table td:first-child,
+.pc-games-table th:nth-child(2),
+.pc-games-table td:nth-child(2) {
+  text-align: left;
+}
+
+.pc-games-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  border-bottom: 1px solid var(--border);
+}
+
+.pc-games-table tbody td:first-child {
+  color: var(--text-muted);
+}
+
+.pc-games-table tbody tr + tr td {
   border-top: 1px solid var(--border);
 }
 
-.pc-game-date {
-  flex: 0 0 3.4rem;
-  color: var(--text-muted);
-  font-size: 0.78rem;
-  white-space: nowrap;
-}
-
-.pc-game-opp {
-  flex: 0 0 4rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.pc-game-line {
-  flex: 1;
-  text-align: right;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.pc-game-line.hot {
+.pc-games-table tbody tr.hot td {
   color: var(--ice-bright);
   font-weight: 700;
+}
+
+.pc-games-table tbody tr.hot td:first-child,
+.pc-games-table tbody tr.hot td:nth-child(2) {
+  color: var(--ice-bright);
+}
+
+/* ---------- Career tab: embedded Hockey-Reference ---------- */
+
+.pc-career {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.pc-career-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pc-career-source {
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.pc-career-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 44px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ice-bright);
+  text-decoration: none;
+}
+
+.pc-career-link:hover {
+  text-decoration: underline;
+}
+
+.pc-career-frame {
+  width: 100%;
+  height: 420px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  /* Hockey-Reference itself is light-themed — a white backing avoids a dark
+     flash while the iframe's own page loads. */
+  background: #fff;
+}
+
+.pc-career-note {
+  margin: 0;
+  font-size: 0.72rem;
 }
 
 .pc-empty {
