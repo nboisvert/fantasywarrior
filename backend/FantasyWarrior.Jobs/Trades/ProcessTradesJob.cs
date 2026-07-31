@@ -1,5 +1,6 @@
 using FantasyWarrior.Core.Leagues;
 using FantasyWarrior.Core.Players;
+using FantasyWarrior.Core.Time;
 using Google.Cloud.Firestore;
 
 namespace FantasyWarrior.Jobs.Trades;
@@ -93,11 +94,5 @@ public sealed class ProcessTradesJob(FirestoreDb db)
             .ToDictionary(s => long.Parse(s.Id), s => s.ConvertTo<Player>().Position);
     }
 
-    private static string EtToday()
-    {
-        TimeZoneInfo tz;
-        try { tz = TimeZoneInfo.FindSystemTimeZoneById("America/New_York"); }
-        catch (TimeZoneNotFoundException) { tz = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time"); }
-        return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz).ToString("yyyy-MM-dd");
-    }
+    private static string EtToday() => PoolClock.TodayEtIso(DateTimeOffset.UtcNow);
 }

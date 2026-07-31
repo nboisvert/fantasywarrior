@@ -1,0 +1,42 @@
+{
+  "//": "Composite index manifest. Before this file existed every prod index was created by hand from a console error link, and there was no record of which ones existed. The Firestore EMULATOR DOES NOT ENFORCE composite indexes, so a query that runs fine locally can fail with FAILED_PRECONDITION in production -- run `dotnet run --project backend/FantasyWarrior.Jobs -- check-indexes` against real Firestore to verify, not the emulator. Deploy with: firebase deploy --only firestore:indexes",
+  "indexes": [
+    {
+      "//": "Open roster spots for one team, and the two-query union that also catches spots closed during the current period.",
+      "collectionGroup": "rosterSpots",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "teamUsername", "order": "ASCENDING" },
+        { "fieldPath": "endDate", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "//": "Finding a player's open spot when a roster move closes it.",
+      "collectionGroup": "rosterSpots",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "playerId", "order": "ASCENDING" },
+        { "fieldPath": "endDate", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "//": "Season calendar load, ordered.",
+      "collectionGroup": "periods",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "season", "order": "ASCENDING" },
+        { "fieldPath": "index", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "//": "Legacy: open assignments per team. Delete once the RosterSpot cutover is done (commit C8).",
+      "collectionGroup": "assignments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "teamUsername", "order": "ASCENDING" },
+        { "fieldPath": "to", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

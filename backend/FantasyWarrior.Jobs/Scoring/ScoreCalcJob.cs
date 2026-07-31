@@ -1,6 +1,7 @@
 using FantasyWarrior.Core.Leagues;
 using FantasyWarrior.Core.Players;
 using FantasyWarrior.Core.Scoring;
+using FantasyWarrior.Core.Time;
 using Google.Cloud.Firestore;
 
 namespace FantasyWarrior.Jobs.Scoring;
@@ -26,9 +27,8 @@ public sealed class ScoreCalcJob(FirestoreDb db)
             ? (await db.Collection("leagues").GetSnapshotAsync(ct)).Documents.ToList()
             : [await db.Collection("leagues").Document(onlyLeagueId).GetSnapshotAsync(ct)];
 
-        // Matches the convention used by stats-sync/daily-jobs.yml: the cron
-        // runs after 9:30 UTC, once all of "yesterday UTC"'s games are final.
-        var today = DateOnly.FromDateTime(DateTime.UtcNow.Date).AddDays(-1).ToString("yyyy-MM-dd");
+        // The last game day whose boxscores stats-sync has fully written.
+        var today = PoolClock.LastStatDateIso(DateTimeOffset.UtcNow);
 
         foreach (var leagueSnap in leagues.Where(l => l.Exists))
         {

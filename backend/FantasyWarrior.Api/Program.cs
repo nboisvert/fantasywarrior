@@ -3,6 +3,7 @@ using FantasyWarrior.Core.Leagues;
 using FantasyWarrior.Core.News;
 using FantasyWarrior.Core.Players;
 using FantasyWarrior.Core.Scoring;
+using FantasyWarrior.Core.Time;
 using FantasyWarrior.Core.Users;
 using Google.Cloud.Firestore;
 
@@ -24,14 +25,8 @@ app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
 
 static string Normalize(string username) => username.Trim().ToLowerInvariant();
 
-// NHL "game day" runs on Eastern Time.
-static string EtToday()
-{
-    TimeZoneInfo tz;
-    try { tz = TimeZoneInfo.FindSystemTimeZoneById("America/New_York"); }
-    catch (TimeZoneNotFoundException) { tz = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time"); }
-    return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz).ToString("yyyy-MM-dd");
-}
+// NHL "game day" runs on Eastern Time — see PoolClock for why.
+static string EtToday() => PoolClock.TodayEtIso(DateTimeOffset.UtcNow);
 
 app.MapPost("/api/login", async (LoginRequest req, FirestoreDb db) =>
 {

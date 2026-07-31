@@ -1,3 +1,4 @@
+using FantasyWarrior.Core.Time;
 using FantasyWarrior.Jobs.News;
 using FantasyWarrior.Jobs.Nhl;
 using Google.Cloud.Firestore;
@@ -12,6 +13,12 @@ using Google.Cloud.Firestore;
 //   salary-import --file <path.csv>   (columns: nhlId?,firstName,lastName,teamAbbrev,capHit)
 //   stats-sync [--date YYYY-MM-DD | --from A --to B]   (default: yesterday UTC)
 //   stats-check [--date YYYY-MM-DD]
+//   check-indexes
+//     Probes every composite-index-requiring query shape with Limit(1) and
+//     reports the missing ones (with Firestore's own console creation URL).
+//     MUST be run against real Firestore -- the emulator ignores composite
+//     indexes entirely, so it would report success for everything. Refuses
+//     to run when FIRESTORE_EMULATOR_HOST is set.
 //   news-sync [--rotowire-url <url>] [--rotowire-injuries-url <url>] [--fantasysp-url <url>]
 //     Fetches NHL news into the global `news` collection (idempotent
 //     upserts, 30-day retention prune) from three sources: Rotowire's
@@ -101,7 +108,10 @@ switch (job)
         var single = GetOption(args, "--date");
         var from = GetOption(args, "--from") ?? single;
         var to = GetOption(args, "--to") ?? single;
-        var yesterday = DateOnly.FromDateTime(DateTime.UtcNow.Date.AddDays(-1));
+        // ET yesterday, not UTC yesterday: at the scheduled 09:30 UTC the two
+        // coincide, but a manual/retry run before 05:00 UTC would sync the
+        // wrong day entirely.
+        var yesterday = PoolClock.LastStatDate(DateTimeOffset.UtcNow);
         var fromDate = from is null ? yesterday : DateOnly.Parse(from);
         var toDate = to is null ? yesterday : DateOnly.Parse(to);
         if (toDate < fromDate)
@@ -459,9 +469,11 @@ switch (job)
         Console.WriteLine($"wipe-pools: deleted {deletedUsers} users, {deletedLeagues} leagues (with their teams/assignments/adjustments/trades). players/games/playerGameStats untouched.");
         return 0;
     }
+    case "check-indexes":
+        return await new FantasyWarrior.Jobs.Ops.CheckIndexesJob(db).RunAsync();
     case "stats-check":
     {
-        var date = GetOption(args, "--date") ?? DateOnly.FromDateTime(DateTime.UtcNow.Date.AddDays(-1)).ToString("yyyy-MM-dd");
+        var date = GetOption(args, "--date") ?? PoolClock.LastStatDateIso(DateTimeOffset.UtcNow);
         var games = await db.Collection("games").WhereEqualTo("date", date).GetSnapshotAsync();
         var lines = await db.Collection("playerGameStats").WhereEqualTo("date", date).GetSnapshotAsync();
         Console.WriteLine($"{date}: {games.Count} games, {lines.Count} player lines");
