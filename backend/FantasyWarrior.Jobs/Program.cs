@@ -504,6 +504,29 @@ switch (job)
         await new FantasyWarrior.Jobs.Salaries.SalaryImportJob(db).RunAsync(file);
         return 0;
     }
+    case "player-dump":
+    {
+        // Dumps the players collection to JSON for offline work (name matching,
+        // roster imports). Read-only; the file is a snapshot, never a source of truth.
+        var outPath = GetOption(args, "--out") ?? "players.json";
+        var snap = await db.Collection("players").GetSnapshotAsync();
+        var rows = snap.Documents
+            .Select(d => d.ConvertTo<FantasyWarrior.Core.Players.Player>())
+            .OrderBy(p => p.LastName).ThenBy(p => p.FirstName)
+            .Select(p => new
+            {
+                id = p.NhlId,
+                name = $"{p.FirstName} {p.LastName}",
+                pos = p.Position,
+                team = p.TeamAbbrev,
+                status = p.Status,
+                capHit = p.CapHit,
+            });
+        await File.WriteAllTextAsync(outPath,
+            System.Text.Json.JsonSerializer.Serialize(rows, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+        Console.WriteLine($"player-dump: wrote {snap.Count} players to {outPath}");
+        return 0;
+    }
     case "player-check":
     {
         var players = db.Collection("players");
