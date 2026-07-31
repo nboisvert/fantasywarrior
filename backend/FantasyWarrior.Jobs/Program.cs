@@ -13,6 +13,12 @@ using Google.Cloud.Firestore;
 //   salary-import --file <path.csv>   (columns: nhlId?,firstName,lastName,teamAbbrev,capHit)
 //   stats-sync [--date YYYY-MM-DD | --from A --to B]   (default: yesterday UTC)
 //   stats-check [--date YYYY-MM-DD]
+//   period-init [--season 20252026] [--dry-run]
+//     Generates the season's weekly scoring calendar (Mon-Sun, ET) into the
+//     global `periods` collection. Season boundaries are derived from the
+//     `games` collection already in Firestore -- no NHL API call. Append-only:
+//     existing periods are never rewritten, since points are banked per period
+//     and moving a boundary would restate history.
 //   seed-mordus [--file data/mordus-rosters.json] [--season 20252026]
 //               [--commissioner nicolas] [--cap 100000000] [--dry-run]
 //     Creates the real "Les Mordus" league (14 GMs, rosters imported from
@@ -525,6 +531,10 @@ switch (job)
         Console.WriteLine($"wipe-pools: deleted {deletedUsers} users, {deletedLeagues} leagues (with their teams/assignments/adjustments/trades). players/games/playerGameStats untouched.");
         return 0;
     }
+    case "period-init":
+        return await new FantasyWarrior.Jobs.Periods.PeriodInitJob(db).RunAsync(
+            season: GetOption(args, "--season") ?? "20252026",
+            dryRun: args.Contains("--dry-run"));
     case "seed-mordus":
     {
         await new FantasyWarrior.Jobs.Demo.SeedMordusJob(db).RunAsync(
