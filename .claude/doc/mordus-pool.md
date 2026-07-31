@@ -7,7 +7,7 @@ Ce document sert deux fins : la **correspondance entre le vocabulaire du pool ac
 
 ## État
 
-**Ligue créée en prod le 2026-07-31 — id `haPRaAJ3Vo3nqPufYGOM`**, saison `20252026`, 14 équipes, 360 joueurs, plafond 100 M, commissaire `nick`. Créée par `seed-mordus`, qui vérifie chaque identifiant de joueur avant d'écrire quoi que ce soit et refuse d'écraser une ligue existante du même nom.
+**Ligue créée en prod le 2026-07-31 — id `haPRaAJ3Vo3nqPufYGOM`**, saison `20252026`, 14 équipes, 360 joueurs, commissaire `nick`. Créée par `seed-mordus`, qui vérifie chaque identifiant de joueur avant d'écrire quoi que ce soit et refuse d'écraser une ligue existante du même nom.
 
 Les usernames sont le prénom du GM, désambiguïsé par l'initiale du nom en cas de collision (`jonathan` / `jonathanr`). Nicolas Boisvert réutilise son compte existant `nick` plutôt qu'un nouveau `nicolas`, pour que ses deux ligues vivent sous un seul login.
 
@@ -28,11 +28,38 @@ Les usernames sont le prénom du GM, désambiguïsé par l'initiale du nom en ca
 | `PSal` | `Player.capHit` | Le PDF est en millions (`9.50`); `capHit` est en dollars (`9500000`). |
 | `PPts`, `PPP`, `PJ`, `B`, `P`, colonnes `1/7/30` | — | **Non importés.** Nick : « les pts ne te servent pas, ne les considère pas. » Les stats viennent de `playerGameStats`. |
 
+### Règles de la ligue (Nick, 2026-07-31)
+
+Appliquées en prod via `set-league-rules`.
+
+| Règle | Valeur |
+|---|---|
+| But | **1** |
+| Passe | **1** |
+| Victoire de gardien | **1** |
+| Défaite en prolongation (gardien) | **1** |
+| Blanchissage | **0** (non listé par Nick) |
+| Taille de roster | **23 min, 35 max** |
+| Masse salariale | **115 M** |
+
+Deux défauts de l'app diffèrent de cette ligue et ont été écrasés : la victoire de gardien valait 2, et le plafond initial était à 100 M.
+
+**Encore inconnu** : la règle de pointage du slot Équipe (§3).
+
+### Validation croisée par la taille de roster
+
+La règle 23-35 confirme indépendamment l'extraction. En ajoutant à chaque équipe ses joueurs non appariés (§2) :
+
+- **les 14 équipes atterrissent dans 23-35** ;
+- **Jonathan Rochette tombe exactement sur 35**, le maximum pile — un découpage qui sur- ou sous-compterait ne produirait pas ça ;
+- les **seules 2 équipes actuellement sous le minimum** (Akexandre Giguere Briere 21, Nicolas Boisvert 22) sont exactement expliquées par leur nombre de manquants.
+
+Le registre du §2 est donc vraisemblablement complet, et le découpage des noms juste.
+
 ### Règles de format confirmées
 
 - **Alignement actif : 9 F + 4 D + 1 G.** Déduit de l'extraction et vérifié indépendamment sur 11 des 14 équipes (les 3 autres n'ont que des joueurs non appariés en écart — voir §2).
-- **Réserve : aucune taille fixe**, bornée uniquement par le plafond salarial (les réserves observées vont de 7 à 20 joueurs).
-- **Plafond salarial : ~100 M** — masses observées de 80,4 à 98,8 M.
+- **Réserve : aucune taille fixe**, bornée par le plafond salarial et la taille de roster 23-35 (les réserves observées vont de 7 à 20 joueurs).
 - **Échange actif ↔ réserve chaque semaine** (Nick, 2026-07-31).
 - **Pool keeper** : les rosters se reportent d'une saison à l'autre, **les points repartent à zéro** à chaque saison. Il n'y a donc *pas* de cumul à vie à modéliser, malgré le titre « pool à vie » du rapport.
 
@@ -115,6 +142,6 @@ Nick a confirmé que ce slot **rapporte des points** en plus de porter l'identit
 
 ## 4. Reste à obtenir de Nick
 
-1. **Le barème de points** de la ligue (but, passe, et les stats de gardien retenues). Le PDF ne contient pas les règles, et ses totaux sont explicitement à ignorer.
-2. **La règle de pointage du slot Équipe** (§3).
-3. **Le plafond salarial exact** (~100 M déduit des masses observées, à confirmer).
+1. **La règle de pointage du slot Équipe** (§3) — la seule règle encore manquante pour que le calcul soit complet.
+
+Les salaires actuels de `players` sont estimés (`capHitSource: "estimated"`), pas réels. Le PDF contient la vraie colonne `PSal` par joueur; l'importer donnerait des masses salariales exactes et rendrait le plafond de 115 M significatif. Non fait — les valeurs sont dans les colonnes numériques du PDF, que l'extraction n'apparie pas de façon fiable aux noms (c'est justement le problème d'entremêlement des colonnes qui a rendu nécessaire le découpage par dictionnaire). Faisable si Nick veut un export CSV de PoolExpert.

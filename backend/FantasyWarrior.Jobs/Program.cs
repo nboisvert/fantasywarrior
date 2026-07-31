@@ -52,6 +52,11 @@ using Google.Cloud.Firestore;
 //     top-N real scorers (goals+assists) between top-min/top-max, flat
 //     default for everyone else. Tags capHitSource="estimated".
 //   set-league-cap --league <leagueId> --amount <dollars>   (0 clears the cap)
+//   set-league-rules --league <leagueId> [--goal N] [--assist N] [--goalie-win N]
+//                    [--goalie-otl N] [--shutout N] [--roster-min N]
+//                    [--roster-max N] [--cap N]
+//     Commissioner config from the CLI. Only the options actually passed are
+//     changed; everything else keeps its current value.
 //   wipe-pools   (deletes all users/leagues/teams/assignments/adjustments; players/games/playerGameStats untouched)
 //   seed-allstars [--league-name "Shemalz Pool"] [--season 20252026]
 //                 [--forwards 4] [--defense 3] [--goalies 1]
@@ -452,6 +457,50 @@ switch (job)
         else
             await leagueDoc.UpdateAsync("capAmount", amount);
         Console.WriteLine($"League [{leagueId}]: capAmount set to {(amount == 0 ? "null (no cap)" : amount.ToString())}.");
+        return 0;
+    }
+    case "set-league-rules":
+    {
+        var leagueId = GetOption(args, "--league");
+        if (leagueId is null)
+        {
+            Console.Error.WriteLine("Usage: set-league-rules --league <leagueId> [--goal N] [--assist N] "
+                + "[--goalie-win N] [--goalie-otl N] [--shutout N] [--roster-min N] [--roster-max N] [--cap N]");
+            return 1;
+        }
+        var leagueDoc = db.Collection("leagues").Document(leagueId);
+        var leagueSnap = await leagueDoc.GetSnapshotAsync();
+        if (!leagueSnap.Exists)
+        {
+            Console.Error.WriteLine($"League {leagueId} not found.");
+            return 1;
+        }
+        var league = leagueSnap.ConvertTo<FantasyWarrior.Core.Leagues.League>();
+        var rules = league.RuleConfig;
+
+        // Only the options actually passed are changed -- everything else keeps
+        // its current value, so this is safe to run for a single tweak.
+        double? D(string o) => double.TryParse(GetOption(args, o), out var v) ? v : null;
+        int? I(string o) => int.TryParse(GetOption(args, o), out var v) ? v : null;
+        rules.PointValues.Goal = D("--goal") ?? rules.PointValues.Goal;
+        rules.PointValues.Assist = D("--assist") ?? rules.PointValues.Assist;
+        rules.PointValues.GoalieWin = D("--goalie-win") ?? rules.PointValues.GoalieWin;
+        rules.PointValues.GoalieOtLoss = D("--goalie-otl") ?? rules.PointValues.GoalieOtLoss;
+        rules.PointValues.Shutout = D("--shutout") ?? rules.PointValues.Shutout;
+        rules.RosterSize.Min = I("--roster-min") ?? rules.RosterSize.Min;
+        rules.RosterSize.Max = I("--roster-max") ?? rules.RosterSize.Max;
+
+        await leagueDoc.UpdateAsync("ruleConfig", rules);
+        if (I("--cap") is not null && long.TryParse(GetOption(args, "--cap"), out var newCap))
+            await leagueDoc.UpdateAsync("capAmount", newCap);
+
+        var updated = (await leagueDoc.GetSnapshotAsync()).ConvertTo<FantasyWarrior.Core.Leagues.League>();
+        var pv = updated.RuleConfig.PointValues;
+        Console.WriteLine($"League [{leagueId}] '{updated.Name}':");
+        Console.WriteLine($"  points   goal={pv.Goal} assist={pv.Assist} goalieWin={pv.GoalieWin} goalieOtLoss={pv.GoalieOtLoss} shutout={pv.Shutout}");
+        Console.WriteLine($"  roster   min={updated.RuleConfig.RosterSize.Min?.ToString() ?? "-"} max={updated.RuleConfig.RosterSize.Max?.ToString() ?? "-"}");
+        Console.WriteLine($"  cap      {updated.CapAmount?.ToString("N0") ?? "none"}");
+        Console.WriteLine("  Scores refresh at the next nightly calculation (or run score-calc).");
         return 0;
     }
     case "wipe-pools":
