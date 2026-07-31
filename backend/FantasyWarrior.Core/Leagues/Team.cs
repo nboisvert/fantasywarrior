@@ -74,4 +74,42 @@ public sealed class Team
 
     [FirestoreProperty("scoreUpdatedUtc")]
     public Timestamp? ScoreUpdatedUtc { get; set; }
+
+    // --- weekly-lineup scoring (written by PeriodRollupJob) ---
+    //
+    // Points are banked per period: once a week is finalized its contribution
+    // never moves again, which is what makes trades free of retroactive effects
+    // and removes the need for the adjustment ledger entirely.
+    //
+    // Invariant: score == FinalizedScore + PeriodPoints.
+
+    /// <summary>
+    /// Guards double-counting when a period is banked. Written in the same
+    /// document update as <see cref="FinalizedScore"/> so the two can never
+    /// disagree, which makes a re-run a no-op instead of a doubled total.
+    /// </summary>
+    [FirestoreProperty("finalizedThroughPeriodIndex")]
+    public int FinalizedThroughPeriodIndex { get; set; }
+
+    /// <summary>Points banked from every finalized period. Never recomputed from scratch.</summary>
+    [FirestoreProperty("finalizedScore")]
+    public double FinalizedScore { get; set; }
+
+    /// <summary>The current period's active points, recomputed from scratch nightly.</summary>
+    [FirestoreProperty("periodPoints")]
+    public double PeriodPoints { get; set; }
+
+    /// <summary>What the current period's benched players produced — "points left on the bench".</summary>
+    [FirestoreProperty("benchScore")]
+    public double BenchScore { get; set; }
+
+    [FirestoreProperty("currentPeriodIndex")]
+    public int CurrentPeriodIndex { get; set; }
+
+    /// <summary>
+    /// Active points per period index (~28 entries a season). Keeps a weekly
+    /// history chart free of extra reads.
+    /// </summary>
+    [FirestoreProperty("periodScores")]
+    public Dictionary<string, double> PeriodScores { get; set; } = [];
 }

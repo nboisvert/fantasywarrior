@@ -20,7 +20,8 @@ namespace FantasyWarrior.Jobs.Leagues;
 /// </summary>
 public sealed class BackfillRosterSpotsJob(FirestoreDb db)
 {
-    public async Task<int> RunAsync(string? onlyLeagueId, bool fromRosters, bool dryRun, CancellationToken ct = default)
+    public async Task<int> RunAsync(
+        string? onlyLeagueId, bool fromRosters, string? startDateOverride, bool dryRun, CancellationToken ct = default)
     {
         var leagues = onlyLeagueId is null
             ? (await db.Collection("leagues").GetSnapshotAsync(ct)).Documents.ToList()
@@ -33,7 +34,7 @@ public sealed class BackfillRosterSpotsJob(FirestoreDb db)
             Console.WriteLine($"\n=== {league.Name} [{leagueSnap.Id}] — {existing} existing spot(s) ===");
 
             var written = fromRosters
-                ? await FromRostersAsync(leagueSnap, league, dryRun, ct)
+                ? await FromRostersAsync(leagueSnap, league, startDateOverride, dryRun, ct)
                 : await FromAssignmentsAsync(leagueSnap, dryRun, ct);
 
             Console.WriteLine(dryRun ? $"  Dry run: {written} spot(s) would be written." : $"  Wrote {written} spot(s).");
@@ -81,12 +82,14 @@ public sealed class BackfillRosterSpotsJob(FirestoreDb db)
         return written;
     }
 
-    private async Task<int> FromRostersAsync(DocumentSnapshot leagueSnap, League league, bool dryRun, CancellationToken ct)
+    private async Task<int> FromRostersAsync(
+        DocumentSnapshot leagueSnap, League league, string? startDateOverride, bool dryRun, CancellationToken ct)
     {
         var teams = await leagueSnap.Reference.Collection("teams").GetSnapshotAsync(ct);
         var allIds = teams.Documents.SelectMany(d => d.ConvertTo<Team>().PlayerIds).Distinct().ToList();
         var positions = await PositionsAsync(allIds, ct);
-        var startDate = league.CreatedUtc.ToDateTime().ToString("yyyy-MM-dd");
+        var startDate = startDateOverride ?? await SeasonStartAsync(league.Season, ct);
+        Console.WriteLine($"  Spots start {startDate}.");
 
         var written = 0;
         foreach (var teamDoc in teams.Documents)
@@ -113,6 +116,23 @@ public sealed class BackfillRosterSpotsJob(FirestoreDb db)
             Console.WriteLine($"    {team.OwnerUsername,-12} {team.PlayerIds.Count} spot(s)");
         }
         return written;
+    }
+
+    /// <summary>
+    /// The season's first period start, so a league seeded from a past
+    /// season's rosters owns its players for that whole season.
+    ///
+    /// Dating spots from the league's creation instead would be silently wrong
+    /// for exactly this case: every scoring window would fall entirely before
+    /// the spots existed, and every team would score zero forever.
+    /// </summary>
+    private async Task<string> SeasonStartAsync(string season, CancellationToken ct)
+    {
+        var snap = await db.Collection("periods")
+            .WhereEqualTo("season", season).OrderBy("index").Limit(1).GetSnapshotAsync(ct);
+        return snap.Documents.FirstOrDefault()?.ConvertTo<FantasyWarrior.Core.Periods.Period>().StartDate
+            ?? throw new InvalidOperationException(
+                $"No period calendar for season {season} — run period-init first, or pass --start-date.");
     }
 
     private async Task<Dictionary<long, string>> PositionsAsync(List<long> ids, CancellationToken ct)

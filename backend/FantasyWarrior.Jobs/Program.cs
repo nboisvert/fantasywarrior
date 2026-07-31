@@ -13,11 +13,20 @@ using Google.Cloud.Firestore;
 //   salary-import --file <path.csv>   (columns: nhlId?,firstName,lastName,teamAbbrev,capHit)
 //   stats-sync [--date YYYY-MM-DD | --from A --to B]   (default: yesterday UTC)
 //   stats-check [--date YYYY-MM-DD]
-//   backfill-roster-spots [--league <id>] [--from-rosters] [--dry-run]
+//   period-rollup [--league <id>] [--commit-score] [--dry-run]
+//     Scores the current week and rolls it up lineup -> roster spot -> team.
+//     Replaces score-calc's cost model: one date-range query serves every
+//     league instead of a per-player career scan each. Runs in SHADOW MODE by
+//     default -- writes the new fields but leaves `score` alone, so the live
+//     app keeps showing the legacy number while this is watched. Pass
+//     --commit-score to make it authoritative. Safe to re-run.
+//   backfill-roster-spots [--league <id>] [--from-rosters] [--start-date YYYY-MM-DD] [--dry-run]
 //     Copies existing `assignments` into the new `rosterSpots` collection.
 //     Idempotent (deterministic doc ids). --from-rosters instead opens one
 //     spot per player in team.playerIds, for leagues seeded without any
-//     assignment history.
+//     assignment history; those spots start at the season's first period
+//     (not the league's creation date, which would put every scoring window
+//     before the spots existed) unless --start-date says otherwise.
 //   period-init [--season 20252026] [--dry-run]
 //     Generates the season's weekly scoring calendar (Mon-Sun, ET) into the
 //     global `periods` collection. Season boundaries are derived from the
@@ -68,8 +77,8 @@ using Google.Cloud.Firestore;
 //     default for everyone else. Tags capHitSource="estimated".
 //   set-league-cap --league <leagueId> --amount <dollars>   (0 clears the cap)
 //   set-league-rules --league <leagueId> [--goal N] [--assist N] [--goalie-win N]
-//                    [--goalie-otl N] [--shutout N] [--roster-min N]
-//                    [--roster-max N] [--cap N]
+//                    [--goalie-otl N] [--shutout N] [--forwards N] [--defense N]
+//                    [--goalies N] [--roster-min N] [--roster-max N] [--cap N]
 //     Commissioner config from the CLI. Only the options actually passed are
 //     changed; everything else keeps its current value.
 //   wipe-pools   (deletes all users/leagues/teams/assignments/adjustments; players/games/playerGameStats untouched)
@@ -504,6 +513,11 @@ switch (job)
         rules.PointValues.Shutout = D("--shutout") ?? rules.PointValues.Shutout;
         rules.RosterSize.Min = I("--roster-min") ?? rules.RosterSize.Min;
         rules.RosterSize.Max = I("--roster-max") ?? rules.RosterSize.Max;
+        // Active lineup slots per position. Still stored under `topCount` --
+        // the field is renamed to `activeSlots` when RuleConfig moves to a map.
+        rules.TopCount.Forwards = I("--forwards") ?? rules.TopCount.Forwards;
+        rules.TopCount.Defense = I("--defense") ?? rules.TopCount.Defense;
+        rules.TopCount.Goalies = I("--goalies") ?? rules.TopCount.Goalies;
 
         await leagueDoc.UpdateAsync("ruleConfig", rules);
         if (I("--cap") is not null && long.TryParse(GetOption(args, "--cap"), out var newCap))
@@ -513,6 +527,8 @@ switch (job)
         var pv = updated.RuleConfig.PointValues;
         Console.WriteLine($"League [{leagueId}] '{updated.Name}':");
         Console.WriteLine($"  points   goal={pv.Goal} assist={pv.Assist} goalieWin={pv.GoalieWin} goalieOtLoss={pv.GoalieOtLoss} shutout={pv.Shutout}");
+        var tc = updated.RuleConfig.TopCount;
+        Console.WriteLine($"  lineup   {tc.Forwards?.ToString() ?? "-"}F / {tc.Defense?.ToString() ?? "-"}D / {tc.Goalies?.ToString() ?? "-"}G active");
         Console.WriteLine($"  roster   min={updated.RuleConfig.RosterSize.Min?.ToString() ?? "-"} max={updated.RuleConfig.RosterSize.Max?.ToString() ?? "-"}");
         Console.WriteLine($"  cap      {updated.CapAmount?.ToString("N0") ?? "none"}");
         Console.WriteLine("  Scores refresh at the next nightly calculation (or run score-calc).");
@@ -540,10 +556,16 @@ switch (job)
         Console.WriteLine($"wipe-pools: deleted {deletedUsers} users, {deletedLeagues} leagues (with their teams/assignments/adjustments/trades). players/games/playerGameStats untouched.");
         return 0;
     }
+    case "period-rollup":
+        return await new FantasyWarrior.Jobs.Scoring.PeriodRollupJob(db).RunAsync(
+            onlyLeagueId: GetOption(args, "--league"),
+            commitScore: args.Contains("--commit-score"),
+            dryRun: args.Contains("--dry-run"));
     case "backfill-roster-spots":
         return await new FantasyWarrior.Jobs.Leagues.BackfillRosterSpotsJob(db).RunAsync(
             onlyLeagueId: GetOption(args, "--league"),
             fromRosters: args.Contains("--from-rosters"),
+            startDateOverride: GetOption(args, "--start-date"),
             dryRun: args.Contains("--dry-run"));
     case "period-init":
         return await new FantasyWarrior.Jobs.Periods.PeriodInitJob(db).RunAsync(

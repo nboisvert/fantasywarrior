@@ -91,7 +91,7 @@ public class RosterSpotsTests
         var fields = RosterSpots.BuildClosedFields("2026-01-07", Now, RosterSpotReason.Trade, null);
 
         Assert.Equal(3, fields.Count);
-        Assert.False(fields.Keys.Any(k => k.Contains("oints") || k.Contains("tats")));
+        Assert.DoesNotContain(fields.Keys, k => k.Contains("oints") || k.Contains("tats"));
     }
 
     [Fact]
