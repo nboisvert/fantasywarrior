@@ -94,6 +94,10 @@ using Google.Cloud.Firestore;
 //     (players/games/playerGameStats/playerSeasonStats/news) is untouched.
 //
 // --- diagnostics ---
+//   dump-golden [--out .claude/doc/golden-scores-preSql.json]
+//     Snapshots every number Firestore currently believes -- per-team weekly
+//     active points down to the per-player-week grain -- as the correctness
+//     oracle for the Azure SQL migration. Read-only; deleted at cutover.
 //   check-indexes [--create]
 //     Probes every composite-index-requiring query with Limit(1). MUST run
 //     against real Firestore -- the emulator ignores composite indexes and
@@ -459,6 +463,9 @@ switch (job)
     }
     case "check-indexes":
         return await new FantasyWarrior.Jobs.Ops.CheckIndexesJob(db).RunAsync(create: args.Contains("--create"));
+    case "dump-golden":
+        return await new FantasyWarrior.Jobs.Ops.DumpGoldenJob(db).RunAsync(
+            GetOption(args, "--out") ?? ".claude/doc/golden-scores-preSql.json");
     case "stats-check":
     {
         var date = GetOption(args, "--date") ?? PoolClock.LastStatDateIso(DateTimeOffset.UtcNow);
