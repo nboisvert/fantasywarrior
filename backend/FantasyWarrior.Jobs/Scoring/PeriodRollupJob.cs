@@ -40,7 +40,8 @@ public sealed class PeriodRollupJob(FirestoreDb db)
     private int _writes;
 
     public async Task<int> RunAsync(
-        string? onlyLeagueId, bool commitScore, bool dryRun, DateTimeOffset? nowOverride = null, CancellationToken ct = default)
+        string? onlyLeagueId, bool commitScore, bool dryRun, DateTimeOffset? nowOverride = null,
+        int? onlyPeriodIndex = null, CancellationToken ct = default)
     {
         var now = nowOverride ?? DateTimeOffset.UtcNow;
         var lastStatDate = PoolClock.LastStatDateIso(now);
@@ -76,13 +77,29 @@ public sealed class PeriodRollupJob(FirestoreDb db)
                 Console.WriteLine($"  Season hasn't started yet (first period {periods[0].StartDate}). Skipped.\n");
                 continue;
             }
-            Console.WriteLine($"  Current period: W{current.Index:00}  {current.StartDate} -> {current.EndDate}"
-                + (current.GameCount == 0 ? "  (break week, no games)" : $"  {current.GameCount} games"));
 
-            if (!linesBySeason.TryGetValue(league.Season, out var lines))
-                linesBySeason[league.Season] = lines = await LoadWeekLinesAsync(league.Season, current, lastStatDate, ct);
+            // Normally the live week. A caller replaying history names one week
+            // at a time on purpose: spot and team rollups only accumulate when a
+            // week is *finalized*, so a replay has to alternate score-then-
+            // finalize per week. Scoring several in a row here would just leave
+            // the last one standing. NightlyJob owns that loop.
+            var period = onlyPeriodIndex is null
+                ? current
+                : periods.FirstOrDefault(p => p.Index == onlyPeriodIndex);
+            if (period is null)
+            {
+                Console.WriteLine($"  Week {onlyPeriodIndex} not in this season. Skipped.\n");
+                continue;
+            }
 
-            await RollUpLeagueAsync(leagueSnap.Reference, league, current, lines, lastStatDate, commitScore, dryRun, ct);
+            Console.WriteLine($"  W{period.Index:00}  {period.StartDate} -> {period.EndDate}"
+                + (period.GameCount == 0 ? "  (break week, no games)" : $"  {period.GameCount} games"));
+
+            var key = $"{league.Season}#{period.Index}";
+            if (!linesBySeason.TryGetValue(key, out var lines))
+                linesBySeason[key] = lines = await LoadWeekLinesAsync(league.Season, period, lastStatDate, ct);
+
+            await RollUpLeagueAsync(leagueSnap.Reference, league, period, lines, lastStatDate, commitScore, dryRun, ct);
             Console.WriteLine();
         }
 

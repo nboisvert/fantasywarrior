@@ -13,6 +13,21 @@ using Google.Cloud.Firestore;
 //   salary-import --file <path.csv>   (columns: nhlId?,firstName,lastName,teamAbbrev,capHit)
 //   stats-sync [--date YYYY-MM-DD | --from A --to B]   (default: yesterday UTC)
 //   stats-check [--date YYYY-MM-DD]
+//   nightly [--shadow] [--dry-run] [--backfill-from N]
+//     --backfill-from replays weeks N..current, scoring and banking each in
+//     turn. Rollups only accumulate at finalization, so weeks cannot be
+//     scored in bulk. Costs one date-range query per week (a full season is
+//     ~50k reads) -- a deliberate operation, not a routine one.
+//     THE nightly entry point. Runs, in the one order that is correct:
+//     score the current week -> finalize finished weeks -> execute accepted
+//     trades effective next week -> materialize next week's lineups. That
+//     order used to live only as step order in daily-jobs.yml, where nothing
+//     enforced it. --shadow leaves `score` untouched.
+//   recompute --season <s> [--from N] [--dry-run]
+//     Un-banks weeks N and later so they can be scored again -- the escape
+//     hatch for a scoring bug, a mid-season rule change, or a week banked at
+//     zero before its lineups existed. Banked points are otherwise immutable
+//     by design. Follow with `nightly --backfill-from N` to re-score.
 //   period-lock --season <s> --index <n> --utc <ISO8601>
 //     Moves one period's lineup lock. For a real schedule change, and for
 //     testing the lineup endpoints against a week that isn't locked yet.
@@ -559,6 +574,16 @@ switch (job)
         Console.WriteLine($"wipe-pools: deleted {deletedUsers} users, {deletedLeagues} leagues (with their teams/assignments/adjustments/trades). players/games/playerGameStats untouched.");
         return 0;
     }
+    case "nightly":
+        return await new FantasyWarrior.Jobs.Nightly.NightlyJob(db).RunAsync(
+            commitScore: !args.Contains("--shadow"),
+            dryRun: args.Contains("--dry-run"),
+            backfillFrom: int.TryParse(GetOption(args, "--backfill-from"), out var bf) ? bf : null);
+    case "recompute":
+        return await new FantasyWarrior.Jobs.Scoring.RecomputeJob(db).RunAsync(
+            season: GetOption(args, "--season") ?? "20252026",
+            fromPeriod: int.TryParse(GetOption(args, "--from"), out var rf) ? rf : 1,
+            dryRun: args.Contains("--dry-run"));
     case "period-lock":
     {
         var season = GetOption(args, "--season") ?? "20252026";

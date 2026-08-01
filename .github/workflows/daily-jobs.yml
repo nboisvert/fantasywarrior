@@ -37,10 +37,12 @@ jobs:
           ARGS=""
           if [ -n "${{ inputs.from }}" ]; then ARGS="--from ${{ inputs.from }} --to ${{ inputs.to || inputs.from }}"; fi
           dotnet run --project backend/FantasyWarrior.Jobs -c Release -- stats-sync $ARGS
-      - name: Score calc
-        run: dotnet run --project backend/FantasyWarrior.Jobs -c Release -- score-calc
-      - name: Process trades
-        run: dotnet run --project backend/FantasyWarrior.Jobs -c Release -- process-trades
+      # One command on purpose: the order inside it (score the week -> bank
+      # finished weeks -> execute trades effective next week -> materialize
+      # next week's lineups) is a correctness requirement, and as separate
+      # steps here nothing stopped it being reordered.
+      - name: Nightly scoring
+        run: dotnet run --project backend/FantasyWarrior.Jobs -c Release -- nightly
       - name: Player sync
         run: dotnet run --project backend/FantasyWarrior.Jobs -c Release -- player-sync
       - name: Draft sync
