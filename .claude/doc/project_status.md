@@ -1,9 +1,45 @@
 # Fantasy Warrior — Project Status
 
 > **MUST be read at the start of every session and kept updated along the way.**
-> Last updated: 2026-07-31 (by Macklin Softwarini) — weekly-lineup scoring refactor, complete
+> Last updated: 2026-08-01 (by Macklin Softwarini) — Firestore→SQL migration evaluation, schema conception done
 
 ## Current state
+
+**Firestore → SQL migration: evaluation in progress (2026-08-01) — NOT DECIDED, no code changed**
+
+Nick finds the Firestore data model generates too much read/access-quota complexity
+and is much more comfortable in SQL — evaluating replacing Firestore with a relational
+DB. **Nothing has been implemented; the current stack (CLAUDE.md) is unchanged.**
+Two steps done so far, both pure research/design, no code touched:
+
+- **Step 1 — hosting**: compared free-tier SQL hosts against the project's actual
+  data footprint (largest collection `playerGameStats` ≈ 51k docs/season backfill,
+  everything else small — well under any free tier's storage cap). Recommended
+  **Azure SQL Database (free offer)**: real T-SQL (closest to Nick's .NET/SQL Server
+  comfort), 32 GB free per DB (lifetime, not a trial), serverless auto-pause fits the
+  project's write pattern (small nightly writes + rare mass-backfill bursts).
+  Trade-off flagged: adds Azure as a second cloud vendor next to GCP. Alternatives
+  noted if Nick prefers staying 100% GCP: Supabase/Neon (Postgres, 500 MB free) or
+  self-hosted Postgres on a GCP e2-micro Always Free VM.
+- **Step 2 — relational schema conception**: full table-by-table design in
+  [sql-migration-schema.md](sql-migration-schema.md), a direct mapping of every
+  current Firestore collection (`players`, `games`, `playerGameStats`,
+  `playerSeasonStats`, `periods`, `users`, `leagues`, `teams`, `rosterSpots`,
+  `lineups`, `trades`/`votes`, `news`) to T-SQL tables, with full DDL. Key design
+  calls: natural PKs where the Firestore doc id already was one (`nhlId`,
+  `nhlGameId`, `season+index`, etc.), `IDENTITY` where it was an opaque auto-id
+  (`rosterSpots`, `trades`), `NVARCHAR(MAX)` + `ISJSON` check for the model's
+  open-ended stat/rule maps (`RuleConfig.ExtraPointValues`, `RosterSpot.ActiveStats`,
+  `LineupResult.Stats`), and — the main insight — several Firestore fields that only
+  exist to avoid paid reads (`Team.PlayerIds`/`PlayerPoints`/`PlayerNhlPoints`,
+  arguably all of `PlayerSeasonStats`) are **dropped from the schema** as derivable
+  via a plain `JOIN`/`GROUP BY`, flagged `[DÉRIVÉ]` in the doc with the replacement
+  query. Doc also flags one likely bug in its own draft FK (`lineups` → `periods`
+  should join on `season`, not `league_id`) as a note for whoever writes the real
+  DDL.
+- **Not yet decided/started**: whether to actually proceed, ORM choice (EF Core
+  likely), data migration strategy from live Firestore, and updating
+  `deployment.md`/CLAUDE.md's Stack section once (if) Nick confirms the switch.
 
 **SCORING REFACTOR: weekly lineups, banked points (2026-07-31) — DONE, 11 commits**
 (plan: `C:\Users\nicolasc\.claude\plans\grosse-refacto-ajd-nous-peppy-harp.md` · rules: [scoring-model.md](scoring-model.md))
