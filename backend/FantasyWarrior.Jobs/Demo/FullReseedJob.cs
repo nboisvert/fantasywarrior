@@ -48,8 +48,9 @@ public sealed class FullReseedJob(FirestoreDb db)
         Console.WriteLine("--- Seeding demo trades (pending/accepted/declined/processed-and-hot) ---");
         await new SeedTradesJob(db).RunAsync(leagueDoc.Id, ct);
 
-        Console.WriteLine("--- Running score-calc ---");
-        await new FantasyWarrior.Jobs.Scoring.ScoreCalcJob(db).RunAsync(leagueDoc.Id, ct);
+        Console.WriteLine("--- Running the nightly scoring ---");
+        await new FantasyWarrior.Jobs.Scoring.PeriodRollupJob(db).RunAsync(
+            leagueDoc.Id, commitScore: true, dryRun: false, ct: ct);
 
         Console.WriteLine($"=== Done. League id: {leagueDoc.Id} ===");
     }
@@ -190,6 +191,7 @@ public sealed class FullReseedJob(FirestoreDb db)
         // `From` (the real stat-counting start date) stays the true season
         // start regardless — this spread is display-only.
         var now = Timestamp.GetCurrentTimestamp();
+        var groupByPlayer = byPlayer.ToDictionary(p => p.PlayerId, p => p.Group);
         var assignmentIndex = 0;
         Timestamp StaggeredCreatedUtc()
         {
@@ -207,14 +209,21 @@ public sealed class FullReseedJob(FirestoreDb db)
                 CreatedUtc = now,
             }, cancellationToken: ct);
             foreach (var pid in playerIds)
-                await leagueDoc.Collection("assignments").AddAsync(new Assignment
+            {
+                var group = groupByPlayer.GetValueOrDefault(pid, PositionGroup.Forward);
+                await RosterSpots.Collection(leagueDoc).AddAsync(new RosterSpot
                 {
                     PlayerId = pid,
                     TeamUsername = username,
-                    From = "2025-10-01",
-                    CreationEvent = AssignmentCreationEvent.FreeAgent,
-                    CreatedUtc = StaggeredCreatedUtc(),
+                    Position = PositionGroups.Code(group),
+                    PositionGroup = PositionGroups.Code(group),
+                    // The season's first period start — spots must own the
+                    // whole season, or every scoring window falls before them.
+                    StartDate = "2025-10-06",
+                    StartReason = RosterSpotReason.Draft,
+                    OpenedUtc = StaggeredCreatedUtc(),
                 }, cancellationToken: ct);
+            }
         }
         var rosterSize = forwardSlots + defenseSlots + goalieSlots;
         Console.WriteLine($"Drafted {Usernames.Length} teams x {rosterSize} players ({forwardSlots}F/{defenseSlots}D/{goalieSlots}G).");

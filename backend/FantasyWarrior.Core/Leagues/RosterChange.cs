@@ -4,59 +4,24 @@ using Google.Cloud.Firestore;
 namespace FantasyWarrior.Core.Leagues;
 
 /// <summary>
-/// Applies a roster change to one team: computes the transaction-invariant
-/// adjustment (score must not jump at transaction time), closes any
-/// outgoing players' open assignments (freezing their per-stint stats one
-/// final time), opens new assignments for incoming players, and persists
-/// the team doc's derived fields. Generalizes the single-player add/drop
-/// endpoints to N-out/M-in so a two-sided trade can call this once per team.
+/// Applies a roster change to one team: closes the outgoing players' roster
+/// spots, opens spots for the incoming ones, and updates the team's player
+/// list. Generalizes single-player add/drop to N-out/M-in so a two-sided trade
+/// calls it once per team.
 ///
-/// Lives in Core (not Api) so both the API's add/drop/trade endpoints and
-/// the Jobs project's nightly trade-processing job can share it.
+/// This used to carry the transaction-invariance machinery — compute the team's
+/// top-X before and after, then write a compensating ledger entry so the score
+/// wouldn't jump at transaction time. Weekly banked points make all of that
+/// unnecessary: a week's points belong to whoever fielded the player that week,
+/// permanently, so a trade cannot move history and there is nothing to
+/// compensate for. The ledger, the before/after scoring and the score writes
+/// are gone; what remains is bookkeeping.
+///
+/// Lives in Core so the API's add/drop endpoints and the Jobs project's trade
+/// processing share one path.
 /// </summary>
 public static class RosterChange
 {
-    /// <summary>
-    /// Pure: the new Assignment docs to create for players joining a team —
-    /// no Firestore I/O, so this is unit-testable on its own (e.g. "does
-    /// processing a trade open an assignment per incoming player, tagged
-    /// with the trade's id as creationEventReferenceId").
-    /// </summary>
-    public static List<Assignment> BuildOpenedAssignments(
-        IReadOnlyCollection<long> playersIn, string teamUsername, string creationEvent, string? creationEventReferenceId,
-        string effectiveDate, Timestamp createdUtc) =>
-        playersIn.Select(playerId => new Assignment
-        {
-            PlayerId = playerId,
-            TeamUsername = teamUsername,
-            From = effectiveDate,
-            CreationEvent = creationEvent,
-            CreationEventReferenceId = creationEventReferenceId,
-            CreatedUtc = createdUtc,
-        }).ToList();
-
-    /// <summary>
-    /// Pure: the field map to write when closing an outgoing player's open
-    /// assignment — freezes the per-stint stats one final time (via
-    /// <see cref="AssignmentStats.ToFieldMap"/>), sets `to`/`closedUtc`, and
-    /// records why it closed (`closeReason`/`closeReasonReferenceId`)
-    /// separately from `creationEvent` (why it was originally opened) — a
-    /// freeagent-acquired assignment ending via a trade must show up as a
-    /// trade in the activity feed's drop event, not as "freeagent".
-    /// </summary>
-    public static Dictionary<string, object> BuildClosedAssignmentFields(
-        PlayerRawTotals finalTotals, double finalFantasyPoints, string effectiveDate, Timestamp closedUtc,
-        string closeReason, string? closeReasonReferenceId)
-    {
-        var fields = AssignmentStats.ToFieldMap(finalTotals, finalFantasyPoints, closedUtc);
-        fields["to"] = effectiveDate;
-        fields["closedUtc"] = closedUtc;
-        fields["closeReason"] = closeReason;
-        if (closeReasonReferenceId is not null)
-            fields["closeReasonReferenceId"] = closeReasonReferenceId;
-        return fields;
-    }
-
     /// <summary>Pure: a team's roster after removing playersOut and adding playersIn.</summary>
     public static List<long> BuildNewPlayerIds(
         IReadOnlyCollection<long> currentPlayerIds, IReadOnlyCollection<long> playersOut, IReadOnlyCollection<long> playersIn)
@@ -74,142 +39,35 @@ public static class RosterChange
         IReadOnlyDictionary<long, string> positions,
         IReadOnlyCollection<long> playersOut,
         IReadOnlyCollection<long> playersIn,
-        string adjustmentReason,
-        string creationEvent,
-        string? creationEventReferenceId,
-        string closeReason,
-        string? closeReasonReferenceId,
-        string effectiveDate,
-        CancellationToken ct = default)
-    {
-        var entriesBefore = team.PlayerIds
-            .Select(id => (id, positions.GetValueOrDefault(id, "C"), team.PlayerPoints.GetValueOrDefault(id.ToString(), 0)))
-            .ToList();
-
-        Dictionary<long, PlayerRawTotals> incomingTotals = playersIn.Count > 0
-            ? await PlayerTotalsSource.FetchAsync(db, playersIn, league.Season, ct)
-            : [];
-        var incomingPoints = playersIn.ToDictionary(
-            id => id,
-            id => ScoringEngine.PlayerPoints(incomingTotals.GetValueOrDefault(id) ?? new PlayerRawTotals(), league.RuleConfig.PointValues));
-
-        var outSet = playersOut.ToHashSet();
-        var entriesAfter = entriesBefore
-            .Where(e => !outSet.Contains(e.Item1))
-            .Concat(playersIn.Select(id => (id, positions.GetValueOrDefault(id, "C"), incomingPoints[id])))
-            .ToList();
-
-        var before = ScoringEngine.TeamScoreFromPoints(entriesBefore, league.RuleConfig.TopCount);
-        var after = ScoringEngine.TeamScoreFromPoints(entriesAfter, league.RuleConfig.TopCount);
-        var delta = ScoringEngine.TransactionAdjustment(before.RawTopX, after.RawTopX);
-
-        if (delta != 0)
-            await teamDoc.Collection("adjustments").AddAsync(new Adjustment
-            {
-                Delta = delta,
-                Reason = adjustmentReason,
-                PlayerIdsIn = [.. playersIn],
-                PlayerIdsOut = [.. playersOut],
-                DateUtc = Timestamp.GetCurrentTimestamp(),
-            }, ct);
-
-        // Close outgoing assignments, freezing per-stint stats one final time
-        // (they stop refreshing nightly the moment `to` is set).
-        var closeNow = Timestamp.GetCurrentTimestamp();
-        foreach (var playerId in playersOut)
-        {
-            var openSnap = await leagueDoc.Collection("assignments")
-                .WhereEqualTo("playerId", playerId)
-                .WhereEqualTo("teamUsername", team.OwnerUsername)
-                .WhereEqualTo("to", null)
-                .GetSnapshotAsync(ct);
-            foreach (var assignmentDoc in openSnap.Documents)
-            {
-                var a = assignmentDoc.ConvertTo<Assignment>();
-                var lines = await PlayerTotalsSource.FetchLinesAsync(db, playerId, ct);
-                var finalTotals = PlayerTotalsSource.AggregateRange(lines, league.Season, a.From, effectiveDate);
-                var finalFantasyPoints = ScoringEngine.PlayerPoints(finalTotals, league.RuleConfig.PointValues);
-                var fields = BuildClosedAssignmentFields(finalTotals, finalFantasyPoints, effectiveDate, closeNow, closeReason, closeReasonReferenceId);
-                await assignmentDoc.Reference.UpdateAsync(fields, cancellationToken: ct);
-            }
-        }
-
-        // Open incoming assignments.
-        foreach (var assignment in BuildOpenedAssignments(playersIn, team.OwnerUsername, creationEvent, creationEventReferenceId, effectiveDate, Timestamp.GetCurrentTimestamp()))
-            await leagueDoc.Collection("assignments").AddAsync(assignment, ct);
-
-        await MirrorToRosterSpotsAsync(
-            leagueDoc, team, positions, playersOut, playersIn,
-            creationEvent, creationEventReferenceId, closeReason, closeReasonReferenceId,
-            effectiveDate, closeNow, ct);
-
-        var newPlayerIds = BuildNewPlayerIds(team.PlayerIds, playersOut, playersIn);
-        var adjustmentsTotal = team.AdjustmentsTotal + delta;
-        var fieldUpdates = new Dictionary<string, object>
-        {
-            ["playerIds"] = newPlayerIds,
-            ["rawTopXScore"] = after.RawTopX,
-            ["adjustmentsTotal"] = adjustmentsTotal,
-            ["score"] = after.RawTopX + adjustmentsTotal,
-            ["countedPlayerIds"] = after.CountedPlayerIds.ToList(),
-        };
-        foreach (var id in playersOut)
-            fieldUpdates[$"playerPoints.{id}"] = FieldValue.Delete;
-        foreach (var id in playersIn)
-            fieldUpdates[$"playerPoints.{id}"] = incomingPoints[id];
-
-        await teamDoc.UpdateAsync(fieldUpdates, cancellationToken: ct);
-    }
-
-    /// <summary>
-    /// Writes the same roster change into the new <c>rosterSpots</c>
-    /// collection, alongside the legacy <c>assignments</c> one.
-    ///
-    /// Dual-writing rather than switching means the new collection accumulates
-    /// correct history from today, so when the scoring cutover lands it has
-    /// real data to run against instead of a migration. Nothing reads spots
-    /// yet, so a bug here cannot affect anyone — which is the point of doing it
-    /// in its own commit.
-    ///
-    /// Failures are logged and swallowed for the same reason: while this is a
-    /// shadow write, it must never be able to break a roster move that the
-    /// legacy path already completed successfully.
-    /// </summary>
-    private static async Task MirrorToRosterSpotsAsync(
-        DocumentReference leagueDoc,
-        Team team,
-        IReadOnlyDictionary<long, string> positions,
-        IReadOnlyCollection<long> playersOut,
-        IReadOnlyCollection<long> playersIn,
         string startReason,
         string? startRefId,
         string endReason,
         string? endRefId,
         string effectiveDate,
-        Timestamp closedUtc,
-        CancellationToken ct)
+        CancellationToken ct = default)
     {
-        try
-        {
-            foreach (var playerId in playersOut)
-            {
-                var open = await RosterSpots.Collection(leagueDoc)
-                    .WhereEqualTo("playerId", playerId)
-                    .WhereEqualTo("teamUsername", team.OwnerUsername)
-                    .WhereEqualTo("endDate", null)
-                    .GetSnapshotAsync(ct);
-                var fields = RosterSpots.BuildClosedFields(effectiveDate, closedUtc, endReason, endRefId);
-                foreach (var doc in open.Documents)
-                    await doc.Reference.UpdateAsync(fields, cancellationToken: ct);
-            }
+        var now = Timestamp.GetCurrentTimestamp();
 
-            foreach (var spot in RosterSpots.BuildOpened(
-                playersIn, team.OwnerUsername, positions, startReason, startRefId, effectiveDate, closedUtc))
-                await RosterSpots.Collection(leagueDoc).AddAsync(spot, ct);
-        }
-        catch (Exception ex)
+        foreach (var playerId in playersOut)
         {
-            Console.Error.WriteLine($"rosterSpots mirror failed for team {team.OwnerUsername}: {ex.Message}");
+            var open = await RosterSpots.Collection(leagueDoc)
+                .WhereEqualTo("playerId", playerId)
+                .WhereEqualTo("teamUsername", team.OwnerUsername)
+                .WhereEqualTo("endDate", null)
+                .GetSnapshotAsync(ct);
+            var fields = RosterSpots.BuildClosedFields(effectiveDate, now, endReason, endRefId);
+            foreach (var doc in open.Documents)
+                await doc.Reference.UpdateAsync(fields, cancellationToken: ct);
         }
+
+        foreach (var spot in RosterSpots.BuildOpened(
+            playersIn, team.OwnerUsername, positions, startReason, startRefId, effectiveDate, now))
+            await RosterSpots.Collection(leagueDoc).AddAsync(spot, ct);
+
+        // playerIds is a denormalization of "open spots", kept because the
+        // one-owner-per-league check and league-detail both read it directly.
+        await teamDoc.UpdateAsync(
+            new Dictionary<string, object> { ["playerIds"] = BuildNewPlayerIds(team.PlayerIds, playersOut, playersIn) },
+            cancellationToken: ct);
     }
 }

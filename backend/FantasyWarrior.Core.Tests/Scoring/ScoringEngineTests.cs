@@ -76,19 +76,9 @@ public class ScoringEngineTests
         Assert.Equal([1], result.CountedPlayerIds);
     }
 
-    [Fact]
-    public void TransactionAdjustment_KeepsScoreInvariant()
-    {
-        var config = new RuleConfig { TopCount = new TopCount { Forwards = 1 } };
-        var mcdavid = new RosterEntry(97, "C", new PlayerRawTotals(Goals: 50, Assists: 30)); // 80 pts
-        var crosby = new RosterEntry(87, "C", new PlayerRawTotals(Goals: 40, Assists: 55)); // 95 pts
-
-        var before = ScoringEngine.TeamScore([mcdavid], config);
-        var after = ScoringEngine.TeamScore([crosby], config);
-        var adjustment = ScoringEngine.TransactionAdjustment(before.RawTopX, after.RawTopX);
-
-        // displayed score = rawTopX + adjustments must not move at trade time
-        Assert.Equal(before.RawTopX, after.RawTopX + adjustment);
-        Assert.Equal(-15, adjustment);
-    }
+    // TransactionAdjustment_KeepsScoreInvariant lived here. It pinned the
+    // compensating-ledger rule that kept a team's total from moving at trade
+    // time. Weekly banked points make that impossible by construction rather
+    // than by compensation -- a week's points belong to whoever fielded the
+    // player that week -- so both the rule and its test are gone.
 }

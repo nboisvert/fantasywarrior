@@ -879,22 +879,6 @@
   white-space: nowrap;
 }
 
-.counted-badge {
-  display: inline-block;
-  margin-left: 0.45rem;
-  padding: 0.05rem 0.35rem;
-  border-radius: 5px;
-  font: 700 0.6rem/1.4 var(--font-body);
-  letter-spacing: 0.08em;
-  color: #06121f;
-  background: linear-gradient(135deg, var(--ice), var(--ice-bright));
-  vertical-align: middle;
-}
-
-.player-row.counted {
-  border-color: rgba(56, 189, 248, 0.4);
-}
-
 .player-hit {
   flex: 1;
   display: flex;
@@ -1128,35 +1112,6 @@
   text-transform: uppercase;
   letter-spacing: 0.14em;
   font-weight: 700;
-}
-
-.stats-adj-line {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.stats-adj-pill {
-  display: inline-block;
-  padding: 0.1rem 0.5rem;
-  border-radius: 999px;
-  font-family: var(--font-body);
-  font-size: 0.74rem;
-  font-weight: 700;
-  border: 1px solid transparent;
-  white-space: nowrap;
-}
-
-.stats-adj-pill-pos {
-  color: var(--ice-bright);
-  background: rgba(56, 189, 248, 0.14);
-  border-color: rgba(56, 189, 248, 0.4);
-}
-
-.stats-adj-pill-neg {
-  color: var(--danger);
-  background: rgba(244, 63, 94, 0.14);
-  border-color: rgba(244, 63, 94, 0.4);
 }
 
 /* Cap summary disclosure — sits below the team name, expands into the same

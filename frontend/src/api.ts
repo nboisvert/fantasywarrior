@@ -22,8 +22,8 @@ export interface LeagueSummary {
 }
 
 export interface RosterPlayer extends PlayerDto {
+  /** Fantasy points banked for this team. */
   points: number;
-  counted: boolean;
   nhlPoints: number;
 }
 
@@ -34,10 +34,8 @@ export interface RosterPlayer extends PlayerDto {
 export interface TeamDto {
   name: string;
   ownerUsername: string;
-  /** Season total. Under weekly scoring this is finalizedScore + periodPoints. */
+  /** Season total = finalizedScore + periodPoints. */
   score: number;
-  rawTopXScore: number;
-  adjustmentsTotal: number;
   ptsPerGame: number | null;
   capTotal: number;
   playerCount: number;

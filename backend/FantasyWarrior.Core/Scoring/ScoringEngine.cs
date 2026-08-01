@@ -31,9 +31,12 @@ public sealed record TeamScoreResult(
     IReadOnlyDictionary<long, double> PlayerPoints);
 
 /// <summary>
-/// Pure scoring rules. Team score displayed to users is
-/// RawTopX + adjustmentsTotal (the adjustment ledger keeps team totals
-/// invariant across transactions).
+/// Pure scoring rules over season totals.
+///
+/// Under weekly scoring a team's displayed score is banked points
+/// (finalizedScore + the current week), not a top-X of season totals. What
+/// survives here is the top-X *selection*, which still earns its keep: it is
+/// how a forgotten lineup gets auto-filled with a GM's best available players.
 /// </summary>
 public static class ScoringEngine
 {
@@ -82,10 +85,4 @@ public static class ScoringEngine
         return new TeamScoreResult(total, counted, points);
     }
 
-    /// <summary>
-    /// Adjustment delta to append to the ledger so the team total does not
-    /// move at transaction time: score = rawTopX + adjustments stays equal.
-    /// </summary>
-    public static double TransactionAdjustment(double rawTopXBefore, double rawTopXAfter) =>
-        rawTopXBefore - rawTopXAfter;
 }

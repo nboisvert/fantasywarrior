@@ -4,116 +4,86 @@ using FantasyWarrior.Jobs.Nhl;
 using Google.Cloud.Firestore;
 
 // Usage: dotnet run -- <job> [options]
+//
+// --- nightly pipeline ---
+//   nightly [--shadow] [--dry-run] [--backfill-from N]
+//     THE nightly entry point, and the only place the correct order lives:
+//     score the current week -> bank finished weeks -> execute accepted trades
+//     effective next week -> materialize next week's lineups. Trades must land
+//     after banking and before materialization; as separate workflow steps
+//     nothing enforced that. --shadow leaves the `score` field untouched.
+//     --backfill-from replays weeks N..current, scoring and banking each in
+//     turn (rollups only accumulate at banking, so weeks can't be done in
+//     bulk). One date-range query per week -- a full season is ~50k reads, a
+//     deliberate operation.
+//   stats-sync [--date YYYY-MM-DD | --from A --to B]   (default: ET yesterday)
 //   player-sync [--season 20262027]
 //   draft-sync
-//     Backfills NHL entry draft details (round/overall pick/year/team) for
-//     every player not yet checked (draftChecked=false) via the per-player
-//     landing endpoint -- one HTTP call per player, so this is separate
-//     from the nightly team-roster-based player-sync. Safe to re-run.
-//   salary-import --file <path.csv>   (columns: nhlId?,firstName,lastName,teamAbbrev,capHit)
-//   stats-sync [--date YYYY-MM-DD | --from A --to B]   (default: yesterday UTC)
-//   stats-check [--date YYYY-MM-DD]
-//   nightly [--shadow] [--dry-run] [--backfill-from N]
-//     --backfill-from replays weeks N..current, scoring and banking each in
-//     turn. Rollups only accumulate at finalization, so weeks cannot be
-//     scored in bulk. Costs one date-range query per week (a full season is
-//     ~50k reads) -- a deliberate operation, not a routine one.
-//     THE nightly entry point. Runs, in the one order that is correct:
-//     score the current week -> finalize finished weeks -> execute accepted
-//     trades effective next week -> materialize next week's lineups. That
-//     order used to live only as step order in daily-jobs.yml, where nothing
-//     enforced it. --shadow leaves `score` untouched.
+//     Backfills NHL entry draft details via the per-player landing endpoint --
+//     one HTTP call per player, hence separate from the roster-based sync.
+//   news-sync [--rotowire-url <url>] [--rotowire-injuries-url <url>] [--fantasysp-url <url>]
+//     NHL news into the global `news` collection from Rotowire's RSS feed,
+//     its injuries page, and FantasySP's injuries table (no RSS exists for
+//     that one). Personal/non-commercial use only per both sites' terms.
+//
+// --- scoring internals (the nightly job calls these) ---
+//   period-rollup [--league <id>] [--commit-score] [--dry-run]
+//     Scores one week and rolls it up lineup -> roster spot -> team. One
+//     date-range query serves every league, replacing the old per-player
+//     career scans. Shadow by default.
 //   recompute --season <s> [--from N] [--dry-run]
 //     Un-banks weeks N and later so they can be scored again -- the escape
 //     hatch for a scoring bug, a mid-season rule change, or a week banked at
 //     zero before its lineups existed. Banked points are otherwise immutable
-//     by design. Follow with `nightly --backfill-from N` to re-score.
-//   period-lock --season <s> --index <n> --utc <ISO8601>
-//     Moves one period's lineup lock. For a real schedule change, and for
-//     testing the lineup endpoints against a week that isn't locked yet.
-//   period-rollup [--league <id>] [--commit-score] [--dry-run]
-//     Scores the current week and rolls it up lineup -> roster spot -> team.
-//     Replaces score-calc's cost model: one date-range query serves every
-//     league instead of a per-player career scan each. Runs in SHADOW MODE by
-//     default -- writes the new fields but leaves `score` alone, so the live
-//     app keeps showing the legacy number while this is watched. Pass
-//     --commit-score to make it authoritative. Safe to re-run.
-//   backfill-roster-spots [--league <id>] [--from-rosters] [--start-date YYYY-MM-DD] [--dry-run]
-//     Copies existing `assignments` into the new `rosterSpots` collection.
-//     Idempotent (deterministic doc ids). --from-rosters instead opens one
-//     spot per player in team.playerIds, for leagues seeded without any
-//     assignment history; those spots start at the season's first period
-//     (not the league's creation date, which would put every scoring window
-//     before the spots existed) unless --start-date says otherwise.
+//     by design. Follow with `nightly --backfill-from N`.
 //   period-init [--season 20252026] [--dry-run]
-//     Generates the season's weekly scoring calendar (Mon-Sun, ET) into the
-//     global `periods` collection. Season boundaries are derived from the
-//     `games` collection already in Firestore -- no NHL API call. Append-only:
-//     existing periods are never rewritten, since points are banked per period
-//     and moving a boundary would restate history.
+//     Generates the season's weekly calendar (Mon-Sun ET) into the global
+//     `periods` collection, derived from the `games` we already hold -- no
+//     NHL API call. Append-only: moving a boundary would restate banked points.
+//   period-lock --season <s> --index <n> --utc <ISO8601>
+//     Moves one week's lineup lock, for a real schedule change or to test the
+//     lineup endpoints against a week that isn't locked yet.
+//
+// --- league setup ---
 //   seed-mordus [--file data/mordus-rosters.json] [--season 20252026]
-//               [--commissioner nicolas] [--cap 100000000] [--dry-run]
-//     Creates the real "Les Mordus" league (14 GMs, rosters imported from
-//     Nick's PoolExpert PDF -- see .claude/doc/mordus-pool.md). Verifies
-//     every player id against `players` before writing anything, and
-//     refuses to overwrite an existing league of that name. Does not
-//     create roster spots or lineups yet (those models land in C4/C5).
-//   check-indexes [--create]
-//     Probes every composite-index-requiring query shape with Limit(1) and
-//     reports the missing ones (with Firestore's own console creation URL).
-//     MUST be run against real Firestore -- the emulator ignores composite
-//     indexes entirely, so it would report success for everything. Refuses
-//     to run when FIRESTORE_EMULATOR_HOST is set.
-//     --create first creates any missing index via the Firestore Admin API
-//     using the same service-account credentials (no firebase/gcloud CLI
-//     needed). Builds are async, so the probe right after may still show
-//     them missing for a few minutes.
-//   news-sync [--rotowire-url <url>] [--rotowire-injuries-url <url>] [--fantasysp-url <url>]
-//     Fetches NHL news into the global `news` collection (idempotent
-//     upserts, 30-day retention prune) from three sources: Rotowire's
-//     public RSS feed (source "rotowire_rss", --rotowire-url), Rotowire's
-//     injuries page HTML-scraped for richer headline/position/team detail
-//     (source "rotowire_html", --rotowire-injuries-url), and FantasySP's
-//     injuries table HTML-scraped since it has no public RSS at all
-//     (source "fantasysp", --fantasysp-url -- a *page* URL, not a feed).
-//     Personal/non-commercial use only per both sites' terms; see
-//     FantasySpScraper/RotowireInjuryScraper's doc comments.
-//   score-calc [--league <leagueId>]
-//   process-trades
-//     Executes every `accepted` trade (roster swap via RosterChange) and
-//     marks it `processed`. Run nightly, right after score-calc.
-//   seed-trades --league <leagueId>
-//     Wipes the league's trades (+ votes) and reseeds one of each status
-//     (pending/accepted/declined/processed) with staggered timestamps; the
-//     processed one is stamped "now" so it's inside the news ticker's
-//     30-minute hot window right after seeding.
-//   league-init-assignments
-//   estimate-salaries [--season 20252026] [--top 200] [--top-max 14000000]
-//                     [--top-min 3000000] [--default 1000000]
-//     PLACEHOLDER cap hits (no real salary source wired up yet): scales
-//     top-N real scorers (goals+assists) between top-min/top-max, flat
-//     default for everyone else. Tags capHitSource="estimated".
-//   set-league-cap --league <leagueId> --amount <dollars>   (0 clears the cap)
-//   set-league-rules --league <leagueId> [--goal N] [--assist N] [--goalie-win N]
+//               [--commissioner nick] [--cap 115000000] [--dry-run]
+//     Creates the real "Les Mordus" league from the rosters imported out of
+//     Nick's PoolExpert PDF (see .claude/doc/mordus-pool.md). Verifies every
+//     player id before writing; refuses to overwrite an existing league.
+//   backfill-roster-spots [--league <id>] [--start-date YYYY-MM-DD] [--dry-run]
+//     Opens one roster spot per rostered player, for leagues seeded straight
+//     into team.playerIds. Spots start at the season's first period, not the
+//     league's creation date -- otherwise every scoring window falls before
+//     they existed and every team scores zero.
+//   set-league-rules --league <id> [--goal N] [--assist N] [--goalie-win N]
 //                    [--goalie-otl N] [--shutout N] [--forwards N] [--defense N]
 //                    [--goalies N] [--roster-min N] [--roster-max N] [--cap N]
-//     Commissioner config from the CLI. Only the options actually passed are
-//     changed; everything else keeps its current value.
-//   wipe-pools   (deletes all users/leagues/teams/assignments/adjustments; players/games/playerGameStats untouched)
-//   seed-allstars [--league-name "Shemalz Pool"] [--season 20252026]
-//                 [--forwards 4] [--defense 3] [--goalies 1]
-//     Drafts top synced performers per position (snake draft) into 9 fixed
-//     GMs, no adjustment ledger -- full season stats count as if always on
-//     that team.
-//   player-check
+//     Commissioner config from the CLI. Only the options passed are changed.
+//   set-league-cap --league <id> --amount <dollars>   (0 clears the cap)
+//   salary-import --file <path.csv>   (nhlId?,firstName,lastName,teamAbbrev,capHit)
+//   estimate-salaries [--season 20252026] [--top 200] [--top-max 14000000]
+//                     [--top-min 3000000] [--default 1000000]
+//     PLACEHOLDER cap hits -- no real salary source is wired up. Tags
+//     capHitSource="estimated" so it is never mistaken for contract data.
+//   seed-trades --league <id>
+//     Wipes and reseeds one trade of each status for demo purposes.
 //   reseed-demo [--league-name "Shemalz Pool"] [--season 20252026]
-//     One-command full reseed: wipes users/leagues/teams/assignments/
-//     adjustments/trades (never touches players/games/playerGameStats),
-//     recreates the 9 fixed GMs + league (rules/cap carried over from the
-//     current league of that name, if one exists), drafts rosters from real
-//     top performers with staggered assignment dates, estimates salaries,
-//     seeds a demo trade set (one status of each, one fresh/hot), and
-//     re-runs score-calc.
+//     One-command demo rebuild: wipes pool data (never players/games/
+//     playerGameStats), recreates the league, drafts from real top performers,
+//     estimates salaries, seeds trades and scores the current week.
+//   wipe-pools
+//     Deletes users + leagues and everything under them. NHL reference data
+//     (players/games/playerGameStats/playerSeasonStats/news) is untouched.
+//
+// --- diagnostics ---
+//   check-indexes [--create]
+//     Probes every composite-index-requiring query with Limit(1). MUST run
+//     against real Firestore -- the emulator ignores composite indexes and
+//     would report success for everything. --create makes the missing ones
+//     via the Admin API (needs roles/datastore.indexAdmin).
+//   stats-check [--date YYYY-MM-DD]
+//   player-check
+//   player-dump [--out players.json]
 //
 // Firestore target: set FIRESTORE_EMULATOR_HOST (e.g. localhost:8090) for local dev;
 // otherwise GOOGLE_APPLICATION_CREDENTIALS + FIRESTORE_PROJECT_ID for production.
@@ -205,11 +175,6 @@ switch (job)
         await new NewsSyncJob(db).RunAsync(sources);
         return 0;
     }
-    case "score-calc":
-    {
-        await new FantasyWarrior.Jobs.Scoring.ScoreCalcJob(db).RunAsync(GetOption(args, "--league"));
-        return 0;
-    }
     case "process-trades":
     {
         await new FantasyWarrior.Jobs.Trades.ProcessTradesJob(db).RunAsync();
@@ -231,201 +196,6 @@ switch (job)
         var reseedLeagueName = GetOption(args, "--league-name") ?? "Shemalz Pool";
         var reseedSeason = GetOption(args, "--season") ?? "20252026";
         await new FantasyWarrior.Jobs.Demo.FullReseedJob(db).RunAsync(reseedLeagueName, reseedSeason);
-        return 0;
-    }
-    case "league-init-assignments":
-    {
-        // Migration: opens an "initial" assignment for rostered players that have none.
-        var leagues = await db.Collection("leagues").GetSnapshotAsync();
-        foreach (var leagueSnap in leagues.Documents)
-        {
-            var assignmentsCol = leagueSnap.Reference.Collection("assignments");
-            var existing = (await assignmentsCol.WhereEqualTo("to", null).GetSnapshotAsync()).Documents
-                .Select(d => (d.GetValue<long>("playerId"), d.GetValue<string>("teamUsername")))
-                .ToHashSet();
-            var created = 0;
-            var fromDate = leagueSnap.GetValue<Timestamp>("createdUtc").ToDateTime().ToString("yyyy-MM-dd");
-            foreach (var teamSnap in (await leagueSnap.Reference.Collection("teams").GetSnapshotAsync()).Documents)
-            {
-                var team = teamSnap.ConvertTo<FantasyWarrior.Core.Leagues.Team>();
-                foreach (var playerId in team.PlayerIds.Where(p => !existing.Contains((p, team.OwnerUsername))))
-                {
-                    await assignmentsCol.AddAsync(new FantasyWarrior.Core.Leagues.Assignment
-                    {
-                        PlayerId = playerId,
-                        TeamUsername = team.OwnerUsername,
-                        From = fromDate,
-                        CreationEvent = FantasyWarrior.Core.Leagues.AssignmentCreationEvent.FreeAgent,
-                        CreatedUtc = Timestamp.GetCurrentTimestamp(),
-                    });
-                    created++;
-                }
-            }
-            Console.WriteLine($"League [{leagueSnap.Id}]: {created} assignments created");
-        }
-        return 0;
-    }
-    case "seed-allstars":
-    {
-        var leagueName = GetOption(args, "--league-name") ?? "Shemalz Pool";
-        var season = GetOption(args, "--season") ?? "20252026";
-        var usernames = new[] { "jay", "nick", "al", "chuck", "baby", "sam", "dom", "vince", "didi" };
-        const string commissioner = "nick";
-        var forwardSlots = int.Parse(GetOption(args, "--forwards") ?? "4");
-        var defenseSlots = int.Parse(GetOption(args, "--defense") ?? "3");
-        var goalieSlots = int.Parse(GetOption(args, "--goalies") ?? "1");
-
-        var now = Timestamp.GetCurrentTimestamp();
-        foreach (var u in usernames)
-        {
-            var userDoc = db.Collection("users").Document(u);
-            if (!(await userDoc.GetSnapshotAsync()).Exists)
-                await userDoc.SetAsync(new FantasyWarrior.Core.Users.User { DisplayName = u, CreatedUtc = now, LastLoginUtc = now });
-        }
-
-        var leagueDoc = db.Collection("leagues").Document();
-        await leagueDoc.SetAsync(new FantasyWarrior.Core.Leagues.League
-        {
-            Name = leagueName,
-            Season = season,
-            CommissionerUsername = commissioner,
-            MemberUsernames = [.. usernames],
-            RuleConfig = new FantasyWarrior.Core.Scoring.RuleConfig(),
-            CreatedUtc = now,
-        });
-
-        // All lines for the season, filtered to regular season in memory
-        // (avoids requiring a composite index for a two-field equality query).
-        var linesSnap = await db.Collection("playerGameStats").WhereEqualTo("season", season).GetSnapshotAsync();
-        var lines = linesSnap.Documents
-            .Select(d => d.ConvertTo<FantasyWarrior.Core.Stats.PlayerGameStats>())
-            .Where(l => l.GameType == 2)
-            .ToList();
-        var pointValues = new FantasyWarrior.Core.Scoring.RuleConfig().PointValues;
-
-        var byPlayer = lines
-            .GroupBy(l => l.PlayerId)
-            .Select(g =>
-            {
-                var totals = FantasyWarrior.Core.Scoring.PlayerTotalsSource.Aggregate(g);
-                return new
-                {
-                    PlayerId = g.Key,
-                    Name = g.First().Name,
-                    Group = FantasyWarrior.Core.Scoring.PositionGroups.From(g.First().Position),
-                    Totals = totals,
-                    FantasyPoints = FantasyWarrior.Core.Scoring.ScoringEngine.PlayerPoints(totals, pointValues),
-                };
-            })
-            .ToList();
-
-        // This full scan already computed every synced player's season totals —
-        // persist them into the consolidated cache so nightly scoring and the
-        // player-card API don't have to re-scan `playerGameStats` for these players.
-        foreach (var chunk in byPlayer.Chunk(400))
-        {
-            var cacheBatch = db.StartBatch();
-            foreach (var p in chunk)
-                cacheBatch.Set(
-                    db.Collection("playerSeasonStats").Document(FantasyWarrior.Core.Scoring.PlayerTotalsSource.SeasonStatsDocId(season, p.PlayerId)),
-                    new FantasyWarrior.Core.Stats.PlayerSeasonStats
-                    {
-                        Season = season,
-                        PlayerId = p.PlayerId,
-                        GamesPlayed = p.Totals.GamesPlayed,
-                        Goals = p.Totals.Goals,
-                        Assists = p.Totals.Assists,
-                        PlusMinus = p.Totals.PlusMinus,
-                        Pim = p.Totals.Pim,
-                        Shots = p.Totals.Shots,
-                        Hits = p.Totals.Hits,
-                        BlockedShots = p.Totals.BlockedShots,
-                        Wins = p.Totals.Wins,
-                        OtLosses = p.Totals.OtLosses,
-                        Shutouts = p.Totals.Shutouts,
-                        GoalsAgainst = p.Totals.GoalsAgainst,
-                        Saves = p.Totals.Saves,
-                        ShotsAgainst = p.Totals.ShotsAgainst,
-                        UpdatedUtc = Timestamp.GetCurrentTimestamp(),
-                    });
-            await cacheBatch.CommitAsync();
-        }
-        Console.WriteLine($"Cached season totals for {byPlayer.Count} players in playerSeasonStats.");
-
-        var forwards = byPlayer.Where(p => p.Group == FantasyWarrior.Core.Scoring.PositionGroup.Forward).OrderByDescending(p => p.FantasyPoints).ToList();
-        var defense = byPlayer.Where(p => p.Group == FantasyWarrior.Core.Scoring.PositionGroup.Defense).OrderByDescending(p => p.FantasyPoints).ToList();
-        var goalies = byPlayer.Where(p => p.Group == FantasyWarrior.Core.Scoring.PositionGroup.Goalie).OrderByDescending(p => p.FantasyPoints).ToList();
-
-        var neededForwards = usernames.Length * forwardSlots;
-        var neededDefense = usernames.Length * defenseSlots;
-        var neededGoalies = usernames.Length * goalieSlots;
-        if (forwards.Count < neededForwards || defense.Count < neededDefense || goalies.Count < neededGoalies)
-        {
-            Console.Error.WriteLine(
-                $"Not enough synced players for season {season}: need {neededForwards}F/{neededDefense}D/{neededGoalies}G, " +
-                $"have {forwards.Count}F/{defense.Count}D/{goalies.Count}G. Sync more stats first.");
-            return 1;
-        }
-        Console.WriteLine(
-            $"Pool: {forwards.Count}F (top: {forwards[0].Name} {forwards[0].FantasyPoints}pts), " +
-            $"{defense.Count}D (top: {defense[0].Name} {defense[0].FantasyPoints}pts), {goalies.Count}G. " +
-            $"Snake-drafting {forwardSlots}F + {defenseSlots}D + {goalieSlots}G per team.");
-
-        var rosters = usernames.ToDictionary(u => u, _ => new List<long>());
-        void SnakeDraft<T>(List<T> pool, int rounds, Func<T, long> id)
-        {
-            for (var round = 0; round < rounds && pool.Count > 0; round++)
-            {
-                var order = round % 2 == 0 ? usernames : usernames.Reverse().ToArray();
-                foreach (var u in order)
-                {
-                    if (pool.Count == 0) break;
-                    rosters[u].Add(id(pool[0]));
-                    pool.RemoveAt(0);
-                }
-            }
-        }
-        SnakeDraft(forwards, forwardSlots, p => p.PlayerId);
-        SnakeDraft(defense, defenseSlots, p => p.PlayerId);
-        SnakeDraft(goalies, goalieSlots, p => p.PlayerId);
-
-        // Staggers each assignment's CreatedUtc (the activity-feed/news-ticker
-        // timestamp) across the recent past, deterministically — otherwise
-        // every one of these ~70 assignments shares the exact same "now"
-        // moment and the ticker shows a wall of identical-looking entries.
-        // `From` (the real stat-counting start date) is untouched — it must
-        // stay the true season start regardless of this display-only spread.
-        var assignmentIndex = 0;
-        Timestamp StaggeredCreatedUtc()
-        {
-            var daysAgo = 1 + (assignmentIndex++ * 13) % 89;
-            return Timestamp.FromDateTime(DateTime.UtcNow.AddDays(-daysAgo));
-        }
-
-        foreach (var (username, playerIds) in rosters)
-        {
-            // Direct write, no adjustment ledger: full-season stats count as if
-            // the player had always been on this team (no transaction to compensate for).
-            await leagueDoc.Collection("teams").Document(username).SetAsync(new FantasyWarrior.Core.Leagues.Team
-            {
-                Name = $"Team {char.ToUpper(username[0])}{username[1..]}",
-                OwnerUsername = username,
-                PlayerIds = playerIds,
-                CreatedUtc = now,
-            });
-            foreach (var pid in playerIds)
-                await leagueDoc.Collection("assignments").AddAsync(new FantasyWarrior.Core.Leagues.Assignment
-                {
-                    PlayerId = pid,
-                    TeamUsername = username,
-                    From = $"{season[..4]}-10-01",
-                    CreationEvent = FantasyWarrior.Core.Leagues.AssignmentCreationEvent.FreeAgent,
-                    CreatedUtc = StaggeredCreatedUtc(),
-                });
-        }
-
-        var rosterSize = forwardSlots + defenseSlots + goalieSlots;
-        Console.WriteLine($"Seeded '{leagueName}' [{leagueDoc.Id}] season {season}: {usernames.Length} teams x {rosterSize} players ({forwardSlots}F/{defenseSlots}D/{goalieSlots}G), no adjustments.");
         return 0;
     }
     case "estimate-salaries":
@@ -559,11 +329,9 @@ switch (job)
         var deletedLeagues = 0;
         foreach (var leagueSnap in leagues.Documents)
         {
-            var teams = await leagueSnap.Reference.Collection("teams").GetSnapshotAsync();
-            foreach (var teamDoc in teams.Documents)
-                await WipeCollectionAsync(teamDoc.Reference.Collection("adjustments"));
             await WipeCollectionAsync(leagueSnap.Reference.Collection("teams"));
-            await WipeCollectionAsync(leagueSnap.Reference.Collection("assignments"));
+            await WipeCollectionAsync(leagueSnap.Reference.Collection("rosterSpots"));
+            await WipeCollectionAsync(leagueSnap.Reference.Collection("lineups"));
             var trades = await leagueSnap.Reference.Collection("trades").GetSnapshotAsync();
             foreach (var tradeDoc in trades.Documents)
                 await WipeCollectionAsync(tradeDoc.Reference.Collection("votes"));
@@ -571,7 +339,8 @@ switch (job)
             await leagueSnap.Reference.DeleteAsync();
             deletedLeagues++;
         }
-        Console.WriteLine($"wipe-pools: deleted {deletedUsers} users, {deletedLeagues} leagues (with their teams/assignments/adjustments/trades). players/games/playerGameStats untouched.");
+        Console.WriteLine($"wipe-pools: deleted {deletedUsers} users, {deletedLeagues} leagues "
+            + "(teams/rosterSpots/lineups/trades). NHL reference data untouched.");
         return 0;
     }
     case "nightly":
@@ -613,7 +382,6 @@ switch (job)
     case "backfill-roster-spots":
         return await new FantasyWarrior.Jobs.Leagues.BackfillRosterSpotsJob(db).RunAsync(
             onlyLeagueId: GetOption(args, "--league"),
-            fromRosters: args.Contains("--from-rosters"),
             startDateOverride: GetOption(args, "--start-date"),
             dryRun: args.Contains("--dry-run"));
     case "period-init":

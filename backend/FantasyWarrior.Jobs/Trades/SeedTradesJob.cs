@@ -103,16 +103,14 @@ public sealed class SeedTradesJob(FirestoreDb db)
         await RosterChange.ApplyAsync(
             db, leagueRef, league, proposerDoc, proposerTeam, positions,
             playersOut: [proposerPlayer], playersIn: [counterpartyPlayer],
-            adjustmentReason: "trade",
-            creationEvent: AssignmentCreationEvent.Trade, creationEventReferenceId: tradeRef.Id,
-            closeReason: AssignmentCloseReason.Trade, closeReasonReferenceId: tradeRef.Id,
+            startReason: RosterSpotReason.Trade, startRefId: tradeRef.Id,
+            endReason: RosterSpotReason.Trade, endRefId: tradeRef.Id,
             effectiveDate: today, ct);
         await RosterChange.ApplyAsync(
             db, leagueRef, league, counterpartyDoc, counterpartyTeam, positions,
             playersOut: [counterpartyPlayer], playersIn: [proposerPlayer],
-            adjustmentReason: "trade",
-            creationEvent: AssignmentCreationEvent.Trade, creationEventReferenceId: tradeRef.Id,
-            closeReason: AssignmentCloseReason.Trade, closeReasonReferenceId: tradeRef.Id,
+            startReason: RosterSpotReason.Trade, startRefId: tradeRef.Id,
+            endReason: RosterSpotReason.Trade, endRefId: tradeRef.Id,
             effectiveDate: today, ct);
 
         await tradeRef.SetAsync(new Trade

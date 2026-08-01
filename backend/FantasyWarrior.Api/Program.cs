@@ -185,8 +185,6 @@ app.MapGet("/api/leagues/{leagueId}", async (string leagueId, string? username, 
                 t.Name,
                 t.OwnerUsername,
                 t.Score,
-                t.RawTopXScore,
-                t.AdjustmentsTotal,
                 ptsPerGame = t.RosterGamesPlayed > 0 ? Math.Round(t.Score / t.RosterGamesPlayed, 2) : (double?)null,
                 capTotal = t.CapTotal,
                 playerCount = t.PlayerIds.Count,
@@ -204,14 +202,13 @@ app.MapGet("/api/leagues/{leagueId}", async (string leagueId, string? username, 
             {
                 Dto = PlayerDto.From(p!),
                 Points = myTeam!.PlayerPoints.GetValueOrDefault(p!.NhlId.ToString(), 0),
-                Counted = myTeam.CountedPlayerIds.Contains(p.NhlId),
                 NhlPoints = myTeam.PlayerNhlPoints.GetValueOrDefault(p.NhlId.ToString(), 0),
             })
             .OrderByDescending(x => x.Points)
             .Select(x => new
             {
                 x.Dto.Id, x.Dto.Name, x.Dto.Position, x.Dto.Team, x.Dto.Status,
-                x.Dto.CapHit, x.Dto.HeadshotUrl, x.Points, x.Counted, x.NhlPoints,
+                x.Dto.CapHit, x.Dto.HeadshotUrl, x.Points, x.NhlPoints,
             }),
     });
 });
@@ -247,9 +244,8 @@ app.MapPost("/api/leagues/{leagueId}/teams/{username}/roster", async (
     await RosterChange.ApplyAsync(
         db, leagueDoc, league, teamDoc, team, positions,
         playersOut: [], playersIn: [req.PlayerId],
-        adjustmentReason: "add",
-        creationEvent: req.CreationEvent ?? AssignmentCreationEvent.FreeAgent, creationEventReferenceId: req.CreationEventReferenceId,
-        closeReason: AssignmentCloseReason.Release, closeReasonReferenceId: null,
+        startReason: req.CreationEvent ?? RosterSpotReason.FreeAgent, startRefId: req.CreationEventReferenceId,
+        endReason: RosterSpotReason.Release, endRefId: null,
         effectiveDate: EtToday());
     return Results.Ok(PlayerDto.From(player));
 });
@@ -275,51 +271,10 @@ app.MapDelete("/api/leagues/{leagueId}/teams/{username}/roster/{playerId:long}",
     await RosterChange.ApplyAsync(
         db, leagueDoc, league, teamDoc, team, positions,
         playersOut: [playerId], playersIn: [],
-        adjustmentReason: "drop",
-        creationEvent: AssignmentCreationEvent.FreeAgent, creationEventReferenceId: null,
-        closeReason: AssignmentCloseReason.Release, closeReasonReferenceId: null,
+        startReason: RosterSpotReason.FreeAgent, startRefId: null,
+        endReason: RosterSpotReason.Release, endRefId: null,
         effectiveDate: EtToday());
     return Results.Ok();
-});
-
-app.MapGet("/api/leagues/{leagueId}/activity", async (string leagueId, int? limit, FirestoreDb db, PlayerCache players) =>
-{
-    var leagueDoc = db.Collection("leagues").Document(leagueId);
-    var teamsSnap = await leagueDoc.Collection("teams").GetSnapshotAsync();
-    var teamNames = teamsSnap.Documents.ToDictionary(d => d.Id, d => d.GetValue<string>("name"));
-
-    var assignments = await leagueDoc.Collection("assignments").GetSnapshotAsync();
-    var events = new List<(Timestamp When, string Type, long PlayerId, string TeamUsername, string Source, string? SourceRefId)>();
-    foreach (var doc in assignments.Documents)
-    {
-        var a = doc.ConvertTo<Assignment>();
-        events.Add((a.CreatedUtc, "add", a.PlayerId, a.TeamUsername, a.CreationEvent, a.CreationEventReferenceId));
-        // Why it closed (e.g. "trade") can differ from why it was opened
-        // (e.g. "freeagent") — a freeagent-acquired assignment can end via a trade.
-        if (a.To is not null && a.ClosedUtc is { } closed)
-            events.Add((closed, "drop", a.PlayerId, a.TeamUsername, a.CloseReason ?? a.CreationEvent, a.CloseReasonReferenceId ?? a.CreationEventReferenceId));
-    }
-
-    var take = Math.Clamp(limit ?? 15, 1, 50);
-    var recent = events.OrderByDescending(e => e.When).Take(take).ToList();
-    var playersById = await players.GetByIdsAsync(recent.Select(e => e.PlayerId));
-
-    return Results.Ok(recent.Select(e =>
-    {
-        var player = playersById.GetValueOrDefault(e.PlayerId);
-        return new
-        {
-            type = e.Type,
-            dateUtc = e.When.ToDateTime(),
-            playerId = e.PlayerId,
-            playerName = player is null ? "Unknown player" : $"{player.FirstName} {player.LastName}",
-            position = player?.Position,
-            teamUsername = e.TeamUsername,
-            teamName = teamNames.GetValueOrDefault(e.TeamUsername, e.TeamUsername),
-            source = e.Source,
-            sourceRefId = e.SourceRefId,
-        };
-    }));
 });
 
 app.MapGet("/api/news", async (int? limit, FirestoreDb db) =>
@@ -697,18 +652,9 @@ app.MapGet("/api/leagues/{leagueId}/teams/{username}/season-stats", async (
     var playersById = await players.GetByIdsAsync(team.PlayerIds);
     var totalsById = await PlayerTotalsSource.FetchWithCacheAsync(db, team.PlayerIds, league.Season);
 
-    // Pool group's stats are scoped to the *current* assignment (this stint
-    // with this owner), precomputed nightly by ScoreCalcJob — never
-    // recomputed live here.
-    var openAssignmentsByPlayer = (await leagueSnap.Reference.Collection("assignments")
-            .WhereEqualTo("teamUsername", Normalize(username))
-            .WhereEqualTo("to", null)
-            .GetSnapshotAsync())
-        .Documents.Select(d => d.ConvertTo<Assignment>())
-        .ToDictionary(a => a.PlayerId);
-
-    // The weekly-lineup equivalents, emitted alongside the assignment ones so
-    // the frontend can switch over in its own deploy.
+    // Pool-group stats are scoped to this player's current stint with this
+    // team and count only the weeks he was in the active lineup. Precomputed
+    // by the nightly rollup — never recomputed live here.
     var spotsByPlayer = (await RosterSpots.OpenForTeamAsync(leagueSnap.Reference, Normalize(username)))
         .GroupBy(s => s.Spot.PlayerId)
         .ToDictionary(g => g.Key, g => g.First().Spot);
@@ -720,7 +666,6 @@ app.MapGet("/api/leagues/{leagueId}/teams/{username}/season-stats", async (
         {
             var t = totalsById.GetValueOrDefault(p!.NhlId) ?? new PlayerRawTotals();
             var isGoalie = p.Position == "G";
-            var assignment = openAssignmentsByPlayer.GetValueOrDefault(p.NhlId);
             var spot = spotsByPlayer.GetValueOrDefault(p.NhlId);
             return new
             {
@@ -746,12 +691,7 @@ app.MapGet("/api/leagues/{leagueId}/teams/{username}/season-stats", async (
                 goalsAgainst = t.GoalsAgainst,
                 saves = t.Saves,
                 shotsAgainst = t.ShotsAgainst,
-                assignmentFrom = assignment?.From,
-                assignmentGamesPlayed = assignment?.GamesPlayed ?? 0,
-                assignmentGoals = assignment?.Goals ?? 0,
-                assignmentAssists = assignment?.Assists ?? 0,
-                assignmentFantasyPoints = assignment?.FantasyPoints ?? 0,
-                // weekly-lineup equivalents
+                
                 spotStartDate = spot?.StartDate,
                 spotActiveGamesPlayed = spot?.ActiveGamesPlayed ?? 0,
                 spotActiveGoals = spot?.Stats()[StatKeys.Goals] ?? 0,

@@ -64,7 +64,7 @@ public static class PlayerTotalsSource
         foreach (var snap in snaps)
         {
             // Doc id is "{season}_{playerId}" — parse the id rather than relying
-            // on snapshot ordering (same approach as ScoreCalcJob/ProcessTradesJob).
+            // on snapshot ordering.
             var playerId = long.Parse(snap.Id[(snap.Id.LastIndexOf('_') + 1)..]);
             if (snap.Exists)
                 results[playerId] = FromCacheDoc(snap);
