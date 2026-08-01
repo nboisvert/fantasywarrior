@@ -666,7 +666,7 @@ app.MapMethods("/api/leagues/{leagueId}/teams/{username}/lineup", ["PUT"], async
 });
 
 app.MapGet("/api/leagues/{leagueId}/teams/{username}/season-stats", async (
-    string leagueId, string username, FirestoreDb db, PlayerCache players) =>
+    string leagueId, string username, FirestoreDb db, PlayerCache players, SimulationClock clock) =>
 {
     var leagueSnap = await db.Collection("leagues").Document(leagueId).GetSnapshotAsync();
     if (!leagueSnap.Exists)
@@ -679,7 +679,8 @@ app.MapGet("/api/leagues/{leagueId}/teams/{username}/season-stats", async (
     var team = teamSnap.ConvertTo<Team>();
 
     var playersById = await players.GetByIdsAsync(team.PlayerIds);
-    var totalsById = await PlayerTotalsSource.FetchWithCacheAsync(db, team.PlayerIds, league.Season);
+    var totalsById = await PlayerTotalsSource.FetchWithCacheAsync(
+        db, team.PlayerIds, league.Season, (await clock.StateAsync())?.AsOfDate);
 
     // Pool-group stats are scoped to this player's current stint with this
     // team and count only the weeks he was in the active lineup. Precomputed
@@ -734,22 +735,32 @@ app.MapGet("/api/leagues/{leagueId}/teams/{username}/season-stats", async (
     return Results.Ok(new { season = league.Season, players = rows });
 });
 
-app.MapGet("/api/players/{playerId:long}", async (long playerId, FirestoreDb db, PlayerCache players) =>
+app.MapGet("/api/players/{playerId:long}", async (long playerId, FirestoreDb db, PlayerCache players, SimulationClock clock) =>
 {
     var player = (await players.GetByIdsAsync([playerId])).GetValueOrDefault(playerId);
     if (player is null)
         return Results.NotFound(new { error = "Player not found." });
 
+    // During a season replay the card must show what was known on the simulated
+    // day — otherwise a November card reports April totals and lists games that
+    // haven't been played yet.
+    var throughDate = (await clock.StateAsync())?.AsOfDate;
+
     var lines = await PlayerTotalsSource.FetchLinesAsync(db, playerId);
     var season = lines.Count > 0 ? lines.Max(l => l.Season) : null;
-    var seasonLines = lines.Where(l => l.Season == season && l.GameType == 2).ToList();
+    var seasonLines = lines
+        .Where(l => l.Season == season && l.GameType == 2
+            && (throughDate is null || string.CompareOrdinal(l.Date, throughDate) <= 0))
+        .ToList();
     var totals = PlayerTotalsSource.Aggregate(seasonLines);
     var isGoalie = player.Position == "G";
 
-    // Already computed for free (the lines above are fetched for recentGames
-    // regardless) — refresh the consolidated cache as a side effect.
-    if (season is not null)
-        await PlayerTotalsSource.CacheAsync(db, season, playerId, totals);
+    // This used to refresh playerSeasonStats as a "free" side effect. It was a
+    // write on every card view, and — now that the cache carries a throughDate —
+    // an actively harmful one: it would overwrite a replay-bounded entry with
+    // whole-season totals. The endpoint computes its response from the lines
+    // above and never reads the cache, so nothing is lost by not writing it.
+    // The nightly job owns that cache.
 
     return Results.Ok(new
     {

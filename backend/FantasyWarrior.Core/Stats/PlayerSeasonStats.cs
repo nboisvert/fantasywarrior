@@ -64,6 +64,19 @@ public sealed class PlayerSeasonStats
     [FirestoreProperty("shotsAgainst")]
     public int ShotsAgainst { get; set; }
 
+    /// <summary>
+    /// The last game day these totals include, "YYYY-MM-DD", or null for "the
+    /// whole season, whatever has been synced".
+    ///
+    /// Without this the document cannot express "totals as of November 23", so
+    /// a season replay and a real run would write indistinguishable data and
+    /// silently overwrite each other. It also makes the aggregate incremental:
+    /// a day's lines can be added to what is already here instead of
+    /// re-scanning the player's whole season.
+    /// </summary>
+    [FirestoreProperty("throughDate")]
+    public string? ThroughDate { get; set; }
+
     [FirestoreProperty("updatedUtc")]
     public Timestamp UpdatedUtc { get; set; }
 }

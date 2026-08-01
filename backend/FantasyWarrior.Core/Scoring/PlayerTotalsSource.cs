@@ -17,9 +17,18 @@ public static class PlayerTotalsSource
 {
     private const int MaxParallel = 8;
 
-    /// <summary>Regular-season totals for the given players. Always fresh; refreshes the cache as a side effect.</summary>
+    /// <summary>
+    /// Regular-season totals for the given players. Always fresh; refreshes the
+    /// cache as a side effect.
+    /// </summary>
+    /// <param name="throughDate">
+    /// Upper bound on the game day counted, "YYYY-MM-DD". Null means the whole
+    /// season. A season replay passes its cursor here so a player's totals
+    /// reflect the simulated date rather than the end of the real season.
+    /// </param>
     public static async Task<Dictionary<long, PlayerRawTotals>> FetchAsync(
-        FirestoreDb db, IReadOnlyCollection<long> playerIds, string season, CancellationToken ct = default)
+        FirestoreDb db, IReadOnlyCollection<long> playerIds, string season,
+        string? throughDate = null, CancellationToken ct = default)
     {
         var results = new Dictionary<long, PlayerRawTotals>();
         foreach (var chunk in playerIds.Distinct().Chunk(MaxParallel))
@@ -27,8 +36,10 @@ public static class PlayerTotalsSource
             var tasks = chunk.Select(async id =>
             {
                 var lines = await FetchLinesAsync(db, id, ct);
-                var totals = Aggregate(lines.Where(l => l.Season == season && l.GameType == 2));
-                await CacheAsync(db, season, id, totals, ct);
+                var totals = Aggregate(lines.Where(l =>
+                    l.Season == season && l.GameType == 2
+                    && (throughDate is null || string.CompareOrdinal(l.Date, throughDate) <= 0)));
+                await CacheAsync(db, season, id, totals, throughDate, ct);
                 return (id, Totals: totals);
             });
             foreach (var (id, totals) in await Task.WhenAll(tasks))
@@ -48,7 +59,8 @@ public static class PlayerTotalsSource
     /// yet cached.
     /// </summary>
     public static async Task<Dictionary<long, PlayerRawTotals>> FetchWithCacheAsync(
-        FirestoreDb db, IReadOnlyCollection<long> playerIds, string season, CancellationToken ct = default)
+        FirestoreDb db, IReadOnlyCollection<long> playerIds, string season,
+        string? throughDate = null, CancellationToken ct = default)
     {
         var distinct = playerIds.Distinct().ToList();
         if (distinct.Count == 0)
@@ -66,14 +78,16 @@ public static class PlayerTotalsSource
             // Doc id is "{season}_{playerId}" — parse the id rather than relying
             // on snapshot ordering.
             var playerId = long.Parse(snap.Id[(snap.Id.LastIndexOf('_') + 1)..]);
-            if (snap.Exists)
+            // A cache entry bounded to a different day than the caller asked for
+            // is not a hit — it would report end-of-season totals mid-replay.
+            if (snap.Exists && snap.ConvertTo<PlayerSeasonStats>().ThroughDate == throughDate)
                 results[playerId] = FromCacheDoc(snap);
             else
                 misses.Add(playerId);
         }
 
         if (misses.Count > 0)
-            foreach (var (id, totals) in await FetchAsync(db, misses, season, ct))
+            foreach (var (id, totals) in await FetchAsync(db, misses, season, throughDate, ct))
                 results[id] = totals;
         return results;
     }
@@ -145,7 +159,8 @@ public static class PlayerTotalsSource
     }
 
     public static async Task CacheAsync(
-        FirestoreDb db, string season, long playerId, PlayerRawTotals totals, CancellationToken ct = default)
+        FirestoreDb db, string season, long playerId, PlayerRawTotals totals,
+        string? throughDate = null, CancellationToken ct = default)
     {
         await db.Collection("playerSeasonStats").Document(SeasonStatsDocId(season, playerId)).SetAsync(new PlayerSeasonStats
         {
@@ -165,6 +180,7 @@ public static class PlayerTotalsSource
             GoalsAgainst = totals.GoalsAgainst,
             Saves = totals.Saves,
             ShotsAgainst = totals.ShotsAgainst,
+            ThroughDate = throughDate,
             UpdatedUtc = Timestamp.GetCurrentTimestamp(),
         }, cancellationToken: ct);
     }
