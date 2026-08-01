@@ -1,7 +1,30 @@
 # Fantasy Warrior — Project Status
 
 > **MUST be read at the start of every session and kept updated along the way.**
-> Last updated: 2026-07-31 (by Macklin Softwarini) — weekly-lineup scoring refactor, complete
+> Last updated: 2026-08-01 (by Macklin Softwarini) — Azure SQL migration under way
+
+## ⚠️ A backend rewrite is in progress — read this first
+
+Nick decided on 2026-08-01 to **replace Firestore with Azure SQL + EF Core**.
+The UI is considered finished and must not change; the whole backend is being
+rebuilt underneath it, starting from empty data.
+
+**Two documents own that work, and they are the ones to read:**
+
+- **[sql-migration-status.md](sql-migration-status.md)** — where it actually
+  stands, what to do next, how to run it locally. **Start here.**
+- [sql-migration-plan.md](sql-migration-plan.md) — the approved target design
+  and why (including the validation of Nick's data model, with three
+  corrections). Stable; only its "Amendements" section grows.
+
+State as of 2026-08-01: phases 0 and 1 done (schema deployed to Azure SQL,
+1,275 players and 3,269 real contracts loaded), phase 3 one job in. **Nothing is
+deployed** — production still runs the Cloud Run + Firestore stack described
+below, untouched, on branch `main`. The rewrite lives on branch `sql-migration`.
+
+Everything below this section describes the **Firestore-era** system. It stays
+accurate as history and as the description of what is currently in production,
+but anything it says about data model or storage is being replaced.
 
 ## Current state
 

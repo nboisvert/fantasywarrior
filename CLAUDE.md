@@ -2,6 +2,19 @@
 
 This project is called **Fantasy Warrior**.
 
+> ## ⚠️ Backend rewrite in progress (since 2026-08-01)
+>
+> Firestore is being replaced by **Azure SQL + EF Core**. The UI is finished and
+> must not change — the rebuild keeps every API response identical field for
+> field. Read **[.claude/doc/sql-migration-status.md](.claude/doc/sql-migration-status.md)**
+> before touching the backend; the target design is in
+> [sql-migration-plan.md](.claude/doc/sql-migration-plan.md).
+>
+> Work happens on branch **`sql-migration`**. `main` still holds the live
+> Firestore stack and is what production runs. Much of the "Stack" and data-model
+> detail below therefore describes the system being replaced — treat the two
+> migration docs as authoritative for anything storage-related.
+
 Fantasy Warrior is a web application for managing hockey pools.
 Interaction between users will be a key attraction to bring people in.
 
