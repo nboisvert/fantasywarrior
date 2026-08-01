@@ -138,6 +138,18 @@ if (job is null)
 if (job == "db-migrate")
     return await FantasyWarrior.Jobs.Ops.DbMigrateJob.RunAsync(listOnly: args.Contains("--list"));
 
+// SQL-backed ingestion. Lives beside the Firestore jobs of the same name until
+// cutover deletes those; the `sql-` prefix is what keeps the two apart in the
+// meantime.
+if (job == "sql-player-sync")
+{
+    using var nhlHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+    nhlHttp.DefaultRequestHeaders.UserAgent.ParseAdd("FantasyWarrior/0.1");
+    await using var sqlDb = FantasyWarrior.Data.DataServiceCollectionExtensions.CreateContext();
+    return await new FantasyWarrior.Jobs.Sql.PlayerSyncJob(new NhlApiClient(nhlHttp), sqlDb)
+        .RunAsync(GetOption(args, "--season") ?? CurrentSeason(), args.Contains("--dry-run"));
+}
+
 if (job == "capwages-sync")
 {
     using var capwagesHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
