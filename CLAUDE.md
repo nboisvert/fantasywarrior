@@ -35,6 +35,7 @@ Hosting must stay easy and free.
 - First rules/features implemented will be based on my own buddies' pool, agile/incremental style.
 - You should always keep track of project progression in [.claude/doc/project_status.md](.claude/doc/project_status.md), which **MUST** be read at the start of every session and kept updated along the way.
 - Deployment, GCP/GitHub configuration, local dev commands and ops runbook: see [.claude/doc/deployment.md](.claude/doc/deployment.md). Keep it updated when infra changes.
+- **Season simulation (test mode)**: the 2025-26 season can be replayed day by day to exercise the pool for real — see [.claude/doc/testmode.md](.claude/doc/testmode.md) and the `/testmode` skill. The simulated date lives in the Firestore doc `simulation/clock` and is the single source of truth; jobs and the API both read it. When one is running, **everything in the app believes it is that day**, so check `sim-clock` before concluding a date-related behaviour is a bug.
 - The "Garry Cockman" / cockcoin mascot-chatbot concept (currently a UI mock only, no backend): see [.claude/doc/cockman-concept.md](.claude/doc/cockman-concept.md), a living doc — keep appending as Nick brainstorms more of it.
 - Full project roadmap (phases 0-7): see project_status.md. Milestone: season-tracking MVP in prod for early October 2026 (NHL 2026-27 season).
 
