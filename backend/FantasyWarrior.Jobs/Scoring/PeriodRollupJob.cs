@@ -143,7 +143,7 @@ public sealed class PeriodRollupJob(FirestoreDb db)
         bool commitScore, bool dryRun, CancellationToken ct)
     {
         var slots = LineupRules.SlotsFrom(league.RuleConfig);
-        var pointValues = LegacyPointValues(league.RuleConfig);
+        var pointValues = league.RuleConfig.ScoringScale();
 
         var spots = await ReadSpots(RosterSpots.RelevantToAsync(leagueDoc, period.StartDate, ct));
         var byTeam = spots.GroupBy(s => s.Spot.TeamUsername).ToDictionary(g => g.Key, g => g.ToList());
@@ -301,19 +301,6 @@ public sealed class PeriodRollupJob(FirestoreDb db)
             .Select(d => d.ConvertTo<Lineup>())
             .ToDictionary(l => l.TeamUsername, l => l.ActiveSpotIds);
     }
-
-    /// <summary>
-    /// The league's scale as a StatLine map. Reads the legacy fixed PointValues
-    /// for now; when RuleConfig moves to a keyed map this becomes a passthrough.
-    /// </summary>
-    private static Dictionary<string, double> LegacyPointValues(RuleConfig config) => new()
-    {
-        [StatKeys.Goals] = config.PointValues.Goal,
-        [StatKeys.Assists] = config.PointValues.Assist,
-        [StatKeys.Wins] = config.PointValues.GoalieWin,
-        [StatKeys.OtLosses] = config.PointValues.GoalieOtLoss,
-        [StatKeys.Shutouts] = config.PointValues.Shutout,
-    };
 
     // --- read/write counting, so the cost claim is measured rather than assumed ---
 

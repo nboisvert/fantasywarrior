@@ -120,8 +120,19 @@ app.MapMethods("/api/leagues/{leagueId}/rules", ["PATCH"], async (string leagueI
     if (leagueSnap.ConvertTo<League>().CommissionerUsername != Normalize(req.Username))
         return Results.Json(new { error = "Only the commissioner can change the rules." }, statusCode: 403);
 
+    // An unrecognised stat key would score zero forever, silently, and read as
+    // a scoring bug rather than a typo — so it is rejected here, not absorbed.
+    var errors = RuleConfigValidation.Validate(req.RuleConfig);
+    if (errors.Count > 0)
+        return Results.BadRequest(new { error = string.Join(" ", errors), errors });
+
     await leagueDoc.UpdateAsync("ruleConfig", req.RuleConfig);
-    return Results.Ok(new { ok = true, note = "Scores refresh at the next nightly calculation (or run score-calc)." });
+    return Results.Ok(new
+    {
+        ok = true,
+        note = "Applies from the next nightly scoring run. Weeks already banked keep the "
+             + "scale they were scored under — run `recompute` to restate them.",
+    });
 });
 
 // Light league read: team-level rows for all teams (everything precomputed on

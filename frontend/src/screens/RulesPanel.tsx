@@ -61,9 +61,9 @@ export function RulesPanel({
     ["shutout", "Shutout"],
   ];
   const tops: [keyof RuleConfig["topCount"], string][] = [
-    ["forwards", "Top forwards"],
-    ["defense", "Top defense"],
-    ["goalies", "Top goalies"],
+    ["forwards", "Active forwards"],
+    ["defense", "Active defense"],
+    ["goalies", "Active goalies"],
   ];
   const rosterSizes: [keyof RuleConfig["rosterSize"], string][] = [
     ["min", "Min roster size"],
@@ -91,8 +91,11 @@ export function RulesPanel({
       </div>
 
       <span className="section-title" style={{ letterSpacing: "0.05em" }}>
-        Players counting toward the score (empty = all)
+        Weekly lineup slots
       </span>
+      <small className="muted">
+        How many players each GM may activate per position. Only active players score.
+      </small>
       <div className="rules-grid">
         {tops.map(([key, label]) => (
           <label key={key}>
@@ -127,7 +130,8 @@ export function RulesPanel({
       </div>
 
       <p className="muted" style={{ margin: 0, fontSize: "0.8rem" }}>
-        Scores refresh at the next nightly calculation.
+        Applies from the next nightly scoring run. Weeks already scored keep the scale
+        they were played under — changing the rules mid-season does not restate history.
       </p>
       <div style={{ display: "flex", gap: "0.6rem" }}>
         <button type="submit" className="btn" disabled={busy} style={{ flex: 1 }}>

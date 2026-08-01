@@ -13,11 +13,74 @@ public sealed class RuleConfig
     [FirestoreProperty("pointValues")]
     public PointValues PointValues { get; set; } = new();
 
+    /// <summary>
+    /// Extra scored stats, keyed by <see cref="StatKeys"/> — anything beyond
+    /// the five <see cref="PointValues"/> carries as named properties.
+    ///
+    /// This is what makes a different scoring model a config change rather
+    /// than a schema migration: a commissioner can score blocked shots, hits
+    /// or games played without a line of code. The five fixed properties stay
+    /// because every existing league document already has them and rewriting
+    /// them all would buy nothing.
+    /// </summary>
+    [FirestoreProperty("extraPointValues")]
+    public Dictionary<string, double> ExtraPointValues { get; set; } = [];
+
     [FirestoreProperty("topCount")]
     public TopCount TopCount { get; set; } = new();
 
     [FirestoreProperty("rosterSize")]
     public RosterSize RosterSize { get; set; } = new();
+
+    /// <summary>
+    /// The whole scale as one <see cref="StatKeys"/>-keyed map — the only form
+    /// the scoring engine consumes, so callers never have to know which half a
+    /// value came from.
+    /// </summary>
+    public Dictionary<string, double> ScoringScale()
+    {
+        var scale = new Dictionary<string, double>
+        {
+            [StatKeys.Goals] = PointValues.Goal,
+            [StatKeys.Assists] = PointValues.Assist,
+            [StatKeys.Wins] = PointValues.GoalieWin,
+            [StatKeys.OtLosses] = PointValues.GoalieOtLoss,
+            [StatKeys.Shutouts] = PointValues.Shutout,
+        };
+        foreach (var (key, value) in ExtraPointValues) scale[key] = value;
+        return scale;
+    }
+}
+
+/// <summary>Validation for the open-ended half of the scale.</summary>
+public static class RuleConfigValidation
+{
+    /// <summary>
+    /// Reasons a config would be rejected; empty means it is fine.
+    ///
+    /// An unrecognised stat key is the dangerous case: it would score zero
+    /// forever, silently, and look like a scoring bug rather than a typo.
+    /// </summary>
+    public static IReadOnlyList<string> Validate(RuleConfig config)
+    {
+        var errors = new List<string>();
+
+        foreach (var key in config.ExtraPointValues.Keys.Where(k => !StatKeys.IsKnown(k)))
+            errors.Add($"Unknown stat \"{key}\". Known stats: {string.Join(", ", StatKeys.All)}.");
+
+        foreach (var (name, slots) in new[]
+                 {
+                     ("forwards", config.TopCount.Forwards),
+                     ("defense", config.TopCount.Defense),
+                     ("goalies", config.TopCount.Goalies),
+                 })
+            if (slots is < 0) errors.Add($"Active {name} slots cannot be negative.");
+
+        if (config.RosterSize.Min is { } min && config.RosterSize.Max is { } max && min > max)
+            errors.Add($"Roster minimum ({min}) cannot exceed the maximum ({max}).");
+
+        return errors;
+    }
 }
 
 [FirestoreData]

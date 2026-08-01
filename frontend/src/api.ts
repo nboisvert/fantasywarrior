@@ -58,6 +58,12 @@ export interface RuleConfig {
     goalieOtLoss: number;
     shutout: number;
   };
+  /** Anything scored beyond the five above, keyed by stat name (goals,
+   * assists, plusMinus, pim, shots, hits, blockedShots, wins, otLosses,
+   * shutouts, saves, goalsAgainst, shotsAgainst, gamesPlayed). Lets a league
+   * score a stat the app never anticipated without a schema change. */
+  extraPointValues: Record<string, number>;
+  /** Active lineup slots per position — how many players count each week. */
   topCount: {
     forwards: number | null;
     defense: number | null;
