@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\FantasyWarrior.Core\FantasyWarrior.Core.csproj" />
+    <ProjectReference Include="..\FantasyWarrior.Data\FantasyWarrior.Data.csproj" />
   </ItemGroup>
 
   <ItemGroup>

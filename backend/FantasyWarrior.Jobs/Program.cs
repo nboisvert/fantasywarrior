@@ -93,6 +93,13 @@ using Google.Cloud.Firestore;
 //     Deletes users + leagues and everything under them. NHL reference data
 //     (players/games/playerGameStats/playerSeasonStats/news) is untouched.
 //
+// --- database (Azure SQL) ---
+//   db-migrate [--list]
+//     Brings the schema up to the latest migration. Reads AZURE_SQL_CONNECTION;
+//     needs no Google credentials. Deliberately a command rather than a startup
+//     hook -- Cloud Run can start several instances at once, and they must not
+//     race into the same schema change.
+//
 // --- diagnostics ---
 //   dump-golden [--out .claude/doc/golden-scores-preSql.json]
 //     Snapshots every number Firestore currently believes -- per-team weekly
@@ -116,6 +123,11 @@ if (job is null)
     Console.Error.WriteLine("Usage: FantasyWarrior.Jobs <player-sync> [options]");
     return 1;
 }
+
+// Handled before the Firestore setup below: schema migration is a SQL-only
+// operation and must work on a machine that has no Google credentials at all.
+if (job == "db-migrate")
+    return await FantasyWarrior.Jobs.Ops.DbMigrateJob.RunAsync(listOnly: args.Contains("--list"));
 
 var projectId = Environment.GetEnvironmentVariable("FIRESTORE_PROJECT_ID")
     ?? (Environment.GetEnvironmentVariable("FIRESTORE_EMULATOR_HOST") is not null

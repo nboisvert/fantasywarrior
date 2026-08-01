@@ -1,0 +1,112 @@
+namespace FantasyWarrior.Data.Entities.Views;
+
+/// <summary>
+/// A player's regular-season totals, aggregated from the game log.
+///
+/// A view, not a table. Under Firestore this was a physical
+/// <c>playerSeasonStats</c> collection with a <c>throughDate</c> field and its
+/// own cache-invalidation rules, all of which existed to avoid re-reading 51,000
+/// documents against a 50,000-read daily quota. Here it is a GROUP BY over an
+/// indexed column and the entire apparatus is unnecessary.
+///
+/// Note this view is deliberately unbounded — whole season, whatever has been
+/// synced. Totals *as of a given day* (what a season replay needs) are a
+/// parameterised query rather than a second view, because a view cannot take
+/// the date as an argument.
+/// </summary>
+public sealed class PlayerSeasonStatsView
+{
+    public long PlayerId { get; set; }
+    public string Season { get; set; } = "";
+    public int GamesPlayed { get; set; }
+    public int Goals { get; set; }
+    public int Assists { get; set; }
+    public int PlusMinus { get; set; }
+    public int Pim { get; set; }
+    public int Shots { get; set; }
+    public int Hits { get; set; }
+    public int BlockedShots { get; set; }
+    public int Wins { get; set; }
+    public int OtLosses { get; set; }
+    public int Shutouts { get; set; }
+    public int GoalsAgainst { get; set; }
+    public int Saves { get; set; }
+    public int ShotsAgainst { get; set; }
+
+    public int Points => Goals + Assists;
+}
+
+/// <summary>
+/// What one roster spot has been worth to its team: the sum of its weekly
+/// assignments, split by whether the GM had him active.
+///
+/// The bench half is what powers "you left 14 points on the bench", which is
+/// the single most-read number on the Team screen.
+/// </summary>
+public sealed class RosterSpotTotalsView
+{
+    public int RosterSpotId { get; set; }
+    public int LeagueId { get; set; }
+    public int TeamId { get; set; }
+    public long PlayerId { get; set; }
+
+    /// <summary>Points earned while in the active lineup — the only ones that count.</summary>
+    public double ActivePoints { get; set; }
+
+    public double BenchPoints { get; set; }
+
+    /// <summary>Games played while active — the honest denominator for points per game.</summary>
+    public int ActiveGamesPlayed { get; set; }
+
+    public int ActiveGoals { get; set; }
+    public int ActiveAssists { get; set; }
+
+    /// <summary>Banked: from weeks that are already finalized and can never move.</summary>
+    public double FinalizedActivePoints { get; set; }
+}
+
+/// <summary>One team's result for one scoring week — the weekly history chart.</summary>
+public sealed class TeamPeriodScoreView
+{
+    public int TeamId { get; set; }
+    public int PeriodId { get; set; }
+    public int PeriodNumber { get; set; }
+    public string Season { get; set; } = "";
+    public double ActivePoints { get; set; }
+    public double BenchPoints { get; set; }
+    public bool IsFinalized { get; set; }
+}
+
+/// <summary>
+/// The standings row for one team.
+///
+/// <c>Score = FinalizedPoints + LivePoints</c> holds by construction here,
+/// because both sides are computed from the same rows in the same statement.
+/// On Firestore this was three stored fields kept in agreement by hand, and
+/// keeping them in agreement is where its scoring bugs came from.
+/// </summary>
+public sealed class StandingsView
+{
+    public int TeamId { get; set; }
+    public int LeagueId { get; set; }
+
+    /// <summary>Everything earned while active, banked or not — what the standings show.</summary>
+    public double Score { get; set; }
+
+    /// <summary>The part that is banked and can never move again.</summary>
+    public double FinalizedScore { get; set; }
+
+    /// <summary>The unbanked remainder: in practice, the week in progress.</summary>
+    public double LivePoints { get; set; }
+
+    /// <summary>What this team's benched players have produced, all season.</summary>
+    public double BenchScore { get; set; }
+
+    public int RosterGamesPlayed { get; set; }
+
+    /// <summary>Players currently held — open roster spots only.</summary>
+    public int PlayerCount { get; set; }
+
+    /// <summary>Summed cap hits of the current roster; 0 for players with no contract on file.</summary>
+    public long CapTotal { get; set; }
+}
