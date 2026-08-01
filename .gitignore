@@ -15,6 +15,10 @@ npm-debug.log*
 yarn-error.log
 
 # Environment & secrets
+# This repository is PUBLIC. Anything committed here is readable by anyone,
+# forever, including from git history — so real credentials only ever live in
+# appsettings.Local.json, never in the committed appsettings.json.
+appsettings.Local.json
 appsettings.*.Local.json
 .env
 *.local
