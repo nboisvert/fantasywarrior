@@ -1,9 +1,61 @@
 # Fantasy Warrior — Project Status
 
 > **MUST be read at the start of every session and kept updated along the way.**
-> Last updated: 2026-07-31 (by Macklin Softwarini) — PlayerCard polish pass (top bar, age/birthday, Last 10/Career tabs)
+> Last updated: 2026-07-31 (by Macklin Softwarini) — weekly-lineup scoring refactor, complete
 
 ## Current state
+
+**SCORING REFACTOR: weekly lineups, banked points (2026-07-31) — DONE, 11 commits**
+(plan: `C:\Users\nicolasc\.claude\plans\grosse-refacto-ajd-nous-peppy-harp.md` · rules: [scoring-model.md](scoring-model.md))
+
+The season-cumulative model was replaced end to end. Old model: recompute every
+player's whole season nightly, auto-select a top-X per position, and write a
+compensating ledger entry on every transaction so the total wouldn't jump. Three
+mechanisms fighting to produce a number nobody could explain, at ~90,000 Firestore
+reads a night for one league — against a 50,000/day free tier.
+
+New model: **each GM activates a subset of his roster each week; only active players
+score; a week's points are banked permanently when it closes.** A trade can never
+move history, so the entire compensation apparatus became meaningless and was deleted.
+
+- **Cost: ~1,600 reads/night, measured** (the job counts its own and warns past 10k).
+  One date-range query over the current week serves every league, replacing per-player
+  career scans. Flat for the whole season — finished weeks are never re-read.
+- **New**: `periods` (global weekly calendar, Mon–Sun ET, derived from `games`),
+  `rosterSpots` (renamed `Assignment`), `lineups` (one doc per team per week),
+  `StatLine`/`StatKeys`/`StatWindow` (one stat shape replacing four), `PoolClock`
+  (one definition of "today"), `firestore.indexes.json` + `check-indexes`.
+- **Deleted**: `Assignment`, `Adjustment` + `adjustments`, `ScoreLedgerEntry` +
+  `scoreLedger` (written nightly since July, never read by any code), `AssignmentStats`,
+  `ScoreCalcJob`, `TransactionAdjustment`, `/activity`, `Team.rawTopXScore`/
+  `adjustmentsTotal`/`countedPlayerIds`, 4 dead api.ts functions, dead `firebase.ts`.
+  Net −1,100 lines in that commit alone.
+- **Jobs**: `nightly` (one command, correct order enforced in C# not YAML),
+  `period-init`, `period-rollup`, `recompute`, `period-lock`, `backfill-roster-spots`,
+  `seed-mordus`, `player-dump`, `check-indexes`. Retired: `score-calc`,
+  `process-trades` (folded into `nightly`), `league-init-assignments`, `seed-allstars`.
+- **UI**: active/bench toggle inline in the Team grid (own team, unlocked week only),
+  week bar with slot counter and bench points, Standings shows "+N this week",
+  Dashboard shows the week and what was benched.
+- **Tests: 152 green** (was 56). Pure logic only, no mocking.
+
+**Three bugs shadow mode caught before any user saw them** — the reason the plan
+insisted on running the new scoring beside the old one: every team scored zero
+(spots dated from league creation, not season start), then everyone was benched
+(no lineup slots configured), then the job was clobbering GM-submitted lineups via
+a read-then-write of the whole document.
+
+**⚠️ Cloud Run redeploy required** — the API contract changed substantially.
+The frontend tolerates the old API (`?? 0` everywhere) so nothing is broken meanwhile.
+
+**Still open**: no auth (weekly lineups make this materially worse — silently benching
+a rival's star is undetectable), the Équipe slot scores nothing yet (rule unknown),
+salaries are estimated not real, cap and roster size are displayed but not enforced,
+39 unmatched Mordus players (see [mordus-pool.md](mordus-pool.md)).
+
+**Les Mordus league imported (2026-07-31)** — id `haPRaAJ3Vo3nqPufYGOM`, 14 GMs,
+360 players parsed out of Nick's PoolExpert PDF, 9F/4D/1G active, 23–35 roster,
+$115M cap, scoring 1/1/1/1/0. See [mordus-pool.md](mordus-pool.md).
 
 **PlayerCard polish: top bar frame, age without "y", Last 10 / Career tabs, embedded Hockey-Reference (2026-07-31)**
 
