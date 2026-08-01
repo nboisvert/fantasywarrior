@@ -40,6 +40,7 @@ public sealed class PlayerConfiguration : IEntityTypeConfiguration<Player>
         b.Property(x => x.BirthCountry).HasMaxLength(3).IsUnicode(false);
         b.Property(x => x.HeadshotUrl).HasMaxLength(300);
         b.Property(x => x.DraftTeamAbbrev).HasMaxLength(3).IsFixedLength().IsUnicode(false);
+        b.Property(x => x.CapWagesSlug).HasMaxLength(80).IsUnicode(false);
 
         // Derived by the database so it can never disagree with Position, and
         // stored so it can be indexed. Mirrors PositionGroups.From exactly.

@@ -75,6 +75,13 @@ public sealed class Player
 
     public bool DraftChecked { get; set; }
 
+    /// <summary>
+    /// This player's slug on CapWages, remembered once the contract import has
+    /// matched him. Turns every later run into an exact lookup instead of a
+    /// name match, and makes a rename on either side harmless.
+    /// </summary>
+    public string? CapWagesSlug { get; set; }
+
     public DateTime LastSyncedUtc { get; set; }
 
     public NhlTeam? Team { get; set; }

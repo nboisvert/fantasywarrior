@@ -19,6 +19,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Pages captured from the live CapWages site, trimmed. Re-capture and
+         diff these when a sync suddenly returns nothing. -->
+    <Content Include="Fixtures\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\FantasyWarrior.Core\FantasyWarrior.Core.csproj" />
     <ProjectReference Include="..\FantasyWarrior.Jobs\FantasyWarrior.Jobs.csproj" />
   </ItemGroup>

@@ -100,6 +100,15 @@ using Google.Cloud.Firestore;
 //     hook -- Cloud Run can start several instances at once, and they must not
 //     race into the same schema change.
 //
+//   capwages-sync [--season 20252026] [--dry-run] [--resolve-unmatched]
+//     Real NHL contracts from capwages.com into PlayerContracts, replacing the
+//     invented figures estimate-salaries has been writing since July. Reads the
+//     JSON each page already embeds for its own React tree -- not the rendered
+//     tables -- so a layout change cannot break it. 32 requests, one per team,
+//     2s apart, honest User-Agent. --resolve-unmatched additionally fetches a
+//     player page per unmatched name, the only place nhlId appears.
+//     Personal/non-commercial use only.
+//
 // --- diagnostics ---
 //   dump-golden [--out .claude/doc/golden-scores-preSql.json]
 //     Snapshots every number Firestore currently believes -- per-team weekly
@@ -124,10 +133,22 @@ if (job is null)
     return 1;
 }
 
-// Handled before the Firestore setup below: schema migration is a SQL-only
-// operation and must work on a machine that has no Google credentials at all.
+// Handled before the Firestore setup below: these are SQL-only and must work
+// on a machine that has no Google credentials at all.
 if (job == "db-migrate")
     return await FantasyWarrior.Jobs.Ops.DbMigrateJob.RunAsync(listOnly: args.Contains("--list"));
+
+if (job == "capwages-sync")
+{
+    using var capwagesHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+    await using var sqlDb = FantasyWarrior.Data.DataServiceCollectionExtensions.CreateContext();
+    return await new FantasyWarrior.Jobs.CapWages.CapWagesSyncJob(
+            sqlDb, new FantasyWarrior.Jobs.CapWages.CapWagesClient(capwagesHttp))
+        .RunAsync(
+            onlySeason: GetOption(args, "--season"),
+            dryRun: args.Contains("--dry-run"),
+            resolveUnmatched: args.Contains("--resolve-unmatched"));
+}
 
 var projectId = Environment.GetEnvironmentVariable("FIRESTORE_PROJECT_ID")
     ?? (Environment.GetEnvironmentVariable("FIRESTORE_EMULATOR_HOST") is not null

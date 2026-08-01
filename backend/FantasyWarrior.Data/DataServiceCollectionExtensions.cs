@@ -17,6 +17,19 @@ public static class DataServiceCollectionExtensions
         ?? throw new InvalidOperationException(
             $"Set {ConnectionStringVariable} to the Azure SQL connection string.");
 
+    /// <summary>
+    /// A context for a console job, where there is no DI container. Same
+    /// provider settings as the API so a job and a request never behave
+    /// differently against the same database.
+    /// </summary>
+    public static FantasyWarriorDbContext CreateContext(string? connectionString = null)
+    {
+        var options = new DbContextOptionsBuilder<FantasyWarriorDbContext>()
+            .UseSqlServer(connectionString ?? ResolveConnectionString(), Configure)
+            .Options;
+        return new FantasyWarriorDbContext(options);
+    }
+
     public static IServiceCollection AddFantasyWarriorData(
         this IServiceCollection services, string? connectionString = null)
     {
