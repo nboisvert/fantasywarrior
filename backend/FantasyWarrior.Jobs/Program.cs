@@ -5,6 +5,13 @@ using Google.Cloud.Firestore;
 
 // Usage: dotnet run -- <job> [options]
 //
+// --- season simulation (test mode) ---
+//   sim-clock [--set YYYY-MM-DD] [--season 20252026] [--off]
+//     Reads or moves the simulation cursor (`simulation/clock`). asOfDate is
+//     the last game day whose results are known, so todayEt = asOfDate + 1.
+//     Every reader -- jobs, local API, deployed API -- takes its "today" from
+//     this one document. --off returns everything to the real clock.
+//
 // --- nightly pipeline ---
 //   nightly [--shadow] [--dry-run] [--backfill-from N]
 //     THE nightly entry point, and the only place the correct order lives:
@@ -341,6 +348,33 @@ switch (job)
         }
         Console.WriteLine($"wipe-pools: deleted {deletedUsers} users, {deletedLeagues} leagues "
             + "(teams/rosterSpots/lineups/trades). NHL reference data untouched.");
+        return 0;
+    }
+    case "sim-clock":
+    {
+        var clock = new SimulationClock(db);
+        if (args.Contains("--off"))
+        {
+            await clock.DisableAsync();
+            Console.WriteLine("Simulation disabled — everything is back on the real clock.");
+            return 0;
+        }
+        if (GetOption(args, "--set") is { } setTo)
+        {
+            if (!DateOnly.TryParse(setTo, out var parsed))
+            {
+                Console.Error.WriteLine("--set expects YYYY-MM-DD.");
+                return 1;
+            }
+            await clock.SetAsync(PoolClock.Iso(parsed), GetOption(args, "--season") ?? "20252026");
+        }
+        var state = await clock.StateAsync();
+        var simNow = await clock.NowAsync();
+        Console.WriteLine(state is null
+            ? "No simulation running — real clock."
+            : $"SIMULATED  season {state.Season}  asOfDate {state.AsOfDate}");
+        Console.WriteLine($"  todayEt       {PoolClock.TodayEtIso(simNow)}");
+        Console.WriteLine($"  lastStatDate  {PoolClock.LastStatDateIso(simNow)}");
         return 0;
     }
     case "nightly":

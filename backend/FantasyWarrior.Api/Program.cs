@@ -18,6 +18,10 @@ builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.AllowAnyOrigin().AllowAn
 builder.Services.AddSingleton<FirestoreDb>(_ =>
     FirestoreDb.Create(Environment.GetEnvironmentVariable("FIRESTORE_PROJECT_ID") ?? "fantasywarriordb"));
 builder.Services.AddSingleton<PlayerCache>();
+// Resolves the simulation cursor when a season replay is running, the real
+// clock otherwise. Singleton with its own short TTL so this costs at most one
+// Firestore read every few seconds rather than one per request.
+builder.Services.AddSingleton<SimulationClock>(sp => new SimulationClock(sp.GetRequiredService<FirestoreDb>()));
 
 var app = builder.Build();
 app.UseCors();
@@ -25,10 +29,23 @@ app.UseCors();
 app.MapGet("/", () => "Fantasy Warrior API");
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
 
-static string Normalize(string username) => username.Trim().ToLowerInvariant();
+// Reports whether a season replay is in progress and what day it thinks it is.
+// The one place to look when the app's idea of "this week" seems wrong.
+app.MapGet("/api/clock", async (SimulationClock clock) =>
+{
+    var state = await clock.StateAsync();
+    var now = await clock.NowAsync();
+    return Results.Ok(new
+    {
+        simulated = state is not null,
+        asOfDate = state?.AsOfDate,
+        season = state?.Season,
+        todayEt = PoolClock.TodayEtIso(now),
+        lastStatDate = PoolClock.LastStatDateIso(now),
+    });
+});
 
-// NHL "game day" runs on Eastern Time — see PoolClock for why.
-static string EtToday() => PoolClock.TodayEtIso(DateTimeOffset.UtcNow);
+static string Normalize(string username) => username.Trim().ToLowerInvariant();
 
 app.MapPost("/api/login", async (LoginRequest req, FirestoreDb db) =>
 {
@@ -140,7 +157,7 @@ app.MapMethods("/api/leagues/{leagueId}/rules", ["PATCH"], async (string leagueI
 // ONLY the requesting user's own roster, fetched with a direct batched read of
 // just those player docs. Other teams' rosters/stats are loaded on demand by
 // their own screens (Stats, CreateTradeSheet).
-app.MapGet("/api/leagues/{leagueId}", async (string leagueId, string? username, FirestoreDb db) =>
+app.MapGet("/api/leagues/{leagueId}", async (string leagueId, string? username, FirestoreDb db, SimulationClock clock) =>
 {
     var leagueSnap = await db.Collection("leagues").Document(leagueId).GetSnapshotAsync();
     if (!leagueSnap.Exists)
@@ -150,7 +167,8 @@ app.MapGet("/api/leagues/{leagueId}", async (string leagueId, string? username, 
     var teamsSnap = await leagueSnap.Reference.Collection("teams").GetSnapshotAsync();
     var teams = teamsSnap.Documents.Select(d => d.ConvertTo<Team>()).ToList();
 
-    var (currentPeriod, _) = await LineupEndpoints.ResolvePeriodAsync(db, league.Season, null);
+    var simNow = (await clock.NowAsync()).UtcDateTime;
+    var (currentPeriod, _) = await LineupEndpoints.ResolvePeriodAsync(db, league.Season, null, clock);
 
     var normalized = username is null ? null : Normalize(username);
     var myTeam = normalized is null ? null : teams.FirstOrDefault(t => t.OwnerUsername == normalized);
@@ -185,7 +203,7 @@ app.MapGet("/api/leagues/{leagueId}", async (string leagueId, string? username, 
             startDate = currentPeriod.StartDate,
             endDate = currentPeriod.EndDate,
             gameCount = currentPeriod.GameCount,
-            locked = currentPeriod.LockUtc.ToDateTime() <= DateTime.UtcNow,
+            locked = currentPeriod.LockUtc.ToDateTime() <= simNow,
             finalized = currentPeriod.FinalizedUtc is not null,
         },
         teams = teams
@@ -225,7 +243,7 @@ app.MapGet("/api/leagues/{leagueId}", async (string leagueId, string? username, 
 });
 
 app.MapPost("/api/leagues/{leagueId}/teams/{username}/roster", async (
-    string leagueId, string username, RosterChangeRequest req, FirestoreDb db, PlayerCache players) =>
+    string leagueId, string username, RosterChangeRequest req, FirestoreDb db, PlayerCache players, SimulationClock clock) =>
 {
     var leagueDoc = db.Collection("leagues").Document(leagueId);
     var leagueSnap = await leagueDoc.GetSnapshotAsync();
@@ -257,12 +275,12 @@ app.MapPost("/api/leagues/{leagueId}/teams/{username}/roster", async (
         playersOut: [], playersIn: [req.PlayerId],
         startReason: req.CreationEvent ?? RosterSpotReason.FreeAgent, startRefId: req.CreationEventReferenceId,
         endReason: RosterSpotReason.Release, endRefId: null,
-        effectiveDate: EtToday());
+        effectiveDate: await clock.TodayEtAsync());
     return Results.Ok(PlayerDto.From(player));
 });
 
 app.MapDelete("/api/leagues/{leagueId}/teams/{username}/roster/{playerId:long}", async (
-    string leagueId, string username, long playerId, FirestoreDb db, PlayerCache players) =>
+    string leagueId, string username, long playerId, FirestoreDb db, PlayerCache players, SimulationClock clock) =>
 {
     var leagueDoc = db.Collection("leagues").Document(leagueId);
     var leagueSnap = await leagueDoc.GetSnapshotAsync();
@@ -284,7 +302,7 @@ app.MapDelete("/api/leagues/{leagueId}/teams/{username}/roster/{playerId:long}",
         playersOut: [playerId], playersIn: [],
         startReason: RosterSpotReason.FreeAgent, startRefId: null,
         endReason: RosterSpotReason.Release, endRefId: null,
-        effectiveDate: EtToday());
+        effectiveDate: await clock.TodayEtAsync());
     return Results.Ok();
 });
 
@@ -517,7 +535,7 @@ app.MapGet("/api/players", async (string? q, PlayerCache players) =>
 // merely displayed: roster size and the salary cap are still advisory.
 
 app.MapGet("/api/leagues/{leagueId}/teams/{username}/lineup", async (
-    string leagueId, string username, int? period, string? viewer, FirestoreDb db, PlayerCache players) =>
+    string leagueId, string username, int? period, string? viewer, FirestoreDb db, PlayerCache players, SimulationClock clock) =>
 {
     var leagueSnap = await db.Collection("leagues").Document(leagueId).GetSnapshotAsync();
     if (!leagueSnap.Exists) return Results.NotFound(new { error = "League not found." });
@@ -527,10 +545,10 @@ app.MapGet("/api/leagues/{leagueId}/teams/{username}/lineup", async (
     var teamSnap = await leagueSnap.Reference.Collection("teams").Document(owner).GetSnapshotAsync();
     if (!teamSnap.Exists) return Results.NotFound(new { error = "Team not found." });
 
-    var (periodDoc, allPeriods) = await LineupEndpoints.ResolvePeriodAsync(db, league.Season, period);
+    var (periodDoc, allPeriods) = await LineupEndpoints.ResolvePeriodAsync(db, league.Season, period, clock);
     if (periodDoc is null) return Results.NotFound(new { error = "No period calendar for this season." });
 
-    var locked = periodDoc.LockUtc.ToDateTime() <= DateTime.UtcNow;
+    var locked = periodDoc.LockUtc.ToDateTime() <= (await clock.NowAsync()).UtcDateTime;
 
     // A rival's lineup is competitive information until it locks.
     var isOwner = viewer is not null && Normalize(viewer) == owner;
@@ -598,7 +616,7 @@ app.MapGet("/api/leagues/{leagueId}/teams/{username}/lineup", async (
 });
 
 app.MapMethods("/api/leagues/{leagueId}/teams/{username}/lineup", ["PUT"], async (
-    string leagueId, string username, SetLineupRequest req, FirestoreDb db) =>
+    string leagueId, string username, SetLineupRequest req, FirestoreDb db, SimulationClock clock) =>
 {
     if (string.IsNullOrWhiteSpace(req.Username))
         return Results.BadRequest(new { error = "Username is required." });
@@ -617,10 +635,10 @@ app.MapMethods("/api/leagues/{leagueId}/teams/{username}/lineup", ["PUT"], async
     var teamSnap = await leagueSnap.Reference.Collection("teams").Document(owner).GetSnapshotAsync();
     if (!teamSnap.Exists) return Results.NotFound(new { error = "Team not found." });
 
-    var (periodDoc, _) = await LineupEndpoints.ResolvePeriodAsync(db, league.Season, req.PeriodIndex);
+    var (periodDoc, _) = await LineupEndpoints.ResolvePeriodAsync(db, league.Season, req.PeriodIndex, clock);
     if (periodDoc is null) return Results.NotFound(new { error = "Period not found." });
 
-    if (periodDoc.LockUtc.ToDateTime() <= DateTime.UtcNow)
+    if (periodDoc.LockUtc.ToDateTime() <= (await clock.NowAsync()).UtcDateTime)
         return Results.Conflict(new { error = $"Week {periodDoc.Index} is locked. Set your lineup for the next week instead." });
 
     var spots = await RosterSpots.OpenForTeamAsync(leagueSnap.Reference, owner);
@@ -814,7 +832,7 @@ static class LineupEndpoints
     /// the season it is the first one.
     /// </summary>
     public static async Task<(Period? Period, object[] All)> ResolvePeriodAsync(
-        FirestoreDb db, string season, int? index)
+        FirestoreDb db, string season, int? index, SimulationClock clock)
     {
         var snap = await db.Collection("periods").WhereEqualTo("season", season).OrderBy("index").GetSnapshotAsync();
         var periods = snap.Documents.Select(d => d.ConvertTo<Period>()).ToList();
@@ -826,7 +844,10 @@ static class LineupEndpoints
             gameCount = p.GameCount, finalized = p.FinalizedUtc is not null,
         }).ToArray();
 
-        var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
+        // Eastern game day, not raw UTC — the two disagree for five hours every
+        // night, which is long enough to show the wrong week to anyone loading
+        // the app late in the evening.
+        var today = await clock.TodayEtAsync();
         var chosen = index is not null
             ? periods.FirstOrDefault(p => p.Index == index)
             : periods.LastOrDefault(p => string.CompareOrdinal(p.StartDate, today) <= 0) ?? periods[0];

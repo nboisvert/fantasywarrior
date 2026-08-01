@@ -14,10 +14,15 @@ namespace FantasyWarrior.Jobs.Trades;
 /// </summary>
 public sealed class ProcessTradesJob(FirestoreDb db)
 {
-    public async Task RunAsync(CancellationToken ct = default)
+    /// <param name="nowOverride">
+    /// The simulated instant when replaying a season. Governs the date a traded
+    /// player actually changes teams for scoring, so it must not fall back to
+    /// the wall clock mid-simulation.
+    /// </param>
+    public async Task RunAsync(DateTimeOffset? nowOverride = null, CancellationToken ct = default)
     {
         var leagues = (await db.Collection("leagues").GetSnapshotAsync(ct)).Documents;
-        var today = EtToday();
+        var today = PoolClock.TodayEtIso(nowOverride ?? await new SimulationClock(db).NowAsync(ct));
 
         foreach (var leagueSnap in leagues.Where(l => l.Exists))
         {
@@ -92,5 +97,4 @@ public sealed class ProcessTradesJob(FirestoreDb db)
             .ToDictionary(s => long.Parse(s.Id), s => s.ConvertTo<Player>().Position);
     }
 
-    private static string EtToday() => PoolClock.TodayEtIso(DateTimeOffset.UtcNow);
 }

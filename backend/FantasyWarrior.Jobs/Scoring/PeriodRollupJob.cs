@@ -43,7 +43,7 @@ public sealed class PeriodRollupJob(FirestoreDb db)
         string? onlyLeagueId, bool commitScore, bool dryRun, DateTimeOffset? nowOverride = null,
         int? onlyPeriodIndex = null, CancellationToken ct = default)
     {
-        var now = nowOverride ?? DateTimeOffset.UtcNow;
+        var now = nowOverride ?? await new SimulationClock(db).NowAsync(ct);
         var lastStatDate = PoolClock.LastStatDateIso(now);
 
         Console.WriteLine($"=== period-rollup{(dryRun ? "  [DRY RUN]" : "")}{(commitScore ? "  [COMMITTING SCORE]" : "  [shadow]")} ===");

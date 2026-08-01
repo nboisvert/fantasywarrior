@@ -29,11 +29,17 @@ namespace FantasyWarrior.Jobs.Nightly;
 public sealed class NightlyJob(FirestoreDb db)
 {
     public async Task<int> RunAsync(
-        bool commitScore, bool dryRun, int? backfillFrom = null, CancellationToken ct = default)
+        bool commitScore, bool dryRun, int? backfillFrom = null,
+        DateTimeOffset? nowOverride = null, CancellationToken ct = default)
     {
-        var now = DateTimeOffset.UtcNow;
+        // The simulation cursor when one is running, the real clock otherwise.
+        var simulation = await new SimulationClock(db).StateAsync(ct);
+        var now = nowOverride
+            ?? (simulation is null ? DateTimeOffset.UtcNow : SimulationClock.FromAsOfDate(simulation.AsOfDate));
         var lastStatDate = PoolClock.LastStatDateIso(now);
-        Console.WriteLine($"===== nightly {PoolClock.TodayEtIso(now)} (ET){(dryRun ? "  [DRY RUN]" : "")} =====\n");
+        var simulated = nowOverride is not null || simulation is not null;
+        Console.WriteLine($"===== nightly {PoolClock.TodayEtIso(now)} (ET)"
+            + $"{(simulated ? "  [SIMULATED]" : "")}{(dryRun ? "  [DRY RUN]" : "")} =====\n");
 
         var finalized = 0;
         if (backfillFrom is not null)
@@ -59,7 +65,7 @@ public sealed class NightlyJob(FirestoreDb db)
 
         Console.WriteLine("\n[3/4] Executing accepted trades");
         if (dryRun) Console.WriteLine("  (skipped in dry run)");
-        else await new ProcessTradesJob(db).RunAsync(ct);
+        else await new ProcessTradesJob(db).RunAsync(now, ct);
 
         Console.WriteLine("\n[4/4] Materializing next week's lineups");
         await MaterializeNextAsync(lastStatDate, dryRun, ct);
