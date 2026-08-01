@@ -132,10 +132,17 @@ public sealed class NightlyJob(FirestoreDb db)
                     if (dryRun) continue;
 
                     // Value and guard in one update: they can never disagree.
+                    //
+                    // `score` is rewritten here too. The rollup ran earlier in
+                    // this same pass and computed it from the *pre-banking*
+                    // finalized total, so leaving it alone would show only the
+                    // current week's points until the next run — a whole week of
+                    // visibly wrong standings.
                     await teamDoc.Reference.UpdateAsync(new Dictionary<string, object>
                     {
                         ["finalizedScore"] = applied.Value.FinalizedPoints,
                         ["finalizedThroughPeriodIndex"] = applied.Value.FinalizedThroughPeriodIndex,
+                        ["score"] = PeriodScoring.LiveScore(applied.Value.FinalizedPoints, team.PeriodPoints),
                     }, cancellationToken: ct);
                 }
             }

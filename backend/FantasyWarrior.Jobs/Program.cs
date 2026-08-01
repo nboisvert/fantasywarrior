@@ -6,6 +6,17 @@ using Google.Cloud.Firestore;
 // Usage: dotnet run -- <job> [options]
 //
 // --- season simulation (test mode) ---
+//   sim-reset [--season 20252026] [--dry-run]
+//     Rewinds a season to its eve so it can be replayed. KEEPS roster spots
+//     (who owns whom), teams, users and rules; clears scores, banked totals,
+//     lineups, trades and player aggregates. Lands the cursor the day BEFORE
+//     week 1 starts, so week 1's lineup is still editable.
+//   sim-advance --to YYYY-MM-DD [--dry-run]
+//     Moves the simulation forward, processing each evening as the nightly
+//     pipeline would. Only the NHL fetch is skipped -- the gamelogs are
+//     already in Firestore. STOPS AT EVERY WEEK END so that week's trades
+//     execute before the next begins; jumping straight to the target would
+//     apply them all at the end.
 //   sim-clock [--set YYYY-MM-DD] [--season 20252026] [--off]
 //     Reads or moves the simulation cursor (`simulation/clock`). asOfDate is
 //     the last game day whose results are known, so todayEt = asOfDate + 1.
@@ -349,6 +360,20 @@ switch (job)
         Console.WriteLine($"wipe-pools: deleted {deletedUsers} users, {deletedLeagues} leagues "
             + "(teams/rosterSpots/lineups/trades). NHL reference data untouched.");
         return 0;
+    }
+    case "sim-reset":
+        return await new FantasyWarrior.Jobs.Simulation.SimResetJob(db).RunAsync(
+            season: GetOption(args, "--season") ?? "20252026",
+            dryRun: args.Contains("--dry-run"));
+    case "sim-advance":
+    {
+        var to = GetOption(args, "--to");
+        if (to is null)
+        {
+            Console.Error.WriteLine("Usage: sim-advance --to YYYY-MM-DD [--dry-run]");
+            return 1;
+        }
+        return await new FantasyWarrior.Jobs.Simulation.SimAdvanceJob(db).RunAsync(to, args.Contains("--dry-run"));
     }
     case "sim-clock":
     {
