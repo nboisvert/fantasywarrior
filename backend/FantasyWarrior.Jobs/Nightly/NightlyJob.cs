@@ -64,8 +64,16 @@ public sealed class NightlyJob(FirestoreDb db)
         finalized += await FinalizeAsync(lastStatDate, dryRun, null, ct);
 
         Console.WriteLine("\n[3/4] Executing accepted trades");
-        if (dryRun) Console.WriteLine("  (skipped in dry run)");
-        else await new ProcessTradesJob(db).RunAsync(now, ct);
+        // Only when a week actually closed. Running these every night would let
+        // a trade land mid-week, which breaks the rule the whole model rests on:
+        // a roster spot spans whole periods, so a player's points always belong
+        // to exactly one team for any given week.
+        if (finalized == 0)
+            Console.WriteLine("  No period closed tonight — trades wait for the next week end.");
+        else if (dryRun)
+            Console.WriteLine("  (skipped in dry run)");
+        else
+            await new ProcessTradesJob(db).RunAsync(await NextPeriodStartAsync(lastStatDate, ct), ct);
 
         Console.WriteLine("\n[4/4] Materializing next week's lineups");
         await MaterializeNextAsync(lastStatDate, dryRun, ct);
@@ -82,6 +90,23 @@ public sealed class NightlyJob(FirestoreDb db)
     /// Each team's guard is checked and written in the same atomic document
     /// update, which is what makes re-running a no-op rather than a doubling.
     /// </summary>
+    /// <summary>
+    /// The start date of the week now beginning — the date an executed trade
+    /// takes effect from, so the incoming player is owned for that whole week
+    /// rather than from part-way through it.
+    /// </summary>
+    private async Task<string> NextPeriodStartAsync(string lastStatDate, CancellationToken ct)
+    {
+        var periods = (await db.Collection("periods").GetSnapshotAsync(ct)).Documents
+            .Select(d => d.ConvertTo<Period>())
+            .OrderBy(p => p.StartDate)
+            .ToList();
+        return periods.FirstOrDefault(p => string.CompareOrdinal(p.StartDate, lastStatDate) > 0)?.StartDate
+            // Past the last week of the season: nothing further starts, so the
+            // day after the last results is as close as it gets.
+            ?? PoolClock.Iso(DateOnly.Parse(lastStatDate).AddDays(1));
+    }
+
     /// <summary>Weeks ready to bank, oldest first.</summary>
     private async Task<List<int>> PendingIndexesAsync(int from, string lastStatDate, CancellationToken ct) =>
         [.. (await db.Collection("periods").GetSnapshotAsync(ct)).Documents

@@ -14,15 +14,17 @@ namespace FantasyWarrior.Jobs.Trades;
 /// </summary>
 public sealed class ProcessTradesJob(FirestoreDb db)
 {
-    /// <param name="nowOverride">
-    /// The simulated instant when replaying a season. Governs the date a traded
-    /// player actually changes teams for scoring, so it must not fall back to
-    /// the wall clock mid-simulation.
+    /// <param name="effectiveDate">
+    /// The day the swap takes effect — always the start of the week now
+    /// beginning, never "today". A trade landing mid-week would give a player
+    /// two owners for one scoring window, which the whole banked-points model
+    /// assumes cannot happen. Null falls back to the current game day, which is
+    /// only correct outside the period-boundary flow.
     /// </param>
-    public async Task RunAsync(DateTimeOffset? nowOverride = null, CancellationToken ct = default)
+    public async Task RunAsync(string? effectiveDate = null, CancellationToken ct = default)
     {
         var leagues = (await db.Collection("leagues").GetSnapshotAsync(ct)).Documents;
-        var today = PoolClock.TodayEtIso(nowOverride ?? await new SimulationClock(db).NowAsync(ct));
+        var today = effectiveDate ?? await new SimulationClock(db).TodayEtAsync(ct);
 
         foreach (var leagueSnap in leagues.Where(l => l.Exists))
         {
