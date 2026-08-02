@@ -311,6 +311,10 @@ interface PlayerRow {
   // from 2026-27), so taking the newest one on file made this disagree with
   // the player card about the same player.
   capHit: number | null;
+  // Against NHL points, not Fantasy point — the question this answers is
+  // "was he worth his real production", which a fantasy-scoped denominator
+  // (already this team's own rule config, already shrunk by benched weeks)
+  // would double up on.
   costPerPoint: number | null;
 }
 
@@ -619,7 +623,7 @@ function RosterGrid({
               <td>{displayRate(goaliesGp > 0 ? goaliesGa / goaliesGp : null, 2)}</td>
               <td>{displayRate(goaliesShotsAgainst > 0 ? goaliesSaves / goaliesShotsAgainst : null, 3, true)}</td>
               <td className="stats-group-start">{formatMoneyCompact(capTotal)}</td>
-              <td>{poolPtsTotal > 0 ? formatMoneyCompact(capTotal / poolPtsTotal) : "—"}</td>
+              <td>{nhlPtsTotal > 0 ? formatMoneyCompact(capTotal / nhlPtsTotal) : "—"}</td>
             </tr>
           </tfoot>
         </table>
@@ -835,7 +839,7 @@ export function Stats({
       gaa: isGoalie ? formatGaa(p.goalsAgainst, p.gamesPlayed) : null,
       svPct: isGoalie ? formatSvPct(p.saves, p.shotsAgainst) : null,
       capHit: p.capHit,
-      costPerPoint: p.capHit != null && p.spotActivePoints > 0 ? p.capHit / p.spotActivePoints : null,
+      costPerPoint: p.capHit != null && nhlPoints > 0 ? p.capHit / nhlPoints : null,
     };
   };
 
