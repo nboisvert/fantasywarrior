@@ -179,6 +179,49 @@ export interface TeamSeasonStats {
   players: PlayerSeasonStatsRow[];
 }
 
+/** One week of a player's season with this team. */
+export interface PlayerPeriodRow {
+  periodIndex: number;
+  startDate: string;
+  endDate: string;
+  gameCount: number;
+  /** The week's points are banked and can never move again. */
+  finalized: boolean;
+  /** Whether the GM had him in the lineup — the reason this view exists. */
+  active: boolean;
+  points: number;
+  gamesPlayed: number;
+  goals: number;
+  assists: number;
+  plusMinus: number;
+  pim: number;
+  shots: number;
+  hits: number;
+  blockedShots: number;
+  wins: number;
+  otLosses: number;
+  shutouts: number;
+  saves: number;
+  goalsAgainst: number;
+  shotsAgainst: number;
+  /** The days this roster spot actually owned — narrower than the week only
+   * when he arrived or left part-way through it. */
+  from: string;
+  to: string;
+}
+
+export interface PlayerPeriods {
+  playerId: number;
+  periods: PlayerPeriodRow[];
+  totals: {
+    activePoints: number;
+    benchPoints: number;
+    activeWeeks: number;
+    benchedWeeks: number;
+    gamesPlayed: number;
+  };
+}
+
 export interface NewsArticle {
   id: string;
   source: "rotowire_rss" | "rotowire_html" | "fantasysp";
@@ -269,6 +312,13 @@ export const api = {
   teamSeasonStats: (leagueId: string, username: string) =>
     request<TeamSeasonStats>(
       `/api/leagues/${encodeURIComponent(leagueId)}/teams/${encodeURIComponent(username)}/season-stats`,
+    ),
+  /** One player's season with this team, week by week. Fetched on demand —
+   * a roster is twenty-odd players and this is only ever wanted for one. */
+  playerPeriods: (leagueId: string, username: string, playerId: number) =>
+    request<PlayerPeriods>(
+      `/api/leagues/${encodeURIComponent(leagueId)}/teams/${encodeURIComponent(username)}` +
+        `/players/${playerId}/periods`,
     ),
   /** A team's week: roster, slot usage and per-player results. Omit `period`
    * for the current one. `viewer` gates a rival's lineup until it locks. */

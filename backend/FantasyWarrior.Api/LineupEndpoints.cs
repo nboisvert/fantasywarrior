@@ -259,6 +259,76 @@ public static class LineupEndpoints
             return Results.Ok(new { ok = true, periodIndex = periodDoc.Number, active = requested.Count });
         });
 
+        // One player's season, week by week, for this team.
+        //
+        // This is the shape the whole schema was built around: one
+        // RosterAssignment row per (roster spot, period), carrying the stats,
+        // the points and whether the GM had him active. Answering it is a
+        // single indexed read — the document model this replaced would have
+        // needed one read per week per player, which is why the question was
+        // never asked.
+        //
+        // Includes closed spots: a player traded away and re-acquired has two
+        // stints, and both belong to this team's history of him.
+        app.MapGet("/api/leagues/{leagueId}/teams/{username}/players/{playerId:long}/periods", async (
+            string leagueId, string username, long playerId, FantasyWarriorDbContext db) =>
+        {
+            var league = await Queries.LeagueByCodeAsync(db, leagueId);
+            if (league is null) return Results.NotFound(new { error = "League not found." });
+
+            var team = await Queries.TeamAsync(db, league.LeagueId, Queries.Normalize(username));
+            if (team is null) return Results.NotFound(new { error = "Team not found." });
+
+            var rows = await db.RosterAssignments
+                .Where(a => a.RosterSpot!.TeamId == team.TeamId && a.RosterSpot.PlayerId == playerId)
+                .OrderBy(a => a.Period!.Number)
+                .Select(a => new
+                {
+                    periodIndex = a.Period!.Number,
+                    startDate = a.Period.StartDate,
+                    endDate = a.Period.EndDate,
+                    gameCount = a.Period.GameCount,
+                    finalized = a.Period.FinalizedUtc != null,
+                    active = a.IsActive,
+                    points = a.FantasyPoints,
+                    a.GamesPlayed,
+                    a.Goals,
+                    a.Assists,
+                    a.PlusMinus,
+                    a.Pim,
+                    a.Shots,
+                    a.Hits,
+                    a.BlockedShots,
+                    a.Wins,
+                    a.OtLosses,
+                    a.Shutouts,
+                    a.Saves,
+                    a.GoalsAgainst,
+                    a.ShotsAgainst,
+                    // The days this spot actually owned. Usually the whole week;
+                    // not when he arrived or left part-way through one.
+                    from = a.EffectiveFrom,
+                    to = a.EffectiveTo,
+                })
+                .ToListAsync();
+
+            return Results.Ok(new
+            {
+                playerId,
+                periods = rows,
+                // Totals over the same rows, so the panel's footer can never
+                // disagree with what it is summing.
+                totals = new
+                {
+                    activePoints = rows.Where(r => r.active).Sum(r => r.points),
+                    benchPoints = rows.Where(r => !r.active).Sum(r => r.points),
+                    activeWeeks = rows.Count(r => r.active),
+                    benchedWeeks = rows.Count(r => !r.active),
+                    gamesPlayed = rows.Where(r => r.active).Sum(r => r.GamesPlayed),
+                },
+            });
+        });
+
         app.MapGet("/api/leagues/{leagueId}/teams/{username}/season-stats", async (
             string leagueId, string username, FantasyWarriorDbContext db, SimulationClockService clock) =>
         {

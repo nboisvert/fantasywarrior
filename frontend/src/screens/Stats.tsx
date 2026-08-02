@@ -17,13 +17,16 @@
 // weights, a non-zero shutout value, etc.) is reflected in the Fantasy point
 // group the same way it is everywhere else in the app (Standings/Dashboard).
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { api, formatCap, formatShortName, posGroup, posGroupClass } from "../api";
-import type { LeagueDetail, LineupDto, LineupEntry, PlayerSeasonStatsRow } from "../api";
+import type {
+  LeagueDetail, LineupDto, LineupEntry, PlayerPeriods as PlayerPeriodsDto, PlayerSeasonStatsRow,
+} from "../api";
 import { LoadingLogo } from "../components/LoadingLogo";
 import { PlayerCard } from "../components/PlayerCard";
 import {
   ArrowDownIcon, ArrowLeftIcon, ArrowUpIcon, ChevronDownIcon, CircleCheckIcon, CircleIcon, InfoIcon,
+  CalendarIcon,
 } from "../components/Icons";
 
 /** Slots used per position group, for the "9/9 F · 4/4 D · 1/1 G" counter. */
@@ -201,6 +204,76 @@ function LineupPicker({
   );
 }
 
+/** "Nov 10" */
+const shortDate = (iso: string) =>
+  new Date(`${iso}T12:00:00Z`).toLocaleDateString(undefined, {
+    month: "short", day: "numeric", timeZone: "UTC",
+  });
+
+/** A player's season with this team, one row per week.
+ *
+ * The point of the panel is the active column, not the stats: a season total
+ * says what a player produced, this says which weeks his GM actually fielded
+ * him for — and therefore what the bench cost. Every row is one
+ * RosterAssignment, which is the only grain this app stores.
+ */
+function PlayerPeriods({ data, isGoalie }: { data: PlayerPeriodsDto; isGoalie: boolean }) {
+  const { periods, totals } = data;
+  if (periods.length === 0)
+    return <p className="muted player-periods-empty">No weeks scored for this player yet.</p>;
+
+  return (
+    <div className="player-periods">
+      <table className="player-periods-table">
+        <thead>
+          <tr>
+            <th>Week</th>
+            <th aria-label="In the lineup" />
+            <th>GP</th>
+            {isGoalie ? <><th>W</th><th>SV</th></> : <><th>G</th><th>A</th></>}
+            <th className="player-periods-pts">PTS</th>
+          </tr>
+        </thead>
+        <tbody>
+          {periods.map((p) => (
+            <tr key={p.periodIndex} className={p.active ? "" : "benched"}>
+              <td>
+                <span className="player-periods-week">W{String(p.periodIndex).padStart(2, "0")}</span>
+                <span className="muted"> {shortDate(p.startDate)}</span>
+              </td>
+              <td>
+                {p.active
+                  ? <CircleCheckIcon size={13} className="player-periods-in" />
+                  : <CircleIcon size={13} className="player-periods-out" />}
+              </td>
+              {/* A break week has no games at all; a zero there is the schedule,
+                  not the player. */}
+              <td>{p.gameCount === 0 ? <span className="muted">—</span> : p.gamesPlayed}</td>
+              {isGoalie ? <><td>{p.wins}</td><td>{p.saves}</td></> : <><td>{p.goals}</td><td>{p.assists}</td></>}
+              <td className="player-periods-pts">{p.points}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <div className="player-periods-totals">
+        <span>
+          <strong>{totals.activePoints}</strong> pts over {totals.activeWeeks} week
+          {totals.activeWeeks === 1 ? "" : "s"} in the lineup
+        </span>
+        {totals.benchPoints > 0 && (
+          /* The number this panel exists to surface: what he scored while his
+             GM had him benched. */
+          <span className="player-periods-bench">
+            {totals.benchPoints} left on the bench over {totals.benchedWeeks} week
+            {totals.benchedWeeks === 1 ? "" : "s"}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ---------- row shape: raw + every derived value the grid can show or sort by ---------- */
 
 interface PlayerRow {
@@ -359,6 +432,10 @@ export function Stats({
   // Which lineup control is open. One at a time: this is a choice about a
   // single slot, not a multi-select.
   const [pickerSpotId, setPickerSpotId] = useState<string | null>(null);
+  // Which player's week-by-week panel is open, and what has been fetched so
+  // far. Cached per player: reopening a row should not re-ask.
+  const [openPeriodsFor, setOpenPeriodsFor] = useState<number | null>(null);
+  const [periodsByPlayer, setPeriodsByPlayer] = useState<Record<number, PlayerPeriodsDto>>({});
 
   useEffect(() => {
     let ignore = false;
@@ -456,6 +533,28 @@ export function Stats({
         ? [...(nextLineup?.entries ?? []).filter((e) => e.active).map((e) => e.spotId), spotId]
         : (nextLineup?.entries ?? []).filter((e) => e.active && e.spotId !== spotId).map((e) => e.spotId),
     );
+
+  /** Opens or closes a player's week-by-week panel, fetching on first open.
+   *
+   * One player at a time, and cached once fetched: a roster is twenty-odd
+   * players and nobody compares two breakdowns side by side, so loading them
+   * all up front would be twenty requests for the one that gets read. */
+  async function togglePeriods(playerId: number) {
+    if (openPeriodsFor === playerId) {
+      setOpenPeriodsFor(null);
+      return;
+    }
+    setOpenPeriodsFor(playerId);
+    if (periodsByPlayer[playerId]) return;
+    try {
+      const data = await api.playerPeriods(league.id, targetUsername, playerId);
+      setPeriodsByPlayer((prev) => ({ ...prev, [playerId]: data }));
+    } catch {
+      // Closing again is a truer signal than an error banner over a grid: the
+      // panel is supplementary, and the row it belongs to is still correct.
+      setOpenPeriodsFor(null);
+    }
+  }
 
   const viewedTeam = league.teams.find((t) => t.ownerUsername === targetUsername);
   const isOwnTeam = targetUsername === username;
@@ -695,7 +794,8 @@ export function Stats({
                 </thead>
                 <tbody>
                   {sort.sorted.map((r) => (
-                    <tr key={r.id}>
+                    <Fragment key={r.id}>
+                    <tr>
                       <td className="stats-col-player">
                         {lineupBySpotPlayer.get(r.id) && (
                           <LineupToggle
@@ -713,6 +813,16 @@ export function Stats({
                           <span className={`stats-player-pos pos-compact-${posGroupClass(r.position)}`}>
                             {posGroup(r.position)}
                           </span>
+                        </button>
+                        <button
+                          type="button"
+                          className={`stats-periods-btn${openPeriodsFor === r.id ? " open" : ""}`}
+                          onClick={() => togglePeriods(r.id)}
+                          aria-expanded={openPeriodsFor === r.id}
+                          aria-label={`${r.name} — week by week`}
+                          title="Week by week"
+                        >
+                          <CalendarIcon size={13} />
                         </button>
                       </td>
                       <td className="accent stats-group-start">{r.poolGamesPlayed}</td>
@@ -736,6 +846,21 @@ export function Stats({
                       <td className="stats-group-start">{r.capHit != null ? formatMoneyCompact(r.capHit) : "—"}</td>
                       <td>{r.costPerPoint != null ? formatMoneyCompact(r.costPerPoint) : "—"}</td>
                     </tr>
+                    {openPeriodsFor === r.id && (
+                      /* Spans the whole grid: the breakdown is its own small
+                         table, and lining its columns up with the season
+                         grid's twenty-one would make both unreadable. */
+                      <tr className="player-periods-row">
+                        <td colSpan={22}>
+                          {periodsByPlayer[r.id] ? (
+                            <PlayerPeriods data={periodsByPlayer[r.id]} isGoalie={r.isGoalie} />
+                          ) : (
+                            <p className="muted player-periods-empty">Loading…</p>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   ))}
                 </tbody>
                 <tfoot>

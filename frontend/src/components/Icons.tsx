@@ -105,6 +105,16 @@ export const ArrowUpIcon = (p: IconProps) => (
   </Icon>
 );
 
+/* Opens a player's week-by-week breakdown on the Team screen. A calendar
+   rather than a chart glyph: the rows are weeks, and what the panel is really
+   about is which of them he was in the lineup for. */
+export const CalendarIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="3" y="4" width="18" height="18" rx="2" />
+    <path d="M16 2v4M8 2v4M3 10h18" />
+  </Icon>
+);
+
 export const ArrowDownIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M12 5v14" />

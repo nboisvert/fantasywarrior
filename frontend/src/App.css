@@ -273,6 +273,129 @@
   line-height: 0;
 }
 
+/* ---------- week-by-week breakdown (Team screen) ---------- */
+
+/* Sits at the far right of the player cell, past the position, so the name and
+   position keep reading as one unit and this reads as an affordance on the
+   row rather than part of the player's identity. */
+.stats-periods-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  margin: -0.5rem -0.15rem -0.5rem 0.15rem;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: rgba(139, 150, 171, 0.5);
+  cursor: pointer;
+  transition: color 150ms, background-color 150ms;
+}
+.stats-periods-btn:hover,
+.stats-periods-btn:focus-visible {
+  color: var(--text);
+}
+.stats-periods-btn.open {
+  color: var(--ice-bright);
+  background: rgba(56, 189, 248, 0.12);
+}
+
+.player-periods-row > td {
+  padding: 0;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.player-periods {
+  padding: 0.5rem 0.7rem 0.6rem;
+  /* Anchored to the sticky player column rather than the scrolled width, so
+     the panel stays put while the season grid scrolls sideways behind it. */
+  position: sticky;
+  left: 0;
+  max-width: 22rem;
+}
+
+.player-periods-empty {
+  padding: 0.6rem 0.7rem;
+  font-size: 0.78rem;
+}
+
+.player-periods-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+.player-periods-table th {
+  padding: 0 0.35rem 0.25rem;
+  color: var(--text-muted);
+  font: 600 0.62rem var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-align: right;
+}
+.player-periods-table th:first-child {
+  text-align: left;
+}
+.player-periods-table td {
+  padding: 0.18rem 0.35rem;
+  text-align: right;
+  white-space: nowrap;
+}
+.player-periods-table td:first-child {
+  text-align: left;
+}
+.player-periods-table td:nth-child(2) {
+  text-align: center;
+  line-height: 0;
+}
+
+/* A benched week is dimmed rather than hidden — the whole point of the panel
+   is that those weeks happened and produced points for nobody. */
+.player-periods-table tr.benched td {
+  color: var(--text-muted);
+}
+
+.player-periods-week {
+  font-weight: 700;
+}
+
+.player-periods-in {
+  color: var(--ice-bright);
+}
+.player-periods-out {
+  color: rgba(139, 150, 171, 0.45);
+}
+
+.player-periods-pts {
+  color: var(--ice-bright);
+  font-weight: 700;
+}
+.player-periods-table tr.benched .player-periods-pts {
+  color: var(--text-muted);
+}
+
+.player-periods-totals {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin-top: 0.45rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+.player-periods-totals strong {
+  color: var(--ice-bright);
+}
+
+/* The number the panel exists to surface. */
+.player-periods-bench {
+  color: var(--danger);
+}
+
 /* ---------- pending lineup change (Team screen) ---------- */
 
 /* The icon shows this week; this pill shows that next week differs. Anchored
