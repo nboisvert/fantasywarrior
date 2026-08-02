@@ -2,8 +2,12 @@ using FantasyWarrior.Core.Stats;
 
 namespace FantasyWarrior.Core.Scoring;
 
-/// <summary>An inclusive "YYYY-MM-DD" date range.</summary>
-public readonly record struct DateWindow(string From, string To);
+/// <summary>An inclusive range of NHL game days.</summary>
+public readonly record struct DateWindow(DateOnly From, DateOnly To)
+{
+    public string FromIso => From.ToString("yyyy-MM-dd");
+    public string ToIso => To.ToString("yyyy-MM-dd");
+}
 
 /// <summary>
 /// Date-window arithmetic over game lines. Every date here is the NHL's
@@ -46,16 +50,27 @@ public static class StatWindow
     /// </list>
     /// </summary>
     public static DateWindow? Intersect(
-        string periodStart, string periodEnd,
-        string spotStart, string? spotEnd,
-        string lastStatDate)
+        DateOnly periodStart, DateOnly periodEnd,
+        DateOnly spotStart, DateOnly? spotEnd,
+        DateOnly lastStatDate)
     {
-        var from = Max(periodStart, spotStart);
-        var to = Min(periodEnd, spotEnd);
-        to = Min(to, lastStatDate);
-        return string.CompareOrdinal(from, to) <= 0 ? new DateWindow(from, to) : null;
+        var from = spotStart >= periodStart ? spotStart : periodStart;
+        var to = spotEnd is not null && spotEnd < periodEnd ? spotEnd.Value : periodEnd;
+        if (lastStatDate < to) to = lastStatDate;
+        return from <= to ? new DateWindow(from, to) : null;
     }
 
-    private static string Max(string a, string b) => string.CompareOrdinal(a, b) >= 0 ? a : b;
-    private static string Min(string a, string? b) => b is null ? a : string.CompareOrdinal(a, b) <= 0 ? a : b;
+    /// <summary>
+    /// The "YYYY-MM-DD" form, for the Firestore code path that still stores
+    /// dates as strings. Parses and delegates, so there is exactly one
+    /// implementation of the rule — this overload disappears with that path.
+    /// </summary>
+    public static DateWindow? Intersect(
+        string periodStart, string periodEnd,
+        string spotStart, string? spotEnd,
+        string lastStatDate) =>
+        Intersect(
+            DateOnly.Parse(periodStart), DateOnly.Parse(periodEnd),
+            DateOnly.Parse(spotStart), spotEnd is null ? null : DateOnly.Parse(spotEnd),
+            DateOnly.Parse(lastStatDate));
 }

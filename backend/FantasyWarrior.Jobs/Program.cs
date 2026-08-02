@@ -150,6 +150,71 @@ if (job == "sql-player-sync")
         .RunAsync(GetOption(args, "--season") ?? CurrentSeason(), args.Contains("--dry-run"));
 }
 
+if (job == "sql-stats-sync")
+{
+    using var nhlHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+    nhlHttp.DefaultRequestHeaders.UserAgent.ParseAdd("FantasyWarrior/0.1");
+    await using var sqlDb = FantasyWarrior.Data.DataServiceCollectionExtensions.CreateContext();
+    var single = GetOption(args, "--date");
+    var yesterday = PoolClock.LastStatDate(DateTimeOffset.UtcNow);
+    var fromDate = DateOnly.Parse(GetOption(args, "--from") ?? single ?? yesterday.ToString("yyyy-MM-dd"));
+    var toDate = DateOnly.Parse(GetOption(args, "--to") ?? single ?? yesterday.ToString("yyyy-MM-dd"));
+    if (toDate < fromDate) { Console.Error.WriteLine("--to must be >= --from"); return 1; }
+    await new FantasyWarrior.Jobs.Sql.StatsSyncJob(new NhlApiClient(nhlHttp), sqlDb).RunAsync(fromDate, toDate);
+    return 0;
+}
+
+if (job == "sql-period-init")
+{
+    await using var sqlDb = FantasyWarrior.Data.DataServiceCollectionExtensions.CreateContext();
+    return await new FantasyWarrior.Jobs.Sql.PeriodInitJob(sqlDb)
+        .RunAsync(GetOption(args, "--season") ?? "20252026", args.Contains("--dry-run"));
+}
+
+if (job == "sql-seed-mordus")
+{
+    await using var sqlDb = FantasyWarrior.Data.DataServiceCollectionExtensions.CreateContext();
+    return await new FantasyWarrior.Jobs.Sql.SeedMordusJob(sqlDb).RunAsync(
+        file: GetOption(args, "--file") ?? "data/mordus-rosters.json",
+        season: GetOption(args, "--season") ?? "20252026",
+        commissioner: GetOption(args, "--commissioner") ?? "nick",
+        capAmount: long.TryParse(GetOption(args, "--cap"), out var mCap) ? mCap : 115_000_000,
+        dryRun: args.Contains("--dry-run"));
+}
+
+if (job == "sql-period-rollup")
+{
+    await using var sqlDb = FantasyWarrior.Data.DataServiceCollectionExtensions.CreateContext();
+    return await new FantasyWarrior.Jobs.Sql.PeriodRollupJob(sqlDb).RunAsync(
+        onlyLeagueId: int.TryParse(GetOption(args, "--league"), out var rl) ? rl : null,
+        dryRun: args.Contains("--dry-run"),
+        nowOverride: null,
+        onlyPeriodNumber: int.TryParse(GetOption(args, "--week"), out var rw) ? rw : null);
+}
+
+if (job == "sql-nightly")
+{
+    await using var sqlDb = FantasyWarrior.Data.DataServiceCollectionExtensions.CreateContext();
+    return await new FantasyWarrior.Jobs.Sql.NightlyJob(sqlDb).RunAsync(
+        dryRun: args.Contains("--dry-run"),
+        backfillFrom: int.TryParse(GetOption(args, "--backfill-from"), out var bf) ? bf : null);
+}
+
+if (job == "sql-sim-clock")
+{
+    await using var sqlDb = FantasyWarrior.Data.DataServiceCollectionExtensions.CreateContext();
+    var clock = new FantasyWarrior.Jobs.Sql.SimulationClockSql(sqlDb);
+    if (args.Contains("--off")) { await clock.DisableAsync(); Console.WriteLine("Simulation off — real clock."); return 0; }
+    if (GetOption(args, "--set") is { } set)
+        await clock.SetAsync(DateOnly.Parse(set), GetOption(args, "--season") ?? "20252026");
+    var state = await clock.StateAsync();
+    Console.WriteLine(state is null
+        ? "No simulation running — real clock."
+        : $"Simulated: asOfDate={state.AsOfDate:yyyy-MM-dd} season={state.Season} "
+          + $"=> todayEt={await clock.TodayEtAsync():yyyy-MM-dd}");
+    return 0;
+}
+
 if (job == "capwages-sync")
 {
     using var capwagesHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };

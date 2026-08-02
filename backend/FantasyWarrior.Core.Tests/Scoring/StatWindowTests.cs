@@ -69,12 +69,21 @@ public class StatWindowTests
     private const string End = "2026-01-11";
     private const string Synced = "2026-01-11"; // whole week already synced
 
+    /// <summary>
+    /// The expected window, written the way the test dates read. Windows now
+    /// carry real dates rather than "YYYY-MM-DD" strings — that was a Firestore
+    /// constraint, since ordinal string comparison was the only way to range-query
+    /// a single field. The rule these tests pin down did not change.
+    /// </summary>
+    private static DateWindow Window(string from, string to) =>
+        new(DateOnly.Parse(from), DateOnly.Parse(to));
+
     [Fact]
     public void Intersect_SpotOpenAllWeek_OwnsTheWholeWeek()
     {
         var w = StatWindow.Intersect(Start, End, spotStart: "2025-10-01", spotEnd: null, Synced);
 
-        Assert.Equal(new DateWindow(Start, End), w);
+        Assert.Equal(Window(Start, End), w);
     }
 
     [Fact]
@@ -82,7 +91,7 @@ public class StatWindowTests
     {
         var w = StatWindow.Intersect(Start, End, spotStart: "2026-01-08", spotEnd: null, Synced);
 
-        Assert.Equal(new DateWindow("2026-01-08", End), w);
+        Assert.Equal(Window("2026-01-08", End), w);
     }
 
     [Fact]
@@ -91,7 +100,7 @@ public class StatWindowTests
         // The traded-away player: his old team keeps Mon-Wed and nothing after.
         var w = StatWindow.Intersect(Start, End, spotStart: "2025-10-01", spotEnd: "2026-01-07", Synced);
 
-        Assert.Equal(new DateWindow(Start, "2026-01-07"), w);
+        Assert.Equal(Window(Start, "2026-01-07"), w);
     }
 
     [Fact]
@@ -99,7 +108,7 @@ public class StatWindowTests
     {
         var w = StatWindow.Intersect(Start, End, spotStart: "2026-01-06", spotEnd: "2026-01-09", Synced);
 
-        Assert.Equal(new DateWindow("2026-01-06", "2026-01-09"), w);
+        Assert.Equal(Window("2026-01-06", "2026-01-09"), w);
     }
 
     [Fact]
@@ -121,7 +130,7 @@ public class StatWindowTests
         // have not been written yet, and never revisit them.
         var w = StatWindow.Intersect(Start, End, "2025-10-01", null, lastStatDate: "2026-01-07");
 
-        Assert.Equal(new DateWindow(Start, "2026-01-07"), w);
+        Assert.Equal(Window(Start, "2026-01-07"), w);
     }
 
     [Fact]
@@ -135,7 +144,7 @@ public class StatWindowTests
     {
         var w = StatWindow.Intersect(Start, End, spotStart: Start, spotEnd: Start, Synced);
 
-        Assert.Equal(new DateWindow(Start, Start), w);
+        Assert.Equal(Window(Start, Start), w);
     }
 
     [Fact]
@@ -144,6 +153,6 @@ public class StatWindowTests
         // A spot closed last week keeps its own end date, not the sync date.
         var w = StatWindow.Intersect(Start, End, "2025-10-01", "2026-01-07", lastStatDate: "2026-02-01");
 
-        Assert.Equal(new DateWindow(Start, "2026-01-07"), w);
+        Assert.Equal(Window(Start, "2026-01-07"), w);
     }
 }

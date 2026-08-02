@@ -181,7 +181,7 @@ public sealed class PeriodRollupJob(FirestoreDb db)
                 var window = StatWindow.Intersect(period.StartDate, period.EndDate, spot.StartDate, spot.EndDate, lastStatDate);
                 if (window is null) continue;
 
-                var stats = StatWindow.Sum(lines[spot.PlayerId], league.Season, window.Value.From, window.Value.To);
+                var stats = StatWindow.Sum(lines[spot.PlayerId], league.Season, window.Value.FromIso, window.Value.ToIso);
                 var points = stats.Score(pointValues);
                 results[spotRef.Id] = new LineupResult
                 {
@@ -190,8 +190,8 @@ public sealed class PeriodRollupJob(FirestoreDb db)
                     Points = points,
                     GamesPlayed = stats[StatKeys.GamesPlayed],
                     Stats = stats.ToMap().ToDictionary(kv => kv.Key, kv => (object)kv.Value),
-                    FromDate = window.Value.From,
-                    ToDate = window.Value.To,
+                    FromDate = window.Value.FromIso,
+                    ToDate = window.Value.ToIso,
                 };
                 if (active.Contains(spotRef.Id)) activePoints += points; else benchPoints += points;
             }

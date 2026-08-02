@@ -36,11 +36,16 @@ public static class PeriodScoring
     /// night and never revisit it, so a correction filed the next morning would
     /// be lost silently.
     /// </summary>
-    public static bool ShouldFinalize(string periodEndDate, string lastStatDate, int graceDays = 1)
-    {
-        var end = DateOnly.Parse(periodEndDate).AddDays(graceDays);
-        return string.CompareOrdinal(lastStatDate, end.ToString("yyyy-MM-dd")) >= 0;
-    }
+    public static bool ShouldFinalize(DateOnly periodEndDate, DateOnly lastStatDate, int graceDays = 1) =>
+        lastStatDate >= periodEndDate.AddDays(graceDays);
+
+    /// <summary>
+    /// The "YYYY-MM-DD" form, for the Firestore path that still stores dates as
+    /// strings. Parses and delegates, so the rule has one implementation — this
+    /// overload disappears with that path.
+    /// </summary>
+    public static bool ShouldFinalize(string periodEndDate, string lastStatDate, int graceDays = 1) =>
+        ShouldFinalize(DateOnly.Parse(periodEndDate), DateOnly.Parse(lastStatDate), graceDays);
 
     /// <summary>
     /// A team's live score: what is banked, plus what the current period has
