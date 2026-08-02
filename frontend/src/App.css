@@ -504,6 +504,46 @@
   box-shadow: none;
 }
 
+/* A true peer to .btn — same height, radius, type, letter-spacing and casing,
+   so an Accept/Decline pair reads as one control.
+   `.btn-ghost` is a *tertiary* style (the "New trade" link in a header): two
+   sizes and a weight away from .btn, which is exactly why it looked wrong
+   sitting beside it. */
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.8rem 1.2rem;
+  border-radius: 12px;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-muted);
+  font: 700 0.95rem var(--font-body);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s, background-color 0.2s;
+}
+
+/* Declining is the destructive half of the pair, so danger shows on intent
+   rather than at rest: a permanently red button beside a permanently glowing
+   one would fight for attention on a card that is mostly information, and
+   would read as a warning about the offer rather than a choice about it. */
+.btn-outline:hover:not(:disabled) {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: rgba(244, 63, 94, 0.08);
+}
+.btn-outline:focus-visible {
+  outline: 2px solid var(--danger);
+  outline-offset: 2px;
+}
+.btn-outline:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .btn-ghost {
   display: inline-flex;
   align-items: center;
@@ -1778,7 +1818,7 @@
 }
 
 .trade-actions .btn,
-.trade-actions .btn-ghost {
+.trade-actions .btn-outline {
   flex: 1;
 }
 
