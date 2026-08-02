@@ -23,7 +23,7 @@ import type { LeagueDetail, LineupDto, LineupEntry, PlayerSeasonStatsRow } from 
 import { LoadingLogo } from "../components/LoadingLogo";
 import { PlayerCard } from "../components/PlayerCard";
 import {
-  ArrowLeftIcon, ChevronDownIcon, CircleCheckIcon, CircleIcon, InfoIcon,
+  ArrowDownIcon, ArrowLeftIcon, ArrowUpIcon, ChevronDownIcon, CircleCheckIcon, CircleIcon, InfoIcon,
 } from "../components/Icons";
 
 /** Slots used per position group, for the "9/9 F · 4/4 D · 1/1 G" counter. */
@@ -58,21 +58,50 @@ function formatMoneyCompact(amount: number): string {
   return `$${abs}`;
 }
 
-/** Active/bench control on a player row. Read-only once the week locks, or
- * when looking at someone else's team. */
+/** Whether this spot's lineup status changes when the week rolls over. */
+type PendingChange = "in" | "out" | null;
+
+/** Active/bench control on a player row.
+ *
+ * The icon is **this week's** state — who is scoring for you right now. The
+ * corner arrow is next week's: green up for a player joining the lineup, red
+ * down for one dropping out. Two weeks in one control, but only one of them
+ * can still be changed, which is why tapping opens next week's picker while
+ * the icon keeps showing today.
+ */
 function LineupToggle({
-  entry, editable, busy, onToggle,
+  entry, editable, busy, pending, onToggle,
 }: {
   entry: LineupEntry;
   editable: boolean;
   busy: boolean;
+  pending: PendingChange;
   onToggle: (spotId: string) => void;
 }) {
-  const label = `${entry.name} — ${entry.active ? "active" : "benched"}${editable ? ", tap to change" : ""}`;
+  const now = entry.active ? "active" : "benched";
+  const change =
+    pending === "in" ? ", coming into next week's lineup"
+    : pending === "out" ? ", dropping out of next week's lineup"
+    : "";
+  const label = `${entry.name} — ${now}${change}${editable ? ", tap to change next week" : ""}`;
   const className = `lineup-toggle${entry.active ? " on" : ""}${editable ? "" : " static"}`;
   const icon = entry.active ? <CircleCheckIcon size={16} /> : <CircleIcon size={16} />;
 
-  if (!editable) return <span className={className} title={label} aria-label={label}>{icon}</span>;
+  // The arrow carries direction *and* position *and* colour, so it never
+  // depends on colour alone; the aria-label above states it in words.
+  const flag = pending && (
+    <span className={`lineup-pending lineup-pending-${pending}`} aria-hidden="true">
+      {pending === "in" ? <ArrowUpIcon size={9} /> : <ArrowDownIcon size={9} />}
+    </span>
+  );
+
+  if (!editable)
+    return (
+      <span className={className} title={label} aria-label={label}>
+        {icon}
+        {flag}
+      </span>
+    );
   return (
     <button
       type="button"
@@ -84,6 +113,7 @@ function LineupToggle({
       title={label}
     >
       {icon}
+      {flag}
     </button>
   );
 }
@@ -323,6 +353,7 @@ export function Stats({
   const [capExpanded, setCapExpanded] = useState(false);
   const [openPlayerId, setOpenPlayerId] = useState<number | null>(null);
   const [lineup, setLineup] = useState<LineupDto | null>(null);
+  const [nextLineup, setNextLineup] = useState<LineupDto | null>(null);
   const [lineupError, setLineupError] = useState("");
   const [saving, setSaving] = useState(false);
   // Which lineup control is open. One at a time: this is a choice about a
@@ -350,26 +381,30 @@ export function Stats({
     };
   }, [league.id, targetUsername]);
 
-  // The lineup shown is the first *editable* one. Once a week starts it is
-  // frozen, so a GM looking at his own team is almost always working on next
-  // week — showing him this week's locked set would give him controls that
-  // refuse every tap.
+  // Two weeks are in play at once, and keeping them apart is the whole point:
+  //
+  //   `lineup`     — the week being played. What the grid's icons show. Frozen
+  //                  once the week starts, so it is never what a tap edits.
+  //   `nextLineup` — the week being prepared. What the picker writes, and what
+  //                  the arrow on a row is comparing against.
+  //
+  // Showing next week's set in the icons instead would answer the wrong
+  // question: on the Team screen you are looking at who is scoring for you
+  // right now, and the arrow is what says "this changes on Monday".
   useEffect(() => {
     let ignore = false;
     setLineup(null);
+    setNextLineup(null);
     api
       .lineup(league.id, targetUsername, username)
       .then(async (current) => {
         if (ignore) return;
-        if (current.locked && current.isOwner) {
-          const next = current.periods.find((p) => p.index === current.periodIndex + 1);
-          if (next) {
-            const editable = await api.lineup(league.id, targetUsername, username, next.index);
-            if (!ignore) setLineup(editable);
-            return;
-          }
-        }
         setLineup(current);
+        if (!current.isOwner) return;
+        const next = current.periods.find((p) => p.index === current.periodIndex + 1);
+        if (!next) return;
+        const upcoming = await api.lineup(league.id, targetUsername, username, next.index);
+        if (!ignore) setNextLineup(upcoming);
       })
       // A league with no period calendar yet simply has no lineup to show;
       // that must not take the stats grid down with it.
@@ -379,23 +414,24 @@ export function Stats({
     };
   }, [league.id, targetUsername, username]);
 
-  /** Writes an active set: optimistic locally, PUT, roll back on refusal. */
+  /** Writes **next week's** active set: optimistic locally, PUT, roll back on
+   * refusal. Never the week on screen — that one is already locked. */
   async function applyActiveSet(next: string[]) {
-    if (!lineup) return;
+    if (!nextLineup) return;
     const wanted = new Set(next);
-    const previous = lineup;
-    setLineup({
-      ...lineup,
-      entries: lineup.entries.map((e) => ({ ...e, active: wanted.has(e.spotId) })),
-      used: countUsed(lineup.entries, next),
+    const previous = nextLineup;
+    setNextLineup({
+      ...nextLineup,
+      entries: nextLineup.entries.map((e) => ({ ...e, active: wanted.has(e.spotId) })),
+      used: countUsed(nextLineup.entries, next),
       setBy: username,
     });
     setLineupError("");
     setSaving(true);
     try {
-      await api.setLineup(league.id, targetUsername, lineup.periodIndex, next);
+      await api.setLineup(league.id, targetUsername, nextLineup.periodIndex, next);
     } catch (e: unknown) {
-      setLineup(previous);
+      setNextLineup(previous);
       setLineupError(e instanceof Error ? e.message : "Could not save the lineup.");
     } finally {
       setSaving(false);
@@ -409,7 +445,7 @@ export function Stats({
    * second half failed he would silently be a player short. */
   const swap = (outSpotId: string, inSpotId: string) =>
     applyActiveSet([
-      ...(lineup?.entries ?? []).filter((e) => e.active && e.spotId !== outSpotId).map((e) => e.spotId),
+      ...(nextLineup?.entries ?? []).filter((e) => e.active && e.spotId !== outSpotId).map((e) => e.spotId),
       inSpotId,
     ]);
 
@@ -417,8 +453,8 @@ export function Stats({
   const setActive = (spotId: string, active: boolean) =>
     applyActiveSet(
       active
-        ? [...(lineup?.entries ?? []).filter((e) => e.active).map((e) => e.spotId), spotId]
-        : (lineup?.entries ?? []).filter((e) => e.active && e.spotId !== spotId).map((e) => e.spotId),
+        ? [...(nextLineup?.entries ?? []).filter((e) => e.active).map((e) => e.spotId), spotId]
+        : (nextLineup?.entries ?? []).filter((e) => e.active && e.spotId !== spotId).map((e) => e.spotId),
     );
 
   const viewedTeam = league.teams.find((t) => t.ownerUsername === targetUsername);
@@ -487,6 +523,21 @@ export function Stats({
   const lineupBySpotPlayer = new Map<number, LineupEntry>(
     (lineup?.hidden ? [] : (lineup?.entries ?? [])).map((e) => [e.playerId, e]),
   );
+
+  /** Next week's status per spot, for the arrow. Keyed by spot rather than by
+   * player: a player traded away and back would be two spots, and only the one
+   * still held should be compared. */
+  const nextActiveBySpot = new Map<string, boolean>(
+    (nextLineup?.hidden ? [] : (nextLineup?.entries ?? [])).map((e) => [e.spotId, e.active]),
+  );
+
+  /** In, out, or unchanged when the week rolls over. Null while next week has
+   * not loaded — an arrow that guessed would be worse than no arrow. */
+  const pendingFor = (entry: LineupEntry): PendingChange => {
+    const next = nextActiveBySpot.get(entry.spotId);
+    if (next === undefined || next === entry.active) return null;
+    return next ? "in" : "out";
+  };
 
   const sum = <T,>(list: T[], pick: (r: T) => number) => list.reduce((acc, r) => acc + pick(r), 0);
   const goalieRows = rows.filter((r) => r.isGoalie);
@@ -649,8 +700,11 @@ export function Stats({
                         {lineupBySpotPlayer.get(r.id) && (
                           <LineupToggle
                             entry={lineupBySpotPlayer.get(r.id)!}
-                            editable={!!lineup && lineup.isOwner && !lineup.locked}
+                            // Editable whenever *next* week is: this week's own
+                            // lock is irrelevant, since a tap never touches it.
+                            editable={!!nextLineup && !nextLineup.locked && nextLineup.isOwner}
                             busy={saving}
+                            pending={pendingFor(lineupBySpotPlayer.get(r.id)!)}
                             onToggle={setPickerSpotId}
                           />
                         )}

@@ -14,6 +14,11 @@
   --ice-bright: #22d3ee;
   --ice-glow: rgba(56, 189, 248, 0.35);
   --danger: #f43f5e;
+  /* The positive half of the danger pair — a gain, an arrival, something
+     going right. Deliberately the same green as --online rather than a
+     second one: the palette keeps one green, and the two names exist so a
+     presence dot and a lineup arrow can diverge later without a rename. */
+  --success: #4ade80;
   --gold: #fbbf24;
   --silver: #c7d2e0;
   --bronze: #d0885a;
