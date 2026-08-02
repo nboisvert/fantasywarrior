@@ -159,5 +159,38 @@ to rebuild and is identical for everyone.
   "Allow Azure services" does not cover it. The deploy workflow now derives and
   writes those rules itself. Azure SQL takes up to five minutes to apply a new
   rule, so retry before assuming it failed.
+- **The API hangs at TLS again, hours after a green deploy** (2026-08-02) —
+  same symptom as the entry above, different cause, and the second one is
+  nastier because the deploy that caused it passed.
+
+  System events name it: `ImagePullUnauthorized`, then
+  `Container ... terminated with ... reason 'ImagePullFailure'`.
+
+  The workflow used to pass `--registry-password ${{ secrets.GITHUB_TOKEN }}`.
+  That token **dies when the run ends**. A Container App with stored registry
+  credentials *always* uses them and never falls back to an anonymous pull, so
+  once the token expired the pull returned 401 **even though the ghcr package
+  is public**. The deploy stayed green because the replica already had the
+  image; the app only died at the next wake-up from `min-replicas 0`.
+
+  Fixed by removing registry credentials entirely — the package is public, so
+  the pull is anonymous. If it ever goes private, use a PAT with
+  `read:packages`, never `GITHUB_TOKEN`. To repair an app still carrying the
+  old credential:
+  ```bash
+  az containerapp registry remove -n fantasy-warrior-api -g fw --server ghcr.io
+  az containerapp revision restart -n fantasy-warrior-api -g fw --revision <rev>
+  ```
+  `api-deploy.yml` now does the `registry remove` on every deploy, and its last
+  step **asserts** `/health` returns 200 instead of merely printing the revision
+  state — that reporting-without-asserting is what let this ship green.
+
+  Two diagnostic lessons, both of which cost time here:
+  - `--type console` shows what the app wrote; **`--type system` shows what
+    Container Apps did to it.** A failed pull writes nothing to console, so an
+    empty console log is a signal, not a dead end. Reach for system first.
+  - `az containerapp logs show` reporting *"Successfully connected to
+    container"* does **not** mean the image is good. A replica stuck in
+    `ImagePullBackOff` still has a replica object with no container inside it.
 - **A stale local `dotnet run` locks the build output** — kill the
   `FantasyWarrior.Api` or `FantasyWarrior.Jobs` process and rebuild.

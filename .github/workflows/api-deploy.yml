@@ -127,10 +127,20 @@ jobs:
       # resource group or try to build from source -- and when it goes wrong the
       # error rarely points at what it decided. These two are predictable.
       #
-      # Registry credentials are passed even though the repository is public,
-      # because a *package* on ghcr.io is private by default regardless of the
-      # repository's visibility. Without them the pull fails with an
-      # unauthorized error that reads like a missing image.
+      # NO registry credentials. The ghcr package is public, so the pull is
+      # anonymous and needs none -- and passing them is actively harmful here.
+      #
+      # GITHUB_TOKEN dies when the workflow run ends. A Container App that has
+      # registry credentials stored *always* uses them; it never falls back to
+      # an anonymous pull. So a dead credential returns 401 even on a public
+      # image. The deploy still goes green, because the running replica already
+      # holds the image. Then min-replicas 0 puts the app to sleep, and the
+      # wake-up pull fails: ImagePullUnauthorized, no replica, ingress accepts
+      # the TLS handshake and hangs forever. Broke prod on 2026-08-02, hours
+      # after a green deploy, which is what made it hard to place.
+      #
+      # If the package ever goes private, the fix is a PAT with read:packages
+      # stored as a secret -- never GITHUB_TOKEN.
       #
       # Scale to zero keeps this inside the free grant: fourteen people do not
       # keep a container busy.
@@ -145,13 +155,14 @@ jobs:
             az containerapp secret set --name "${{ env.APP }}" -g "$RG" \
               --secrets "sql-connection=${{ secrets.AZURE_SQL_CONNECTION }}" \
               --only-show-errors
-            # `registry set` spells these --server/--username/--password, while
-            # `create` below spells the same three --registry-*. Not a typo.
-            az containerapp registry set --name "${{ env.APP }}" -g "$RG" \
-              --server ghcr.io \
-              --username "${{ github.actor }}" \
-              --password "${{ secrets.GITHUB_TOKEN }}" \
-              --only-show-errors
+            # Drop any credential a previous deploy left behind, so an app
+            # created before this was understood heals on its next deploy
+            # instead of staying one sleep away from the outage above. Errors
+            # when there is nothing registered, which is the expected case.
+            az containerapp registry remove --name "${{ env.APP }}" -g "$RG" \
+              --server ghcr.io --only-show-errors 2>/dev/null \
+              && echo "Removed stale ghcr.io credentials." \
+              || echo "No ghcr.io credentials stored, as expected."
             az containerapp update --name "${{ env.APP }}" -g "$RG" \
               --image "$IMAGE_TAG" \
               --min-replicas 0 --max-replicas 2 \
@@ -166,9 +177,6 @@ jobs:
               --image "$IMAGE_TAG" \
               --target-port 8080 --ingress external \
               --min-replicas 0 --max-replicas 2 \
-              --registry-server ghcr.io \
-              --registry-username "${{ github.actor }}" \
-              --registry-password "${{ secrets.GITHUB_TOKEN }}" \
               --secrets "sql-connection=${{ secrets.AZURE_SQL_CONNECTION }}" \
               --env-vars "AZURE_SQL_CONNECTION=secretref:sql-connection" \
               --only-show-errors
@@ -203,20 +211,53 @@ jobs:
           done
           echo "$N outbound IP(s) allowed. Azure SQL takes up to five minutes to apply this."
 
-      # The hang that started this: TLS completes, nothing answers. Reporting
-      # the revision's own view is far more useful than another timeout.
-      - name: Report the revision's health
+      # This step used to only *print* the revision state, so a deploy that had
+      # produced no working replica still finished green. It now asserts, and
+      # fails the run when nothing answers -- a red deploy is the whole point.
+      #
+      # It also prints the *system* log, not just the console one. Console shows
+      # what the app wrote; system shows what Container Apps did to it. When a
+      # pull fails the app writes nothing at all, so console is empty and only
+      # system names the cause.
+      - name: Verify the revision serves traffic
         run: |
           RG="${{ vars.AZURE_RESOURCE_GROUP }}"
+          URL=$(az containerapp show --name "${{ env.APP }}" -g "$RG" \
+            --query "properties.configuration.ingress.fqdn" -o tsv)
+
           echo "Waiting for the new revision to settle..."
           sleep 30
-          az containerapp revision list --name "${{ env.APP }}" -g "$RG" \
-            --query "[].{name:name, active:properties.active, state:properties.runningState, replicas:properties.replicas, created:properties.createdTime}" \
-            -o table
+
+          # /health never touches the database, so this measures the container
+          # being up and nothing else. A cold start is seconds; 60s of retries
+          # is generous enough that a failure here means a real failure.
+          CODE=000
+          for i in $(seq 1 6); do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 \
+              "https://$URL/health" || echo 000)
+            [ "$CODE" = "200" ] && break
+            echo "  attempt $i: HTTP $CODE, retrying..."
+            sleep 10
+          done
+
           echo
-          echo "=== last 40 console lines ==="
-          az containerapp logs show --name "${{ env.APP }}" -g "$RG" \
-            --type console --tail 40 2>&1 || echo "(no console logs yet)"
+          az containerapp revision list --name "${{ env.APP }}" -g "$RG" \
+            --query "[].{name:name, active:properties.active, state:properties.runningState, replicas:properties.replicas}" \
+            -o table
+
+          if [ "$CODE" != "200" ]; then
+            echo
+            echo "=== system events (what Container Apps did) ==="
+            az containerapp logs show --name "${{ env.APP }}" -g "$RG" \
+              --type system --tail 30 2>&1 || echo "(none)"
+            echo
+            echo "=== console (what the app wrote) ==="
+            az containerapp logs show --name "${{ env.APP }}" -g "$RG" \
+              --type console --tail 30 2>&1 || echo "(none)"
+            echo "::error::/health returned $CODE. The revision is not serving traffic."
+            exit 1
+          fi
+          echo "/health returned 200."
 
       - name: Report the URL
         run: |
