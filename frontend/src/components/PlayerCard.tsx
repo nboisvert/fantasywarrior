@@ -105,7 +105,8 @@ function ordinal(n: number): string {
   }
 }
 
-/** "Dec 25th" — no year, month/day only. */
+/** "Dec 25th" — no year, month/day only (2026-07-27, per Nick: bio row
+ * collapsed to one line per cell, age is now the headline value). */
 function formatBirthDayMonth(birthDate: string): string {
   const d = new Date(`${birthDate}T00:00:00`);
   if (Number.isNaN(d.getTime())) return birthDate;
@@ -407,10 +408,8 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
                       {posGroup(player.position)}
                     </span>
                     <span className="pc-team">{player.team}</span>
-                    {age != null && player.birthDate != null && (
-                      <span className="pc-age-badge">
-                        {age} yo ({formatBirthDayMonth(player.birthDate)})
-                      </span>
+                    {player.sweaterNumber != null && (
+                      <span className="pc-number">#{player.sweaterNumber}</span>
                     )}
                   </div>
                 </div>
@@ -418,6 +417,17 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
 
               {/* bio */}
               <div className="pc-bio-grid">
+                <div className="pc-bio-item">
+                  <span className="pc-bio-label">Age</span>
+                  <span className="pc-bio-value">
+                    {age != null ? String(age) : "—"}
+                    {player.birthDate != null && (
+                      <span className="pc-bio-inline-sub pc-bio-inline-sub-birthday">
+                        {formatBirthDayMonth(player.birthDate)}
+                      </span>
+                    )}
+                  </span>
+                </div>
                 <div className="pc-bio-item">
                   <span className="pc-bio-label">Draft</span>
                   <span className="pc-bio-value">
