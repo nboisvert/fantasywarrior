@@ -1,6 +1,7 @@
 using FantasyWarrior.Api;
 using FantasyWarrior.Core.Time;
 using FantasyWarrior.Data;
+using Microsoft.EntityFrameworkCore;
 
 // TEMPORARY AUTH MODEL: the API trusts the username sent by the client.
 // Token verification replaces this when real auth lands. With weekly lineups
@@ -22,7 +23,32 @@ var app = builder.Build();
 app.UseCors();
 
 app.MapGet("/", () => "Fantasy Warrior API");
+
+// Deliberately does not touch the database: this has to answer even when the
+// connection string is wrong, or a misconfigured deploy presents as an ingress
+// that completes the TLS handshake and then hangs forever, which says nothing
+// about its own cause.
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
+
+// Whether the database is actually reachable, and how long it took — the
+// serverless tier's resume shows up here as several seconds on the first call
+// after an idle hour. Separate from /health on purpose: a container that is up
+// but cannot reach its database is a different problem from one that is down.
+app.MapGet("/health/db", async (FantasyWarriorDbContext db) =>
+{
+    var started = System.Diagnostics.Stopwatch.StartNew();
+    try
+    {
+        var players = await db.Players.CountAsync();
+        return Results.Ok(new { status = "healthy", players, elapsedMs = started.ElapsedMilliseconds });
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(
+            new { status = "unreachable", error = ex.Message, elapsedMs = started.ElapsedMilliseconds },
+            statusCode: 503);
+    }
+});
 
 // Whether a season replay is in progress and what day it thinks it is. The one
 // place to look when the app's idea of "this week" seems wrong.

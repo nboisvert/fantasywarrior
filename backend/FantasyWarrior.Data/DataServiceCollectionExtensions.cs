@@ -78,11 +78,24 @@ public static class DataServiceCollectionExtensions
         return new FantasyWarriorDbContext(options);
     }
 
+    /// <summary>
+    /// Registers the context, resolving the connection string **lazily**.
+    ///
+    /// Resolving it here, at registration, means a missing or misconfigured
+    /// connection string throws before the web host is even built: the
+    /// container then crash-loops, `/health` never answers, and the ingress
+    /// accepts the TLS handshake and hangs — a failure mode that says nothing
+    /// about its own cause and takes a container-log dive to identify.
+    ///
+    /// Deferred, the app always starts and always answers `/health`. A bad
+    /// connection string surfaces on the first request that touches the
+    /// database, with the real exception.
+    /// </summary>
     public static IServiceCollection AddFantasyWarriorData(
         this IServiceCollection services, string? connectionString = null)
     {
-        var cs = connectionString ?? ResolveConnectionString();
-        services.AddDbContext<FantasyWarriorDbContext>(o => o.UseSqlServer(cs, Configure));
+        services.AddDbContext<FantasyWarriorDbContext>((_, options) =>
+            options.UseSqlServer(connectionString ?? ResolveConnectionString(), Configure));
         return services;
     }
 
