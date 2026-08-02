@@ -1,3 +1,4 @@
+using FantasyWarrior.Core.Players;
 using FantasyWarrior.Data;
 using FantasyWarrior.Data.Entities;
 using FantasyWarrior.Jobs.Nhl;
@@ -190,7 +191,7 @@ public sealed class StatsSyncJob(NhlApiClient nhl, FantasyWarriorDbContext db)
 
             // A dressed backup who never played is not a game played, and
             // counting him would put a zero-minute start in his season totals.
-            foreach (var goalie in players.Goalies.Where(g => TimeOnIce(g.Toi) > 0))
+            foreach (var goalie in players.Goalies.Where(g => TimeOnIce.ParseSeconds(g.Toi) > 0))
                 yield return (ToGoalieLine(goalie, players.Goalies, game, team, opponent, isHome, now), goalie);
         }
     }
@@ -282,19 +283,6 @@ public sealed class StatsSyncJob(NhlApiClient nhl, FantasyWarriorDbContext db)
     /// </summary>
     public static bool IsShutout(BoxPlayerDto goalie, IEnumerable<BoxPlayerDto> teamGoalies) =>
         (goalie.GoalsAgainst ?? 0) == 0
-        && TimeOnIce(goalie.Toi) > 0
-        && teamGoalies.Count(g => TimeOnIce(g.Toi) > 0) == 1;
-
-    /// <summary>
-    /// "MM:SS" as seconds; 0 when empty or unparseable. Minutes can exceed 59
-    /// in overtime, so this cannot be a TimeSpan parse.
-    /// </summary>
-    public static int TimeOnIce(string? toi)
-    {
-        if (string.IsNullOrWhiteSpace(toi)) return 0;
-        var parts = toi.Split(':');
-        return parts.Length == 2 && int.TryParse(parts[0], out var m) && int.TryParse(parts[1], out var s)
-            ? m * 60 + s
-            : 0;
-    }
+        && TimeOnIce.ParseSeconds(goalie.Toi) > 0
+        && teamGoalies.Count(g => TimeOnIce.ParseSeconds(g.Toi) > 0) == 1;
 }

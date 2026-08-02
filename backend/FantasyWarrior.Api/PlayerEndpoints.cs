@@ -1,3 +1,4 @@
+using FantasyWarrior.Core.Players;
 using FantasyWarrior.Core.Scoring;
 using FantasyWarrior.Core.Time;
 using FantasyWarrior.Data;
@@ -115,12 +116,18 @@ public static class PlayerEndpoints
                     plusMinus = totals[StatKeys.PlusMinus],
                     pim = totals[StatKeys.Pim],
                     shots = totals[StatKeys.Shots],
+                    hits = totals[StatKeys.Hits],
+                    blockedShots = totals[StatKeys.BlockedShots],
                     wins = totals[StatKeys.Wins],
                     otLosses = totals[StatKeys.OtLosses],
                     shutouts = totals[StatKeys.Shutouts],
                     goalsAgainst = totals[StatKeys.GoalsAgainst],
                     saves = totals[StatKeys.Saves],
                     shotsAgainst = totals[StatKeys.ShotsAgainst],
+                    // Not a scored stat — never rule-configured, so it stays
+                    // out of StatKeys/StatLine and is averaged straight from
+                    // this season's lines instead.
+                    avgToi = TimeOnIce.FormatAverage(lines.Select(l => l.Toi)),
                 },
                 recentGames = lines.Take(10).Select(l => new
                 {

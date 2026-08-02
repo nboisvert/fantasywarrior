@@ -21,12 +21,15 @@ interface SeasonTotals {
   plusMinus: number;
   pim: number;
   shots: number;
+  hits: number;
+  blockedShots: number;
   wins: number;
   otLosses: number;
   shutouts: number;
   goalsAgainst: number;
   saves: number;
   shotsAgainst: number;
+  avgToi: string | null;
 }
 
 interface RecentGame {
@@ -147,6 +150,9 @@ const formatGaa = (t: SeasonTotals) =>
 const formatSvPct = (t: SeasonTotals) =>
   t.shotsAgainst > 0 ? (t.saves / t.shotsAgainst).toFixed(3).replace(/^0\./, ".") : "—";
 
+const formatPtsPerGame = (t: SeasonTotals) =>
+  t.gamesPlayed > 0 ? (t.points / t.gamesPlayed).toFixed(2) : "—";
+
 /* ---------- stat tiles ---------- */
 
 interface Tile {
@@ -160,9 +166,13 @@ const skaterTiles = (t: SeasonTotals): Tile[] => [
   { label: "G", value: String(t.goals) },
   { label: "A", value: String(t.assists) },
   { label: "PTS", value: String(t.points), accent: true },
+  { label: "PTS/G", value: formatPtsPerGame(t) },
   { label: "+/-", value: signed(t.plusMinus) },
   { label: "PIM", value: String(t.pim) },
   { label: "SOG", value: String(t.shots) },
+  { label: "HIT", value: String(t.hits) },
+  { label: "BLK", value: String(t.blockedShots) },
+  { label: "TOI", value: t.avgToi ?? "—" },
 ];
 
 const goalieTiles = (t: SeasonTotals): Tile[] => [
@@ -172,6 +182,7 @@ const goalieTiles = (t: SeasonTotals): Tile[] => [
   { label: "SO", value: String(t.shutouts) },
   { label: "GAA", value: formatGaa(t) },
   { label: "SV%", value: formatSvPct(t) },
+  { label: "TOI", value: t.avgToi ?? "—" },
 ];
 
 /* ---------- game log table ---------- */
@@ -281,7 +292,7 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
   const [player, setPlayer] = useState<PlayerDetail | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"season" | "last10" | "career">("season");
+  const [activeTab, setActiveTab] = useState<"stats" | "last10" | "career">("stats");
   const [careerVisited, setCareerVisited] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -292,7 +303,7 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
     setLoading(true);
     setError("");
     setPlayer(null);
-    setActiveTab("season");
+    setActiveTab("stats");
     setCareerVisited(false);
     fetch(`${API_BASE}/api/players/${playerId}`, { signal: ctrl.signal })
       .then(async (res) => {
@@ -441,20 +452,20 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
                 </div>
               </div>
 
-              {/* Season totals / Last 10 games / Career (embedded
-                  Hockey-Reference) — Season is the default tab, since it's
+              {/* Stats (season totals) / Last 10 games / Career (embedded
+                  Hockey-Reference) — Stats is the default tab, since it's
                   the number most people open the card to check. */}
               <div className="pc-tabs" role="tablist" aria-label="Player stats">
                 <button
-                  id="pc-tab-season"
+                  id="pc-tab-stats"
                   role="tab"
                   type="button"
-                  aria-selected={activeTab === "season"}
-                  aria-controls="pc-panel-season"
-                  className={`pc-tab${activeTab === "season" ? " active" : ""}`}
-                  onClick={() => setActiveTab("season")}
+                  aria-selected={activeTab === "stats"}
+                  aria-controls="pc-panel-stats"
+                  className={`pc-tab${activeTab === "stats" ? " active" : ""}`}
+                  onClick={() => setActiveTab("stats")}
                 >
-                  Season
+                  Stats
                 </button>
                 <button
                   id="pc-tab-last10"
@@ -484,13 +495,13 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
               </div>
 
               <div
-                id="pc-panel-season"
+                id="pc-panel-stats"
                 role="tabpanel"
-                aria-labelledby="pc-tab-season"
-                hidden={activeTab !== "season"}
+                aria-labelledby="pc-tab-stats"
+                hidden={activeTab !== "stats"}
                 className="pc-tabpanel"
               >
-                <div className="pc-season-panel">
+                <div className="pc-stats-panel">
                   <span className="section-title">Season {formatSeason(player.season)}</span>
                   {player.seasonTotals ? (
                     <div className={`pc-tiles${player.isGoalie ? " pc-tiles-goalie" : ""}`}>

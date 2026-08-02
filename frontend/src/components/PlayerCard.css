@@ -411,9 +411,9 @@
   color: var(--ice-bright);
 }
 
-/* ---------- Season tab ---------- */
+/* ---------- Stats tab ---------- */
 
-.pc-season-panel {
+.pc-stats-panel {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
