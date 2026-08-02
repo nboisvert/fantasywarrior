@@ -77,14 +77,35 @@ public sealed class SeedMordusJob(FantasyWarriorDbContext db)
             .ToList();
         var known = (await db.Players.Where(p => wanted.Contains(p.PlayerId))
             .Select(p => p.PlayerId).ToListAsync(ct)).ToHashSet();
-        var missing = wanted.Where(id => !known.Contains(id)).ToList();
+        var missing = wanted.Where(id => !known.Contains(id)).ToHashSet();
         if (missing.Count > 0)
         {
-            Console.Error.WriteLine($"{missing.Count} player id(s) not in the database — run sql-player-sync first:");
-            foreach (var t in data.Teams)
-                foreach (var p in t.Active.Concat(t.Reserve).Where(p => missing.Contains(p.PlayerId)))
-                    Console.Error.WriteLine($"  {p.PlayerId}  {p.Name} ({p.Pos}, {p.Team})");
-            return 1;
+            // A GM can roster a player who never dressed: no NHL roster or
+            // prospect list returns him, and no boxscore creates him, but he
+            // still occupies a spot and counts against roster size. The roster
+            // file is a verified artifact, so it is a good enough source for a
+            // stub — the next player-sync fills in the rest if he ever appears.
+            Console.WriteLine($"{missing.Count} rostered player(s) unknown to the NHL feeds — "
+                + "creating them from the roster file:");
+            var seen = new HashSet<long>();
+            foreach (var p in data.Teams.SelectMany(t => t.Active.Concat(t.Reserve))
+                         .Where(p => missing.Contains(p.PlayerId) && seen.Add(p.PlayerId)))
+            {
+                Console.WriteLine($"  {p.PlayerId}  {p.Name} ({p.Pos}, {p.Team})");
+                var space = p.Name.LastIndexOf(' ');
+                db.Players.Add(new Player
+                {
+                    PlayerId = p.PlayerId,
+                    FirstName = space > 0 ? p.Name[..space] : "",
+                    LastName = space > 0 ? p.Name[(space + 1)..] : p.Name,
+                    Position = string.IsNullOrWhiteSpace(p.Pos) ? "C" : p.Pos[..1],
+                    TeamAbbrev = p.Team.Length == 3 ? p.Team : null,
+                    Status = PlayerStatus.Prospect,
+                    LastSyncedUtc = DateTime.UtcNow,
+                });
+            }
+            if (!dryRun) await db.SaveChangesAsync(ct);
+            Console.WriteLine();
         }
 
         var positions = await db.Players
@@ -149,9 +170,10 @@ public sealed class SeedMordusJob(FantasyWarriorDbContext db)
             });
             await db.SaveChangesAsync(ct);
 
+            var spotsByPlayer = new Dictionary<long, RosterSpot>();
             foreach (var player in entry.Active.Concat(entry.Reserve))
             {
-                db.RosterSpots.Add(new RosterSpot
+                var spot = new RosterSpot
                 {
                     LeagueId = league.LeagueId,
                     TeamId = team.TeamId,
@@ -160,9 +182,43 @@ public sealed class SeedMordusJob(FantasyWarriorDbContext db)
                     StartDate = firstPeriod.StartDate,
                     StartReason = RosterSpotStartReason.Draft,
                     OpenedUtc = now,
-                });
+                };
+                db.RosterSpots.Add(spot);
+                spotsByPlayer[player.PlayerId] = spot;
                 spotCount++;
             }
+            await db.SaveChangesAsync(ct);
+
+            // **The week-1 lineup, as the GMs actually set it.** Without this the
+            // scoring pass finds no lineup and auto-fills with each team's best
+            // available players — which scores strictly higher than the real
+            // rosters did, and silently. Comparing against the pre-migration
+            // snapshot is what surfaced it.
+            var activeSpotIds = entry.Active
+                .Where(p => spotsByPlayer.ContainsKey(p.PlayerId))
+                .Select(p => spotsByPlayer[p.PlayerId].RosterSpotId)
+                .ToHashSet();
+
+            foreach (var (playerId, spot) in spotsByPlayer)
+                db.RosterAssignments.Add(new RosterAssignment
+                {
+                    RosterSpotId = spot.RosterSpotId,
+                    PeriodId = firstPeriod.PeriodId,
+                    IsActive = activeSpotIds.Contains(spot.RosterSpotId),
+                    EffectiveFrom = firstPeriod.StartDate,
+                    EffectiveTo = firstPeriod.EndDate,
+                    ScoredUtc = now,
+                });
+
+            // Attributed to the GM, not "auto", so the scoring pass treats it as
+            // a real submission and does not overwrite it with its own picks.
+            db.TeamPeriodLineups.Add(new TeamPeriodLineup
+            {
+                TeamId = team.TeamId,
+                PeriodId = firstPeriod.PeriodId,
+                SetBy = user.Username,
+                SubmittedUtc = now,
+            });
             await db.SaveChangesAsync(ct);
 
             Console.WriteLine($"  {entry.Username,-12} {entry.Franchise,-24} "

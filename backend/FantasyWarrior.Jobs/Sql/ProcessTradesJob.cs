@@ -37,7 +37,13 @@ public sealed class ProcessTradesJob(FantasyWarriorDbContext db)
         foreach (var trade in accepted)
         {
             // One transaction per trade: a half-applied swap is the one outcome
-            // that leaves the league in a state no rule can describe.
+            // that leaves the league in a state no rule can describe. Opened
+            // through the execution strategy because retries are enabled — the
+            // serverless tier drops connections on resume, and a retry must
+            // replay the whole swap rather than half of it.
+            var strategy = db.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
             await using var tx = await db.Database.BeginTransactionAsync(ct);
             try
             {
@@ -89,6 +95,7 @@ public sealed class ProcessTradesJob(FantasyWarriorDbContext db)
                 Console.Error.WriteLine($"    ! trade {trade.TradeId} failed, rolled back: {ex.Message}");
                 db.ChangeTracker.Clear();
             }
+            });
         }
         return 0;
     }

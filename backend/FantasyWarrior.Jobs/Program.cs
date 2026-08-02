@@ -171,6 +171,12 @@ if (job == "sql-period-init")
         .RunAsync(GetOption(args, "--season") ?? "20252026", args.Contains("--dry-run"));
 }
 
+if (job == "sql-wipe-pools")
+{
+    await using var sqlDb = FantasyWarrior.Data.DataServiceCollectionExtensions.CreateContext();
+    return await new FantasyWarrior.Jobs.Sql.WipePoolsJob(sqlDb).RunAsync(args.Contains("--dry-run"));
+}
+
 if (job == "sql-seed-mordus")
 {
     await using var sqlDb = FantasyWarrior.Data.DataServiceCollectionExtensions.CreateContext();
