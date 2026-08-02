@@ -53,7 +53,7 @@ const displayRate = (v: number | null, decimals: number, stripLeadingZero = fals
 const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
 
 /** Compact money format ($9.2M / $850K) — used for both the player-row
- * salary/cost columns and the cap-gauge disclosure below. */
+ * cap-hit/cost columns and the cap-gauge disclosure below. */
 function formatMoneyCompact(amount: number): string {
   const abs = Math.abs(amount);
   if (abs >= 1_000_000) return `$${(abs / 1_000_000).toFixed(1)}M`;
@@ -306,7 +306,10 @@ interface PlayerRow {
   shotsAgainst: number;
   gaa: number | null;
   svPct: number | null;
-  // Salary
+  // Cap hit — the contract figure for the *league's* season, never a later
+  // year's. Contracts run years ahead (Eichel is $10M in 2025-26 and $13.5M
+  // from 2026-27), so taking the newest one on file made this disagree with
+  // the player card about the same player.
   capHit: number | null;
   costPerPoint: number | null;
 }
@@ -356,7 +359,7 @@ function useSort<T extends object>(rows: T[], initialKey: keyof T) {
 
 /** Top row of the two-row grouped header: a label spanning the columns
  * belonging to one data source (Fantasy point / NHL season totals / Extra
- * counting stats / Salary), so the grid reads as "where did this number come
+ * counting stats / Cap hit), so the grid reads as "where did this number come
  * from" at a glance. */
 function GroupHead({ label, span, accent }: { label: string; span: number; accent?: boolean }) {
   return (
@@ -386,7 +389,7 @@ function SortableHead({
    * background tint, not just tinted text, so it reads as THE stat at a
    * glance rather than just another accented column (2026-07-23, per Nick). */
   spotlight?: boolean;
-  /** First column of a group (Fantasy point/NHL/Extra/Salary) — draws the
+  /** First column of a group (Fantasy point/NHL/Extra/Cap hit) — draws the
    * vertical divider down through the header/body/footer, matching the
    * group-label row's own border-left above it. */
   groupStart?: boolean;
@@ -767,7 +770,7 @@ export function Stats({
                     <GroupHead label="Goalie" span={3} />
                     <GroupHead label="NHL" span={5} />
                     <GroupHead label="Extra" span={5} />
-                    <GroupHead label="Salary" span={2} />
+                    <GroupHead label="Cap hit" span={2} />
                   </tr>
                   <tr>
                     <SortableHead label="GP" colKey="poolGamesPlayed" active={sort.key === "poolGamesPlayed"} dir={sort.dir} onSort={sort.toggle} accent groupStart />
@@ -788,7 +791,7 @@ export function Stats({
                     <SortableHead label="SOG" colKey="shots" active={sort.key === "shots"} dir={sort.dir} onSort={sort.toggle} />
                     <SortableHead label="GAA" colKey="gaa" active={sort.key === "gaa"} dir={sort.dir} onSort={sort.toggle} />
                     <SortableHead label="SV%" colKey="svPct" active={sort.key === "svPct"} dir={sort.dir} onSort={sort.toggle} />
-                    <SortableHead label="Salary" colKey="capHit" active={sort.key === "capHit"} dir={sort.dir} onSort={sort.toggle} groupStart />
+                    <SortableHead label="Cap hit" colKey="capHit" active={sort.key === "capHit"} dir={sort.dir} onSort={sort.toggle} groupStart />
                     <SortableHead label="$/PTS" colKey="costPerPoint" active={sort.key === "costPerPoint"} dir={sort.dir} onSort={sort.toggle} />
                   </tr>
                 </thead>

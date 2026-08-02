@@ -68,10 +68,22 @@ public static class PlayerEndpoints
                     .ToListAsync();
 
             var totals = StatLine.Sum(lines.Select(StatColumns.ToStatLine));
+
+            // The cap hit for the season this card is showing, not the newest
+            // one on file. Contracts run years ahead — Jack Eichel is $10M in
+            // 2025-26 and $13.5M from 2026-27 under an extension — so taking
+            // the latest made the card disagree with the Team grid about the
+            // same player, and the grid was right.
             var contract = await db.PlayerContracts
-                .Where(c => c.PlayerId == playerId)
-                .OrderByDescending(c => c.Season)
-                .FirstOrDefaultAsync();
+                .Where(c => c.PlayerId == playerId && (season == null || c.Season == season))
+                .FirstOrDefaultAsync()
+                // No contract for that season (a prospect, a season we hold no
+                // deal for): fall back to the earliest on file rather than
+                // showing nothing, since it is the nearest true figure.
+                ?? await db.PlayerContracts
+                    .Where(c => c.PlayerId == playerId)
+                    .OrderBy(c => c.Season)
+                    .FirstOrDefaultAsync();
 
             return Results.Ok(new
             {
