@@ -171,6 +171,18 @@ if (job == "sql-period-init")
         .RunAsync(GetOption(args, "--season") ?? "20252026", args.Contains("--dry-run"));
 }
 
+if (job == "sql-sim-advance")
+{
+    await using var sqlDb = FantasyWarrior.Data.DataServiceCollectionExtensions.CreateContext();
+    if (GetOption(args, "--to") is not { } toDay)
+    {
+        Console.Error.WriteLine("--to YYYY-MM-DD is required.");
+        return 1;
+    }
+    return await new FantasyWarrior.Jobs.Sql.SimAdvanceJob(sqlDb)
+        .RunAsync(DateOnly.Parse(toDay), args.Contains("--dry-run"));
+}
+
 if (job == "sql-wipe-pools")
 {
     await using var sqlDb = FantasyWarrior.Data.DataServiceCollectionExtensions.CreateContext();
@@ -185,7 +197,8 @@ if (job == "sql-seed-mordus")
         season: GetOption(args, "--season") ?? "20252026",
         commissioner: GetOption(args, "--commissioner") ?? "nick",
         capAmount: long.TryParse(GetOption(args, "--cap"), out var mCap) ? mCap : 115_000_000,
-        dryRun: args.Contains("--dry-run"));
+        dryRun: args.Contains("--dry-run"),
+        openingLineup: !args.Contains("--no-opening-lineup"));
 }
 
 if (job == "sql-period-rollup")

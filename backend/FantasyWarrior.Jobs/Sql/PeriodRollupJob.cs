@@ -128,6 +128,17 @@ public sealed class PeriodRollupJob(FantasyWarriorDbContext db)
                         && spots.Select(s => s.RosterSpotId).Contains(a.RosterSpotId))
             .ToDictionaryAsync(a => a.RosterSpotId, ct);
 
+        // What each spot has been worth to this team so far. Auto-fill ranks by
+        // it, so passing zero here would make "the best available players" mean
+        // "whichever players have the lowest ids" — a GM who forgets his lineup
+        // would be handed a random team rather than his strongest one.
+        var spotIds = spots.Select(s => s.RosterSpotId).ToList();
+        var pointsToDate = await db.RosterAssignments
+            .Where(a => spotIds.Contains(a.RosterSpotId) && a.IsActive && a.Period!.Number < period.Number)
+            .GroupBy(a => a.RosterSpotId)
+            .Select(g => new { SpotId = g.Key, Points = g.Sum(a => a.FantasyPoints) })
+            .ToDictionaryAsync(x => x.SpotId, x => x.Points, ct);
+
         var previous = periods.LastOrDefault(p => p.Number < period.Number);
         var previousActive = previous is null
             ? []
@@ -145,7 +156,7 @@ public sealed class PeriodRollupJob(FantasyWarriorDbContext db)
                     SpotId: s.RosterSpotId.ToString(),
                     PlayerId: s.PlayerId,
                     PositionGroup: s.PositionGroup,
-                    SeasonPointsToDate: 0,
+                    SeasonPointsToDate: pointsToDate.GetValueOrDefault(s.RosterSpotId),
                     ActivatedUtc: s.OpenedUtc))
                 .ToList();
 

@@ -39,7 +39,10 @@ public sealed class WipePoolsJob(FantasyWarriorDbContext db)
         };
         foreach (var (name, count) in counts) Console.WriteLine($"  {name,-20} {count,6}");
 
-        Console.WriteLine("\n  (kept: Players, PlayerContracts, Games, PlayerGameStats, Periods, NhlTeams, NewsItems)");
+        Console.WriteLine($"  {"Periods (un-banked)",-20} "
+            + $"{await db.Periods.CountAsync(p => p.FinalizedUtc != null, ct),6}");
+        Console.WriteLine("\n  (kept: Players, PlayerContracts, Games, PlayerGameStats, NhlTeams, NewsItems,"
+            + " and the period calendar itself)");
         if (dryRun) { Console.WriteLine("\n[DRY RUN] Nothing deleted."); return 0; }
 
         // Children before parents, in one transaction so a failure part-way
@@ -65,6 +68,15 @@ public sealed class WipePoolsJob(FantasyWarriorDbContext db)
             await db.Users.ExecuteDeleteAsync(ct);
             // The simulation cursor belongs to a pool run, not to the NHL data.
             await db.SimulationState.ExecuteDeleteAsync(ct);
+
+            // Week *boundaries* are calendar and survive; "this week is banked"
+            // is pool state and must not. Leaving it set is silent and vicious:
+            // the fresh league can never bank those weeks, so every team stays
+            // at zero for them and nothing says why.
+            await db.Periods
+                .Where(p => p.FinalizedUtc != null)
+                .ExecuteUpdateAsync(s => s.SetProperty(p => p.FinalizedUtc, (DateTime?)null), ct);
+
             await tx.CommitAsync(ct);
         });
 

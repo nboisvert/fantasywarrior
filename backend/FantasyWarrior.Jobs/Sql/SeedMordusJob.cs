@@ -32,9 +32,21 @@ public sealed class SeedMordusJob(FantasyWarriorDbContext db)
         List<PlayerEntry> Active, List<PlayerEntry> Reserve);
     private sealed record PlayerEntry(long PlayerId, string Name, string Pos, string Team);
 
+    /// <param name="openingLineup">
+    /// Whether to seed week 1's lineup from the roster file's active/reserve
+    /// split — the alignment the GMs actually had when the PDF was captured.
+    ///
+    /// On by default because it is the truthful starting state. Turning it off
+    /// leaves week 1 to be auto-filled with each team's best available players,
+    /// which is what the Firestore build did, and is therefore the only setting
+    /// under which a replay can be compared against
+    /// golden-scores-preSql.json — the two produce genuinely different
+    /// (and both legitimate) scores, so the oracle only validates the engine
+    /// when the inputs match.
+    /// </param>
     public async Task<int> RunAsync(
         string file, string season, string commissioner, long capAmount, bool dryRun,
-        CancellationToken ct = default)
+        bool openingLineup = true, CancellationToken ct = default)
     {
         if (!File.Exists(file))
         {
@@ -194,32 +206,35 @@ public sealed class SeedMordusJob(FantasyWarriorDbContext db)
             // available players — which scores strictly higher than the real
             // rosters did, and silently. Comparing against the pre-migration
             // snapshot is what surfaced it.
-            var activeSpotIds = entry.Active
-                .Where(p => spotsByPlayer.ContainsKey(p.PlayerId))
-                .Select(p => spotsByPlayer[p.PlayerId].RosterSpotId)
-                .ToHashSet();
-
-            foreach (var (playerId, spot) in spotsByPlayer)
-                db.RosterAssignments.Add(new RosterAssignment
-                {
-                    RosterSpotId = spot.RosterSpotId,
-                    PeriodId = firstPeriod.PeriodId,
-                    IsActive = activeSpotIds.Contains(spot.RosterSpotId),
-                    EffectiveFrom = firstPeriod.StartDate,
-                    EffectiveTo = firstPeriod.EndDate,
-                    ScoredUtc = now,
-                });
-
-            // Attributed to the GM, not "auto", so the scoring pass treats it as
-            // a real submission and does not overwrite it with its own picks.
-            db.TeamPeriodLineups.Add(new TeamPeriodLineup
+            if (openingLineup)
             {
-                TeamId = team.TeamId,
-                PeriodId = firstPeriod.PeriodId,
-                SetBy = user.Username,
-                SubmittedUtc = now,
-            });
-            await db.SaveChangesAsync(ct);
+                var activeSpotIds = entry.Active
+                    .Where(p => spotsByPlayer.ContainsKey(p.PlayerId))
+                    .Select(p => spotsByPlayer[p.PlayerId].RosterSpotId)
+                    .ToHashSet();
+
+                foreach (var (_, spot) in spotsByPlayer)
+                    db.RosterAssignments.Add(new RosterAssignment
+                    {
+                        RosterSpotId = spot.RosterSpotId,
+                        PeriodId = firstPeriod.PeriodId,
+                        IsActive = activeSpotIds.Contains(spot.RosterSpotId),
+                        EffectiveFrom = firstPeriod.StartDate,
+                        EffectiveTo = firstPeriod.EndDate,
+                        ScoredUtc = now,
+                    });
+
+                // Attributed to the GM, not "auto", so the scoring pass treats
+                // it as a real submission and does not overwrite it.
+                db.TeamPeriodLineups.Add(new TeamPeriodLineup
+                {
+                    TeamId = team.TeamId,
+                    PeriodId = firstPeriod.PeriodId,
+                    SetBy = user.Username,
+                    SubmittedUtc = now,
+                });
+                await db.SaveChangesAsync(ct);
+            }
 
             Console.WriteLine($"  {entry.Username,-12} {entry.Franchise,-24} "
                 + $"{entry.Active.Count + entry.Reserve.Count,2} players"

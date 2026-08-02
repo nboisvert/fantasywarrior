@@ -52,8 +52,7 @@ public sealed class NightlyJob(FantasyWarriorDbContext db)
             foreach (var number in await PendingWeeksAsync(backfillFrom.Value, lastStatDate, ct))
             {
                 Console.WriteLine($"--- week {number} ---");
-                await new PeriodRollupJob(db).RunAsync(null, dryRun, now, number, ct);
-                banked += await BankAsync(lastStatDate, dryRun, number, ct);
+                banked += await BankAsync(lastStatDate, dryRun, number, now, ct);
             }
             Console.WriteLine($"[backfill] {banked} week(s) banked.\n");
         }
@@ -62,7 +61,7 @@ public sealed class NightlyJob(FantasyWarriorDbContext db)
         await new PeriodRollupJob(db).RunAsync(null, dryRun, now, null, ct);
 
         Console.WriteLine("\n[2/3] Banking finished weeks");
-        banked += await BankAsync(lastStatDate, dryRun, null, ct);
+        banked += await BankAsync(lastStatDate, dryRun, null, now, ct);
 
         Console.WriteLine("\n[3/3] Executing accepted trades");
         if (banked == 0)
@@ -98,7 +97,8 @@ public sealed class NightlyJob(FantasyWarriorDbContext db)
     /// value it protected) has nothing to protect: setting a flag twice is
     /// setting a flag.
     /// </summary>
-    private async Task<int> BankAsync(DateOnly lastStatDate, bool dryRun, int? onlyNumber, CancellationToken ct)
+    private async Task<int> BankAsync(
+        DateOnly lastStatDate, bool dryRun, int? onlyNumber, DateTimeOffset now, CancellationToken ct)
     {
         var pending = (await db.Periods
             .Where(p => p.FinalizedUtc == null && (onlyNumber == null || p.Number == onlyNumber))
@@ -116,11 +116,24 @@ public sealed class NightlyJob(FantasyWarriorDbContext db)
         var done = 0;
         foreach (var period in pending)
         {
+            Console.WriteLine($"  W{period.Number:00} {period.Season} "
+                + $"({period.StartDate:MM-dd}..{period.EndDate:MM-dd})");
+
+            // **Score it one last time, then freeze.** Step 1 only scores the
+            // week in progress, which by the time a week is bankable is already
+            // the *next* one — so without this, a week would be frozen holding
+            // whatever partial numbers it had when it stopped being current.
+            // In a replay it would be frozen at zero.
+            //
+            // Idempotent, and the reason the grace day exists: this final pass
+            // is what picks up boxscore corrections the NHL filed after the week
+            // ended.
+            await new PeriodRollupJob(db).RunAsync(null, dryRun, now, period.Number, ct);
+
             var affected = await db.RosterAssignments
                 .Where(a => a.PeriodId == period.PeriodId && !a.IsFinalized)
                 .CountAsync(ct);
-            Console.WriteLine($"  W{period.Number:00} {period.Season} "
-                + $"({period.StartDate:MM-dd}..{period.EndDate:MM-dd}) — {affected} assignment(s)");
+            Console.WriteLine($"    freezing {affected} assignment(s)");
             if (dryRun) continue;
 
             await db.RosterAssignments
