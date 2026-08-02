@@ -36,6 +36,20 @@ jobs:
       contents: read
       packages: write
     steps:
+      # `run:` steps use `bash -e`, so a plain `[ test ] && assign` that happens
+      # to be false fails the step. Explicit ifs, deliberately.
+      - name: Check the required secrets and variables are set
+        run: |
+          MISSING=""
+          if [ -z "${{ secrets.AZURE_CREDENTIALS }}" ]; then MISSING="$MISSING AZURE_CREDENTIALS(secret)"; fi
+          if [ -z "${{ secrets.AZURE_SQL_CONNECTION }}" ]; then MISSING="$MISSING AZURE_SQL_CONNECTION(secret)"; fi
+          if [ -z "${{ vars.AZURE_RESOURCE_GROUP }}" ]; then MISSING="$MISSING AZURE_RESOURCE_GROUP(variable)"; fi
+          if [ -n "$MISSING" ]; then
+            echo "::error::Missing:$MISSING -- see .claude/doc/deployment.md"
+            exit 1
+          fi
+          echo "All three present."
+
       - uses: actions/checkout@v4
 
       - name: Log in to GitHub Container Registry
@@ -59,6 +73,33 @@ jobs:
       - name: Install the Container Apps extension
         run: az extension add --name containerapp --upgrade --only-show-errors
 
+      # A subscription that has never run Container Apps has these namespaces
+      # unregistered. The containerapp extension tries to register them itself
+      # and, when it cannot, crashes inside its own error formatting with
+      # "Replacement index 1 out of range for positional args tuple" -- which
+      # says nothing about what actually went wrong. Hence checking here first.
+      #
+      # Registering is a *subscription*-level operation, and this service
+      # principal is scoped to one resource group, so it will usually not have
+      # the right. That is fine and expected: the fix is a one-time command an
+      # owner runs, and this step says exactly which.
+      - name: Check the resource providers are registered
+        run: |
+          BLOCKED=""
+          for NS in Microsoft.App Microsoft.OperationalInsights; do
+            STATE=$(az provider show --namespace "$NS" --query registrationState -o tsv 2>/dev/null || echo "Unknown")
+            echo "$NS: $STATE"
+            if [ "$STATE" != "Registered" ]; then
+              az provider register --namespace "$NS" --wait 2>/dev/null && echo "$NS: registered" || BLOCKED="$BLOCKED $NS"
+            fi
+          done
+          if [ -n "$BLOCKED" ]; then
+            echo "::error::Not registered and this service principal cannot register them:$BLOCKED"
+            echo "::error::Run once in Azure Cloud Shell as an owner, then re-run this workflow:"
+            for NS in $BLOCKED; do echo "::error::  az provider register --namespace $NS --wait"; done
+            exit 1
+          fi
+
       # Read the region off the database rather than hardcoding it. Being in the
       # same region as the data is the entire reason the API is here, so it is
       # not something to keep in step by hand.
@@ -79,37 +120,53 @@ jobs:
             --name "${{ env.ENVIRONMENT }}" -g "${{ vars.AZURE_RESOURCE_GROUP }}" \
             --location "$LOCATION" --only-show-errors
 
-      # The registry is public, so the app pulls without credentials. Scale to
-      # zero keeps this inside the free grant: fourteen people do not keep a
-      # container busy.
+      # Explicit create/update rather than `az containerapp up`. `up` is a
+      # convenience wrapper that infers a lot -- it will happily invent a
+      # resource group or try to build from source -- and when it goes wrong the
+      # error rarely points at what it decided. These two are predictable.
+      #
+      # Registry credentials are passed even though the repository is public,
+      # because a *package* on ghcr.io is private by default regardless of the
+      # repository's visibility. Without them the pull fails with an
+      # unauthorized error that reads like a missing image.
+      #
+      # Scale to zero keeps this inside the free grant: fourteen people do not
+      # keep a container busy.
       - name: Create or update the app
         run: |
-          az containerapp up \
-            --name "${{ env.APP }}" \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
-            --environment "${{ env.ENVIRONMENT }}" \
-            --image "$IMAGE_TAG" \
-            --target-port 8080 \
-            --ingress external \
-            --only-show-errors
+          RG="${{ vars.AZURE_RESOURCE_GROUP }}"
+          REG_ARGS=(--registry-server ghcr.io
+                    --registry-username "${{ github.actor }}"
+                    --registry-password "${{ secrets.GITHUB_TOKEN }}")
 
-      # The secret must exist before anything can reference it, so this comes
-      # before the env var below and not after.
-      - name: Store the connection string as an app secret
-        run: |
-          az containerapp secret set \
-            --name "${{ env.APP }}" -g "${{ vars.AZURE_RESOURCE_GROUP }}" \
-            --secrets "sql-connection=${{ secrets.AZURE_SQL_CONNECTION }}" \
-            --only-show-errors
-
-      - name: Point the app at the secret, and let it scale to zero
-        run: |
-          az containerapp update \
-            --name "${{ env.APP }}" \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
-            --min-replicas 0 --max-replicas 2 \
-            --set-env-vars "AZURE_SQL_CONNECTION=secretref:sql-connection" \
-            --only-show-errors
+          if az containerapp show --name "${{ env.APP }}" -g "$RG" >/dev/null 2>&1; then
+            echo "Updating the existing app."
+            # Refresh the secret first: the env var points at it by reference,
+            # so it has to hold the current value before the new revision starts.
+            az containerapp secret set --name "${{ env.APP }}" -g "$RG" \
+              --secrets "sql-connection=${{ secrets.AZURE_SQL_CONNECTION }}" \
+              --only-show-errors
+            az containerapp registry set --name "${{ env.APP }}" -g "$RG" \
+              "${REG_ARGS[@]}" --only-show-errors
+            az containerapp update --name "${{ env.APP }}" -g "$RG" \
+              --image "$IMAGE_TAG" \
+              --min-replicas 0 --max-replicas 2 \
+              --set-env-vars "AZURE_SQL_CONNECTION=secretref:sql-connection" \
+              --only-show-errors
+          else
+            echo "Creating the app."
+            # Secret and env var in one call, so the app is never running
+            # without a connection string.
+            az containerapp create --name "${{ env.APP }}" -g "$RG" \
+              --environment "${{ env.ENVIRONMENT }}" \
+              --image "$IMAGE_TAG" \
+              --target-port 8080 --ingress external \
+              --min-replicas 0 --max-replicas 2 \
+              "${REG_ARGS[@]}" \
+              --secrets "sql-connection=${{ secrets.AZURE_SQL_CONNECTION }}" \
+              --env-vars "AZURE_SQL_CONNECTION=secretref:sql-connection" \
+              --only-show-errors
+          fi
 
       - name: Report the URL
         run: |

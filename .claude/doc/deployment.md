@@ -124,5 +124,18 @@ to rebuild and is identical for everyone.
   outbound IP, and pinning one needs Cloud NAT at about $32/month. That is why
   the API moved to Azure Container Apps rather than why a firewall rule was
   added.
+- **`Replacement index 1 out of range for positional args tuple`** during a
+  Container Apps deploy (2026-08-02) — a bug in the `containerapp` extension's
+  own error formatting, hit while it tries to auto-register a resource provider
+  and cannot. It hides the real error. The cause is an unregistered
+  `Microsoft.App` / `Microsoft.OperationalInsights`, and the deploy service
+  principal is scoped to one resource group so it has no right to register a
+  subscription-level provider. Fix once, in Cloud Shell, as an owner:
+  ```bash
+  az provider register --namespace Microsoft.App --wait
+  az provider register --namespace Microsoft.OperationalInsights --wait
+  ```
+  `api-deploy.yml` now checks this up front and prints those two commands
+  instead of letting the extension crash.
 - **A stale local `dotnet run` locks the build output** — kill the
   `FantasyWarrior.Api` or `FantasyWarrior.Jobs` process and rebuild.
