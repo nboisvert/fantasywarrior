@@ -34,6 +34,10 @@ export default function App() {
   const [showPicker, setShowPicker] = useState(false);
   const [defaultChecked, setDefaultChecked] = useState(false);
   const [error, setError] = useState("");
+  // Offers waiting on *this* user to accept or decline. Deliberately not every
+  // pending trade: an offer you sent is waiting on someone else, and a badge
+  // that lights up for your own outgoing offer is noise, not a notification.
+  const [offersToAnswer, setOffersToAnswer] = useState(0);
 
   const openLeague = (id: string) => {
     localStorage.setItem("fw-league", id);
@@ -65,6 +69,25 @@ export default function App() {
       .catch((e) => setError((e as Error).message));
   }, [leagueId, username]);
   useEffect(refreshLeague, [refreshLeague]);
+
+  // Re-read on every tab change as well as on league/user change: leaving the
+  // Trades screen is exactly when the count is most likely to have just become
+  // stale, because answering an offer is what you went there to do.
+  useEffect(() => {
+    if (!leagueId || !username) {
+      setOffersToAnswer(0);
+      return;
+    }
+    api
+      .trades(leagueId, username)
+      .then((trades) =>
+        setOffersToAnswer(
+          trades.filter((t) => t.status === "pending" && t.counterpartyUsername === username).length,
+        ),
+      )
+      // A badge is not worth an error banner: worst case it shows nothing.
+      .catch(() => setOffersToAnswer(0));
+  }, [leagueId, username, tab]);
 
   // First-time landing logic: with no remembered league, decide where returning
   // vs. brand-new users go — one league auto-selects it, several open the
@@ -209,11 +232,27 @@ export default function App() {
           Team
         </button>
         <button
-          className={`nav-tab${tab === "trades" ? " active" : ""}`}
+          className={`nav-tab${tab === "trades" ? " active" : ""}${
+            offersToAnswer > 0 ? " nav-tab-awaiting" : ""
+          }`}
           onClick={() => setTab("trades")}
           aria-current={tab === "trades" ? "page" : undefined}
+          aria-label={
+            offersToAnswer > 0
+              ? `Trades, ${offersToAnswer} offer${offersToAnswer > 1 ? "s" : ""} awaiting your answer`
+              : undefined
+          }
         >
-          <ArrowLeftRightIcon size={22} />
+          <span className="nav-tab-icon">
+            <ArrowLeftRightIcon size={22} />
+            {/* The count is the signal, not the colour — the gold only
+                reinforces it, so this reads the same without colour vision. */}
+            {offersToAnswer > 0 && (
+              <span className="nav-tab-badge" aria-hidden="true">
+                {offersToAnswer > 9 ? "9+" : offersToAnswer}
+              </span>
+            )}
+          </span>
           Trades
         </button>
       </nav>

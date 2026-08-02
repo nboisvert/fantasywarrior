@@ -241,6 +241,60 @@
   text-shadow: 0 0 12px var(--ice-glow);
 }
 
+/* An offer is waiting on this user to answer it. Gold is already the trade
+   colour everywhere else — the ticker's hot-trade alert, the trade icon, the
+   received-offer cards on the Trades screen — so this is the same family, not
+   a new signal to learn.
+
+   Static, not pulsing, and for the same reason the received-offer cards are:
+   the ticker pulses because its alert is transient (a 30-minute window), while
+   a pending offer sits there until someone acts on it. A nav tab that throbbed
+   until you answered would be nagging, not informing. */
+.nav-tab-awaiting {
+  color: var(--gold);
+}
+.nav-tab-awaiting:hover {
+  color: var(--gold);
+}
+/* Beats .active, deliberately: standing on the Trades tab does not make the
+   unanswered offers go away, and the badge would otherwise sit on a cyan tab
+   for as long as you stayed there. */
+.nav-tab-awaiting.active {
+  color: var(--gold);
+  background: rgba(251, 191, 36, 0.12);
+  text-shadow: 0 0 12px rgba(251, 191, 36, 0.35);
+}
+
+/* Anchors the badge; the icon keeps its own box so the label below stays put
+   whether or not a badge is showing. */
+.nav-tab-icon {
+  position: relative;
+  display: inline-flex;
+  line-height: 0;
+}
+
+.nav-tab-badge {
+  position: absolute;
+  top: -5px;
+  right: -9px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--gold);
+  /* The page background, not white: this sits on a dark bar and needs to read
+     as a filled chip rather than a glare. */
+  color: #0a0e1a;
+  font: 700 0.58rem/1 var(--font-body);
+  letter-spacing: 0;
+  /* Separates the chip from the icon strokes underneath it. */
+  box-shadow: 0 0 0 2px var(--elevated);
+}
+
 /* ---------- login ---------- */
 
 .login {
