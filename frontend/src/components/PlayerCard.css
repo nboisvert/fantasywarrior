@@ -431,31 +431,21 @@
   border-radius: 12px;
   background: var(--surface);
   overflow-y: auto;
-  /* Never horizontal (2026-08-02, per Nick) — table-layout: fixed below
-     already guarantees the table itself can't grow past 100%, this is the
-     belt-and-suspenders backstop. */
-  overflow-x: hidden;
   overscroll-behavior: contain;
 }
 
 .pc-career-table {
   width: 100%;
-  /* Every column's width comes from the <colgroup> except Team's, which
-     takes whatever's left — table-layout: auto would instead size every
-     column to fit its content, which is exactly what causes the overflow
-     this is meant to prevent. */
-  table-layout: fixed;
   border-collapse: collapse;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
 }
 
 .pc-career-table th,
 .pc-career-table td {
-  padding: 0.4rem 0.35rem;
+  padding: 0.5rem 0.7rem;
   text-align: right;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  overflow: hidden;
 }
 
 .pc-career-table th:first-child,
@@ -465,13 +455,6 @@
 .pc-career-table th:nth-child(3),
 .pc-career-table td:nth-child(3) {
   text-align: left;
-}
-
-/* The one column allowed to truncate — every other column's content is
-   already short and fixed-width, so this is the only one that can ever be
-   longer than its column (a long team name). */
-.pc-career-col-team {
-  text-overflow: ellipsis;
 }
 
 .pc-career-table thead th {

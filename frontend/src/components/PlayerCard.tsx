@@ -160,14 +160,6 @@ function formatSeason(season: string): string {
   return `${season.slice(0, 4)}-${season.slice(6)}`;
 }
 
-/** "20252026" -> "25-26" — the Career table is packed enough (up to ten
- * columns for a goalie) that the full 4-digit year doesn't earn its space
- * (2026-08-02, per Nick). */
-function formatSeasonShort(season: string): string {
-  if (season.length !== 8) return season;
-  return `${season.slice(2, 4)}-${season.slice(6)}`;
-}
-
 /** Full NHL team name -> city, for the Career tab (2026-08-02, per Nick: NHL
  * rows show just the city, to help the table fit without horizontal
  * scroll). Junior/college/European team names are already short, so this
@@ -335,32 +327,6 @@ function GamesTable({ games, isGoalie }: { games: RecentGame[]; isGoalie: boolea
 function CareerTable({ rows, isGoalie }: { rows: CareerRow[]; isGoalie: boolean }) {
   return (
     <table className="pc-career-table">
-      {/* table-layout: fixed (see CSS) needs every column's width spelled out
-       * except Team's, which is left to soak up whatever's left — that's the
-       * column that gets truncated with an ellipsis when a name doesn't fit,
-       * never a horizontal scrollbar (2026-08-02, per Nick). */}
-      <colgroup>
-        <col style={{ width: "2.6rem" }} />
-        <col style={{ width: "2rem" }} />
-        <col className="pc-career-col-team" />
-        <col style={{ width: "1.6rem" }} />
-        {isGoalie ? (
-          <>
-            <col style={{ width: "1.4rem" }} />
-            <col style={{ width: "1.4rem" }} />
-            <col style={{ width: "1.7rem" }} />
-            <col style={{ width: "1.9rem" }} />
-            <col style={{ width: "1.9rem" }} />
-            <col style={{ width: "1.4rem" }} />
-          </>
-        ) : (
-          <>
-            <col style={{ width: "1.4rem" }} />
-            <col style={{ width: "1.4rem" }} />
-            <col style={{ width: "1.6rem" }} />
-          </>
-        )}
-      </colgroup>
       <thead>
         <tr>
           <th scope="col">Season</th>
@@ -388,9 +354,9 @@ function CareerTable({ rows, isGoalie }: { rows: CareerRow[]; isGoalie: boolean 
       <tbody>
         {rows.map((r, i) => (
           <tr key={`${r.season}-${r.league}-${r.team ?? ""}-${i}`}>
-            <td>{formatSeasonShort(r.season)}</td>
+            <td>{formatSeason(r.season)}</td>
             <td>{r.league}</td>
-            <td className="pc-career-col-team">{formatCareerTeam(r.team, r.league)}</td>
+            <td>{formatCareerTeam(r.team, r.league)}</td>
             <td>{r.gamesPlayed}</td>
             {isGoalie ? (
               <>
