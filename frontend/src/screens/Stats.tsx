@@ -231,7 +231,7 @@ function PlayerPeriods({ data, isGoalie }: { data: PlayerPeriodsDto; isGoalie: b
             <th aria-label="In the lineup" />
             <th>GP</th>
             {isGoalie ? <><th>W</th><th>SV</th></> : <><th>G</th><th>A</th></>}
-            <th className="player-periods-pts">PTS</th>
+            <th className="player-periods-pts">PT</th>
           </tr>
         </thead>
         <tbody>
@@ -500,23 +500,23 @@ function RosterGrid({
               <SortableHead label="GP" colKey="poolGamesPlayed" active={sort.key === "poolGamesPlayed"} dir={sort.dir} onSort={sort.toggle} accent groupStart />
               <SortableHead label="G" colKey="poolGoals" active={sort.key === "poolGoals"} dir={sort.dir} onSort={sort.toggle} accent />
               <SortableHead label="A" colKey="poolAssists" active={sort.key === "poolAssists"} dir={sort.dir} onSort={sort.toggle} accent />
-              <SortableHead label="PTS" colKey="poolPoints" active={sort.key === "poolPoints"} dir={sort.dir} onSort={sort.toggle} accent spotlight />
-              <SortableHead label="PTS/G" colKey="poolPtsPerGame" active={sort.key === "poolPtsPerGame"} dir={sort.dir} onSort={sort.toggle} accent />
+              <SortableHead label="PT" colKey="poolPoints" active={sort.key === "poolPoints"} dir={sort.dir} onSort={sort.toggle} accent spotlight />
+              <SortableHead label="PT/G" colKey="poolPtsPerGame" active={sort.key === "poolPtsPerGame"} dir={sort.dir} onSort={sort.toggle} accent />
               <SortableHead label="W" colKey="wins" active={sort.key === "wins"} dir={sort.dir} onSort={sort.toggle} groupStart />
               <SortableHead label="OTL" colKey="otLosses" active={sort.key === "otLosses"} dir={sort.dir} onSort={sort.toggle} />
               <SortableHead label="SO" colKey="shutouts" active={sort.key === "shutouts"} dir={sort.dir} onSort={sort.toggle} />
               <SortableHead label="GP" colKey="gamesPlayed" active={sort.key === "gamesPlayed"} dir={sort.dir} onSort={sort.toggle} groupStart />
               <SortableHead label="G" colKey="goals" active={sort.key === "goals"} dir={sort.dir} onSort={sort.toggle} />
               <SortableHead label="A" colKey="assists" active={sort.key === "assists"} dir={sort.dir} onSort={sort.toggle} />
-              <SortableHead label="PTS" colKey="nhlPoints" active={sort.key === "nhlPoints"} dir={sort.dir} onSort={sort.toggle} spotlight />
-              <SortableHead label="PTS/G" colKey="nhlPtsPerGame" active={sort.key === "nhlPtsPerGame"} dir={sort.dir} onSort={sort.toggle} />
+              <SortableHead label="PT" colKey="nhlPoints" active={sort.key === "nhlPoints"} dir={sort.dir} onSort={sort.toggle} spotlight />
+              <SortableHead label="PT/G" colKey="nhlPtsPerGame" active={sort.key === "nhlPtsPerGame"} dir={sort.dir} onSort={sort.toggle} />
               <SortableHead label="+/-" colKey="plusMinus" active={sort.key === "plusMinus"} dir={sort.dir} onSort={sort.toggle} groupStart />
               <SortableHead label="PIM" colKey="pim" active={sort.key === "pim"} dir={sort.dir} onSort={sort.toggle} />
               <SortableHead label="SOG" colKey="shots" active={sort.key === "shots"} dir={sort.dir} onSort={sort.toggle} />
               <SortableHead label="GAA" colKey="gaa" active={sort.key === "gaa"} dir={sort.dir} onSort={sort.toggle} />
               <SortableHead label="SV%" colKey="svPct" active={sort.key === "svPct"} dir={sort.dir} onSort={sort.toggle} />
               <SortableHead label="Cap hit" colKey="capHit" active={sort.key === "capHit"} dir={sort.dir} onSort={sort.toggle} groupStart />
-              <SortableHead label="$/PTS" colKey="costPerPoint" active={sort.key === "costPerPoint"} dir={sort.dir} onSort={sort.toggle} />
+              <SortableHead label="$/PT" colKey="costPerPoint" active={sort.key === "costPerPoint"} dir={sort.dir} onSort={sort.toggle} />
             </tr>
           </thead>
           <tbody>
