@@ -409,8 +409,7 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
                     <span className="pc-team">{player.team}</span>
                     {age != null && player.birthDate != null && (
                       <span className="pc-age-badge">
-                        {age} yo
-                        <span className="pc-age-badge-sub">{formatBirthDayMonth(player.birthDate)}</span>
+                        {age} yo ({formatBirthDayMonth(player.birthDate)})
                       </span>
                     )}
                   </div>

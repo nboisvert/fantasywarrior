@@ -158,15 +158,6 @@
   flex-shrink: 0;
 }
 
-/* Birthday sub-value — de-emphasized further than the age itself via type,
- * not parens, same treatment as .pc-bio-inline-sub below. */
-.pc-age-badge-sub {
-  font-family: var(--font-body);
-  font-size: 0.72rem;
-  margin-left: 0.35rem;
-  opacity: 0.7;
-}
-
 /* ---------- bio grid ---------- */
 
 .pc-bio-grid {
