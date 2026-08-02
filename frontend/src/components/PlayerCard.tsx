@@ -488,6 +488,7 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
                 role="tabpanel"
                 aria-labelledby="pc-tab-season"
                 hidden={activeTab !== "season"}
+                className="pc-tabpanel"
               >
                 <div className="pc-season-panel">
                   <span className="section-title">Season {formatSeason(player.season)}</span>
@@ -514,6 +515,7 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
                 role="tabpanel"
                 aria-labelledby="pc-tab-last10"
                 hidden={activeTab !== "last10"}
+                className="pc-tabpanel"
               >
                 {games.length === 0 ? (
                   <p className="pc-empty muted">No games played yet.</p>
@@ -529,6 +531,7 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
                 role="tabpanel"
                 aria-labelledby="pc-tab-career"
                 hidden={activeTab !== "career"}
+                className="pc-tabpanel"
               >
                 <div className="pc-career">
                   <div className="pc-career-header">

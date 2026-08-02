@@ -268,7 +268,7 @@
    Underline style, not a segmented pill — each tab owns a full-width strip
    of the shared bottom rule, and the active one lights it up in ice-cyan
    with the same glow the rest of the card uses for its headline numbers
-   (.pc-tile.accent, .pc-age-badge), rather than a filled background chip. */
+   (.pc-tile.accent), rather than a filled background chip. */
 
 .pc-tabs {
   display: flex;
@@ -329,15 +329,33 @@
   }
 }
 
+/* ---------- tab panels ----------
+   Fills whatever the sheet's fixed height (2026-08-02) leaves below the
+   header/bio/tabs, rather than sizing to its own content — the `:not`
+   guard keeps `display` off the plain [hidden] state, since setting it
+   unconditionally here previously fought the browser's own [hidden]
+   { display: none } at equal specificity and leaked the Season tab into
+   the others (2026-08-02, per Nick). */
+.pc-tabpanel:not([hidden]) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 /* ---------- Last 10 games table ---------- */
 
 .pc-games {
+  flex: 1;
+  min-height: 0;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--surface);
-  /* Its own internal scroll (2026-07-23, per Nick) — don't rely solely on
-     the outer .pc-body scrolling to reach the rest of the 10 rows. */
-  max-height: 12rem;
+  /* Its own internal scroll — the panel above no longer caps its height
+     (2026-08-02, per Nick: the grid should fill whatever room the card
+     has, not stop at a fixed 12rem regardless of how tall the sheet is). */
   overflow-y: auto;
   overscroll-behavior: contain;
 }
