@@ -44,8 +44,8 @@ Tests : **151 verts** (124 Core, 27 Data). Net sur la branche : environ
    les services Azure » ne la couvre pas.
 3. **Fusionner `sql-migration` dans `main`**, puis Actions → « Deploy API to
    Cloud Run ».
-4. **Vérifier le barème de Les Mordus** : la doc annonçait « victoire de gardien
-   = 1 », le seed utilise **2** (ce que Firestore faisait réellement).
+4. ~~Barème Les Mordus~~ — **tranché le 2026-08-02 : victoire de gardien = 2.**
+   La doc annonçait 1 ; c'était la doc qui avait tort. Corrigée.
 
 ⚠️ Le `JoinCode` de la ligue change à chaque reseed :
 `SELECT Name, JoinCode FROM Leagues;`

@@ -97,7 +97,7 @@ points d'un joueur pour une semaine = Σ (stat × valeur du barème)
 
 Le barème est une **map clé→valeur** sur des noms de stats (`StatKeys`), pas une liste fixe. Un commissaire peut donc scorer les tirs bloqués, les mises en échec ou même les matchs joués **sans changement de schéma**.
 
-**Les Mordus** : but 1, passe 1, victoire de gardien 1, défaite en prolongation 1, blanchissage 0.
+**Les Mordus** : but 1, passe 1, **victoire de gardien 2**, défaite en prolongation 1, blanchissage 0.
 
 Les cinq valeurs historiques vivent dans `pointValues`; toute autre stat va dans `extraPointValues`. `RuleConfig.ScoringScale()` fusionne les deux — c'est la seule forme que le moteur consomme.
 

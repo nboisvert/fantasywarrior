@@ -79,7 +79,7 @@ salaries are estimated not real, cap and roster size are displayed but not enfor
 
 **Les Mordus league imported (2026-07-31)** — id `haPRaAJ3Vo3nqPufYGOM`, 14 GMs,
 360 players parsed out of Nick's PoolExpert PDF, 9F/4D/1G active, 23–35 roster,
-$115M cap, scoring 1/1/1/1/0. See [mordus-pool.md](mordus-pool.md).
+$115M cap, scoring 1/1/2/1/0 (goal/assist/goalie win/OT loss/shutout). See [mordus-pool.md](mordus-pool.md).
 
 **PlayerCard polish: top bar frame, age without "y", Last 10 / Career tabs, embedded Hockey-Reference (2026-07-31)**
 
