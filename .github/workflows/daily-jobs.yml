@@ -1,14 +1,15 @@
 # Nightly data jobs: yesterday's boxscores, then scoring, then reference data.
 # 09:30 UTC = after every NHL game is final, West Coast included.
 #
-# Requires the GitHub secret AZURE_SQL_CONNECTION.
+# Requires the GitHub secret AZURE_SQL_CONNECTION. Nothing else.
 #
-# GitHub-hosted runners have dynamic IPs, so the firewall rule is opened for
-# this run and removed afterwards rather than leaving the server open to
-# 0.0.0.0. That needs AZURE_CREDENTIALS (a service principal with rights on the
-# SQL server) and the AZURE_RESOURCE_GROUP variable -- if either is absent those
-# steps are skipped, which is the right behaviour for a self-hosted runner on a
-# fixed IP.
+# GitHub-hosted runners have dynamic IPs, but they are Azure VMs, so Azure SQL's
+# "Allow Azure services and resources to access this server" setting covers
+# them. That is the whole firewall story for this workflow.
+#
+# The optional steps below open and close a per-run firewall rule instead, for a
+# runner that is not on Azure. They are skipped unless AZURE_RESOURCE_GROUP is
+# set, which is the normal case.
 name: Daily NHL data sync
 
 on:
