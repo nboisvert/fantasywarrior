@@ -139,17 +139,34 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
     </div>
   );
 
+  /** The teams visual, tappable to show every player rather than "+N more".
+   *
+   * Every card that can say "+N more" needs this, which is all of them —
+   * pending offers used to render the same visual with no way to open it, so
+   * an offer of more than two players a side could not be read in full before
+   * accepting it. Shared here so a fourth caller cannot reintroduce that. */
+  const teamsSplitToggle = (trade: Trade) => {
+    const isOpen = expanded === trade.id;
+    return (
+      <button
+        className="trade-row-toggle"
+        onClick={() => setExpanded(isOpen ? null : trade.id)}
+        aria-expanded={isOpen}
+      >
+        {teamsSplit(trade, isOpen)}
+      </button>
+    );
+  };
+
   /** A history card: the teams/headliners visual (expanding in place to show
-   * every player, no separate duplicate list), an expand toggle, and, once
-   * open, the rating (processed) or an awaiting note (accepted). */
+   * every player, no separate duplicate list), and, once open, the rating
+   * (processed) or an awaiting note (accepted). */
   const historyCard = (trade: Trade) => {
     const isOpen = expanded === trade.id;
     return (
       <li key={trade.id} className="card trade-row">
         {cardHead(trade)}
-        <button className="trade-row-toggle" onClick={() => setExpanded(isOpen ? null : trade.id)}>
-          {teamsSplit(trade, isOpen)}
-        </button>
+        {teamsSplitToggle(trade)}
         {isOpen && (
           <div className="trade-row-expanded">
             {trade.status === "processed" ? (
@@ -189,7 +206,7 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
                     {received.map((t) => (
                       <li key={t.id} className="card trade-row trade-row-received">
                         {cardHead(t)}
-                        {teamsSplit(t)}
+                        {teamsSplitToggle(t)}
                         <div className="trade-actions">
                           <button className="btn" disabled={busyId === t.id} onClick={() => respond(t.id, true)}>
                             Accept
@@ -211,7 +228,7 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
                     {sent.map((t) => (
                       <li key={t.id} className="card trade-row">
                         {cardHead(t)}
-                        {teamsSplit(t)}
+                        {teamsSplitToggle(t)}
                         <div className="trade-actions">
                           <button className="btn-ghost" disabled={busyId === t.id} onClick={() => respond(t.id, false)}>
                             Cancel offer
