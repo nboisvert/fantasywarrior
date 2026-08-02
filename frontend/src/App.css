@@ -286,28 +286,28 @@
 .lineup-pending {
   position: absolute;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 12px;
-  height: 12px;
-  border-radius: 999px;
-  /* Ring in the row background so the pill separates from the icon's strokes
-     wherever it lands. */
-  box-shadow: 0 0 0 1.5px var(--bg-elevated);
-  color: #06121f;
+  /* A bare glyph, no chip behind it. At this size a filled circle reads as a
+     badge demanding action, when this is only an annotation on a row — it says
+     "this changes Monday", not "do something". */
+  stroke-width: 3.25;
+  /* The weight is what makes it legible instead of a background, and the
+     doubled hairline of row colour keeps it separate where it overlaps the
+     control's own outline. */
+  filter: drop-shadow(0 0 1px var(--bg-elevated)) drop-shadow(0 0 1px var(--bg-elevated));
+  pointer-events: none;
 }
 
 /* Corners chosen to say the same thing as the arrow: joining rises out of the
    top, dropping falls from the bottom. */
 .lineup-pending-in {
-  top: -3px;
-  right: -4px;
-  background: var(--success);
+  top: -4px;
+  right: -5px;
+  color: var(--success);
 }
 .lineup-pending-out {
-  bottom: -3px;
-  right: -4px;
-  background: var(--danger);
+  bottom: -4px;
+  right: -5px;
+  color: var(--danger);
 }
 
 /* ---------- lineup replacement picker (Team screen) ---------- */
