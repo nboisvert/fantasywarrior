@@ -488,24 +488,25 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
                 role="tabpanel"
                 aria-labelledby="pc-tab-season"
                 hidden={activeTab !== "season"}
-                className="pc-season-panel"
               >
-                <span className="section-title">Season {formatSeason(player.season)}</span>
-                {player.seasonTotals ? (
-                  <div className={`pc-tiles${player.isGoalie ? " pc-tiles-goalie" : ""}`}>
-                    {(player.isGoalie
-                      ? goalieTiles(player.seasonTotals)
-                      : skaterTiles(player.seasonTotals)
-                    ).map((tile) => (
-                      <div key={tile.label} className={`pc-tile${tile.accent ? " accent" : ""}`}>
-                        <span className="pc-tile-value">{tile.value}</span>
-                        <span className="pc-tile-label">{tile.label}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="pc-empty muted">No stats this season.</p>
-                )}
+                <div className="pc-season-panel">
+                  <span className="section-title">Season {formatSeason(player.season)}</span>
+                  {player.seasonTotals ? (
+                    <div className={`pc-tiles${player.isGoalie ? " pc-tiles-goalie" : ""}`}>
+                      {(player.isGoalie
+                        ? goalieTiles(player.seasonTotals)
+                        : skaterTiles(player.seasonTotals)
+                      ).map((tile) => (
+                        <div key={tile.label} className={`pc-tile${tile.accent ? " accent" : ""}`}>
+                          <span className="pc-tile-value">{tile.value}</span>
+                          <span className="pc-tile-label">{tile.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="pc-empty muted">No stats this season.</p>
+                  )}
+                </div>
               </div>
 
               <div
