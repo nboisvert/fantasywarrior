@@ -26,8 +26,7 @@ on:
 env:
   APP: fantasy-warrior-api
   ENVIRONMENT: fantasy-warrior-env
-  # Same region as the database. That is the whole point of this move.
-  LOCATION: canadacentral
+  SQL_SERVER: fantasywarrior
   IMAGE: ghcr.io/${{ github.repository }}/api
 
 jobs:
@@ -60,6 +59,17 @@ jobs:
       - name: Install the Container Apps extension
         run: az extension add --name containerapp --upgrade --only-show-errors
 
+      # Read the region off the database rather than hardcoding it. Being in the
+      # same region as the data is the entire reason the API is here, so it is
+      # not something to keep in step by hand.
+      - name: Use the database's region
+        run: |
+          LOCATION=$(az sql server show \
+            --name "${{ env.SQL_SERVER }}" -g "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --query location -o tsv)
+          echo "Database region: $LOCATION"
+          echo "LOCATION=$LOCATION" >> "$GITHUB_ENV"
+
       # Idempotent: creates the environment on the first run, no-ops after.
       - name: Ensure the Container Apps environment exists
         run: |
@@ -67,12 +77,12 @@ jobs:
             --name "${{ env.ENVIRONMENT }}" -g "${{ vars.AZURE_RESOURCE_GROUP }}" >/dev/null 2>&1 \
           || az containerapp env create \
             --name "${{ env.ENVIRONMENT }}" -g "${{ vars.AZURE_RESOURCE_GROUP }}" \
-            --location "${{ env.LOCATION }}" --only-show-errors
+            --location "$LOCATION" --only-show-errors
 
       # The registry is public, so the app pulls without credentials. Scale to
-      # zero keeps this inside the free grant: a pool of fourteen people does not
-      # keep a container busy.
-      - name: Deploy
+      # zero keeps this inside the free grant: fourteen people do not keep a
+      # container busy.
+      - name: Create or update the app
         run: |
           az containerapp up \
             --name "${{ env.APP }}" \
@@ -82,20 +92,23 @@ jobs:
             --target-port 8080 \
             --ingress external \
             --only-show-errors
+
+      # The secret must exist before anything can reference it, so this comes
+      # before the env var below and not after.
+      - name: Store the connection string as an app secret
+        run: |
+          az containerapp secret set \
+            --name "${{ env.APP }}" -g "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --secrets "sql-connection=${{ secrets.AZURE_SQL_CONNECTION }}" \
+            --only-show-errors
+
+      - name: Point the app at the secret, and let it scale to zero
+        run: |
           az containerapp update \
             --name "${{ env.APP }}" \
             --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
             --min-replicas 0 --max-replicas 2 \
             --set-env-vars "AZURE_SQL_CONNECTION=secretref:sql-connection" \
-            --only-show-errors
-        env:
-          IMAGE_TAG: ${{ env.IMAGE_TAG }}
-
-      - name: Store the connection string as a secret on the app
-        run: |
-          az containerapp secret set \
-            --name "${{ env.APP }}" -g "${{ vars.AZURE_RESOURCE_GROUP }}" \
-            --secrets "sql-connection=${{ secrets.AZURE_SQL_CONNECTION }}" \
             --only-show-errors
 
       - name: Report the URL

@@ -8,7 +8,7 @@
 | Piece | Where | How it deploys |
 |---|---|---|
 | Frontend (React/Vite) | GitHub Pages — https://nboisvert.github.io/fantasywarrior/ | Auto on every push to `main` touching `frontend/**` (`frontend-deploy.yml`) |
-| API (.NET 10 minimal API) | **Azure Container Apps** — app `fantasy-warrior-api`, environment `fantasy-warrior-env`, region `canadacentral`, scales to zero | Auto on push to `main` touching `backend/**` (`api-deploy.yml`); image published to ghcr.io |
+| API (.NET 10 minimal API) | **Azure Container Apps** — app `fantasy-warrior-api`, environment `fantasy-warrior-env`, same region as the database, scales to zero | Auto on push to `main` touching `backend/**` (`api-deploy.yml`); image published to ghcr.io |
 | **Database** | **Azure SQL** — server `fantasywarrior.database.windows.net`, database `fantasywarrior`, General Purpose Serverless (free tier) | Schema by `db-migrate`, never at app startup |
 | Nightly data jobs | GitHub Actions cron 09:30 UTC (`daily-jobs.yml`): db-migrate → stats-sync → nightly → player-sync → draft-sync → news-sync | Auto; manual backfill via Run workflow with from/to |
 | News sync (standalone) | GitHub Actions (`news-sync.yml`), manual only | Actions → "News sync" |
@@ -59,7 +59,7 @@ thing that touches it.
 |---|---|---|
 | Secret | `AZURE_SQL_CONNECTION` | Full Azure SQL connection string |
 | Secret | `AZURE_CREDENTIALS` | Service-principal JSON from `az ad sp create-for-rbac --sdk-auth`, used to deploy the Container App |
-| Variable | `AZURE_RESOURCE_GROUP` | Resource group holding the SQL server and the Container App |
+| Variable | `AZURE_RESOURCE_GROUP` | `fw` — the resource group holding the SQL server and the Container App |
 | Variable | `API_URL` | The Container App URL — injected as `VITE_API_URL` into the Pages build |
 
 ⚠️ **The repository is public.** A credential committed to it is readable by
