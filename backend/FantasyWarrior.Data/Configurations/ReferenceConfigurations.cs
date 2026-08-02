@@ -58,6 +58,9 @@ public sealed class PlayerConfiguration : IEntityTypeConfiguration<Player>
         // draft-sync scans for players it has never looked up. Filtered, because
         // once the backfill is done this matches almost nothing.
         b.HasIndex(x => x.DraftChecked).HasFilter("[DraftChecked] = 0");
+        // career-sync scans for the stalest rows on a rolling basis — unlike
+        // DraftChecked this never settles down to a small set, so unfiltered.
+        b.HasIndex(x => x.CareerStatsSyncedUtc);
 
         b.HasOne(x => x.Team)
             .WithMany()
@@ -165,6 +168,34 @@ public sealed class PlayerGameStatConfiguration : IEntityTypeConfiguration<Playe
         // NoAction, not Cascade: Games already cascades into this table, and a
         // second cascade path into the same table is rejected by SQL Server.
         // A player with game lines should not be deletable anyway.
+        b.HasOne(x => x.Player)
+            .WithMany()
+            .HasForeignKey(x => x.PlayerId)
+            .OnDelete(DeleteBehavior.NoAction);
+    }
+}
+
+public sealed class PlayerCareerSeasonStatConfiguration : IEntityTypeConfiguration<PlayerCareerSeasonStat>
+{
+    public void Configure(EntityTypeBuilder<PlayerCareerSeasonStat> b)
+    {
+        b.ToTable("PlayerCareerSeasonStats");
+        b.HasKey(x => x.PlayerCareerSeasonStatId);
+
+        b.Property(x => x.Season).HasMaxLength(8).IsFixedLength().IsUnicode(false).IsRequired();
+        b.Property(x => x.LeagueAbbrev).HasMaxLength(20).IsUnicode(false).IsRequired();
+        b.Property(x => x.TeamName).HasMaxLength(80);
+
+        // career-sync's full-replace-per-player upsert relies on this being
+        // unique: a mid-season trade gives two rows for the same
+        // season/league/game-type with different teams.
+        b.HasIndex(x => new { x.PlayerId, x.Season, x.GameType, x.LeagueAbbrev, x.TeamName }).IsUnique();
+
+        // The Player Card's Career tab: one player, every season, most recent first.
+        b.HasIndex(x => new { x.PlayerId, x.Season });
+
+        // NoAction, not Cascade: a player with career rows should not be
+        // deletable anyway (same reasoning as PlayerGameStat).
         b.HasOne(x => x.Player)
             .WithMany()
             .HasForeignKey(x => x.PlayerId)

@@ -419,56 +419,62 @@
   gap: 0.6rem;
 }
 
-/* ---------- Career tab: embedded Hockey-Reference ---------- */
+/* ---------- Career tab: our own season-by-season table ----------
+   Same wrapper/table treatment as .pc-games/.pc-games-table (Last 10) —
+   this replaced an embedded Hockey-Reference iframe (2026-08-02, per Nick:
+   career stats now come from career-sync's own NHL-sourced cache). */
 
-.pc-career {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
+.pc-career-wrap {
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
-.pc-career-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.pc-career-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
 }
 
-.pc-career-source {
-  font-family: var(--font-display);
-  font-size: 0.78rem;
-  letter-spacing: 0.06em;
+.pc-career-table th,
+.pc-career-table td {
+  padding: 0.5rem 0.7rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pc-career-table th:first-child,
+.pc-career-table td:first-child,
+.pc-career-table th:nth-child(2),
+.pc-career-table td:nth-child(2),
+.pc-career-table th:nth-child(3),
+.pc-career-table td:nth-child(3) {
+  text-align: left;
+}
+
+.pc-career-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  font-size: 0.66rem;
   text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  border-bottom: 1px solid var(--border);
+}
+
+.pc-career-table tbody td:first-child {
   color: var(--text-muted);
 }
 
-.pc-career-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  min-height: 44px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--ice-bright);
-  text-decoration: none;
-}
-
-.pc-career-link:hover {
-  text-decoration: underline;
-}
-
-.pc-career-frame {
-  width: 100%;
-  height: 420px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  /* Hockey-Reference itself is light-themed — a white backing avoids a dark
-     flash while the iframe's own page loads. */
-  background: #fff;
-}
-
-.pc-career-note {
-  margin: 0;
-  font-size: 0.72rem;
+.pc-career-table tbody tr + tr td {
+  border-top: 1px solid var(--border);
 }
 
 .pc-empty {

@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { JSX, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import { posGroup, posGroupClass } from "../api";
-import { ExternalLinkIcon, XIcon } from "./Icons";
+import { XIcon } from "./Icons";
 import "./PlayerCard.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5099";
@@ -49,6 +49,29 @@ interface RecentGame {
   shotsAgainst: number | null;
   goalsAgainst: number | null;
   shutout: boolean | null;
+}
+
+/** One season/league/team stint from GET /api/players/{id}/career, sourced
+ * from career-sync's cache of the NHL's own player-landing data — a
+ * player's whole hockey history, not just what this app has tracked since
+ * going live. */
+interface CareerRow {
+  season: string;
+  league: string;
+  team: string | null;
+  gamesPlayed: number;
+  goals: number | null;
+  assists: number | null;
+  points: number | null;
+  pim: number | null;
+  plusMinus: number | null;
+  wins: number | null;
+  losses: number | null;
+  otLosses: number | null;
+  goalsAgainst: number | null;
+  goalsAgainstAvg: number | null;
+  savePctg: number | null;
+  shutouts: number | null;
 }
 
 interface PlayerDetail {
@@ -135,13 +158,6 @@ function formatGameDate(date: string): string {
 function formatSeason(season: string): string {
   if (season.length !== 8) return season;
   return `${season.slice(0, 4)}-${season.slice(6)}`;
-}
-
-/** No per-player Hockey-Reference ID mapping exists, so we route through
- * their name search — Sports Reference's search redirects straight to the
- * player page on a unique name match. */
-function hockeyReferenceUrl(playerName: string): string {
-  return `https://www.hockey-reference.com/search/search.fcgi?search=${encodeURIComponent(playerName)}`;
 }
 
 const formatGaa = (t: SeasonTotals) =>
@@ -255,6 +271,70 @@ function GamesTable({ games, isGoalie }: { games: RecentGame[]; isGoalie: boolea
   );
 }
 
+/* ---------- career table ---------- */
+
+/** One row per season/league/team stint, most recent season first (already
+ * sorted server-side). Column set depends on isGoalie, same branch pattern
+ * as the tiles and GamesTable above. */
+function CareerTable({ rows, isGoalie }: { rows: CareerRow[]; isGoalie: boolean }) {
+  return (
+    <table className="pc-career-table">
+      <thead>
+        <tr>
+          <th scope="col">Season</th>
+          <th scope="col">League</th>
+          <th scope="col">Team</th>
+          <th scope="col">GP</th>
+          {isGoalie ? (
+            <>
+              <th scope="col">W</th>
+              <th scope="col">L</th>
+              <th scope="col">OTL</th>
+              <th scope="col">GAA</th>
+              <th scope="col">SV%</th>
+              <th scope="col">SO</th>
+            </>
+          ) : (
+            <>
+              <th scope="col">G</th>
+              <th scope="col">A</th>
+              <th scope="col">PTS</th>
+              <th scope="col">PIM</th>
+            </>
+          )}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r, i) => (
+          <tr key={`${r.season}-${r.league}-${r.team ?? ""}-${i}`}>
+            <td>{formatSeason(r.season)}</td>
+            <td>{r.league}</td>
+            <td>{r.team ?? "—"}</td>
+            <td>{r.gamesPlayed}</td>
+            {isGoalie ? (
+              <>
+                <td>{r.wins ?? 0}</td>
+                <td>{r.losses ?? 0}</td>
+                <td>{r.otLosses ?? 0}</td>
+                <td>{r.goalsAgainstAvg != null ? r.goalsAgainstAvg.toFixed(2) : "—"}</td>
+                <td>{r.savePctg != null ? r.savePctg.toFixed(3).replace(/^0\./, ".") : "—"}</td>
+                <td>{r.shutouts ?? 0}</td>
+              </>
+            ) : (
+              <>
+                <td>{r.goals ?? 0}</td>
+                <td>{r.assists ?? 0}</td>
+                <td>{r.points ?? 0}</td>
+                <td>{r.pim ?? 0}</td>
+              </>
+            )}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 /* ---------- skeleton (loading state, no spinner) ---------- */
 
 function Skeleton() {
@@ -293,7 +373,12 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"stats" | "last10" | "career">("stats");
-  const [careerVisited, setCareerVisited] = useState(false);
+  // Fetched lazily on first Career tab open, not bundled into the main
+  // player fetch — career history is a few dozen rows nobody reads on every
+  // card open. null means "not fetched yet", not "fetched, empty".
+  const [careerRows, setCareerRows] = useState<CareerRow[] | null>(null);
+  const [careerLoading, setCareerLoading] = useState(false);
+  const [careerError, setCareerError] = useState("");
   const sheetRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
 
@@ -304,7 +389,8 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
     setError("");
     setPlayer(null);
     setActiveTab("stats");
-    setCareerVisited(false);
+    setCareerRows(null);
+    setCareerError("");
     fetch(`${API_BASE}/api/players/${playerId}`, { signal: ctrl.signal })
       .then(async (res) => {
         const body: unknown = await res.json().catch(() => ({}));
@@ -325,6 +411,25 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
       });
     return () => ctrl.abort();
   }, [playerId]);
+
+  /** Opens the Career tab, fetching on first open and caching after —
+   * mirrors Stats.tsx's togglePeriods (per-player data nobody needs until
+   * they ask for it). */
+  async function openCareerTab() {
+    setActiveTab("career");
+    if (careerRows !== null || careerLoading) return;
+    setCareerLoading(true);
+    setCareerError("");
+    try {
+      const res = await fetch(`${API_BASE}/api/players/${playerId}/career`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setCareerRows((await res.json()) as CareerRow[]);
+    } catch {
+      setCareerError("Could not load career stats.");
+    } finally {
+      setCareerLoading(false);
+    }
+  }
 
   // Escape closes.
   useEffect(() => {
@@ -485,10 +590,7 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
                   aria-selected={activeTab === "career"}
                   aria-controls="pc-panel-career"
                   className={`pc-tab${activeTab === "career" ? " active" : ""}`}
-                  onClick={() => {
-                    setActiveTab("career");
-                    setCareerVisited(true);
-                  }}
+                  onClick={() => void openCareerTab()}
                 >
                   Career
                 </button>
@@ -544,31 +646,17 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
                 hidden={activeTab !== "career"}
                 className="pc-tabpanel"
               >
-                <div className="pc-career">
-                  <div className="pc-career-header">
-                    <span className="pc-career-source">Hockey-Reference</span>
-                    <a
-                      className="pc-career-link"
-                      href={hockeyReferenceUrl(player.name)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Open <ExternalLinkIcon size={14} />
-                    </a>
-                  </div>
-                  {careerVisited && (
-                    <iframe
-                      className="pc-career-frame"
-                      src={hockeyReferenceUrl(player.name)}
-                      title={`${player.name} — career stats on Hockey-Reference`}
-                      loading="lazy"
-                      referrerPolicy="no-referrer"
-                    />
-                  )}
-                  <p className="pc-career-note muted">
-                    External data from Hockey-Reference.com — if it doesn't load below, use "Open" above.
-                  </p>
-                </div>
+                {careerLoading && <p className="pc-empty muted">Loading…</p>}
+                {!careerLoading && careerError && <p className="error-banner">{careerError}</p>}
+                {!careerLoading && !careerError && careerRows != null && (
+                  careerRows.length === 0 ? (
+                    <p className="pc-empty muted">No career stats on file yet.</p>
+                  ) : (
+                    <div className="pc-career-wrap">
+                      <CareerTable rows={careerRows} isGoalie={player.isGoalie} />
+                    </div>
+                  )
+                )}
               </div>
             </>
           )}

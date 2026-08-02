@@ -26,6 +26,11 @@ using FantasyWarrior.Jobs.Sql;
 //     and ~50,000 lines and takes about ten minutes.
 //   draft-sync [--limit N]
 //     Entry-draft details, one HTTP call per player never checked before.
+//   career-sync [--limit N] [--max-age-days N]  (default 30)
+//     Season-by-season career stats (GP/G/A/PTS/PIM, the goalie equivalent) for
+//     the Player Card's Career tab. Refreshes the stalest players first rather
+//     than fetching once forever, since the current season's row keeps
+//     changing. Not on the nightly cron yet -- run manually until validated.
 //   capwages-sync [--season] [--dry-run] [--resolve-unmatched]
 //     Real contracts from capwages.com, read out of the JSON each page embeds
 //     for its own React tree rather than the rendered tables, so a layout
@@ -124,6 +129,15 @@ switch (job)
         await using var db = DataServiceCollectionExtensions.CreateContext();
         return await new DraftSyncJob(new NhlApiClient(http), db)
             .RunAsync(int.TryParse(GetOption(args, "--limit"), out var limit) ? limit : null);
+    }
+
+    case "career-sync":
+    {
+        using var http = NewHttp();
+        await using var db = DataServiceCollectionExtensions.CreateContext();
+        return await new CareerStatsSyncJob(new NhlApiClient(http), db).RunAsync(
+            int.TryParse(GetOption(args, "--limit"), out var careerLimit) ? careerLimit : null,
+            int.TryParse(GetOption(args, "--max-age-days"), out var maxAgeDays) ? maxAgeDays : 30);
     }
 
     case "capwages-sync":

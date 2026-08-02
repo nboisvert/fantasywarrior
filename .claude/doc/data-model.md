@@ -57,7 +57,7 @@ démarrage de l'API : plusieurs instances qui migrent en parallèle est un scén
 Position (char(1)), PositionGroup (char(1), calculée persistée), TeamAbbrev (FK),
 Status, SweaterNumber, ShootsCatches, BirthDate, BirthCountry, HeightCm, WeightKg,
 HeadshotUrl, DraftYear, DraftRound, DraftOverall, DraftTeamAbbrev, DraftChecked,
-LastSyncedUtc
+CapWagesSlug, CareerStatsSyncedUtc, LastSyncedUtc
 → index : (LastName, FirstName) pour la recherche, (TeamAbbrev), (Status)
 
 **`PlayerContracts`** — `PlayerContractId`, PlayerId (FK), Season, CapHit, Aav,
@@ -81,6 +81,21 @@ Position, IsGoalie, IsHome, Toi, Pim, puis colonnes typées patineur (Goals,
 Assists, Points, PlusMinus, Shots, Hits, BlockedShots, PowerPlayGoals) et gardien
 (ShotsAgainst, Saves, GoalsAgainst, Decision, Starter, Shutout, OtLoss), SyncedUtc
 → index (GameDate) INCLUDE stats, (PlayerId, GameDate)
+
+**`PlayerCareerSeasonStats`** — `PlayerCareerSeasonStatId` (PK, surrogate),
+PlayerId (FK), Season (char(8)), GameType (regular season only pour l'instant),
+LeagueAbbrev, TeamName, GamesPlayed, puis colonnes patineur (Goals, Assists,
+Points, Pim, PlusMinus) et gardien (Wins, Losses, OtLosses, GoalsAgainst,
+GoalsAgainstAvg, SavePctg, Shutouts) → unique (PlayerId, Season, GameType,
+LeagueAbbrev, TeamName)
+
+> Carrière complète (junior, NCAA, Europe, AHL, NHL) tirée du player-landing
+> de l'API NHL, filtrée par [`NotableLeagues`](../../backend/FantasyWarrior.Core/Players/NotableLeagues.cs)
+> (liste blanche des ligues majeures — l'API renvoie aussi des tournois pee-wee).
+> Alimentée par `career-sync`, qui rafraîchit les joueurs les plus périmés
+> (`Player.CareerStatsSyncedUtc`) plutôt qu'une synchro unique comme
+> `DraftChecked` : la ligne de la saison en cours change toute l'année.
+> Manuel pour l'instant, pas encore dans le cron nightly.
 
 > **Colonnes typées, pas clé/valeur.** `StatLine`/`StatKeys` restent la
 > représentation de *pointage* — une map, ce qui permet à un commissaire de scorer

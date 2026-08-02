@@ -151,6 +151,40 @@ public static class PlayerEndpoints
             });
         });
 
+        // Career tab: season-by-season history from career-sync's cache, not
+        // a live NHL fetch — this is a read-only DB query like every other
+        // endpoint here. Most recent season first, matching how a career
+        // stats page is normally read.
+        app.MapGet("/api/players/{playerId:long}/career", async (long playerId, FantasyWarriorDbContext db) =>
+        {
+            var rows = await db.PlayerCareerSeasonStats
+                .AsNoTracking()
+                .Where(s => s.PlayerId == playerId)
+                .OrderByDescending(s => s.Season)
+                .Select(s => new
+                {
+                    season = s.Season,
+                    league = s.LeagueAbbrev,
+                    team = s.TeamName,
+                    gamesPlayed = s.GamesPlayed,
+                    goals = s.Goals,
+                    assists = s.Assists,
+                    points = s.Points,
+                    pim = s.Pim,
+                    plusMinus = s.PlusMinus,
+                    wins = s.Wins,
+                    losses = s.Losses,
+                    otLosses = s.OtLosses,
+                    goalsAgainst = s.GoalsAgainst,
+                    goalsAgainstAvg = s.GoalsAgainstAvg,
+                    savePctg = s.SavePctg,
+                    shutouts = s.Shutouts,
+                })
+                .ToListAsync();
+
+            return Results.Ok(rows);
+        });
+
         app.MapGet("/api/news", async (int? limit, FantasyWarriorDbContext db) =>
         {
             var take = Math.Clamp(limit ?? 30, 1, 50);

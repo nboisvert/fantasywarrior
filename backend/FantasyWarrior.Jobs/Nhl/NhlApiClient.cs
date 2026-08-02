@@ -123,11 +123,49 @@ public sealed class PlayerLandingDto
 {
     public DraftDetailsDto? DraftDetails { get; set; }
 
+    /// <summary>
+    /// Every season/league/team stint of this player's career — junior,
+    /// NCAA, European leagues, AHL, NHL, right back to childhood tournaments.
+    /// Consumed by CareerStatsSyncJob; <see cref="FantasyWarrior.Core.Players.NotableLeagues"/>
+    /// is what filters the noise out.
+    /// </summary>
+    public List<SeasonTotalDto> SeasonTotals { get; set; } = [];
+
     public sealed class DraftDetailsDto
     {
         public int? Year { get; set; }
         public int? Round { get; set; }
         public int? OverallPick { get; set; }
         public string? TeamAbbrev { get; set; }
+    }
+
+    public sealed class SeasonTotalDto
+    {
+        public int Season { get; set; }
+        public int GameTypeId { get; set; }
+        public string? LeagueAbbrev { get; set; }
+        public TeamNameDto? TeamName { get; set; }
+        public int GamesPlayed { get; set; }
+
+        // --- skaters ---
+        public int? Goals { get; set; }
+        public int? Assists { get; set; }
+        public int? Points { get; set; }
+        public int? Pim { get; set; }
+        public int? PlusMinus { get; set; }
+
+        // --- goalies ---
+        public int? Wins { get; set; }
+        public int? Losses { get; set; }
+        public int? OtLosses { get; set; }
+        public int? GoalsAgainst { get; set; }
+        public double? GoalsAgainstAvg { get; set; }
+        public double? SavePctg { get; set; }
+        public int? Shutouts { get; set; }
+
+        public sealed class TeamNameDto
+        {
+            public string? Default { get; set; }
+        }
     }
 }

@@ -82,6 +82,15 @@ public sealed class Player
     /// </summary>
     public string? CapWagesSlug { get; set; }
 
+    /// <summary>
+    /// Last time career-sync fetched this player's <see cref="PlayerCareerSeasonStat"/>
+    /// rows. Null means never. Unlike <see cref="DraftChecked"/> this is a
+    /// timestamp, not a one-time flag: the current season's row keeps
+    /// changing all year, so career-sync re-fetches on a rolling staleness
+    /// window rather than once forever.
+    /// </summary>
+    public DateTime? CareerStatsSyncedUtc { get; set; }
+
     public DateTime LastSyncedUtc { get; set; }
 
     public NhlTeam? Team { get; set; }

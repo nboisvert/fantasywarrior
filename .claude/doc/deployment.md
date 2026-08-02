@@ -83,7 +83,7 @@ Credentials: `backend/FantasyWarrior.{Jobs,Api}/appsettings.Local.json`, or the
 ```powershell
 dotnet run --project backend/FantasyWarrior.Api --no-launch-profile   # :5099
 cd frontend && npm run dev                                            # :5173
-dotnet test FantasyWarrior.slnx                                       # 163 tests
+dotnet test FantasyWarrior.slnx                                       # 173 tests
 ```
 
 Jobs: `dotnet run --project backend/FantasyWarrior.Jobs -- <job>`. See the

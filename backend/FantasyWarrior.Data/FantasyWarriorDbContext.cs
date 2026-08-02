@@ -34,6 +34,7 @@ public sealed class FantasyWarriorDbContext(DbContextOptions<FantasyWarriorDbCon
     public DbSet<PlayerInjury> PlayerInjuries => Set<PlayerInjury>();
     public DbSet<Game> Games => Set<Game>();
     public DbSet<PlayerGameStat> PlayerGameStats => Set<PlayerGameStat>();
+    public DbSet<PlayerCareerSeasonStat> PlayerCareerSeasonStats => Set<PlayerCareerSeasonStat>();
     public DbSet<NewsItem> NewsItems => Set<NewsItem>();
 
     // --- calendar ---
