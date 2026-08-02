@@ -35,9 +35,9 @@ public sealed class NightlyJob(FantasyWarriorDbContext db)
         bool dryRun, int? backfillFrom = null, DateTimeOffset? nowOverride = null,
         CancellationToken ct = default)
     {
-        var now = nowOverride ?? await new SimulationClockSql(db).NowAsync(ct);
+        var now = nowOverride ?? await new SimulationClockService(db).NowAsync(ct);
         var lastStatDate = PoolClock.LastStatDate(now);
-        var simulated = nowOverride is not null || await new SimulationClockSql(db).StateAsync(ct) is not null;
+        var simulated = nowOverride is not null || await new SimulationClockService(db).StateAsync(ct) is not null;
 
         Console.WriteLine($"===== nightly {PoolClock.TodayEt(now):yyyy-MM-dd} (ET)"
             + $"{(simulated ? "  [SIMULATED]" : "")}{(dryRun ? "  [DRY RUN]" : "")} =====\n");

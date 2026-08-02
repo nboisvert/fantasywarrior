@@ -1,0 +1,293 @@
+using FantasyWarrior.Core.Lineups;
+using FantasyWarrior.Core.Time;
+using FantasyWarrior.Data;
+using FantasyWarrior.Data.Entities;
+using Microsoft.EntityFrameworkCore;
+
+namespace FantasyWarrior.Api;
+
+/// <summary>
+/// The weekly lineup — the one place in the app where a rule is actually
+/// enforced rather than merely displayed. Roster size and the salary cap are
+/// still advisory.
+/// </summary>
+public static class LineupEndpoints
+{
+    public static void Map(WebApplication app)
+    {
+        app.MapGet("/api/leagues/{leagueId}/teams/{username}/lineup", async (
+            string leagueId, string username, int? period, string? viewer,
+            FantasyWarriorDbContext db, SimulationClockService clock) =>
+        {
+            var league = await Queries.LeagueByCodeAsync(db, leagueId);
+            if (league is null) return Results.NotFound(new { error = "League not found." });
+
+            var owner = Queries.Normalize(username);
+            var team = await Queries.TeamAsync(db, league.LeagueId, owner);
+            if (team is null) return Results.NotFound(new { error = "Team not found." });
+
+            var now = await clock.NowAsync();
+            var (periodDoc, allPeriods) = await Queries.ResolvePeriodAsync(
+                db, league.Season, period, PoolClock.TodayEt(now));
+            if (periodDoc is null) return Results.NotFound(new { error = "No period calendar for this season." });
+
+            var locked = periodDoc.LockUtc <= now.UtcDateTime;
+            var slots = new { forwards = league.ActiveForwards, defense = league.ActiveDefense, goalies = league.ActiveGoalies };
+            var periodsDto = allPeriods.Select(p => Dtos.Period(p, now)).ToArray();
+
+            // A rival's lineup is competitive information until it locks.
+            var isOwner = viewer is not null && Queries.Normalize(viewer) == owner;
+            if (!isOwner && !locked)
+                return Results.Ok(new
+                {
+                    periodIndex = periodDoc.Number, startDate = periodDoc.StartDate, endDate = periodDoc.EndDate,
+                    gameCount = periodDoc.GameCount, locked, finalized = periodDoc.FinalizedUtc is not null,
+                    isOwner = false, hidden = true,
+                    slots, used = new { }, entries = Array.Empty<object>(), periods = periodsDto,
+                });
+
+            var spots = await db.RosterSpots
+                .Where(s => s.TeamId == team.TeamId && s.EndDate == null)
+                .ToListAsync();
+            var playerIds = spots.Select(s => s.PlayerId).ToList();
+            var players = await db.Players.Where(p => playerIds.Contains(p.PlayerId))
+                .ToDictionaryAsync(p => p.PlayerId);
+            var caps = await Queries.CapHitsAsync(db, league.Season, playerIds);
+
+            var results = await db.RosterAssignments
+                .Where(a => a.PeriodId == periodDoc.PeriodId && spots.Select(s => s.RosterSpotId).Contains(a.RosterSpotId))
+                .ToDictionaryAsync(a => a.RosterSpotId);
+            var seasonPoints = await db.RosterSpotTotals
+                .Where(v => v.TeamId == team.TeamId)
+                .ToDictionaryAsync(v => v.RosterSpotId, v => v.ActivePoints);
+            var lineup = await db.TeamPeriodLineups
+                .FirstOrDefaultAsync(l => l.TeamId == team.TeamId && l.PeriodId == periodDoc.PeriodId);
+
+            var weekTotals = await db.TeamPeriodScores
+                .FirstOrDefaultAsync(v => v.TeamId == team.TeamId && v.PeriodId == periodDoc.PeriodId);
+
+            var entries = spots.Select(s =>
+            {
+                players.TryGetValue(s.PlayerId, out var p);
+                results.TryGetValue(s.RosterSpotId, out var r);
+                return new
+                {
+                    spotId = s.RosterSpotId.ToString(),
+                    playerId = s.PlayerId,
+                    name = p?.FullName ?? "Unknown player",
+                    position = p?.Position ?? s.PositionGroup,
+                    positionGroup = s.PositionGroup,
+                    team = p?.TeamAbbrev,
+                    headshotUrl = p?.HeadshotUrl,
+                    capHit = caps.TryGetValue(s.PlayerId, out var c) ? c : (long?)null,
+                    active = r?.IsActive ?? false,
+                    points = r?.FantasyPoints ?? 0,
+                    gamesPlayed = r?.GamesPlayed ?? 0,
+                    fromDate = (DateOnly?)r?.EffectiveFrom,
+                    toDate = (DateOnly?)r?.EffectiveTo,
+                    seasonPoints = seasonPoints.GetValueOrDefault(s.RosterSpotId),
+                };
+            })
+            .OrderBy(e => e.positionGroup == "F" ? 0 : e.positionGroup == "D" ? 1 : 2)
+            .ThenByDescending(e => e.active)
+            .ThenByDescending(e => e.seasonPoints)
+            .ToList();
+
+            var used = new Dictionary<string, int> { ["F"] = 0, ["D"] = 0, ["G"] = 0 };
+            foreach (var e in entries.Where(e => e.active))
+                used[e.positionGroup] = used.GetValueOrDefault(e.positionGroup) + 1;
+
+            return Results.Ok(new
+            {
+                periodIndex = periodDoc.Number, startDate = periodDoc.StartDate, endDate = periodDoc.EndDate,
+                gameCount = periodDoc.GameCount, locked, finalized = periodDoc.FinalizedUtc is not null,
+                isOwner, hidden = false,
+                setBy = lineup?.SetBy, submittedUtc = lineup?.SubmittedUtc,
+                activePoints = weekTotals?.ActivePoints ?? 0,
+                benchPoints = weekTotals?.BenchPoints ?? 0,
+                slots, used, entries, periods = periodsDto,
+            });
+        });
+
+        app.MapMethods("/api/leagues/{leagueId}/teams/{username}/lineup", ["PUT"], async (
+            string leagueId, string username, SetLineupRequest req,
+            FantasyWarriorDbContext db, SimulationClockService clock) =>
+        {
+            if (string.IsNullOrWhiteSpace(req.Username))
+                return Results.BadRequest(new { error = "Username is required." });
+
+            var owner = Queries.Normalize(username);
+            // No real auth yet, so this only stops accidents, not attacks.
+            // Silently benching a rival's best player every Sunday would be
+            // undetectable — this endpoint wants a token check before real users
+            // touch it.
+            if (Queries.Normalize(req.Username) != owner)
+                return Results.Json(new { error = "You can only set your own lineup." }, statusCode: 403);
+
+            var league = await Queries.LeagueByCodeAsync(db, leagueId);
+            if (league is null) return Results.NotFound(new { error = "League not found." });
+
+            var team = await Queries.TeamAsync(db, league.LeagueId, owner);
+            if (team is null) return Results.NotFound(new { error = "Team not found." });
+
+            var now = await clock.NowAsync();
+            var (periodDoc, _) = await Queries.ResolvePeriodAsync(
+                db, league.Season, req.PeriodIndex, PoolClock.TodayEt(now));
+            if (periodDoc is null) return Results.NotFound(new { error = "Period not found." });
+
+            if (periodDoc.LockUtc <= now.UtcDateTime)
+                return Results.Conflict(new
+                {
+                    error = $"Week {periodDoc.Number} is locked. Set your lineup for the next week instead.",
+                });
+
+            var spots = await db.RosterSpots
+                .Where(s => s.TeamId == team.TeamId && s.EndDate == null)
+                .ToListAsync();
+            var candidates = spots
+                .Select(s => new LineupCandidate(
+                    s.RosterSpotId.ToString(), s.PlayerId, s.PositionGroup, 0, s.OpenedUtc))
+                .ToList();
+            var requested = (req.ActiveSpotIds ?? []).Distinct().ToList();
+
+            var errors = LineupRules.Validate(
+                candidates, requested,
+                new LineupSlots(league.ActiveForwards, league.ActiveDefense, league.ActiveGoalies));
+            if (errors.Count > 0) return Results.BadRequest(new { error = string.Join(" ", errors), errors });
+
+            var activeIds = requested.Select(int.Parse).ToHashSet();
+
+            // **This is what makes a submitted lineup distinguishable from an
+            // auto-filled one**, and the scoring pass depends on it: the IsActive
+            // flags say who plays, and the TeamPeriodLineup row attributed to the
+            // GM stops the job from overwriting his choices with its own.
+            //
+            // One transaction, so two tabs racing cannot leave half a lineup.
+            var strategy = db.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                await using var tx = await db.Database.BeginTransactionAsync();
+
+                var existing = await db.RosterAssignments
+                    .Where(a => a.PeriodId == periodDoc.PeriodId
+                                && spots.Select(s => s.RosterSpotId).Contains(a.RosterSpotId))
+                    .ToDictionaryAsync(a => a.RosterSpotId);
+
+                foreach (var spot in spots)
+                {
+                    var shouldBeActive = activeIds.Contains(spot.RosterSpotId);
+                    if (existing.TryGetValue(spot.RosterSpotId, out var row))
+                    {
+                        // A banked week is immutable; the lock above normally
+                        // prevents reaching one, but the rule belongs here too.
+                        if (!row.IsFinalized) row.IsActive = shouldBeActive;
+                    }
+                    else
+                    {
+                        db.RosterAssignments.Add(new RosterAssignment
+                        {
+                            RosterSpotId = spot.RosterSpotId,
+                            PeriodId = periodDoc.PeriodId,
+                            IsActive = shouldBeActive,
+                            EffectiveFrom = spot.StartDate > periodDoc.StartDate ? spot.StartDate : periodDoc.StartDate,
+                            EffectiveTo = periodDoc.EndDate,
+                            ScoredUtc = DateTime.UtcNow,
+                        });
+                    }
+                }
+
+                var lineup = await db.TeamPeriodLineups
+                    .FirstOrDefaultAsync(l => l.TeamId == team.TeamId && l.PeriodId == periodDoc.PeriodId);
+                if (lineup is null)
+                    db.TeamPeriodLineups.Add(new TeamPeriodLineup
+                    {
+                        TeamId = team.TeamId, PeriodId = periodDoc.PeriodId,
+                        SetBy = owner, SubmittedUtc = DateTime.UtcNow,
+                    });
+                else
+                {
+                    lineup.SetBy = owner;
+                    lineup.SubmittedUtc = DateTime.UtcNow;
+                }
+
+                await db.SaveChangesAsync();
+                await tx.CommitAsync();
+            });
+
+            return Results.Ok(new { ok = true, periodIndex = periodDoc.Number, active = requested.Count });
+        });
+
+        app.MapGet("/api/leagues/{leagueId}/teams/{username}/season-stats", async (
+            string leagueId, string username, FantasyWarriorDbContext db, SimulationClockService clock) =>
+        {
+            var league = await Queries.LeagueByCodeAsync(db, leagueId);
+            if (league is null) return Results.NotFound(new { error = "League not found." });
+
+            var owner = Queries.Normalize(username);
+            var team = await Queries.TeamAsync(db, league.LeagueId, owner);
+            if (team is null) return Results.NotFound(new { error = "Team not found." });
+
+            var spots = await db.RosterSpots
+                .Where(s => s.TeamId == team.TeamId && s.EndDate == null)
+                .ToListAsync();
+            var playerIds = spots.Select(s => s.PlayerId).ToList();
+            var players = await db.Players.Where(p => playerIds.Contains(p.PlayerId))
+                .ToDictionaryAsync(p => p.PlayerId);
+            var caps = await Queries.CapHitsAsync(db, league.Season, playerIds);
+
+            // Season totals, bounded to the simulated day when a replay is
+            // running — the same bound the player card uses, so the two cannot
+            // disagree about the same player on the same screen.
+            //
+            // No cache, no throughDate field, no invalidation rules. This is the
+            // aggregate the Firestore build kept a whole collection for.
+            var season = await Queries.SeasonTotalsAsync(
+                db, league.Season, playerIds, (await clock.StateAsync())?.AsOfDate);
+            var spotTotals = await db.RosterSpotTotals
+                .Where(v => v.TeamId == team.TeamId)
+                .ToDictionaryAsync(v => v.RosterSpotId);
+
+            var rows = spots.Select(spot =>
+            {
+                players.TryGetValue(spot.PlayerId, out var p);
+                season.TryGetValue(spot.PlayerId, out var t);
+                spotTotals.TryGetValue(spot.RosterSpotId, out var st);
+                return new
+                {
+                    id = spot.PlayerId,
+                    name = p?.FullName ?? "Unknown player",
+                    position = p?.Position ?? spot.PositionGroup,
+                    team = p?.TeamAbbrev,
+                    capHit = caps.TryGetValue(spot.PlayerId, out var c) ? c : (long?)null,
+                    headshotUrl = p?.HeadshotUrl,
+                    isGoalie = spot.PositionGroup == "G",
+                    gamesPlayed = t?.GamesPlayed ?? 0,
+                    goals = t?.Goals ?? 0,
+                    assists = t?.Assists ?? 0,
+                    points = (t?.Goals ?? 0) + (t?.Assists ?? 0),
+                    plusMinus = t?.PlusMinus ?? 0,
+                    pim = t?.Pim ?? 0,
+                    shots = t?.Shots ?? 0,
+                    hits = t?.Hits ?? 0,
+                    blockedShots = t?.BlockedShots ?? 0,
+                    wins = t?.Wins ?? 0,
+                    otLosses = t?.OtLosses ?? 0,
+                    shutouts = t?.Shutouts ?? 0,
+                    goalsAgainst = t?.GoalsAgainst ?? 0,
+                    saves = t?.Saves ?? 0,
+                    shotsAgainst = t?.ShotsAgainst ?? 0,
+                    spotStartDate = (DateOnly?)spot.StartDate,
+                    spotActiveGamesPlayed = st?.ActiveGamesPlayed ?? 0,
+                    spotActiveGoals = st?.ActiveGoals ?? 0,
+                    spotActiveAssists = st?.ActiveAssists ?? 0,
+                    spotActivePoints = st?.ActivePoints ?? 0,
+                    spotBenchPoints = st?.BenchPoints ?? 0,
+                };
+            }).ToList();
+
+            return Results.Ok(new { season = league.Season, players = rows });
+        });
+    }
+}
+
+public record SetLineupRequest(string? Username, int? PeriodIndex, List<string>? ActiveSpotIds);

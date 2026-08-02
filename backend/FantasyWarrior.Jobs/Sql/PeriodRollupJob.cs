@@ -29,7 +29,7 @@ public sealed class PeriodRollupJob(FantasyWarriorDbContext db)
         int? onlyLeagueId, bool dryRun, DateTimeOffset? nowOverride = null,
         int? onlyPeriodNumber = null, CancellationToken ct = default)
     {
-        var now = nowOverride ?? await new SimulationClockSql(db).NowAsync(ct);
+        var now = nowOverride ?? await new SimulationClockService(db).NowAsync(ct);
         var lastStatDate = PoolClock.LastStatDate(now);
 
         Console.WriteLine($"=== period-rollup{(dryRun ? "  [DRY RUN]" : "")} ===");

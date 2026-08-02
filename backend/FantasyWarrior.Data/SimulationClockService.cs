@@ -1,9 +1,8 @@
-using FantasyWarrior.Data;
 using Microsoft.EntityFrameworkCore;
 using PoolClock = FantasyWarrior.Core.Time.PoolClock;
 using SimulationState = FantasyWarrior.Data.Entities.SimulationState;
 
-namespace FantasyWarrior.Jobs.Sql;
+namespace FantasyWarrior.Data;
 
 /// <summary>
 /// Resolves "what time is it" — the simulated instant when a season replay is
@@ -14,7 +13,7 @@ namespace FantasyWarrior.Jobs.Sql;
 /// <c>DateTimeOffset.UtcNow</c> asks this instead, which is what makes the
 /// whole app believe it is the simulated day rather than only the scoring job.
 /// </summary>
-public sealed class SimulationClockSql(FantasyWarriorDbContext db, TimeSpan? ttl = null)
+public sealed class SimulationClockService(FantasyWarriorDbContext db, TimeSpan? ttl = null)
 {
     private readonly TimeSpan _ttl = ttl ?? TimeSpan.FromSeconds(15);
     private SimulationState? _cached;

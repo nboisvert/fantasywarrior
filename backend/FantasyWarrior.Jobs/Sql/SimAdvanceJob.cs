@@ -26,7 +26,7 @@ public sealed class SimAdvanceJob(FantasyWarriorDbContext db)
 {
     public async Task<int> RunAsync(DateOnly target, bool dryRun, CancellationToken ct = default)
     {
-        var clock = new SimulationClockSql(db);
+        var clock = new SimulationClockService(db);
         var state = await clock.StateAsync(ct);
         if (state is null)
         {
@@ -62,7 +62,7 @@ public sealed class SimAdvanceJob(FantasyWarriorDbContext db)
         {
             Console.WriteLine($"----- advancing to {stop:yyyy-MM-dd} -----");
             if (!dryRun) await clock.SetAsync(stop, state.Season, ct);
-            await new NightlyJob(db).RunAsync(dryRun, null, SimulationClockSql.FromAsOfDate(stop), ct);
+            await new NightlyJob(db).RunAsync(dryRun, null, SimulationClockService.FromAsOfDate(stop), ct);
             Console.WriteLine();
         }
 

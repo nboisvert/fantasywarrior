@@ -222,7 +222,7 @@ if (job == "sql-nightly")
 if (job == "sql-sim-clock")
 {
     await using var sqlDb = FantasyWarrior.Data.DataServiceCollectionExtensions.CreateContext();
-    var clock = new FantasyWarrior.Jobs.Sql.SimulationClockSql(sqlDb);
+    var clock = new FantasyWarrior.Data.SimulationClockService(sqlDb);
     if (args.Contains("--off")) { await clock.DisableAsync(); Console.WriteLine("Simulation off — real clock."); return 0; }
     if (GetOption(args, "--set") is { } set)
         await clock.SetAsync(DateOnly.Parse(set), GetOption(args, "--season") ?? "20252026");
