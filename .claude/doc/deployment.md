@@ -135,7 +135,9 @@ to rebuild and is identical for everyone.
   az provider register --namespace Microsoft.App --wait
   az provider register --namespace Microsoft.OperationalInsights --wait
   ```
-  `api-deploy.yml` now checks this up front and prints those two commands
-  instead of letting the extension crash.
+  `api-deploy.yml` warns about this up front and prints those two commands,
+  but never blocks on it: reading provider state is itself a subscription-level
+  call, so a resource-group-scoped principal cannot tell "not registered" apart
+  from "not allowed to look".
 - **A stale local `dotnet run` locks the build output** — kill the
   `FantasyWarrior.Api` or `FantasyWarrior.Jobs` process and rebuild.

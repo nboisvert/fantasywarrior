@@ -83,22 +83,24 @@ jobs:
       # principal is scoped to one resource group, so it will usually not have
       # the right. That is fine and expected: the fix is a one-time command an
       # owner runs, and this step says exactly which.
-      - name: Check the resource providers are registered
+      # Advisory, never fatal. Reading provider state is itself a
+      # subscription-level call, so a resource-group-scoped principal cannot
+      # tell "not registered" apart from "not allowed to look" -- blocking on
+      # that would reject a subscription that is perfectly fine.
+      #
+      # If they really are unregistered, the deploy below fails and this warning
+      # is sitting right above it saying what to do.
+      - name: Note the resource providers (advisory)
+        continue-on-error: true
         run: |
-          BLOCKED=""
           for NS in Microsoft.App Microsoft.OperationalInsights; do
-            STATE=$(az provider show --namespace "$NS" --query registrationState -o tsv 2>/dev/null || echo "Unknown")
+            STATE=$(az provider show --namespace "$NS" --query registrationState -o tsv 2>/dev/null || echo "cannot read")
             echo "$NS: $STATE"
             if [ "$STATE" != "Registered" ]; then
-              az provider register --namespace "$NS" --wait 2>/dev/null && echo "$NS: registered" || BLOCKED="$BLOCKED $NS"
+              az provider register --namespace "$NS" --wait 2>/dev/null && echo "  registered just now" || true
+              echo "::warning::$NS reads as '$STATE'. If the deploy fails below, run this once in Azure Cloud Shell as an owner: az provider register --namespace $NS --wait"
             fi
           done
-          if [ -n "$BLOCKED" ]; then
-            echo "::error::Not registered and this service principal cannot register them:$BLOCKED"
-            echo "::error::Run once in Azure Cloud Shell as an owner, then re-run this workflow:"
-            for NS in $BLOCKED; do echo "::error::  az provider register --namespace $NS --wait"; done
-            exit 1
-          fi
 
       # Read the region off the database rather than hardcoding it. Being in the
       # same region as the data is the entire reason the API is here, so it is
