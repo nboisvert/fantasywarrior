@@ -4,7 +4,7 @@
 > [sql-migration-plan.md](sql-migration-plan.md) et ne bouge pas ; celui-ci
 > suit l'avancement réel et doit être mis à jour à chaque session.
 >
-> Dernière mise à jour : **2026-08-01** (Macklin Softwarini)
+> Dernière mise à jour : **2026-08-02** (Macklin Softwarini)
 > Branche : **`sql-migration`** (partie de `main` à `d9c8527`)
 
 ---
@@ -14,20 +14,21 @@
 ```
 Phase 0  Filet de sécurité + infra    ████████████████████  fait
 Phase 1  Projet Data (schéma)         ████████████████████  fait
-Phase 2  Core dé-Firestorisé          ░░░░░░░░░░░░░░░░░░░░  pas commencé
-Phase 3  Ingestion                    ██████░░░░░░░░░░░░░░  1 job sur 5
-Phase 4  Écritures pool               ░░░░░░░░░░░░░░░░░░░░  pas commencé
-Phase 5  Pointage                     ░░░░░░░░░░░░░░░░░░░░  pas commencé
-Phase 6  API                          ░░░░░░░░░░░░░░░░░░░░  pas commencé
-Phase 7  Simulation                   ░░░░░░░░░░░░░░░░░░░░  pas commencé
+Phase 2  Core dé-Firestorisé          ████░░░░░░░░░░░░░░░░  partiel (DateOnly fait)
+Phase 3  Ingestion                    ████████████████░░░░  4 jobs sur 6
+Phase 4  Écritures pool               ████████████████░░░░  jobs faits, API non
+Phase 5  Pointage                     ████████████████████  fait et validé
+Phase 6  API                          ░░░░░░░░░░░░░░░░░░░░  pas commencé  ← LA SUITE
+Phase 7  Simulation                   ██████████████░░░░░░  sim-advance/clock faits
 Phase 8  Bascule                      ░░░░░░░░░░░░░░░░░░░░  pas commencé
 +        CapWages (hors plan initial) ████████████████████  fait
 ```
 
 **Rien n'est déployé.** La prod tourne toujours sur Cloud Run + Firestore,
-inchangée — la branche `sql-migration` n'est pas fusionnée et le frontend
-continue de parler à l'ancienne API. Aucun risque de régression pour Nick tant
-que ça reste vrai.
+inchangée. Le frontend n'a **pas été modifié d'une ligne** et n'a pas encore été
+branché sur la nouvelle base — c'est la phase 6.
+
+**Le moteur de pointage est prouvé** contre l'oracle Firestore (voir plus bas).
 
 ---
 
@@ -36,185 +37,206 @@ que ça reste vrai.
 | | |
 |---|---|
 | Serveur / base | `fantasywarrior.database.windows.net` / `fantasywarrior` |
-| Migrations appliquées | 3 (`InitialSchema`, `ScoringViews`, `PlayerCapWagesSlug`) |
-| `Players` | **1 275** |
-| `PlayerContracts` | **3 269** saisons-contrats, 10 saisons distinctes |
-| `NhlTeams` | 32 (semées par la migration) |
-| Tout le reste | **vide** — jeux, lignes de match, ligues, équipes, rosters |
+| Migrations | 3 appliquées |
+| `Players` | 1 275 + 290 créés depuis les feuilles de match + 2 depuis le roster Mordus |
+| `PlayerContracts` | 3 269 saisons-contrats réelles (CapWages) |
+| `Games` / `PlayerGameStats` | **1 312** / **49 999** (saison 2025-26 complète) |
+| `Periods` | 28 semaines, ancrées 2025-10-06 |
+| Ligue | **Les Mordus**, 14 équipes, 360 roster spots |
+| Curseur de simulation | **2025-10-04** (veille de la saison) |
 
-Couverture salariale : **685 / 701 joueurs de statut `nhl` ont un vrai cap hit
-2025-26 (97,7 %)**. Vérifié : Draisaitl 14,0 M$, Matthews 13,25 M$,
-MacKinnon 12,6 M$, McDavid 12,5 M$.
+**État volontaire, conforme à l'attente de Nick** : les 14 équipes sont à **0**,
+les 360 lignes d'alignement d'ouverture existent (183 actives) mais ne portent
+**aucun point**, et les stats NHL des joueurs sont visibles. C'est la simulation
+qui donne vie aux assignments.
+
+⚠️ Le `JoinCode` change à chaque reseed. Le lire avant de tester l'API :
+`SELECT Name, JoinCode FROM Leagues;`
+
+---
+
+## La validation contre l'oracle — le résultat le plus important
+
+En rejouant les semaines 1 et 2 puis en comparant à
+`golden-scores-preSql.json`, joueur par joueur :
+
+- **Les alignements sont identiques.** Pour l'équipe testée, les deux systèmes
+  choisissent exactement les mêmes 14 joueurs. L'auto-remplissage, la fenêtre de
+  stats, le banquage et les vues reproduisent Firestore à l'identique.
+- **Un seul écart par joueur, et c'est Firestore qui a tort.** Sergei
+  Bobrovsky, semaine 1 : 3 matchs, **3 victoires** (FLA vs CHI, PHI, OTT). À
+  2 pts la victoire, SQL calcule 6. Firestore avait `gamesPlayed=3, points=3` —
+  ses champs de décision de gardien n'étaient pas correctement captés.
+- Cette seule classe d'erreur explique **tous** les écarts restants : ils vont
+  tous dans le même sens (SQL ≥ Firestore) et les plus gros appartiennent aux
+  équipes qui alignent le plus de départs de gardien.
+
+**Conséquence** : l'écart de 1 265 lignes (49 999 vs 51 264) n'est pas une
+perte de données côté SQL — l'ancien journal de match était partiellement faux.
+Le nouvel import vient directement de l'API NHL.
+
+⚠️ **Pour refaire cette comparaison**, il faut semer avec
+`--no-opening-lineup` : Firestore n'a jamais utilisé la liste `Active` du PDF,
+il auto-remplissait. Les deux produisent des scores légitimes mais différents,
+et l'oracle ne valide le moteur que si les *entrées* concordent.
+
+---
+
+## Trois bugs silencieux trouvés grâce à l'oracle
+
+1. **Une semaine était banquée sans avoir été scorée.** L'étape 1 ne score que
+   la semaine *en cours*, qui au moment où une semaine devient banquable est
+   déjà la *suivante*. Les semaines étaient donc gelées sur leurs chiffres
+   partiels — zéro, dans un rejeu. Le banquage rescore maintenant la semaine
+   une dernière fois avant de la geler, ce qui est aussi ce qui donne son sens
+   au jour de grâce.
+2. **`wipe-pools` laissait toutes les périodes marquées « banquées ».** Les
+   frontières de semaine sont du calendrier et survivent ; « cette semaine est
+   banquée » est de l'état de pool et ne doit pas survivre. La ligue fraîche ne
+   pouvait plus jamais banquer ces semaines.
+3. **L'auto-remplissage ne classait rien.** `SeasonPointsToDate` valait 0 pour
+   tous les candidats, donc « les meilleurs joueurs disponibles » signifiait
+   « ceux dont l'id est le plus petit ».
 
 ---
 
 ## Détail par phase
 
-### ✅ Phase 0 — Filet de sécurité
+### ✅ Phase 0 — `dump-golden` + `golden-scores-preSql.json` (624 Ko, versionné)
 
-- Job `dump-golden` (`Jobs/Ops/DumpGoldenJob.cs`), lecture seule sur Firestore.
-- **`.claude/doc/golden-scores-preSql.json`** (624 Ko, versionné) : 2 ligues,
-  23 équipes, 451 roster spots, 92 alignements, 28 périodes (2 banquées),
-  jusqu'au grain **joueur-semaine**. C'est l'oracle de correction du chantier.
-- ⚠️ Le curseur de simulation était à **2025-10-20**, donc l'oracle ne couvre
-  que les semaines 1 à 3. Suffisant pour valider, mais pas toute la saison.
+### ✅ Phase 1 — `FantasyWarrior.Data` : 20 entités, 4 vues, 3 migrations, 19 tests
 
-### ✅ Phase 1 — Projet Data
+### 🔶 Phase 2 — Core dé-Firestorisé (partiel)
 
-`backend/FantasyWarrior.Data/` : 20 entités, 4 vues, 3 migrations.
-`backend/FantasyWarrior.Data.Tests/` : **19 tests d'intégration** contre un vrai
-SQL Server (LocalDB par défaut, `FW_TEST_SQL_CONNECTION` pour pointer ailleurs ;
-skip propre si aucun serveur n'est joignable).
+Fait : `StatWindow.Intersect` et `PeriodScoring.ShouldFinalize` passent en
+`DateOnly`, avec une surcharge `string` qui parse et délègue — **une seule
+implémentation de chaque règle** pendant la cohabitation.
 
-Vues : `vPlayerSeasonStats`, `vRosterSpotTotals`, `vTeamPeriodScores`,
-`vStandings`. **Tout ce qui est au-dessus du grain « assignment » est dérivé**,
-jamais stocké.
+Reste : supprimer les entités `[FirestoreData]` de Core, `PlayerTotalsSource`,
+`SeasonStatsAdvance`, `RosterSpots`, `RosterChange` (version Firestore), et la
+référence au paquet `Google.Cloud.Firestore`. **À faire en phase 8**, en même
+temps que la suppression des jobs Firestore — c'est ce qui évite un long build
+cassé.
 
-Contraintes que la BD applique elle-même : un propriétaire par joueur par ligue
-(index unique filtré), un assignment par spot par semaine, un actif d'échange
-= joueur **ou** pick, un vote « équitable » sans intensité, un seul curseur de
-simulation.
+⚠️ `Core.Tests` référence `Jobs`, donc vider Core casse la compilation des
+tests tant que les jobs Firestore existent. Les supprimer ensemble.
 
-### ⬜ Phase 2 — Core dé-Firestorisé
+### 🔶 Phase 3 — Ingestion (4 sur 6)
 
-**Pas commencé.** `FantasyWarrior.Core` porte encore `[FirestoreData]` et la
-référence au paquet `Google.Cloud.Firestore`.
+| Job | État |
+|---|---|
+| `sql-player-sync` | ✅ 1 275 joueurs |
+| `sql-stats-sync` | ✅ 1 312 matchs / 49 999 lignes |
+| `sql-period-init` | ✅ 28 semaines |
+| `capwages-sync` | ✅ 3 269 contrats |
+| `draft-sync` | ⬜ à porter |
+| `news-sync` | ⬜ à porter |
 
-À faire :
-- Supprimer les entités Firestore de Core : `League`, `Team`, `RosterSpot`,
-  `Trade`, `Lineup`, `NewsItem`, `Period`, `Player`, `Game`, `PlayerGameStats`,
-  `PlayerSeasonStats`, `User`, `SimulationState`.
-- Supprimer `PlayerTotalsSource` (remplacé par `vPlayerSeasonStats`),
-  `SeasonStatsAdvance` (le problème disparaît avec la vue), `RosterSpots`,
-  `RosterChange` (requêtes Firestore).
-- Garder et purifier : `StatLine`, `StatKeys`, `StatWindow`, `PeriodScoring`,
-  `RuleConfig`, `ScoringEngine`, `StatLineAdapters`, `LineupRules`,
-  `PeriodCalendar`, `NameNormalizer`, `PoolClock`, `TradeValidation`.
-- **`StatWindow` et `PeriodScoring` passent de `string` à `DateOnly`.** Le tri
-  ordinal sur chaîne était une contrainte Firestore ; les colonnes SQL sont des
-  `date`. (`StatWindow.Intersect` est déjà réécrit en `DateOnly` dans un brouillon
-  local non commité — à refaire ou à récupérer.)
-- `StatLine.FromGameLine` disparaît de Core : l'équivalent est
-  `FantasyWarrior.Data.StatColumns.ToStatLine`.
+### ✅ Phase 4 — Écritures pool (côté jobs)
 
-⚠️ **Piège de séquencement** : `FantasyWarrior.Core.Tests` référence
-`FantasyWarrior.Jobs`, donc vider Core casse aussi la compilation des tests tant
-que Jobs n'est pas porté. Deux options : porter Jobs dans la même passe, ou
-sortir `StatsSyncJobTests`/`CapWagesParserTests` de Core.Tests d'abord.
+`sql-seed-mordus`, `sql-wipe-pools`, `RosterChange` (une transaction),
+`sql-process-trades`. **Les endpoints API correspondants sont la phase 6.**
 
-### 🔶 Phase 3 — Ingestion (1 job sur 5)
+### ✅ Phase 5 — Pointage
 
-| Job | État | Note |
-|---|---|---|
-| `sql-player-sync` | ✅ fait | `Jobs/Sql/PlayerSyncJob.cs`, exécuté, 1 275 joueurs |
-| `stats-sync` | ⬜ | **le gros morceau** — ré-importer 1 342 matchs / ~51 264 lignes |
-| `period-init` | ⬜ | 28 semaines dérivées des `Games` |
-| `draft-sync` | ⬜ | 1 appel HTTP par joueur non encore vérifié |
-| `news-sync` | ⬜ | 3 sources, `HtmlAgilityPack` déjà en place |
+`sql-period-rollup` écrit **une ligne `RosterAssignment` par (spot, semaine) et
+rien d'autre**. `sql-nightly` garde l'ordre : scorer → banquer → échanges.
+Validé contre l'oracle.
 
-Commande de ré-import une fois `stats-sync` porté :
-`stats-sync --from 2025-10-07 --to 2026-04-16` puis `period-init --season 20252026`.
-Attendu : **1 342 matchs, ~51 264 lignes, 28 semaines dont 2 mortes**
-(olympiques, 9–22 février 2026).
+### ⬜ Phase 6 — API ← **la suite**
 
-### ⬜ Phases 4 à 8
+Rien de commencé. `backend/FantasyWarrior.Api/Program.cs` (889 lignes) est
+encore intégralement sur Firestore. À faire :
 
-Pas commencées. Voir le plan pour le détail.
+- Injecter `FantasyWarriorDbContext` (`AddFantasyWarriorData()`) au lieu de
+  `FirestoreDb`, supprimer `PlayerCache`.
+- **Réponses JSON identiques au champ près** — le contrat exact est dans
+  `frontend/src/api.ts`. `league.id` → `JoinCode`, `spotId` →
+  `RosterSpotId.ToString()`, routes toujours indexées par username.
+- Les endpoints de lecture deviennent des requêtes sur les vues :
+  `vStandings` pour `teams[]`, `vRosterSpotTotals` pour les colonnes `spot*` de
+  `season-stats`, `vPlayerSeasonStats` pour la carte joueur.
+- `PUT .../lineup` doit **créer/mettre à jour les lignes `RosterAssignment`**
+  (`IsActive`) + une ligne `TeamPeriodLineup` avec `SetBy = username`. C'est ce
+  que le rollup lit pour distinguer un choix de GM d'un auto-remplissage.
 
-### ✅ CapWages (ajouté en cours de route)
+### 🔶 Phase 7 — Simulation
 
-`Jobs/CapWages/` : `CapWagesParser` (pur, testé), `CapWagesClient` (HTTP poli),
-`CapWagesSyncJob`. Commande `capwages-sync [--season] [--dry-run]
-[--resolve-unmatched]`.
+`sql-sim-clock` et `sql-sim-advance` faits et validés. Reste `sim-reset`
+(aujourd'hui remplacé par `sql-wipe-pools` + reseed, ce qui marche mais perd les
+rosters).
 
-Remplace `estimate-salaries` (chiffres inventés depuis juillet). Voir les
-amendements du plan pour pourquoi c'est du JSON embarqué et pas du HTML.
+### ⬜ Phase 8 — Bascule
 
-Fixtures réelles capturées le 2026-08-01 dans
-`backend/FantasyWarrior.Core.Tests/Fixtures/` — **à recapturer et differ** si un
-jour un run revient vide.
+Supprimer tout le code Firestore (Core + Jobs + Api), les workflows, mettre à
+jour `CLAUDE.md`, `deployment.md`, `project_status.md`, `scoring-model.md`,
+`testmode.md`.
 
 ---
 
-## Conventions de ce chantier
+## Conventions
 
 - **Préfixe `sql-`** : un job porté cohabite avec son ancêtre Firestore sous
-  `Jobs/Sql/` et s'invoque `sql-player-sync`. La bascule (phase 8) supprime les
-  anciens et laisse tomber le préfixe.
-- **Le frontend ne bouge pas.** Les réponses JSON doivent rester identiques au
-  champ près. `league.id` sera le `JoinCode` (chaîne courte), `spotId` le
-  `RosterSpotId` en chaîne — le frontend traite les deux comme opaques
-  (vérifié dans `api.ts`, `App.tsx`, `Stats.tsx`).
-- **Un seul grain honnête** : `RosterAssignment`. Tout total au-dessus est une
-  vue. Ne jamais rajouter de colonne de score sur `Teams`.
-- Migrations appliquées par la commande `db-migrate`, **jamais au démarrage de
-  l'API** (Cloud Run peut lancer plusieurs instances en parallèle).
+  `Jobs/Sql/`. La phase 8 supprime les anciens et laisse tomber le préfixe.
+- **Le frontend ne bouge pas.** Réponses JSON identiques au champ près.
+- **Un seul grain honnête** : `RosterAssignment`. Ne jamais rajouter de colonne
+  de score sur `Teams`.
+- **Transactions** : toujours via `db.Database.CreateExecutionStrategy()` —
+  `EnableRetryOnFailure` interdit les transactions manuelles, et sur le tier
+  serverless un retry doit rejouer la transaction entière.
 
 ---
 
 ## Environnement local
 
-```powershell
-# La chaîne de connexion (hors dépôt, à côté de la clé Firebase)
-$env:AZURE_SQL_CONNECTION = Get-Content "C:\Nick\secrets\azure-sql-connection.txt" -Raw
+Les credentials sont dans `backend/FantasyWarrior.{Jobs,Api}/appsettings.Local.json`
+(**hors dépôt** — le dépôt est public). Plus besoin de variable d'environnement.
 
+```powershell
+cd C:\Nick\fw
 dotnet run --project backend/FantasyWarrior.Jobs -- db-migrate --list
-dotnet run --project backend/FantasyWarrior.Jobs -- sql-player-sync --season 20252026
-dotnet run --project backend/FantasyWarrior.Jobs -- capwages-sync --dry-run
+dotnet run --project backend/FantasyWarrior.Jobs -- sql-wipe-pools
+dotnet run --project backend/FantasyWarrior.Jobs -- sql-seed-mordus [--no-opening-lineup]
+dotnet run --project backend/FantasyWarrior.Jobs -- sql-sim-clock --set 2025-10-04 --season 20252026
+dotnet run --project backend/FantasyWarrior.Jobs -- sql-sim-advance --to 2025-11-23
 dotnet test FantasyWarrior.slnx        # 200 Core + 19 Data
 ```
 
-- **`dotnet-ef` 10.0.10** installé en outil global.
-- Les tests d'intégration utilisent **LocalDB** (`MSSQLLocalDB`), pas Azure —
-  ils créent et détruisent `FantasyWarriorTests` à chaque run.
-- L'API NHL (`api-web.nhle.com`) et `capwages.com` sont **joignables** depuis la
-  machine de Nick. (Elles ne l'étaient pas dans les sandboxes des sessions
-  précédentes — d'où les vérifications live enfin possibles.)
-- Un `FantasyWarrior.Api` local qui traîne verrouille la sortie de build ; le
-  tuer avant de compiler.
+Reconstruire la saison de zéro (~10 min) :
+`sql-stats-sync --from 2025-10-07 --to 2026-04-16` puis `sql-period-init`.
+
+- `dotnet-ef` 10.0.10 en outil global. Tests d'intégration sur **LocalDB**.
+- API NHL et capwages.com **joignables** depuis la machine de Nick.
+- Un `FantasyWarrior.Api` ou `.Jobs` qui traîne verrouille la sortie de build.
 
 ---
 
 ## Ce qu'il faut de Nick
 
-1. **Secret GitHub `AZURE_SQL_CONNECTION`** — sans lui, aucun workflow ne peut
-   tourner contre la nouvelle base.
-2. **Règle de pare-feu pour les runners GitHub Actions.** Leurs IP sont
-   dynamiques : prévoir une étape `az sql server firewall-rule create` en début
-   de workflow (et sa suppression en fin) plutôt que d'ouvrir `0.0.0.0`.
-3. **Trancher le barème de Les Mordus** (voir ci-dessous).
-
----
-
-## Trouvailles à traiter
-
-- **Les Mordus n'a jamais eu le barème documenté.** `scoring-model.md` et
-  `project_status.md` annoncent « victoire de gardien = 1 », mais la vraie
-  config en base est **2** (la valeur par défaut) — personne ne l'a changée.
-  Visible dans `golden-scores-preSql.json`. **À trancher avant de reseeder**,
-  sinon l'oracle et la nouvelle base seront comparés sur deux barèmes.
-- **Cold start Azure** : ~10 s pour reprendre après pause. Acceptable pour les
-  jobs, discutable pour une requête utilisateur. Point à rouvrir en phase 6.
-- **499 joueurs CapWages non appariés** : AHL et profondeur, que les endpoints
-  NHL ne retournent pas. Attendu, pas un bug — mais si ce nombre explose un
-  jour, c'est le signal que l'appariement est cassé.
+1. **Secret GitHub `AZURE_SQL_CONNECTION`** — sans lui aucun workflow ne tourne.
+2. **Pare-feu pour les runners GitHub Actions** (IP dynamiques) : étape
+   `az sql server firewall-rule create` en début de workflow.
+3. **Trancher le barème de Les Mordus** : la doc dit « victoire de gardien = 1 »,
+   le seed SQL utilise **2** (comme Firestore le faisait réellement).
 
 ---
 
 ## Historique des sessions
 
-### 2026-08-01 — mise en place
+### 2026-08-01 / 08-02 — mise en place et cœur du backend
 
-Analyse de l'existant, validation de la vision de Nick (3 corrections : un seul
-grain pour les points, season stats en vue, Period/Game manquants), plan
-approuvé, puis phases 0 et 1 complètes + CapWages + `player-sync`.
+Analyse, validation de la vision (3 corrections), plan approuvé, puis phases 0,
+1, 5 complètes, 3 et 4 largement, CapWages, et la validation contre l'oracle.
 
-Commits sur `sql-migration` :
-
-| | |
+| Commit | |
 |---|---|
-| `fee4d8c` | Échanges exécutés à la frontière de période (travail d'une session antérieure, complété) |
-| `f76b990` | `dump-golden` — l'oracle de correction |
+| `fee4d8c` | Échanges à la frontière de période |
+| `f76b990` | `dump-golden` — l'oracle |
 | `f761754` | Phase 1 : le schéma Azure SQL |
 | `781848b` | `capwages-sync` — les vrais contrats |
-| `f020104` | `player-sync` sur EF + chargement réel d'Azure SQL |
+| `f020104` | `player-sync` sur EF + chargement d'Azure SQL |
+| `605c26e` | Plan + suivi rapatriés dans le dépôt |
+| `394a404` | Credentials via appsettings |
+| `ec1f7b2` | Ingestion + pointage sur SQL, saison ré-importée |
+| `30e3f26` | Seed Les Mordus, alignement d'ouverture, rien de scoré |
+| `06aa225` | `sim-advance` + preuve du moteur contre l'oracle |
