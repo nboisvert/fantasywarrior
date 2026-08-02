@@ -541,9 +541,6 @@ function RosterGrid({
                   )}
                   <button type="button" className="stats-player-btn" onClick={() => onOpenPlayer(r.id)}>
                     <span className="stats-player-name">{formatShortName(r.name)}</span>
-                    <span className={`stats-player-pos pos-compact-${posGroupClass(r.position)}`}>
-                      {posGroup(r.position)}
-                    </span>
                   </button>
                   <button
                     type="button"
@@ -555,6 +552,9 @@ function RosterGrid({
                   >
                     <CalendarIcon size={13} />
                   </button>
+                  <span className={`stats-player-pos pos-compact-${posGroupClass(r.position)}`}>
+                    {posGroup(r.position)}
+                  </span>
                 </td>
                 <td className="accent stats-group-start">{r.poolGamesPlayed}</td>
                 <td className="accent">{r.poolGoals}</td>
