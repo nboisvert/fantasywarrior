@@ -137,9 +137,6 @@ jobs:
       - name: Create or update the app
         run: |
           RG="${{ vars.AZURE_RESOURCE_GROUP }}"
-          REG_ARGS=(--registry-server ghcr.io
-                    --registry-username "${{ github.actor }}"
-                    --registry-password "${{ secrets.GITHUB_TOKEN }}")
 
           if az containerapp show --name "${{ env.APP }}" -g "$RG" >/dev/null 2>&1; then
             echo "Updating the existing app."
@@ -148,8 +145,13 @@ jobs:
             az containerapp secret set --name "${{ env.APP }}" -g "$RG" \
               --secrets "sql-connection=${{ secrets.AZURE_SQL_CONNECTION }}" \
               --only-show-errors
+            # `registry set` spells these --server/--username/--password, while
+            # `create` below spells the same three --registry-*. Not a typo.
             az containerapp registry set --name "${{ env.APP }}" -g "$RG" \
-              "${REG_ARGS[@]}" --only-show-errors
+              --server ghcr.io \
+              --username "${{ github.actor }}" \
+              --password "${{ secrets.GITHUB_TOKEN }}" \
+              --only-show-errors
             az containerapp update --name "${{ env.APP }}" -g "$RG" \
               --image "$IMAGE_TAG" \
               --min-replicas 0 --max-replicas 2 \
@@ -164,11 +166,28 @@ jobs:
               --image "$IMAGE_TAG" \
               --target-port 8080 --ingress external \
               --min-replicas 0 --max-replicas 2 \
-              "${REG_ARGS[@]}" \
+              --registry-server ghcr.io \
+              --registry-username "${{ github.actor }}" \
+              --registry-password "${{ secrets.GITHUB_TOKEN }}" \
               --secrets "sql-connection=${{ secrets.AZURE_SQL_CONNECTION }}" \
               --env-vars "AZURE_SQL_CONNECTION=secretref:sql-connection" \
               --only-show-errors
           fi
+
+      # The hang that started this: TLS completes, nothing answers. Reporting
+      # the revision's own view is far more useful than another timeout.
+      - name: Report the revision's health
+        run: |
+          RG="${{ vars.AZURE_RESOURCE_GROUP }}"
+          echo "Waiting for the new revision to settle..."
+          sleep 30
+          az containerapp revision list --name "${{ env.APP }}" -g "$RG" \
+            --query "[].{name:name, active:properties.active, state:properties.runningState, replicas:properties.replicas, created:properties.createdTime}" \
+            -o table
+          echo
+          echo "=== last 40 console lines ==="
+          az containerapp logs show --name "${{ env.APP }}" -g "$RG" \
+            --type console --tail 40 2>&1 || echo "(no console logs yet)"
 
       - name: Report the URL
         run: |
