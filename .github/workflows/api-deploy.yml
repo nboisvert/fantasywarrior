@@ -174,6 +174,35 @@ jobs:
               --only-show-errors
           fi
 
+      # Container Apps environments have **stable** outbound IPs, which is the
+      # one thing Cloud Run could not offer and the reason the API is here at
+      # all. So the firewall rule can be derived rather than maintained: read
+      # the app's own outbound addresses and allow exactly those.
+      #
+      # "Allow Azure services and resources to access this server" does *not*
+      # cover this traffic -- the first deploy proved it, with SQL refusing the
+      # app's IP by name.
+      - name: Allow the app's outbound IPs through the SQL firewall
+        run: |
+          RG="${{ vars.AZURE_RESOURCE_GROUP }}"
+          IPS=$(az containerapp show --name "${{ env.APP }}" -g "$RG" \
+            --query "properties.outboundIpAddresses" -o tsv)
+          if [ -z "$IPS" ]; then
+            echo "::warning::Could not read the app's outbound IPs; skipping the firewall rule."
+            exit 0
+          fi
+          N=0
+          for IP in $IPS; do
+            N=$((N+1))
+            echo "Allowing $IP"
+            az sql server firewall-rule create \
+              --resource-group "$RG" --server "${{ env.SQL_SERVER }}" \
+              --name "containerapp-$N" \
+              --start-ip-address "$IP" --end-ip-address "$IP" \
+              --only-show-errors >/dev/null
+          done
+          echo "$N outbound IP(s) allowed. Azure SQL takes up to five minutes to apply this."
+
       # The hang that started this: TLS completes, nothing answers. Reporting
       # the revision's own view is far more useful than another timeout.
       - name: Report the revision's health

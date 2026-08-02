@@ -30,10 +30,18 @@ Please retry the connection later."* If you ever see that, check this first.
 
 Portal → SQL server `fantasywarrior` → Security → Networking:
 - Public access: **Selected networks**
-- Firewall rules: one per fixed IP that needs in (Nick's dev machine)
-- **"Allow Azure services and resources to access this server"** — on. This is
-  what lets the Container App connect, and GitHub-hosted runners too, since
-  those are Azure VMs. No per-IP rule is needed for either.
+- Firewall rules: one per fixed IP that needs in (Nick's dev machine), plus
+  `containerapp-N` rules the deploy workflow maintains automatically
+- **"Allow Azure services and resources to access this server"** — on. It covers
+  GitHub-hosted runners, which are Azure VMs. It does **not** cover Container
+  Apps outbound traffic: the first deploy was refused by name, *"Client with IP
+  address '20.200.119.174' is not allowed to access the server"*.
+
+**The Container App's outbound IPs are allowed automatically.** A Container Apps
+environment has *stable* outbound addresses — the one thing Cloud Run could not
+offer, and the reason the API is here at all — so `api-deploy.yml` reads them
+off the app and writes the matching firewall rules on every deploy. Nothing to
+maintain by hand, and it self-heals if Azure ever moves them.
 
 `daily-jobs.yml` can instead open a per-run firewall rule for a runner outside
 Azure; that path is skipped unless `AZURE_RESOURCE_GROUP` is set, which is not
@@ -139,5 +147,17 @@ to rebuild and is identical for everyone.
   but never blocks on it: reading provider state is itself a subscription-level
   call, so a resource-group-scoped principal cannot tell "not registered" apart
   from "not allowed to look".
+- **The API answers the TLS handshake and then hangs forever** (2026-08-02) —
+  ingress up, no healthy replica behind it. It meant the container was
+  crash-looping, because the connection string was resolved at
+  service-registration time and threw before the web host existed. Fixed by
+  resolving it lazily; `/health` now answers whatever the database is doing, and
+  `/health/db` reports the real reason separately. That endpoint is the first
+  thing to hit when the app looks wrong.
+- **`Client with IP address 'x.x.x.x' is not allowed to access the server`**
+  (2026-08-02) — the Container App's outbound IP was not in the firewall, and
+  "Allow Azure services" does not cover it. The deploy workflow now derives and
+  writes those rules itself. Azure SQL takes up to five minutes to apply a new
+  rule, so retry before assuming it failed.
 - **A stale local `dotnet run` locks the build output** — kill the
   `FantasyWarrior.Api` or `FantasyWarrior.Jobs` process and rebuild.
