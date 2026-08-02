@@ -410,6 +410,225 @@ function SortableHead({
   );
 }
 
+/** The roster grid: one sortable table with its own totals footer.
+ *
+ * A component rather than two copies of the markup, because this table changes
+ * often — twice on 2026-08-02 alone (short names, then Salary renamed to Cap
+ * hit), and before that the skater/goalie merge and several column revisions.
+ * Twenty-one columns and a derived footer duplicated would mean every future
+ * change is two edits, and forgetting one drifts silently rather than breaking.
+ *
+ * Used for the current roster and for departed players, whose banked points
+ * this team keeps. The lineup props are optional: a player who has left has no
+ * lineup state, so his rows simply carry no toggle.
+ */
+function RosterGrid({
+  rows, title, subtitle, emptyLabel,
+  lineupByPlayer, pendingFor, lineupEditable, saving, onToggleLineup,
+  onOpenPlayer, openPeriodsFor, periodsByPlayer, onTogglePeriods,
+}: {
+  rows: PlayerRow[];
+  title: string;
+  subtitle?: string;
+  emptyLabel: string;
+  lineupByPlayer?: Map<number, LineupEntry>;
+  pendingFor?: (entry: LineupEntry) => PendingChange;
+  lineupEditable?: boolean;
+  saving: boolean;
+  onToggleLineup?: (spotId: string) => void;
+  onOpenPlayer: (playerId: number) => void;
+  openPeriodsFor: number | null;
+  periodsByPlayer: Record<number, PlayerPeriodsDto>;
+  onTogglePeriods: (playerId: number) => void;
+}) {
+  // Each grid sorts independently — that is the main thing two instances need
+  // that one shared table could not give.
+  const sort = useSort<PlayerRow>(rows, "poolPoints");
+
+  // Totals are derived from this grid's own rows, so the departed grid foots to
+  // what those players actually banked rather than repeating the roster's.
+  const sum = <T,>(list: T[], pick: (r: T) => number) => list.reduce((acc, r) => acc + pick(r), 0);
+  const goalieRows = rows.filter((r) => r.isGoalie);
+  const poolGp = sum(rows, (r) => r.poolGamesPlayed);
+  const poolGoalsTotal = sum(rows, (r) => r.poolGoals);
+  const poolAssistsTotal = sum(rows, (r) => r.poolAssists);
+  const poolPtsTotal = sum(rows, (r) => r.poolPoints);
+  const nhlGp = sum(rows, (r) => r.gamesPlayed);
+  const nhlGoalsTotal = sum(rows, (r) => r.goals);
+  const nhlAssistsTotal = sum(rows, (r) => r.assists);
+  const nhlPtsTotal = sum(rows, (r) => r.nhlPoints);
+  const winsTotal = sum(rows, (r) => r.wins);
+  const otLossesTotal = sum(rows, (r) => r.otLosses);
+  const shutoutsTotal = sum(rows, (r) => r.shutouts);
+  const plusMinusTotal = sum(rows, (r) => r.plusMinus);
+  const pimTotal = sum(rows, (r) => r.pim);
+  const shotsTotal = sum(rows, (r) => r.shots);
+  const goaliesGp = sum(goalieRows, (r) => r.gamesPlayed);
+  const goaliesGa = sum(goalieRows, (r) => r.goalsAgainst);
+  const goaliesSaves = sum(goalieRows, (r) => r.saves);
+  const goaliesShotsAgainst = sum(goalieRows, (r) => r.shotsAgainst);
+  const capTotal = sum(rows, (r) => r.capHit ?? 0);
+
+  return (
+    <div>
+      <span className="stats-table-title">
+        {title}
+        {subtitle != null && <span className="stats-table-title-sub"> {subtitle}</span>}
+      </span>
+      {rows.length === 0 ? (
+        <p className="empty-state">{emptyLabel}</p>
+      ) : (
+      <div className="stats-grid-scroll">
+        <table className="stats-grid">
+          <thead>
+            <tr className="stats-group-row">
+              <th className="stats-col-player stats-sortable" rowSpan={2} scope="col">
+                <button type="button" className="stats-sort-btn" onClick={() => sort.toggle("name")}>
+                  Player
+                  {sort.key === "name" && (
+                    <ChevronDownIcon size={12} className={`stats-sort-icon${sort.dir === "asc" ? " asc" : ""}`} />
+                  )}
+                </button>
+              </th>
+              <GroupHead label="Fantasy point" span={5} accent />
+              <GroupHead label="Goalie" span={3} />
+              <GroupHead label="NHL" span={5} />
+              <GroupHead label="Extra" span={5} />
+              <GroupHead label="Cap hit" span={2} />
+            </tr>
+            <tr>
+              <SortableHead label="GP" colKey="poolGamesPlayed" active={sort.key === "poolGamesPlayed"} dir={sort.dir} onSort={sort.toggle} accent groupStart />
+              <SortableHead label="G" colKey="poolGoals" active={sort.key === "poolGoals"} dir={sort.dir} onSort={sort.toggle} accent />
+              <SortableHead label="A" colKey="poolAssists" active={sort.key === "poolAssists"} dir={sort.dir} onSort={sort.toggle} accent />
+              <SortableHead label="PTS" colKey="poolPoints" active={sort.key === "poolPoints"} dir={sort.dir} onSort={sort.toggle} accent spotlight />
+              <SortableHead label="PTS/G" colKey="poolPtsPerGame" active={sort.key === "poolPtsPerGame"} dir={sort.dir} onSort={sort.toggle} accent />
+              <SortableHead label="W" colKey="wins" active={sort.key === "wins"} dir={sort.dir} onSort={sort.toggle} groupStart />
+              <SortableHead label="OTL" colKey="otLosses" active={sort.key === "otLosses"} dir={sort.dir} onSort={sort.toggle} />
+              <SortableHead label="SO" colKey="shutouts" active={sort.key === "shutouts"} dir={sort.dir} onSort={sort.toggle} />
+              <SortableHead label="GP" colKey="gamesPlayed" active={sort.key === "gamesPlayed"} dir={sort.dir} onSort={sort.toggle} groupStart />
+              <SortableHead label="G" colKey="goals" active={sort.key === "goals"} dir={sort.dir} onSort={sort.toggle} />
+              <SortableHead label="A" colKey="assists" active={sort.key === "assists"} dir={sort.dir} onSort={sort.toggle} />
+              <SortableHead label="PTS" colKey="nhlPoints" active={sort.key === "nhlPoints"} dir={sort.dir} onSort={sort.toggle} spotlight />
+              <SortableHead label="PTS/G" colKey="nhlPtsPerGame" active={sort.key === "nhlPtsPerGame"} dir={sort.dir} onSort={sort.toggle} />
+              <SortableHead label="+/-" colKey="plusMinus" active={sort.key === "plusMinus"} dir={sort.dir} onSort={sort.toggle} groupStart />
+              <SortableHead label="PIM" colKey="pim" active={sort.key === "pim"} dir={sort.dir} onSort={sort.toggle} />
+              <SortableHead label="SOG" colKey="shots" active={sort.key === "shots"} dir={sort.dir} onSort={sort.toggle} />
+              <SortableHead label="GAA" colKey="gaa" active={sort.key === "gaa"} dir={sort.dir} onSort={sort.toggle} />
+              <SortableHead label="SV%" colKey="svPct" active={sort.key === "svPct"} dir={sort.dir} onSort={sort.toggle} />
+              <SortableHead label="Cap hit" colKey="capHit" active={sort.key === "capHit"} dir={sort.dir} onSort={sort.toggle} groupStart />
+              <SortableHead label="$/PTS" colKey="costPerPoint" active={sort.key === "costPerPoint"} dir={sort.dir} onSort={sort.toggle} />
+            </tr>
+          </thead>
+          <tbody>
+            {sort.sorted.map((r) => {
+              const lineupEntry = lineupByPlayer?.get(r.id);
+              return (
+              <Fragment key={r.id}>
+              <tr>
+                <td className="stats-col-player">
+                  {/* Departed players have no lineup entry, so this whole
+                      control is absent for them rather than shown inert. */}
+                  {lineupEntry && (
+                    <LineupToggle
+                      entry={lineupEntry}
+                      // Editable whenever *next* week is: this week's own
+                      // lock is irrelevant, since a tap never touches it.
+                      editable={!!lineupEditable}
+                      busy={saving}
+                      pending={pendingFor?.(lineupEntry) ?? null}
+                      onToggle={(spotId) => onToggleLineup?.(spotId)}
+                    />
+                  )}
+                  <button type="button" className="stats-player-btn" onClick={() => onOpenPlayer(r.id)}>
+                    <span className="stats-player-name">{formatShortName(r.name)}</span>
+                    <span className={`stats-player-pos pos-compact-${posGroupClass(r.position)}`}>
+                      {posGroup(r.position)}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`stats-periods-btn${openPeriodsFor === r.id ? " open" : ""}`}
+                    onClick={() => onTogglePeriods(r.id)}
+                    aria-expanded={openPeriodsFor === r.id}
+                    aria-label={`${r.name} — week by week`}
+                    title="Week by week"
+                  >
+                    <CalendarIcon size={13} />
+                  </button>
+                </td>
+                <td className="accent stats-group-start">{r.poolGamesPlayed}</td>
+                <td className="accent">{r.poolGoals}</td>
+                <td className="accent">{r.poolAssists}</td>
+                <td className="accent stats-col-spotlight">{r.poolPoints}</td>
+                <td className="accent">{displayRate(r.poolPtsPerGame, 2)}</td>
+                <td className="stats-group-start">{r.isGoalie ? r.wins : "—"}</td>
+                <td>{r.isGoalie ? r.otLosses : "—"}</td>
+                <td>{r.isGoalie ? r.shutouts : "—"}</td>
+                <td className="stats-group-start">{r.gamesPlayed}</td>
+                <td>{r.goals}</td>
+                <td>{r.assists}</td>
+                <td className="stats-col-spotlight">{r.nhlPoints}</td>
+                <td>{displayRate(r.nhlPtsPerGame, 2)}</td>
+                <td className="stats-group-start">{signed(r.plusMinus)}</td>
+                <td>{r.pim}</td>
+                <td>{r.shots}</td>
+                <td>{displayRate(r.gaa, 2)}</td>
+                <td>{displayRate(r.svPct, 3, true)}</td>
+                <td className="stats-group-start">{r.capHit != null ? formatMoneyCompact(r.capHit) : "—"}</td>
+                <td>{r.costPerPoint != null ? formatMoneyCompact(r.costPerPoint) : "—"}</td>
+              </tr>
+              {openPeriodsFor === r.id && (
+                /* Spans the whole grid: the breakdown is its own small
+                   table, and lining its columns up with the season
+                   grid's twenty-one would make both unreadable. */
+                <tr className="player-periods-row">
+                  <td colSpan={22}>
+                    {periodsByPlayer[r.id] ? (
+                      <PlayerPeriods data={periodsByPlayer[r.id]} isGoalie={r.isGoalie} />
+                    ) : (
+                      <p className="muted player-periods-empty">Loading…</p>
+                    )}
+                  </td>
+                </tr>
+              )}
+              </Fragment>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr>
+              <th className="stats-col-player" scope="row">
+                Total
+              </th>
+              <td className="accent stats-group-start">{poolGp}</td>
+              <td className="accent">{poolGoalsTotal}</td>
+              <td className="accent">{poolAssistsTotal}</td>
+              <td className="accent stats-col-spotlight">{poolPtsTotal}</td>
+              <td className="accent">{displayRate(poolGp > 0 ? poolPtsTotal / poolGp : null, 2)}</td>
+              <td className="stats-group-start">{winsTotal}</td>
+              <td>{otLossesTotal}</td>
+              <td>{shutoutsTotal}</td>
+              <td className="stats-group-start">{nhlGp}</td>
+              <td>{nhlGoalsTotal}</td>
+              <td>{nhlAssistsTotal}</td>
+              <td className="stats-col-spotlight">{nhlPtsTotal}</td>
+              <td>{displayRate(nhlGp > 0 ? nhlPtsTotal / nhlGp : null, 2)}</td>
+              <td className="stats-group-start">{signed(plusMinusTotal)}</td>
+              <td>{pimTotal}</td>
+              <td>{shotsTotal}</td>
+              <td>{displayRate(goaliesGp > 0 ? goaliesGa / goaliesGp : null, 2)}</td>
+              <td>{displayRate(goaliesShotsAgainst > 0 ? goaliesSaves / goaliesShotsAgainst : null, 3, true)}</td>
+              <td className="stats-group-start">{formatMoneyCompact(capTotal)}</td>
+              <td>{poolPtsTotal > 0 ? formatMoneyCompact(capTotal / poolPtsTotal) : "—"}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      )}
+    </div>
+  );
+}
+
 export function Stats({
   league,
   username,
@@ -424,6 +643,7 @@ export function Stats({
   onBackToStandings: () => void;
 }) {
   const [players, setPlayers] = useState<PlayerSeasonStatsRow[] | null>(null);
+  const [departed, setDeparted] = useState<PlayerSeasonStatsRow[] | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [capExpanded, setCapExpanded] = useState(false);
@@ -449,6 +669,7 @@ export function Stats({
       .then((res) => {
         if (ignore) return;
         setPlayers(res.players);
+        setDeparted(res.departed ?? []);
         setLoading(false);
       })
       .catch((e: unknown) => {
@@ -581,7 +802,7 @@ export function Stats({
   // league's actual rule config, never recomputed client-side — so its own
   // GP/G/A/W/PTS/PTS-per-G can (and, after a trade, will) differ from the NHL
   // columns next to it.
-  const rows: PlayerRow[] = (players ?? []).map((p) => {
+  const toRow = (p: PlayerSeasonStatsRow): PlayerRow => {
     const isGoalie = p.isGoalie;
     const nhlPoints = p.goals + p.assists;
     return {
@@ -616,9 +837,10 @@ export function Stats({
       capHit: p.capHit,
       costPerPoint: p.capHit != null && p.spotActivePoints > 0 ? p.capHit / p.spotActivePoints : null,
     };
-  });
+  };
 
-  const sort = useSort<PlayerRow>(rows, "poolPoints");
+  const rows = (players ?? []).map(toRow);
+  const departedRows = (departed ?? []).map(toRow);
 
   // The grid is keyed by playerId; the lineup by roster-spot id. One open spot
   // per player per team, so this mapping is unambiguous.
@@ -641,27 +863,6 @@ export function Stats({
     return next ? "in" : "out";
   };
 
-  const sum = <T,>(list: T[], pick: (r: T) => number) => list.reduce((acc, r) => acc + pick(r), 0);
-  const goalieRows = rows.filter((r) => r.isGoalie);
-  const poolGp = sum(rows, (r) => r.poolGamesPlayed);
-  const poolGoalsTotal = sum(rows, (r) => r.poolGoals);
-  const poolAssistsTotal = sum(rows, (r) => r.poolAssists);
-  const poolPtsTotal = sum(rows, (r) => r.poolPoints);
-  const nhlGp = sum(rows, (r) => r.gamesPlayed);
-  const nhlGoalsTotal = sum(rows, (r) => r.goals);
-  const nhlAssistsTotal = sum(rows, (r) => r.assists);
-  const nhlPtsTotal = sum(rows, (r) => r.nhlPoints);
-  const winsTotal = sum(rows, (r) => r.wins);
-  const otLossesTotal = sum(rows, (r) => r.otLosses);
-  const shutoutsTotal = sum(rows, (r) => r.shutouts);
-  const plusMinusTotal = sum(rows, (r) => r.plusMinus);
-  const pimTotal = sum(rows, (r) => r.pim);
-  const shotsTotal = sum(rows, (r) => r.shots);
-  const goaliesGp = sum(goalieRows, (r) => r.gamesPlayed);
-  const goaliesGa = sum(goalieRows, (r) => r.goalsAgainst);
-  const goaliesSaves = sum(goalieRows, (r) => r.saves);
-  const goaliesShotsAgainst = sum(goalieRows, (r) => r.shotsAgainst);
-  const capTotal = sum(rows, (r) => r.capHit ?? 0);
 
   const maxRosterSize = league.ruleConfig.rosterSize.max;
 
@@ -742,161 +943,41 @@ export function Stats({
       {!loading && error && <p className="error-banner">{error}</p>}
 
       {!loading && !error && (
-        <div>
-          <span className="stats-table-title">
-            Roster
-            <span className="stats-table-title-sub">
-              {" "}
-              {rows.length}
-              {maxRosterSize != null ? ` / ${maxRosterSize}` : ""} player
-            </span>
-          </span>
-          {rows.length === 0 ? (
-            <p className="empty-state">No players on this roster.</p>
-          ) : (
-            <div className="stats-grid-scroll">
-              <table className="stats-grid">
-                <thead>
-                  <tr className="stats-group-row">
-                    <th className="stats-col-player stats-sortable" rowSpan={2} scope="col">
-                      <button type="button" className="stats-sort-btn" onClick={() => sort.toggle("name")}>
-                        Player
-                        {sort.key === "name" && (
-                          <ChevronDownIcon size={12} className={`stats-sort-icon${sort.dir === "asc" ? " asc" : ""}`} />
-                        )}
-                      </button>
-                    </th>
-                    <GroupHead label="Fantasy point" span={5} accent />
-                    <GroupHead label="Goalie" span={3} />
-                    <GroupHead label="NHL" span={5} />
-                    <GroupHead label="Extra" span={5} />
-                    <GroupHead label="Cap hit" span={2} />
-                  </tr>
-                  <tr>
-                    <SortableHead label="GP" colKey="poolGamesPlayed" active={sort.key === "poolGamesPlayed"} dir={sort.dir} onSort={sort.toggle} accent groupStart />
-                    <SortableHead label="G" colKey="poolGoals" active={sort.key === "poolGoals"} dir={sort.dir} onSort={sort.toggle} accent />
-                    <SortableHead label="A" colKey="poolAssists" active={sort.key === "poolAssists"} dir={sort.dir} onSort={sort.toggle} accent />
-                    <SortableHead label="PTS" colKey="poolPoints" active={sort.key === "poolPoints"} dir={sort.dir} onSort={sort.toggle} accent spotlight />
-                    <SortableHead label="PTS/G" colKey="poolPtsPerGame" active={sort.key === "poolPtsPerGame"} dir={sort.dir} onSort={sort.toggle} accent />
-                    <SortableHead label="W" colKey="wins" active={sort.key === "wins"} dir={sort.dir} onSort={sort.toggle} groupStart />
-                    <SortableHead label="OTL" colKey="otLosses" active={sort.key === "otLosses"} dir={sort.dir} onSort={sort.toggle} />
-                    <SortableHead label="SO" colKey="shutouts" active={sort.key === "shutouts"} dir={sort.dir} onSort={sort.toggle} />
-                    <SortableHead label="GP" colKey="gamesPlayed" active={sort.key === "gamesPlayed"} dir={sort.dir} onSort={sort.toggle} groupStart />
-                    <SortableHead label="G" colKey="goals" active={sort.key === "goals"} dir={sort.dir} onSort={sort.toggle} />
-                    <SortableHead label="A" colKey="assists" active={sort.key === "assists"} dir={sort.dir} onSort={sort.toggle} />
-                    <SortableHead label="PTS" colKey="nhlPoints" active={sort.key === "nhlPoints"} dir={sort.dir} onSort={sort.toggle} spotlight />
-                    <SortableHead label="PTS/G" colKey="nhlPtsPerGame" active={sort.key === "nhlPtsPerGame"} dir={sort.dir} onSort={sort.toggle} />
-                    <SortableHead label="+/-" colKey="plusMinus" active={sort.key === "plusMinus"} dir={sort.dir} onSort={sort.toggle} groupStart />
-                    <SortableHead label="PIM" colKey="pim" active={sort.key === "pim"} dir={sort.dir} onSort={sort.toggle} />
-                    <SortableHead label="SOG" colKey="shots" active={sort.key === "shots"} dir={sort.dir} onSort={sort.toggle} />
-                    <SortableHead label="GAA" colKey="gaa" active={sort.key === "gaa"} dir={sort.dir} onSort={sort.toggle} />
-                    <SortableHead label="SV%" colKey="svPct" active={sort.key === "svPct"} dir={sort.dir} onSort={sort.toggle} />
-                    <SortableHead label="Cap hit" colKey="capHit" active={sort.key === "capHit"} dir={sort.dir} onSort={sort.toggle} groupStart />
-                    <SortableHead label="$/PTS" colKey="costPerPoint" active={sort.key === "costPerPoint"} dir={sort.dir} onSort={sort.toggle} />
-                  </tr>
-                </thead>
-                <tbody>
-                  {sort.sorted.map((r) => (
-                    <Fragment key={r.id}>
-                    <tr>
-                      <td className="stats-col-player">
-                        {lineupBySpotPlayer.get(r.id) && (
-                          <LineupToggle
-                            entry={lineupBySpotPlayer.get(r.id)!}
-                            // Editable whenever *next* week is: this week's own
-                            // lock is irrelevant, since a tap never touches it.
-                            editable={!!nextLineup && !nextLineup.locked && nextLineup.isOwner}
-                            busy={saving}
-                            pending={pendingFor(lineupBySpotPlayer.get(r.id)!)}
-                            onToggle={setPickerSpotId}
-                          />
-                        )}
-                        <button type="button" className="stats-player-btn" onClick={() => setOpenPlayerId(r.id)}>
-                          <span className="stats-player-name">{formatShortName(r.name)}</span>
-                          <span className={`stats-player-pos pos-compact-${posGroupClass(r.position)}`}>
-                            {posGroup(r.position)}
-                          </span>
-                        </button>
-                        <button
-                          type="button"
-                          className={`stats-periods-btn${openPeriodsFor === r.id ? " open" : ""}`}
-                          onClick={() => togglePeriods(r.id)}
-                          aria-expanded={openPeriodsFor === r.id}
-                          aria-label={`${r.name} — week by week`}
-                          title="Week by week"
-                        >
-                          <CalendarIcon size={13} />
-                        </button>
-                      </td>
-                      <td className="accent stats-group-start">{r.poolGamesPlayed}</td>
-                      <td className="accent">{r.poolGoals}</td>
-                      <td className="accent">{r.poolAssists}</td>
-                      <td className="accent stats-col-spotlight">{r.poolPoints}</td>
-                      <td className="accent">{displayRate(r.poolPtsPerGame, 2)}</td>
-                      <td className="stats-group-start">{r.isGoalie ? r.wins : "—"}</td>
-                      <td>{r.isGoalie ? r.otLosses : "—"}</td>
-                      <td>{r.isGoalie ? r.shutouts : "—"}</td>
-                      <td className="stats-group-start">{r.gamesPlayed}</td>
-                      <td>{r.goals}</td>
-                      <td>{r.assists}</td>
-                      <td className="stats-col-spotlight">{r.nhlPoints}</td>
-                      <td>{displayRate(r.nhlPtsPerGame, 2)}</td>
-                      <td className="stats-group-start">{signed(r.plusMinus)}</td>
-                      <td>{r.pim}</td>
-                      <td>{r.shots}</td>
-                      <td>{displayRate(r.gaa, 2)}</td>
-                      <td>{displayRate(r.svPct, 3, true)}</td>
-                      <td className="stats-group-start">{r.capHit != null ? formatMoneyCompact(r.capHit) : "—"}</td>
-                      <td>{r.costPerPoint != null ? formatMoneyCompact(r.costPerPoint) : "—"}</td>
-                    </tr>
-                    {openPeriodsFor === r.id && (
-                      /* Spans the whole grid: the breakdown is its own small
-                         table, and lining its columns up with the season
-                         grid's twenty-one would make both unreadable. */
-                      <tr className="player-periods-row">
-                        <td colSpan={22}>
-                          {periodsByPlayer[r.id] ? (
-                            <PlayerPeriods data={periodsByPlayer[r.id]} isGoalie={r.isGoalie} />
-                          ) : (
-                            <p className="muted player-periods-empty">Loading…</p>
-                          )}
-                        </td>
-                      </tr>
-                    )}
-                    </Fragment>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <th className="stats-col-player" scope="row">
-                      Total
-                    </th>
-                    <td className="accent stats-group-start">{poolGp}</td>
-                    <td className="accent">{poolGoalsTotal}</td>
-                    <td className="accent">{poolAssistsTotal}</td>
-                    <td className="accent stats-col-spotlight">{poolPtsTotal}</td>
-                    <td className="accent">{displayRate(poolGp > 0 ? poolPtsTotal / poolGp : null, 2)}</td>
-                    <td className="stats-group-start">{winsTotal}</td>
-                    <td>{otLossesTotal}</td>
-                    <td>{shutoutsTotal}</td>
-                    <td className="stats-group-start">{nhlGp}</td>
-                    <td>{nhlGoalsTotal}</td>
-                    <td>{nhlAssistsTotal}</td>
-                    <td className="stats-col-spotlight">{nhlPtsTotal}</td>
-                    <td>{displayRate(nhlGp > 0 ? nhlPtsTotal / nhlGp : null, 2)}</td>
-                    <td className="stats-group-start">{signed(plusMinusTotal)}</td>
-                    <td>{pimTotal}</td>
-                    <td>{shotsTotal}</td>
-                    <td>{displayRate(goaliesGp > 0 ? goaliesGa / goaliesGp : null, 2)}</td>
-                    <td>{displayRate(goaliesShotsAgainst > 0 ? goaliesSaves / goaliesShotsAgainst : null, 3, true)}</td>
-                    <td className="stats-group-start">{formatMoneyCompact(capTotal)}</td>
-                    <td>{poolPtsTotal > 0 ? formatMoneyCompact(capTotal / poolPtsTotal) : "—"}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+        <>
+          <RosterGrid
+            rows={rows}
+            title="Roster"
+            subtitle={`${rows.length}${maxRosterSize != null ? ` / ${maxRosterSize}` : ""} player`}
+            emptyLabel="No players on this roster."
+            lineupByPlayer={lineupBySpotPlayer}
+            pendingFor={pendingFor}
+            lineupEditable={!!nextLineup && !nextLineup.locked && nextLineup.isOwner}
+            saving={saving}
+            onToggleLineup={setPickerSpotId}
+            onOpenPlayer={setOpenPlayerId}
+            openPeriodsFor={openPeriodsFor}
+            periodsByPlayer={periodsByPlayer}
+            onTogglePeriods={togglePeriods}
+          />
+
+          {/* Players this team no longer holds but whose banked points it
+              keeps — a trade cannot move history, so the standings figure is
+              not explained by the roster above alone. Hidden entirely when
+              there are none, which is every team until its first trade. */}
+          {departedRows.length > 0 && (
+            <RosterGrid
+              rows={departedRows}
+              title="Departed"
+              subtitle={`${departedRows.length} player, points kept`}
+              emptyLabel="Nobody has left this roster."
+              saving={saving}
+              onOpenPlayer={setOpenPlayerId}
+              openPeriodsFor={openPeriodsFor}
+              periodsByPlayer={periodsByPlayer}
+              onTogglePeriods={togglePeriods}
+            />
           )}
-        </div>
+        </>
       )}
       {pickerSpotId && lineup && (() => {
         const entry = lineup.entries.find((e) => e.spotId === pickerSpotId);
