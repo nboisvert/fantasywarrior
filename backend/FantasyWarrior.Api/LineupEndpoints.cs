@@ -339,10 +339,27 @@ public static class LineupEndpoints
             var team = await Queries.TeamAsync(db, league.LeagueId, owner);
             if (team is null) return Results.NotFound(new { error = "Team not found." });
 
-            var spots = await db.RosterSpots
-                .Where(s => s.TeamId == team.TeamId && s.EndDate == null)
+            // Both halves of this team's roster history, in one read.
+            //
+            // A departed player is a *closed* spot that was in the lineup for at
+            // least one week. Those points are banked to this team permanently —
+            // a trade cannot move history — so leaving him out would make the
+            // grid disagree with the standings about where the score came from.
+            // Closed spots that never dressed are excluded: bookkeeping, not
+            // history.
+            var allSpots = await db.RosterSpots
+                .Where(s => s.TeamId == team.TeamId)
+                .Select(s => new { Spot = s, EverActive = s.Assignments.Any(a => a.IsActive) })
                 .ToListAsync();
-            var playerIds = spots.Select(s => s.PlayerId).ToList();
+
+            var spots = allSpots.Where(s => s.Spot.EndDate == null).Select(s => s.Spot).ToList();
+            var departedSpots = allSpots
+                .Where(s => s.Spot.EndDate != null && s.EverActive)
+                .Select(s => s.Spot)
+                .OrderByDescending(s => s.EndDate)
+                .ToList();
+
+            var playerIds = spots.Concat(departedSpots).Select(s => s.PlayerId).Distinct().ToList();
             var players = await db.Players.Where(p => playerIds.Contains(p.PlayerId))
                 .ToDictionaryAsync(p => p.PlayerId);
             var caps = await Queries.CapHitsAsync(db, league.Season, playerIds);
@@ -359,7 +376,9 @@ public static class LineupEndpoints
                 .Where(v => v.TeamId == team.TeamId)
                 .ToDictionaryAsync(v => v.RosterSpotId);
 
-            var rows = spots.Select(spot =>
+            // One row shape, two lists — the grids are identical by design, so
+            // the projection has to be too.
+            object Row(RosterSpot spot)
             {
                 players.TryGetValue(spot.PlayerId, out var p);
                 season.TryGetValue(spot.PlayerId, out var t);
@@ -394,10 +413,21 @@ public static class LineupEndpoints
                     spotActiveAssists = st?.ActiveAssists ?? 0,
                     spotActivePoints = st?.ActivePoints ?? 0,
                     spotBenchPoints = st?.BenchPoints ?? 0,
+                    // Null while he is still held, the day he left otherwise.
+                    // The only field that tells the two lists apart.
+                    spotEndDate = (DateOnly?)spot.EndDate,
                 };
-            }).ToList();
+            }
 
-            return Results.Ok(new { season = league.Season, players = rows });
+            return Results.Ok(new
+            {
+                season = league.Season,
+                players = spots.Select(Row).ToList(),
+                // A separate list rather than a flag on the first: these players
+                // answer a different question — where did the score come from —
+                // and the screen shows them apart.
+                departed = departedSpots.Select(Row).ToList(),
+            });
         });
     }
 }

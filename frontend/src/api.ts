@@ -172,11 +172,17 @@ export interface PlayerSeasonStatsRow {
   spotActiveAssists: number;
   spotActivePoints: number;
   spotBenchPoints: number;
+  /** Null while he is still on the roster; the date he left otherwise. */
+  spotEndDate: string | null;
 }
 
 export interface TeamSeasonStats {
   season: string;
   players: PlayerSeasonStatsRow[];
+  /** Players no longer on the roster whose banked points this team keeps — a
+   * trade cannot move history. Only those who were in the lineup at least once;
+   * empty for a team that has traded nobody away. */
+  departed: PlayerSeasonStatsRow[];
 }
 
 /** One week of a player's season with this team. */
