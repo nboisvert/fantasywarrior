@@ -1,5 +1,4 @@
 using FantasyWarrior.Core.Scoring;
-using FantasyWarrior.Core.Stats;
 
 namespace FantasyWarrior.Core.Tests.Scoring;
 
@@ -12,63 +11,9 @@ public class StatLineTests
         Assert.Equal(0, StatLine.Empty["a stat nobody tracks"]);
     }
 
-    [Fact]
-    public void FromGameLine_ReadsASkaterLine()
-    {
-        var line = new PlayerGameStats
-        {
-            Goals = 2, Assists = 1, PlusMinus = 3, Pim = 4, Shots = 7, Hits = 5, BlockedShots = 2,
-        };
 
-        var stats = StatLine.FromGameLine(line);
 
-        Assert.Equal(1, stats[StatKeys.GamesPlayed]);
-        Assert.Equal(2, stats[StatKeys.Goals]);
-        Assert.Equal(1, stats[StatKeys.Assists]);
-        Assert.Equal(3, stats[StatKeys.PlusMinus]);
-        Assert.Equal(4, stats[StatKeys.Pim]);
-        Assert.Equal(7, stats[StatKeys.Shots]);
-        Assert.Equal(5, stats[StatKeys.Hits]);
-        Assert.Equal(2, stats[StatKeys.BlockedShots]);
-        // A skater has no goalie stats, and that is not an error.
-        Assert.Equal(0, stats[StatKeys.Saves]);
-        Assert.Equal(0, stats[StatKeys.Wins]);
-    }
 
-    [Fact]
-    public void FromGameLine_ReadsAGoalieLine()
-    {
-        var line = new PlayerGameStats
-        {
-            Decision = "W", Shutout = true, Saves = 31, ShotsAgainst = 31, GoalsAgainst = 0,
-        };
-
-        var stats = StatLine.FromGameLine(line);
-
-        Assert.Equal(1, stats[StatKeys.Wins]);
-        Assert.Equal(1, stats[StatKeys.Shutouts]);
-        Assert.Equal(31, stats[StatKeys.Saves]);
-        Assert.Equal(0, stats[StatKeys.OtLosses]);
-    }
-
-    [Fact]
-    public void FromGameLine_CountsAnOtLossButNotAWin()
-    {
-        var stats = StatLine.FromGameLine(new PlayerGameStats { Decision = "O", OtLoss = true, GoalsAgainst = 3 });
-
-        Assert.Equal(0, stats[StatKeys.Wins]);
-        Assert.Equal(1, stats[StatKeys.OtLosses]);
-    }
-
-    [Fact]
-    public void FromGameLine_TreatsNullSkaterStatsAsZeroNotMissingGames()
-    {
-        // Goalie lines leave every skater field null; the game itself still counts.
-        var stats = StatLine.FromGameLine(new PlayerGameStats { Decision = "L" });
-
-        Assert.Equal(1, stats[StatKeys.GamesPlayed]);
-        Assert.Equal(0, stats[StatKeys.Goals]);
-    }
 
     [Fact]
     public void Plus_AddsEveryKeyFromBothSides()

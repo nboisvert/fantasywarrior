@@ -2,7 +2,7 @@ using FantasyWarrior.Core.Time;
 
 namespace FantasyWarrior.Core.Periods;
 
-/// <summary>A generated week, before it becomes a Firestore document.</summary>
+/// <summary>A generated week, before it becomes a row.</summary>
 public readonly record struct PeriodSpan(int Index, DateOnly Start, DateOnly End)
 {
     public string StartIso => PoolClock.Iso(Start);
@@ -59,10 +59,6 @@ public static class PeriodCalendar
         if (date < anchorMonday) return null;
         return (date.DayNumber - anchorMonday.DayNumber) / 7 + 1;
     }
-
-    /// <summary>Document id of the period a date belongs to, or null before the season.</summary>
-    public static string? PeriodIdFor(string season, DateOnly anchorMonday, DateOnly date) =>
-        IndexFor(anchorMonday, date) is { } index ? PeriodId.For(season, index) : null;
 
     /// <summary>
     /// Midnight ET on the given day, as UTC — the default lineup lock for a week.

@@ -1,8 +1,14 @@
-# Nightly data jobs: yesterday's boxscores + player roster refresh.
-# 09:30 UTC = after all NHL games are final (incl. West Coast).
-# Requires GitHub secret FIREBASE_SA_KEY = content of the Firestore
-# service-account JSON key.
-# Manual runs can pass a date range to backfill missed days.
+# Nightly data jobs: yesterday's boxscores, then scoring, then reference data.
+# 09:30 UTC = after every NHL game is final, West Coast included.
+#
+# Requires the GitHub secret AZURE_SQL_CONNECTION.
+#
+# GitHub-hosted runners have dynamic IPs, so the firewall rule is opened for
+# this run and removed afterwards rather than leaving the server open to
+# 0.0.0.0. That needs AZURE_CREDENTIALS (a service principal with rights on the
+# SQL server) and the AZURE_RESOURCE_GROUP variable -- if either is absent those
+# steps are skipped, which is the right behaviour for a self-hosted runner on a
+# fixed IP.
 name: Daily NHL data sync
 
 on:
@@ -21,31 +27,56 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     env:
-      FIRESTORE_PROJECT_ID: fantasywarriordb
-      GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-sa.json
+      AZURE_SQL_CONNECTION: ${{ secrets.AZURE_SQL_CONNECTION }}
+      SQL_SERVER: fantasywarrior
+      SQL_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
-      - name: Write service account key
-        run: echo "$FIREBASE_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
-        env:
-          FIREBASE_SA_KEY: ${{ secrets.FIREBASE_SA_KEY }}
+
+      - name: Allow this runner through the SQL firewall
+        if: ${{ env.SQL_RESOURCE_GROUP != '' }}
+        run: |
+          RUNNER_IP=$(curl -s https://api.ipify.org)
+          echo "RUNNER_IP=$RUNNER_IP" >> "$GITHUB_ENV"
+          az login --service-principal \
+            -u "${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}" \
+            -p "${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}" \
+            --tenant "${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}" > /dev/null
+          az sql server firewall-rule create \
+            --resource-group "$SQL_RESOURCE_GROUP" --server "$SQL_SERVER" \
+            --name "gh-${{ github.run_id }}" \
+            --start-ip-address "$RUNNER_IP" --end-ip-address "$RUNNER_IP" > /dev/null
+
+      # The schema must be current before anything writes to it.
+      - name: Apply migrations
+        run: dotnet run --project backend/FantasyWarrior.Jobs -c Release -- db-migrate
+
       - name: Stats sync
         run: |
           ARGS=""
           if [ -n "${{ inputs.from }}" ]; then ARGS="--from ${{ inputs.from }} --to ${{ inputs.to || inputs.from }}"; fi
           dotnet run --project backend/FantasyWarrior.Jobs -c Release -- stats-sync $ARGS
-      # One command on purpose: the order inside it (score the week -> bank
-      # finished weeks -> execute trades effective next week -> materialize
-      # next week's lineups) is a correctness requirement, and as separate
-      # steps here nothing stopped it being reordered.
+
+      # One command on purpose: the order inside it -- score the current week,
+      # bank finished weeks, then execute accepted trades effective next week --
+      # is a correctness requirement, and as separate steps here nothing stopped
+      # it being reordered.
       - name: Nightly scoring
         run: dotnet run --project backend/FantasyWarrior.Jobs -c Release -- nightly
+
       - name: Player sync
         run: dotnet run --project backend/FantasyWarrior.Jobs -c Release -- player-sync
       - name: Draft sync
         run: dotnet run --project backend/FantasyWarrior.Jobs -c Release -- draft-sync
       - name: News sync
         run: dotnet run --project backend/FantasyWarrior.Jobs -c Release -- news-sync
+
+      - name: Remove the firewall rule
+        if: ${{ always() && env.SQL_RESOURCE_GROUP != '' && env.RUNNER_IP != '' }}
+        run: |
+          az sql server firewall-rule delete \
+            --resource-group "$SQL_RESOURCE_GROUP" --server "$SQL_SERVER" \
+            --name "gh-${{ github.run_id }}" || true

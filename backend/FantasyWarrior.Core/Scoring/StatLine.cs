@@ -1,5 +1,3 @@
-using FantasyWarrior.Core.Stats;
-
 namespace FantasyWarrior.Core.Scoring;
 
 /// <summary>
@@ -60,33 +58,6 @@ public sealed class StatLine
 
     public static StatLine Sum(IEnumerable<StatLine> lines) =>
         lines.Aggregate(Empty, (acc, l) => acc.Plus(l));
-
-    /// <summary>
-    /// One game line as stats. Counts the game itself as <c>gamesPlayed</c>,
-    /// so a league can legitimately score "1 point per game played" with no
-    /// code change.
-    /// </summary>
-    public static StatLine FromGameLine(PlayerGameStats line)
-    {
-        var values = new Dictionary<string, int>
-        {
-            [StatKeys.GamesPlayed] = 1,
-            [StatKeys.Goals] = line.Goals ?? 0,
-            [StatKeys.Assists] = line.Assists ?? 0,
-            [StatKeys.PlusMinus] = line.PlusMinus ?? 0,
-            [StatKeys.Pim] = line.Pim,
-            [StatKeys.Shots] = line.Shots ?? 0,
-            [StatKeys.Hits] = line.Hits ?? 0,
-            [StatKeys.BlockedShots] = line.BlockedShots ?? 0,
-            [StatKeys.Wins] = line.Decision == "W" ? 1 : 0,
-            [StatKeys.OtLosses] = line.OtLoss == true ? 1 : 0,
-            [StatKeys.Shutouts] = line.Shutout == true ? 1 : 0,
-            [StatKeys.GoalsAgainst] = line.GoalsAgainst ?? 0,
-            [StatKeys.Saves] = line.Saves ?? 0,
-            [StatKeys.ShotsAgainst] = line.ShotsAgainst ?? 0,
-        };
-        return new StatLine(values);
-    }
 
     /// <summary>
     /// Fantasy points under a league's scale. Stats the league doesn't score

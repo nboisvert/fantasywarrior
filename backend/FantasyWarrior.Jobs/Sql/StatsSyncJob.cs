@@ -190,7 +190,7 @@ public sealed class StatsSyncJob(NhlApiClient nhl, FantasyWarriorDbContext db)
 
             // A dressed backup who never played is not a game played, and
             // counting him would put a zero-minute start in his season totals.
-            foreach (var goalie in players.Goalies.Where(g => Nhl.StatsSyncJob.TimeOnIce(g.Toi) > 0))
+            foreach (var goalie in players.Goalies.Where(g => TimeOnIce(g.Toi) > 0))
                 yield return (ToGoalieLine(goalie, players.Goalies, game, team, opponent, isHome, now), goalie);
         }
     }
@@ -239,7 +239,7 @@ public sealed class StatsSyncJob(NhlApiClient nhl, FantasyWarriorDbContext db)
         line.GoalsAgainst = goalie.GoalsAgainst ?? 0;
         line.Decision = goalie.Decision;
         line.Starter = goalie.Starter;
-        line.Shutout = Nhl.StatsSyncJob.IsShutout(goalie, teamGoalies);
+        line.Shutout = IsShutout(goalie, teamGoalies);
         line.OtLoss = goalie.Decision == "O";
         return line;
     }
@@ -273,5 +273,28 @@ public sealed class StatsSyncJob(NhlApiClient nhl, FantasyWarriorDbContext db)
         to.Shutout = from.Shutout;
         to.OtLoss = from.OtLoss;
         to.SyncedUtc = from.SyncedUtc;
+    }
+
+    /// <summary>
+    /// NHL rule approximation: a shutout requires being the only goalie who
+    /// played for the team and allowing zero goals. Shootout goals are excluded
+    /// because they never appear in goalsAgainst.
+    /// </summary>
+    public static bool IsShutout(BoxPlayerDto goalie, IEnumerable<BoxPlayerDto> teamGoalies) =>
+        (goalie.GoalsAgainst ?? 0) == 0
+        && TimeOnIce(goalie.Toi) > 0
+        && teamGoalies.Count(g => TimeOnIce(g.Toi) > 0) == 1;
+
+    /// <summary>
+    /// "MM:SS" as seconds; 0 when empty or unparseable. Minutes can exceed 59
+    /// in overtime, so this cannot be a TimeSpan parse.
+    /// </summary>
+    public static int TimeOnIce(string? toi)
+    {
+        if (string.IsNullOrWhiteSpace(toi)) return 0;
+        var parts = toi.Split(':');
+        return parts.Length == 2 && int.TryParse(parts[0], out var m) && int.TryParse(parts[1], out var s)
+            ? m * 60 + s
+            : 0;
     }
 }

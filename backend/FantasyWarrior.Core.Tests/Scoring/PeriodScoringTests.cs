@@ -79,27 +79,27 @@ public class PeriodScoringTests
     {
         // The NHL amends boxscores after the fact; banking the night the week
         // ends would freeze whatever was known then and never revisit it.
-        Assert.False(PeriodScoring.ShouldFinalize("2026-01-11", lastStatDate: "2026-01-11"));
-        Assert.True(PeriodScoring.ShouldFinalize("2026-01-11", lastStatDate: "2026-01-12"));
+        Assert.False(PeriodScoring.ShouldFinalize(DateOnly.Parse("2026-01-11"), lastStatDate: DateOnly.Parse("2026-01-11")));
+        Assert.True(PeriodScoring.ShouldFinalize(DateOnly.Parse("2026-01-11"), lastStatDate: DateOnly.Parse("2026-01-12")));
     }
 
     [Fact]
     public void ShouldFinalize_IsTrueLongAfterTheFact()
     {
-        Assert.True(PeriodScoring.ShouldFinalize("2026-01-11", "2026-03-01"));
+        Assert.True(PeriodScoring.ShouldFinalize(DateOnly.Parse("2026-01-11"), DateOnly.Parse("2026-03-01")));
     }
 
     [Fact]
     public void ShouldFinalize_IsFalseMidWeek()
     {
-        Assert.False(PeriodScoring.ShouldFinalize("2026-01-11", "2026-01-08"));
+        Assert.False(PeriodScoring.ShouldFinalize(DateOnly.Parse("2026-01-11"), DateOnly.Parse("2026-01-08")));
     }
 
     [Fact]
     public void ShouldFinalize_HonoursALongerGracePeriod()
     {
-        Assert.False(PeriodScoring.ShouldFinalize("2026-01-11", "2026-01-12", graceDays: 3));
-        Assert.True(PeriodScoring.ShouldFinalize("2026-01-11", "2026-01-14", graceDays: 3));
+        Assert.False(PeriodScoring.ShouldFinalize(DateOnly.Parse("2026-01-11"), DateOnly.Parse("2026-01-12"), graceDays: 3));
+        Assert.True(PeriodScoring.ShouldFinalize(DateOnly.Parse("2026-01-11"), DateOnly.Parse("2026-01-14"), graceDays: 3));
     }
 
     // --- LiveScore / NeedsWrite ---

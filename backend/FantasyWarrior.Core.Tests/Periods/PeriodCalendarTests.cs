@@ -110,15 +110,6 @@ public class PeriodCalendarTests
         Assert.Equal(2, PeriodCalendar.IndexFor(anchor, D("2025-10-13")));
     }
 
-    [Fact]
-    public void PeriodIdFor_BuildsAZeroPaddedSortableId()
-    {
-        var anchor = D("2025-10-06");
-
-        Assert.Equal("20252026-W01", PeriodCalendar.PeriodIdFor("20252026", anchor, D("2025-10-08")));
-        Assert.Equal("20252026-W10", PeriodCalendar.PeriodIdFor("20252026", anchor, D("2025-12-10")));
-        Assert.Null(PeriodCalendar.PeriodIdFor("20252026", anchor, D("2025-09-30")));
-    }
 
     [Fact]
     public void LockUtcFor_IsMidnightEasternNotMidnightUtc()

@@ -39,4 +39,12 @@ jobs:
             --image "$IMAGE" \
             --region ${{ env.REGION }} \
             --allow-unauthenticated \
-            --min-instances 0
+            --min-instances 0 \
+            --set-env-vars "AZURE_SQL_CONNECTION=${{ secrets.AZURE_SQL_CONNECTION }}"
+        # The database now lives in Azure while this runs on Cloud Run, so every
+        # query crosses the public internet. Two consequences worth watching:
+        # Cloud Run's egress IP must be allowed through the Azure SQL firewall
+        # (the "Allow Azure services" toggle does not cover it), and the
+        # serverless tier's ~10s resume shows up on the first request after an
+        # idle hour. Co-locating the API on Azure would remove both -- see
+        # .claude/doc/sql-migration-plan.md, "Décisions prises".

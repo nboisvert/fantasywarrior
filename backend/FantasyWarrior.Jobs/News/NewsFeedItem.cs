@@ -19,3 +19,13 @@ public sealed record NewsFeedItem(
 /// any failure, logging why so a broken source is diagnosable from job
 /// output (see RssNewsClient/FantasySpScraper).</summary>
 public delegate Task<IReadOnlyList<NewsFeedItem>> NewsFetcher(CancellationToken ct);
+
+/// <summary>
+/// One configured news source.
+///
+/// <paramref name="HasReliablePublishedDate"/> is the one that matters: a
+/// scraped injuries table carries no per-item date, so re-stamping it on every
+/// sync would make an unchanged standing injury look freshly published forever.
+/// Those sources keep whatever date they were first seen with.
+/// </summary>
+public sealed record NewsSource(string Name, NewsFetcher Fetch, bool HasReliablePublishedDate);

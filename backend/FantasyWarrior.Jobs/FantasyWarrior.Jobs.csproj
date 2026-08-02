@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\FantasyWarrior.Core\FantasyWarrior.Core.csproj" />
@@ -8,7 +8,6 @@
   <ItemGroup>
     <!-- HTML parsing for FantasySP (no public RSS feed exists for it, unlike
          Rotowire — see NewsSyncJob/FantasySpScraper). -->
-    <PackageReference Include="Google.Cloud.Firestore.Admin.V1" Version="3.19.0" />
     <PackageReference Include="HtmlAgilityPack" Version="1.11.*" />
   </ItemGroup>
 

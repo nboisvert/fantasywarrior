@@ -1,5 +1,3 @@
-using Google.Cloud.Firestore;
-
 namespace FantasyWarrior.Core.Scoring;
 
 /// <summary>
@@ -7,10 +5,8 @@ namespace FantasyWarrior.Core.Scoring;
 /// Defaults reflect Nick's buddies pool (2026-07-22): 1 pt per goal, assist
 /// and goalie OT loss, 2 per goalie win, shutout disabled.
 /// </summary>
-[FirestoreData]
 public sealed class RuleConfig
 {
-    [FirestoreProperty("pointValues")]
     public PointValues PointValues { get; set; } = new();
 
     /// <summary>
@@ -23,13 +19,8 @@ public sealed class RuleConfig
     /// because every existing league document already has them and rewriting
     /// them all would buy nothing.
     /// </summary>
-    [FirestoreProperty("extraPointValues")]
     public Dictionary<string, double> ExtraPointValues { get; set; } = [];
-
-    [FirestoreProperty("topCount")]
     public TopCount TopCount { get; set; } = new();
-
-    [FirestoreProperty("rosterSize")]
     public RosterSize RosterSize { get; set; } = new();
 
     /// <summary>
@@ -83,22 +74,12 @@ public static class RuleConfigValidation
     }
 }
 
-[FirestoreData]
 public sealed class PointValues
 {
-    [FirestoreProperty("goal")]
     public double Goal { get; set; } = 1;
-
-    [FirestoreProperty("assist")]
     public double Assist { get; set; } = 1;
-
-    [FirestoreProperty("goalieWin")]
     public double GoalieWin { get; set; } = 2;
-
-    [FirestoreProperty("goalieOtLoss")]
     public double GoalieOtLoss { get; set; } = 1;
-
-    [FirestoreProperty("shutout")]
     public double Shutout { get; set; } = 0;
 }
 
@@ -106,16 +87,10 @@ public sealed class PointValues
 /// How many players count toward the team score, per position group.
 /// Null means every player counts.
 /// </summary>
-[FirestoreData]
 public sealed class TopCount
 {
-    [FirestoreProperty("forwards")]
     public int? Forwards { get; set; }
-
-    [FirestoreProperty("defense")]
     public int? Defense { get; set; }
-
-    [FirestoreProperty("goalies")]
     public int? Goalies { get; set; }
 
     public int? For(PositionGroup group) => group switch
@@ -130,13 +105,9 @@ public sealed class TopCount
 /// Roster size bounds (null = no limit). Not enforced anywhere yet — saved
 /// and displayed only, per Nick (2026-07-27); enforcement is a future round.
 /// </summary>
-[FirestoreData]
 public sealed class RosterSize
 {
-    [FirestoreProperty("min")]
     public int? Min { get; set; }
-
-    [FirestoreProperty("max")]
     public int? Max { get; set; }
 }
 

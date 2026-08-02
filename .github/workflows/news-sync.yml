@@ -22,17 +22,12 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     env:
-      FIRESTORE_PROJECT_ID: fantasywarriordb
-      GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-sa.json
+      AZURE_SQL_CONNECTION: ${{ secrets.AZURE_SQL_CONNECTION }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
-      - name: Write service account key
-        run: echo "$FIREBASE_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
-        env:
-          FIREBASE_SA_KEY: ${{ secrets.FIREBASE_SA_KEY }}
       - name: News sync
         run: |
           ARGS=""

@@ -1,5 +1,3 @@
-using FantasyWarrior.Core.Stats;
-
 namespace FantasyWarrior.Core.Scoring;
 
 /// <summary>An inclusive range of NHL game days.</summary>
@@ -20,18 +18,6 @@ public readonly record struct DateWindow(DateOnly From, DateOnly To)
 /// </summary>
 public static class StatWindow
 {
-    /// <summary>Playoffs are excluded from pool scoring — regular season only.</summary>
-    private const int RegularSeason = 2;
-
-    public static bool Includes(PlayerGameStats line, string season, string from, string? to) =>
-        line.Season == season
-        && line.GameType == RegularSeason
-        && string.CompareOrdinal(line.Date, from) >= 0
-        && (to is null || string.CompareOrdinal(line.Date, to) <= 0);
-
-    /// <summary>Totals for one player over an inclusive date range.</summary>
-    public static StatLine Sum(IEnumerable<PlayerGameStats> lines, string season, string from, string? to) =>
-        StatLine.Sum(lines.Where(l => Includes(l, season, from, to)).Select(StatLine.FromGameLine));
 
     /// <summary>
     /// The days of a scoring period that a roster spot actually owns, or null
@@ -59,18 +45,4 @@ public static class StatWindow
         if (lastStatDate < to) to = lastStatDate;
         return from <= to ? new DateWindow(from, to) : null;
     }
-
-    /// <summary>
-    /// The "YYYY-MM-DD" form, for the Firestore code path that still stores
-    /// dates as strings. Parses and delegates, so there is exactly one
-    /// implementation of the rule — this overload disappears with that path.
-    /// </summary>
-    public static DateWindow? Intersect(
-        string periodStart, string periodEnd,
-        string spotStart, string? spotEnd,
-        string lastStatDate) =>
-        Intersect(
-            DateOnly.Parse(periodStart), DateOnly.Parse(periodEnd),
-            DateOnly.Parse(spotStart), spotEnd is null ? null : DateOnly.Parse(spotEnd),
-            DateOnly.Parse(lastStatDate));
 }
