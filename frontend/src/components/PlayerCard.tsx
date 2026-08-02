@@ -281,7 +281,7 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
   const [player, setPlayer] = useState<PlayerDetail | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [gameLogTab, setGameLogTab] = useState<"last10" | "career">("last10");
+  const [activeTab, setActiveTab] = useState<"season" | "last10" | "career">("season");
   const [careerVisited, setCareerVisited] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -292,7 +292,7 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
     setLoading(true);
     setError("");
     setPlayer(null);
-    setGameLogTab("last10");
+    setActiveTab("season");
     setCareerVisited(false);
     fetch(`${API_BASE}/api/players/${playerId}`, { signal: ctrl.signal })
       .then(async (res) => {
@@ -441,34 +441,29 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
                 </div>
               </div>
 
-              {/* season totals */}
-              <span className="section-title">Season {formatSeason(player.season)}</span>
-              {player.seasonTotals ? (
-                <div className={`pc-tiles${player.isGoalie ? " pc-tiles-goalie" : ""}`}>
-                  {(player.isGoalie
-                    ? goalieTiles(player.seasonTotals)
-                    : skaterTiles(player.seasonTotals)
-                  ).map((tile) => (
-                    <div key={tile.label} className={`pc-tile${tile.accent ? " accent" : ""}`}>
-                      <span className="pc-tile-value">{tile.value}</span>
-                      <span className="pc-tile-label">{tile.label}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="pc-empty muted">No stats this season.</p>
-              )}
-
-              {/* game log: Last 10 games / Career (embedded Hockey-Reference) */}
-              <div className="pc-tabs" role="tablist" aria-label="Game log">
+              {/* Season totals / Last 10 games / Career (embedded
+                  Hockey-Reference) — Season is the default tab, since it's
+                  the number most people open the card to check. */}
+              <div className="pc-tabs" role="tablist" aria-label="Player stats">
+                <button
+                  id="pc-tab-season"
+                  role="tab"
+                  type="button"
+                  aria-selected={activeTab === "season"}
+                  aria-controls="pc-panel-season"
+                  className={`pc-tab${activeTab === "season" ? " active" : ""}`}
+                  onClick={() => setActiveTab("season")}
+                >
+                  Season
+                </button>
                 <button
                   id="pc-tab-last10"
                   role="tab"
                   type="button"
-                  aria-selected={gameLogTab === "last10"}
+                  aria-selected={activeTab === "last10"}
                   aria-controls="pc-panel-last10"
-                  className={`pc-tab${gameLogTab === "last10" ? " active" : ""}`}
-                  onClick={() => setGameLogTab("last10")}
+                  className={`pc-tab${activeTab === "last10" ? " active" : ""}`}
+                  onClick={() => setActiveTab("last10")}
                 >
                   Last 10
                 </button>
@@ -476,11 +471,11 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
                   id="pc-tab-career"
                   role="tab"
                   type="button"
-                  aria-selected={gameLogTab === "career"}
+                  aria-selected={activeTab === "career"}
                   aria-controls="pc-panel-career"
-                  className={`pc-tab${gameLogTab === "career" ? " active" : ""}`}
+                  className={`pc-tab${activeTab === "career" ? " active" : ""}`}
                   onClick={() => {
-                    setGameLogTab("career");
+                    setActiveTab("career");
                     setCareerVisited(true);
                   }}
                 >
@@ -489,10 +484,35 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
               </div>
 
               <div
+                id="pc-panel-season"
+                role="tabpanel"
+                aria-labelledby="pc-tab-season"
+                hidden={activeTab !== "season"}
+                className="pc-season-panel"
+              >
+                <span className="section-title">Season {formatSeason(player.season)}</span>
+                {player.seasonTotals ? (
+                  <div className={`pc-tiles${player.isGoalie ? " pc-tiles-goalie" : ""}`}>
+                    {(player.isGoalie
+                      ? goalieTiles(player.seasonTotals)
+                      : skaterTiles(player.seasonTotals)
+                    ).map((tile) => (
+                      <div key={tile.label} className={`pc-tile${tile.accent ? " accent" : ""}`}>
+                        <span className="pc-tile-value">{tile.value}</span>
+                        <span className="pc-tile-label">{tile.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="pc-empty muted">No stats this season.</p>
+                )}
+              </div>
+
+              <div
                 id="pc-panel-last10"
                 role="tabpanel"
                 aria-labelledby="pc-tab-last10"
-                hidden={gameLogTab !== "last10"}
+                hidden={activeTab !== "last10"}
               >
                 {games.length === 0 ? (
                   <p className="pc-empty muted">No games played yet.</p>
@@ -507,7 +527,7 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
                 id="pc-panel-career"
                 role="tabpanel"
                 aria-labelledby="pc-tab-career"
-                hidden={gameLogTab !== "career"}
+                hidden={activeTab !== "career"}
               >
                 <div className="pc-career">
                   <div className="pc-career-header">

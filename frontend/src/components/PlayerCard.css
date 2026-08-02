@@ -260,25 +260,25 @@
   text-shadow: 0 0 14px var(--ice-glow);
 }
 
-/* ---------- game log tabs (Last 10 / Career) ---------- */
+/* ---------- tabs (Season / Last 10 / Career) ----------
+   Underline style, not a segmented pill — each tab owns a full-width strip
+   of the shared bottom rule, and the active one lights it up in ice-cyan
+   with the same glow the rest of the card uses for its headline numbers
+   (.pc-tile.accent, .pc-age-badge), rather than a filled background chip. */
 
 .pc-tabs {
   display: flex;
-  gap: 0.3rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 0.3rem;
+  border-bottom: 1px solid var(--border);
 }
 
 .pc-tab {
+  position: relative;
   flex: 1;
   min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid transparent;
-  border-radius: 9px;
+  border: none;
   background: none;
   color: var(--text-muted);
   font-family: var(--font-display);
@@ -286,7 +286,7 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: color 0.2s, background-color 0.2s, border-color 0.2s;
+  transition: color 0.2s;
 }
 
 .pc-tab:hover {
@@ -294,9 +294,35 @@
 }
 
 .pc-tab.active {
-  background: rgba(56, 189, 248, 0.14);
-  border-color: rgba(56, 189, 248, 0.45);
   color: var(--ice-bright);
+  text-shadow: 0 0 10px var(--ice-glow);
+}
+
+/* The indicator itself — a 2px rule sitting just under the shared border,
+   scaled in from nothing rather than faded, so switching tabs reads as a
+   deliberate snap rather than a soft crossfade. */
+.pc-tab::after {
+  content: "";
+  position: absolute;
+  left: 0.6rem;
+  right: 0.6rem;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--ice-bright);
+  box-shadow: 0 0 8px var(--ice-glow);
+  transform: scaleX(0);
+  transition: transform 0.2s ease;
+}
+
+.pc-tab.active::after {
+  transform: scaleX(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pc-tab::after {
+    transition: none;
+  }
 }
 
 /* ---------- Last 10 games table ---------- */
@@ -361,6 +387,14 @@
 .pc-games-table tbody tr.hot td:first-child,
 .pc-games-table tbody tr.hot td:nth-child(2) {
   color: var(--ice-bright);
+}
+
+/* ---------- Season tab ---------- */
+
+.pc-season-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
 }
 
 /* ---------- Career tab: embedded Hockey-Reference ---------- */
