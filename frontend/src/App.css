@@ -1460,6 +1460,10 @@
   display: flex;
   align-items: center;
   gap: 0.45rem;
+  /* Fills the column so the position can sit against its right edge rather
+     than trailing whatever length the name happens to be — the letters then
+     line up as their own column and scan vertically. */
+  flex: 1;
   min-width: 0;
   border: none;
   background: none;
@@ -1475,10 +1479,15 @@
 }
 
 .stats-player-name {
+  /* Takes the slack, which is what pushes the position right. The fixed
+     max-width this used to carry went with the switch to short names
+     ("S. Crosby"); min-width: 0 is what still lets a long surname ellipsize
+     inside a flex child. */
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 7.4rem;
   font-weight: 600;
   transition: color 0.2s;
 }
@@ -1488,6 +1497,9 @@
    CLAUDE.md's position-indicator pattern). */
 .stats-player-pos {
   flex-shrink: 0;
+  /* Fixed width so F, D and G land on the same x, whatever the letter. */
+  width: 0.75rem;
+  text-align: right;
   font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
