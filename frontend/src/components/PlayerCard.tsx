@@ -160,6 +160,54 @@ function formatSeason(season: string): string {
   return `${season.slice(0, 4)}-${season.slice(6)}`;
 }
 
+/** Full NHL team name -> city, for the Career tab (2026-08-02, per Nick: NHL
+ * rows show just the city, to help the table fit without horizontal
+ * scroll). Junior/college/European team names are already short, so this
+ * only applies to `league === "NHL"` rows — anything not in the map (an old
+ * relocated/renamed franchise this list doesn't cover) just falls back to
+ * the full name rather than showing something wrong. */
+const NHL_TEAM_CITIES: Record<string, string> = {
+  "Boston Bruins": "Boston",
+  "Buffalo Sabres": "Buffalo",
+  "Detroit Red Wings": "Detroit",
+  "Florida Panthers": "Florida",
+  "Montreal Canadiens": "Montreal",
+  "Ottawa Senators": "Ottawa",
+  "Tampa Bay Lightning": "Tampa Bay",
+  "Toronto Maple Leafs": "Toronto",
+  "Carolina Hurricanes": "Carolina",
+  "Columbus Blue Jackets": "Columbus",
+  "New Jersey Devils": "New Jersey",
+  "New York Islanders": "New York",
+  "New York Rangers": "New York",
+  "Philadelphia Flyers": "Philadelphia",
+  "Pittsburgh Penguins": "Pittsburgh",
+  "Washington Capitals": "Washington",
+  "Chicago Blackhawks": "Chicago",
+  "Colorado Avalanche": "Colorado",
+  "Dallas Stars": "Dallas",
+  "Minnesota Wild": "Minnesota",
+  "Nashville Predators": "Nashville",
+  "St. Louis Blues": "St. Louis",
+  "Utah Mammoth": "Utah",
+  "Winnipeg Jets": "Winnipeg",
+  "Anaheim Ducks": "Anaheim",
+  "Calgary Flames": "Calgary",
+  "Edmonton Oilers": "Edmonton",
+  "Los Angeles Kings": "Los Angeles",
+  "Seattle Kraken": "Seattle",
+  "San Jose Sharks": "San Jose",
+  "Vancouver Canucks": "Vancouver",
+  "Vegas Golden Knights": "Vegas",
+  "Arizona Coyotes": "Arizona",
+  "Phoenix Coyotes": "Phoenix",
+};
+
+function formatCareerTeam(team: string | null, league: string): string {
+  if (team == null) return "—";
+  return league === "NHL" ? (NHL_TEAM_CITIES[team] ?? team) : team;
+}
+
 const formatGaa = (t: SeasonTotals) =>
   t.gamesPlayed > 0 ? (t.goalsAgainst / t.gamesPlayed).toFixed(2) : "—";
 
@@ -282,7 +330,7 @@ function CareerTable({ rows, isGoalie }: { rows: CareerRow[]; isGoalie: boolean 
       <thead>
         <tr>
           <th scope="col">Season</th>
-          <th scope="col">League</th>
+          <th scope="col" aria-label="League" />
           <th scope="col">Team</th>
           <th scope="col">GP</th>
           {isGoalie ? (
@@ -299,7 +347,6 @@ function CareerTable({ rows, isGoalie }: { rows: CareerRow[]; isGoalie: boolean 
               <th scope="col">G</th>
               <th scope="col">A</th>
               <th scope="col">PTS</th>
-              <th scope="col">PIM</th>
             </>
           )}
         </tr>
@@ -309,7 +356,7 @@ function CareerTable({ rows, isGoalie }: { rows: CareerRow[]; isGoalie: boolean 
           <tr key={`${r.season}-${r.league}-${r.team ?? ""}-${i}`}>
             <td>{formatSeason(r.season)}</td>
             <td>{r.league}</td>
-            <td>{r.team ?? "—"}</td>
+            <td>{formatCareerTeam(r.team, r.league)}</td>
             <td>{r.gamesPlayed}</td>
             {isGoalie ? (
               <>
@@ -325,7 +372,6 @@ function CareerTable({ rows, isGoalie }: { rows: CareerRow[]; isGoalie: boolean 
                 <td>{r.goals ?? 0}</td>
                 <td>{r.assists ?? 0}</td>
                 <td>{r.points ?? 0}</td>
-                <td>{r.pim ?? 0}</td>
               </>
             )}
           </tr>
