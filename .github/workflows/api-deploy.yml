@@ -1,50 +1,108 @@
-# Deploys the API to Google Cloud Run.
-# Manual trigger only until the GCP project and GitHub secrets exist:
-#   secrets.GCP_SA_KEY        -> JSON key of the deploy service account
-#   vars.GCP_PROJECT_ID       -> GCP project id
-# Once GCP is ready, add a push trigger on backend/** paths.
-name: Deploy API to Cloud Run
+# Deploys the API to Azure Container Apps.
+#
+# Moved off Cloud Run on 2026-08-02, for one blocking reason: Cloud Run has no
+# stable outbound IP, so it could never be allowed through the Azure SQL
+# firewall without paying for Cloud NAT. Being in Azure also removes the
+# cross-cloud round-trip on every query, and makes the serverless database's
+# wake-up far less visible.
+#
+# The image goes to GitHub Container Registry rather than Azure Container
+# Registry: ghcr.io is free for this repository, ACR Basic is not.
+#
+# Needs:
+#   secrets.AZURE_CREDENTIALS  -> service principal JSON (az ad sp create-for-rbac --sdk-auth)
+#   secrets.AZURE_SQL_CONNECTION
+#   vars.AZURE_RESOURCE_GROUP
+name: Deploy API to Azure
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/api-deploy.yml"
 
 env:
-  REGION: northamerica-northeast1
-  SERVICE: fantasy-warrior-api
+  APP: fantasy-warrior-api
+  ENVIRONMENT: fantasy-warrior-env
+  # Same region as the database. That is the whole point of this move.
+  LOCATION: canadacentral
+  IMAGE: ghcr.io/${{ github.repository }}/api
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
-      - uses: google-github-actions/auth@v2
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-      - uses: google-github-actions/setup-gcloud@v2
-      - run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
-      - name: Ensure Artifact Registry repo exists
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
         run: |
-          gcloud artifacts repositories create fantasy-warrior \
-            --repository-format=docker --location=${{ env.REGION }} \
-            --project ${{ vars.GCP_PROJECT_ID }} --quiet || true
-      - name: Build and push image
+          IMAGE_TAG="${{ env.IMAGE }}:${{ github.sha }}"
+          echo "IMAGE_TAG=$IMAGE_TAG" >> "$GITHUB_ENV"
+          docker build -f backend/FantasyWarrior.Api/Dockerfile -t "$IMAGE_TAG" .
+          docker push "$IMAGE_TAG"
+
+      - uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Install the Container Apps extension
+        run: az extension add --name containerapp --upgrade --only-show-errors
+
+      # Idempotent: creates the environment on the first run, no-ops after.
+      - name: Ensure the Container Apps environment exists
         run: |
-          IMAGE=${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/fantasy-warrior/${{ env.SERVICE }}:${{ github.sha }}
-          docker build -f backend/FantasyWarrior.Api/Dockerfile -t "$IMAGE" .
-          docker push "$IMAGE"
-          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
-      - name: Deploy to Cloud Run
+          az containerapp env show \
+            --name "${{ env.ENVIRONMENT }}" -g "${{ vars.AZURE_RESOURCE_GROUP }}" >/dev/null 2>&1 \
+          || az containerapp env create \
+            --name "${{ env.ENVIRONMENT }}" -g "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --location "${{ env.LOCATION }}" --only-show-errors
+
+      # The registry is public, so the app pulls without credentials. Scale to
+      # zero keeps this inside the free grant: a pool of fourteen people does not
+      # keep a container busy.
+      - name: Deploy
         run: |
-          gcloud run deploy ${{ env.SERVICE }} \
-            --image "$IMAGE" \
-            --region ${{ env.REGION }} \
-            --allow-unauthenticated \
-            --min-instances 0 \
-            --set-env-vars "AZURE_SQL_CONNECTION=${{ secrets.AZURE_SQL_CONNECTION }}"
-        # The database now lives in Azure while this runs on Cloud Run, so every
-        # query crosses the public internet. Two consequences worth watching:
-        # Cloud Run's egress IP must be allowed through the Azure SQL firewall
-        # (the "Allow Azure services" toggle does not cover it), and the
-        # serverless tier's ~10s resume shows up on the first request after an
-        # idle hour. Co-locating the API on Azure would remove both -- see
-        # .claude/doc/sql-migration-plan.md, "Décisions prises".
+          az containerapp up \
+            --name "${{ env.APP }}" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --environment "${{ env.ENVIRONMENT }}" \
+            --image "$IMAGE_TAG" \
+            --target-port 8080 \
+            --ingress external \
+            --only-show-errors
+          az containerapp update \
+            --name "${{ env.APP }}" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --min-replicas 0 --max-replicas 2 \
+            --set-env-vars "AZURE_SQL_CONNECTION=secretref:sql-connection" \
+            --only-show-errors
+        env:
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+
+      - name: Store the connection string as a secret on the app
+        run: |
+          az containerapp secret set \
+            --name "${{ env.APP }}" -g "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --secrets "sql-connection=${{ secrets.AZURE_SQL_CONNECTION }}" \
+            --only-show-errors
+
+      - name: Report the URL
+        run: |
+          URL=$(az containerapp show --name "${{ env.APP }}" \
+            -g "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --query "properties.configuration.ingress.fqdn" -o tsv)
+          echo "### API deployed" >> "$GITHUB_STEP_SUMMARY"
+          echo "https://$URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "Set the repository variable API_URL to this, then re-run the frontend deploy." >> "$GITHUB_STEP_SUMMARY"

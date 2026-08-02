@@ -8,16 +8,18 @@
 | Piece | Where | How it deploys |
 |---|---|---|
 | Frontend (React/Vite) | GitHub Pages — https://nboisvert.github.io/fantasywarrior/ | Auto on every push to `main` touching `frontend/**` (`frontend-deploy.yml`) |
-| API (.NET 10 minimal API) | Google Cloud Run — service `fantasy-warrior-api`, region `northamerica-northeast1`, scales to zero | Manual: Actions → "Deploy API to Cloud Run" (`api-deploy.yml`) |
+| API (.NET 10 minimal API) | **Azure Container Apps** — app `fantasy-warrior-api`, environment `fantasy-warrior-env`, region `canadacentral`, scales to zero | Auto on push to `main` touching `backend/**` (`api-deploy.yml`); image published to ghcr.io |
 | **Database** | **Azure SQL** — server `fantasywarrior.database.windows.net`, database `fantasywarrior`, General Purpose Serverless (free tier) | Schema by `db-migrate`, never at app startup |
 | Nightly data jobs | GitHub Actions cron 09:30 UTC (`daily-jobs.yml`): db-migrate → stats-sync → nightly → player-sync → draft-sync → news-sync | Auto; manual backfill via Run workflow with from/to |
 | News sync (standalone) | GitHub Actions (`news-sync.yml`), manual only | Actions → "News sync" |
 | Auth | TEMPORARY username-only (the API trusts the client). | — |
 
-**The API and the database are in different clouds.** Every query crosses the
-public internet. It works, and the data layer is written to keep the round-trip
-count low, but co-locating the API on Azure would remove both that latency and
-the firewall dance below. See `sql-migration-plan.md`, "Décisions prises".
+**The API and the database sit in the same Azure region** since 2026-08-02. The
+API ran on Cloud Run, and moving it was not a preference: Cloud Run has no
+stable outbound IP, so it could never be allowed through the Azure SQL firewall
+without paying for Cloud NAT (about $32/month), which breaks the project's
+"hosting stays free" rule. Co-locating also removed the cross-cloud round-trip
+on every query and made the database's wake-up far less visible.
 
 ## Azure SQL configuration
 
@@ -28,23 +30,23 @@ Please retry the connection later."* If you ever see that, check this first.
 
 Portal → SQL server `fantasywarrior` → Security → Networking:
 - Public access: **Selected networks**
-- Firewall rules: one per fixed IP that needs in (Nick's dev machine; Cloud
-  Run's egress IP)
-- **"Allow Azure services and resources to access this server"** — on. This does
-  *not* cover Cloud Run, which is not an Azure service.
+- Firewall rules: one per fixed IP that needs in (Nick's dev machine)
+- **"Allow Azure services and resources to access this server"** — on. This is
+  what lets the Container App connect, and GitHub-hosted runners too, since
+  those are Azure VMs. No per-IP rule is needed for either.
 
-GitHub-hosted runners have dynamic IPs, so `daily-jobs.yml` opens a rule for the
-run and deletes it afterwards rather than leaving the server open to 0.0.0.0.
-That needs the `AZURE_CREDENTIALS` secret and the `AZURE_RESOURCE_GROUP`
-variable; without them those steps are skipped.
+`daily-jobs.yml` can instead open a per-run firewall rule for a runner outside
+Azure; that path is skipped unless `AZURE_RESOURCE_GROUP` is set, which is not
+the normal case.
 
 ### The serverless tier auto-pauses
 
 After an idle hour the database pauses. The first connection then fails and the
 resume takes roughly ten seconds; from fully cold it can be a couple of minutes.
-`EnableRetryOnFailure(6, 20s)` plus a 60-second command timeout absorbs this for
-jobs. **For a user request it is a bad first impression** and is the strongest
-argument for moving the API to Azure.
+`EnableRetryOnFailure(6, 20s)` plus a 60-second command timeout absorbs this.
+The API being in the same region now means a user only pays the resume itself,
+not a resume plus a cross-cloud round-trip — still worth watching on the first
+visit of the day.
 
 Free tier: 100,000 vCore-seconds/month (about 27 hours of compute) and 32 GB.
 The season holds ~50,000 game lines and uses a fraction of the space; the
@@ -56,11 +58,9 @@ thing that touches it.
 | Kind | Name | Value |
 |---|---|---|
 | Secret | `AZURE_SQL_CONNECTION` | Full Azure SQL connection string |
-| Secret | `AZURE_CREDENTIALS` | Service-principal JSON with rights on the SQL server, for the firewall steps |
-| Secret | `GCP_SA_KEY` | JSON key of the `github-deploy` SA (Cloud Run) |
-| Variable | `AZURE_RESOURCE_GROUP` | Resource group holding the SQL server |
-| Variable | `GCP_PROJECT_ID` | `fantasywarriordb` |
-| Variable | `API_URL` | Cloud Run service URL — injected as `VITE_API_URL` into the Pages build |
+| Secret | `AZURE_CREDENTIALS` | Service-principal JSON from `az ad sp create-for-rbac --sdk-auth`, used to deploy the Container App |
+| Variable | `AZURE_RESOURCE_GROUP` | Resource group holding the SQL server and the Container App |
+| Variable | `API_URL` | The Container App URL — injected as `VITE_API_URL` into the Pages build |
 
 ⚠️ **The repository is public.** A credential committed to it is readable by
 anyone, permanently, including from git history — rotating it would be the only
@@ -120,7 +120,9 @@ to rebuild and is identical for everyone.
 - **FantasySP returns 403 Forbidden** (2026-08-02) — the site started blocking
   the scraper. Rotowire's two sources still work. `news-sync` logs the status
   rather than reporting a silent zero.
-- **Cloud Run cannot reach Azure SQL** — its egress IP needs its own firewall
-  rule; "Allow Azure services" does not cover it.
+- **Cloud Run could not reach Azure SQL** (2026-08-02) — it has no stable
+  outbound IP, and pinning one needs Cloud NAT at about $32/month. That is why
+  the API moved to Azure Container Apps rather than why a firewall rule was
+  added.
 - **A stale local `dotnet run` locks the build output** — kill the
   `FantasyWarrior.Api` or `FantasyWarrior.Jobs` process and rebuild.

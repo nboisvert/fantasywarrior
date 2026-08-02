@@ -13,10 +13,10 @@ You'll be the main architect assisting me, Nick, Sr. .NET specialist & architect
 - **Frontend**: React (mobile-first) + TypeScript + Vite, hosted on **GitHub Pages**. UI in English only.
 - **Database**: **Azure SQL** (serverless, free tier) via **EF Core 10**. Migrated off Firestore 2026-08-02 — see [.claude/doc/sql-migration-plan.md](.claude/doc/sql-migration-plan.md) for the design and why.
 - **Auth**: **Firebase Auth** — Google sign-in + email/password.
-- **API**: **.NET 10 minimal API** in a Docker container on **Google Cloud Run** (free tier, scales to zero).
+- **API**: **.NET 10 minimal API** in a Docker container on **Azure Container Apps** (free grant, scales to zero), same region as the database. Moved off Cloud Run 2026-08-02 — Cloud Run has no stable outbound IP, so it could not pass the Azure SQL firewall without paying for Cloud NAT.
 - **Batch jobs**: .NET console apps run by **GitHub Actions cron** (`daily-jobs.yml`: db-migrate → stats-sync → nightly → player-sync → draft-sync → news-sync).
 - **Realtime**: none today. Firestore listeners were the plan but nothing ever used them; polling covers the current screens. SignalR is the option if it is ever needed.
-- **CI/CD**: GitHub Actions (frontend → GitHub Pages, API → Cloud Run).
+- **CI/CD**: GitHub Actions (frontend → GitHub Pages, API → Azure Container Apps via ghcr.io).
 
 Hosting must stay easy and free.
 
