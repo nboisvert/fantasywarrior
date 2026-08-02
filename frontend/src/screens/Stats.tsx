@@ -91,7 +91,7 @@ function LineupToggle({
   // depends on colour alone; the aria-label above states it in words.
   const flag = pending && (
     <span className={`lineup-pending lineup-pending-${pending}`} aria-hidden="true">
-      {pending === "in" ? <ArrowUpIcon size={11} /> : <ArrowDownIcon size={11} />}
+      {pending === "in" ? <ArrowUpIcon size={13} /> : <ArrowDownIcon size={13} />}
     </span>
   );
 

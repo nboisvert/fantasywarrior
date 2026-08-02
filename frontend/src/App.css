@@ -288,25 +288,34 @@
   display: flex;
   /* A bare glyph, no chip behind it. At this size a filled circle reads as a
      badge demanding action, when this is only an annotation on a row — it says
-     "this changes Monday", not "do something". */
-  stroke-width: 3.25;
-  /* The weight is what makes it legible instead of a background, and the
-     doubled hairline of row colour keeps it separate where it overlaps the
-     control's own outline. */
-  filter: drop-shadow(0 0 1px var(--bg-elevated)) drop-shadow(0 0 1px var(--bg-elevated));
+     "this changes Monday", not "do something".
+
+     Weight carries it instead of a background. Heavy enough to catch the eye
+     against a 2px-stroke icon, which is the whole reason it can sit on top of
+     one and still be read as a separate mark. */
+  stroke-width: 4;
+  /* **The notification straddle.** It overlaps the icon's corner rather than
+     hanging off it — that overlap is what makes it read as a badge attached to
+     this player instead of a stray glyph beside him. The halo is what earns
+     the right to sit there: three hairlines of row colour punch it out of the
+     strokes underneath, so neither mark muddles the other. */
+  filter:
+    drop-shadow(0 0 1.5px var(--bg-elevated))
+    drop-shadow(0 0 1.5px var(--bg-elevated))
+    drop-shadow(0 0 1.5px var(--bg-elevated));
   pointer-events: none;
 }
 
 /* Corners chosen to say the same thing as the arrow: joining rises out of the
    top, dropping falls from the bottom. */
 .lineup-pending-in {
-  top: -4px;
-  right: -5px;
+  top: 0;
+  right: 1px;
   color: var(--success);
 }
 .lineup-pending-out {
-  bottom: -4px;
-  right: -5px;
+  bottom: 0;
+  right: 1px;
   color: var(--danger);
 }
 
@@ -1961,20 +1970,21 @@
   padding: 0;
   border: none;
   background: none;
-  color: var(--text-muted);
-  opacity: 0.5;
+  /* Dimmed with colour rather than opacity, because opacity cascades to the
+     pending-change arrow and would wash out the very case it matters most in:
+     a benched player coming into next week's lineup. */
+  color: rgba(139, 150, 171, 0.55);
   cursor: pointer;
-  transition: color 150ms, opacity 150ms;
+  transition: color 150ms;
 }
 
 .lineup-toggle.on {
   color: var(--ice-bright);
-  opacity: 1;
 }
 
 .lineup-toggle:not(.static):hover,
 .lineup-toggle:not(.static):focus-visible {
-  opacity: 1;
+  color: var(--text);
 }
 
 .lineup-toggle.static {
