@@ -7,7 +7,7 @@
 // re-derived and re-tightened.
 
 import { useState } from "react";
-import { posGroup, posGroupClass } from "../api";
+import { formatShortName, posGroup, posGroupClass } from "../api";
 import type { LeagueDetail } from "../api";
 import { PlayerCard } from "../components/PlayerCard";
 
@@ -26,14 +26,6 @@ function formatCapCompact(amount: number): string {
   return `${sign}$${abs}`;
 }
 
-/** "Sidney Crosby" -> "S. Crosby" — used only for this screen's compact
- * scorer list (Roster/Stats keep full names). Falls back to the plain
- * string when there's no space to split on (single-word name). */
-function formatShortName(name: string): string {
-  const spaceIndex = name.indexOf(" ");
-  if (spaceIndex <= 0) return name;
-  return `${name[0]}. ${name.slice(spaceIndex + 1)}`;
-}
 
 /** 1 -> "1st", 3 -> "3rd", 11 -> "11th", etc. */
 function ordinal(n: number): string {

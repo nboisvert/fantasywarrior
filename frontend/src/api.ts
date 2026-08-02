@@ -318,6 +318,18 @@ export const formatCap = (amount: number | null | undefined) =>
 export const formatSeason = (season: string): string =>
   season.length === 8 ? `${season.slice(0, 4)}-${season.slice(6)}` : season;
 
+/** "Sidney Crosby" -> "S. Crosby". Falls back to the plain string when there
+ * is no space to split on (a single-word name).
+ *
+ * Shared rather than per-screen since 2026-08-02: the Team grid adopted it to
+ * free the width the lineup controls needed, so it now has two callers and
+ * belongs in one place — same reasoning as `posGroup`. */
+export function formatShortName(name: string): string {
+  const spaceIndex = name.indexOf(" ");
+  if (spaceIndex <= 0) return name;
+  return `${name[0]}. ${name.slice(spaceIndex + 1)}`;
+}
+
 export type PosGroup = "F" | "D" | "G";
 
 /** Collapses a raw NHL position code to the three roster groups everywhere

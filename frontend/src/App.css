@@ -273,6 +273,113 @@
   line-height: 0;
 }
 
+/* ---------- lineup replacement picker (Team screen) ---------- */
+
+/* A sheet rather than an inline expansion: the answer to "who plays instead"
+   is a short list, and pushing the grid around to show it would move the row
+   you just tapped. Same overlay mechanics as PlayerCard. */
+.lineup-picker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(4, 7, 15, 0.62);
+  backdrop-filter: blur(2px);
+  animation: fade-in 180ms ease-out;
+}
+
+.lineup-picker {
+  width: 100%;
+  max-width: 480px;
+  max-height: 72vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.9rem 0.9rem calc(0.9rem + env(safe-area-inset-bottom));
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 16px 16px 0 0;
+}
+
+@media (min-width: 560px) {
+  /* Enough room to sit as a centred dialog instead of a bottom sheet. */
+  .lineup-picker-overlay {
+    align-items: center;
+  }
+  .lineup-picker {
+    border-bottom: 1px solid var(--border);
+    border-radius: 16px;
+  }
+}
+
+.lineup-picker-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.lineup-picker-title {
+  font: 600 0.95rem/1.2 var(--font-display);
+  letter-spacing: 0.02em;
+}
+
+.lineup-picker-sub {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.35rem 0.1rem 0.1rem;
+}
+
+.lineup-picker-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  /* Full touch target — this is the primary action of the sheet. */
+  min-height: 44px;
+  padding: 0 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--text);
+  font: 500 0.85rem/1 var(--font-body);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.lineup-picker-option:hover:not(:disabled) {
+  border-color: var(--ice-bright);
+  background: rgba(56, 189, 248, 0.1);
+}
+.lineup-picker-option:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.lineup-picker-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lineup-picker-pts {
+  color: var(--ice-bright);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.lineup-picker-cancel {
+  margin-top: 0.3rem;
+}
+
 .nav-tab-badge {
   position: absolute;
   top: -5px;

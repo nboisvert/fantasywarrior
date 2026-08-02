@@ -18,12 +18,12 @@
 // group the same way it is everywhere else in the app (Standings/Dashboard).
 
 import { useEffect, useState } from "react";
-import { api, formatCap, posGroup, posGroupClass } from "../api";
+import { api, formatCap, formatShortName, posGroup, posGroupClass } from "../api";
 import type { LeagueDetail, LineupDto, LineupEntry, PlayerSeasonStatsRow } from "../api";
 import { LoadingLogo } from "../components/LoadingLogo";
 import { PlayerCard } from "../components/PlayerCard";
 import {
-  ArrowLeftIcon, ChevronDownIcon, CircleCheckIcon, CircleIcon, InfoIcon, LockIcon,
+  ArrowLeftIcon, ChevronDownIcon, CircleCheckIcon, CircleIcon, InfoIcon,
 } from "../components/Icons";
 
 /** Slots used per position group, for the "9/9 F · 4/4 D · 1/1 G" counter. */
@@ -34,14 +34,6 @@ function countUsed(entries: LineupEntry[], activeSpotIds: string[]): Record<stri
   return used;
 }
 
-/** "Mon Oct 6 – Sun Oct 12" */
-function weekLabel(startDate: string, endDate: string): string {
-  const fmt = (iso: string) =>
-    new Date(`${iso}T12:00:00Z`).toLocaleDateString(undefined, {
-      month: "short", day: "numeric", timeZone: "UTC",
-    });
-  return `${fmt(startDate)} – ${fmt(endDate)}`;
-}
 
 const formatGaa = (goalsAgainst: number, gamesPlayed: number): number | null =>
   gamesPlayed > 0 ? goalsAgainst / gamesPlayed : null;
@@ -93,6 +85,89 @@ function LineupToggle({
     >
       {icon}
     </button>
+  );
+}
+
+/** Who can take this spot's place in the lineup.
+ *
+ * Same position group only — the slots are per position, so a forward can
+ * never stand in for a defenceman and offering him would produce a lineup the
+ * server rejects. Best first, since that is the choice being made. */
+function replacementsFor(entry: LineupEntry, entries: LineupEntry[]): LineupEntry[] {
+  return entries
+    .filter((e) => e.spotId !== entry.spotId && e.positionGroup === entry.positionGroup && e.active !== entry.active)
+    .sort((a, b) => b.seasonPoints - a.seasonPoints);
+}
+
+/** The replacement sheet: pick who comes in, or bench outright.
+ *
+ * Opens on the lineup control rather than acting on it directly, because the
+ * interesting question is not "is this player in" but "who plays instead" —
+ * and answering it in one step avoids ever writing a lineup with a hole in it. */
+function LineupPicker({
+  entry, entries, slotIsFree, busy, onSwap, onBench, onClose,
+}: {
+  entry: LineupEntry;
+  entries: LineupEntry[];
+  slotIsFree: boolean;
+  busy: boolean;
+  onSwap: (inSpotId: string) => void;
+  onBench: () => void;
+  onClose: () => void;
+}) {
+  const options = replacementsFor(entry, entries);
+  const title = entry.active ? `Replace ${formatShortName(entry.name)}` : `Bring in ${formatShortName(entry.name)}`;
+
+  return (
+    <div className="lineup-picker-overlay" role="dialog" aria-modal="true" aria-label={title} onClick={onClose}>
+      <div className="lineup-picker" onClick={(e) => e.stopPropagation()}>
+        <div className="lineup-picker-head">
+          <span className={`roster-pos-pill roster-pos-pill-${entry.positionGroup.toLowerCase()}`}>
+            {entry.positionGroup}
+          </span>
+          <span className="lineup-picker-title">{title}</span>
+        </div>
+
+        {entry.active ? (
+          <>
+            <button type="button" className="lineup-picker-option" disabled={busy} onClick={onBench}>
+              <span className="lineup-picker-name">Bench, leave the slot open</span>
+            </button>
+            {options.length > 0 && <span className="lineup-picker-sub">or swap in</span>}
+          </>
+        ) : slotIsFree ? (
+          <button type="button" className="lineup-picker-option" disabled={busy} onClick={() => onSwap(entry.spotId)}>
+            <span className="lineup-picker-name">Activate — a {entry.positionGroup} slot is open</span>
+          </button>
+        ) : (
+          <span className="lineup-picker-sub">
+            Every {entry.positionGroup} slot is taken. Choose who sits out.
+          </span>
+        )}
+
+        {options.map((o) => (
+          <button
+            key={o.spotId}
+            type="button"
+            className="lineup-picker-option"
+            disabled={busy}
+            onClick={() => onSwap(o.spotId)}
+          >
+            <span className="lineup-picker-name">{formatShortName(o.name)}</span>
+            <span className="muted">{o.team ?? "—"}</span>
+            <span className="lineup-picker-pts">{o.seasonPoints} pts</span>
+          </button>
+        ))}
+
+        {entry.active && options.length === 0 && (
+          <span className="lineup-picker-sub">Nobody on the bench plays {entry.positionGroup}.</span>
+        )}
+
+        <button type="button" className="btn-ghost lineup-picker-cancel" onClick={onClose}>
+          Cancel
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -250,6 +325,9 @@ export function Stats({
   const [lineup, setLineup] = useState<LineupDto | null>(null);
   const [lineupError, setLineupError] = useState("");
   const [saving, setSaving] = useState(false);
+  // Which lineup control is open. One at a time: this is a choice about a
+  // single slot, not a multi-select.
+  const [pickerSpotId, setPickerSpotId] = useState<string | null>(null);
 
   useEffect(() => {
     let ignore = false;
@@ -272,12 +350,27 @@ export function Stats({
     };
   }, [league.id, targetUsername]);
 
+  // The lineup shown is the first *editable* one. Once a week starts it is
+  // frozen, so a GM looking at his own team is almost always working on next
+  // week — showing him this week's locked set would give him controls that
+  // refuse every tap.
   useEffect(() => {
     let ignore = false;
     setLineup(null);
     api
       .lineup(league.id, targetUsername, username)
-      .then((res) => !ignore && setLineup(res))
+      .then(async (current) => {
+        if (ignore) return;
+        if (current.locked && current.isOwner) {
+          const next = current.periods.find((p) => p.index === current.periodIndex + 1);
+          if (next) {
+            const editable = await api.lineup(league.id, targetUsername, username, next.index);
+            if (!ignore) setLineup(editable);
+            return;
+          }
+        }
+        setLineup(current);
+      })
       // A league with no period calendar yet simply has no lineup to show;
       // that must not take the stats grid down with it.
       .catch(() => !ignore && setLineup(null));
@@ -286,19 +379,16 @@ export function Stats({
     };
   }, [league.id, targetUsername, username]);
 
-  /** Optimistic toggle: flip locally, PUT the whole set, roll back on refusal. */
-  async function toggleActive(spotId: string) {
-    if (!lineup || lineup.locked || !lineup.isOwner || saving) return;
-    const wasActive = lineup.entries.find((e) => e.spotId === spotId)?.active ?? false;
-    const next = wasActive
-      ? lineup.entries.filter((e) => e.active && e.spotId !== spotId).map((e) => e.spotId)
-      : [...lineup.entries.filter((e) => e.active).map((e) => e.spotId), spotId];
-
+  /** Writes an active set: optimistic locally, PUT, roll back on refusal. */
+  async function applyActiveSet(next: string[]) {
+    if (!lineup) return;
+    const wanted = new Set(next);
     const previous = lineup;
     setLineup({
       ...lineup,
-      entries: lineup.entries.map((e) => (e.spotId === spotId ? { ...e, active: !wasActive } : e)),
+      entries: lineup.entries.map((e) => ({ ...e, active: wanted.has(e.spotId) })),
       used: countUsed(lineup.entries, next),
+      setBy: username,
     });
     setLineupError("");
     setSaving(true);
@@ -311,6 +401,25 @@ export function Stats({
       setSaving(false);
     }
   }
+
+  /** Swaps one player out and another in, in a single write.
+   *
+   * One call rather than a bench-then-activate pair: the intermediate state
+   * has a slot free and would be a legal lineup the GM never chose, and if the
+   * second half failed he would silently be a player short. */
+  const swap = (outSpotId: string, inSpotId: string) =>
+    applyActiveSet([
+      ...(lineup?.entries ?? []).filter((e) => e.active && e.spotId !== outSpotId).map((e) => e.spotId),
+      inSpotId,
+    ]);
+
+  /** Benching or activating outright — only legal when a slot is free. */
+  const setActive = (spotId: string, active: boolean) =>
+    applyActiveSet(
+      active
+        ? [...(lineup?.entries ?? []).filter((e) => e.active).map((e) => e.spotId), spotId]
+        : (lineup?.entries ?? []).filter((e) => e.active && e.spotId !== spotId).map((e) => e.spotId),
+    );
 
   const viewedTeam = league.teams.find((t) => t.ownerUsername === targetUsername);
   const isOwnTeam = targetUsername === username;
@@ -469,53 +578,12 @@ export function Stats({
         )}
       </div>
 
-      {lineup && !lineup.hidden && (
-        <div className="card lineup-bar">
-          <div className="lineup-bar-top">
-            <span className="lineup-week">
-              Week {lineup.periodIndex}
-              <span className="lineup-week-dates"> · {weekLabel(lineup.startDate, lineup.endDate)}</span>
-            </span>
-            {lineup.locked && (
-              <span className="lineup-lock" title="This week's lineup is frozen">
-                <LockIcon size={13} /> Locked
-              </span>
-            )}
-          </div>
-
-          {lineup.gameCount === 0 ? (
-            <small className="muted">No NHL games this week — league break.</small>
-          ) : (
-            <>
-              <div className="lineup-slots">
-                {(["F", "D", "G"] as const).map((g) => {
-                  const max = g === "F" ? lineup.slots.forwards : g === "D" ? lineup.slots.defense : lineup.slots.goalies;
-                  const used = lineup.used[g] ?? 0;
-                  return (
-                    <span key={g} className={`lineup-slot${used >= max ? " full" : ""}`}>
-                      <span className={`pos-compact-${g.toLowerCase()}`}>{g}</span> {used}/{max}
-                    </span>
-                  );
-                })}
-                <span className="lineup-pts">
-                  {lineup.activePoints} pts
-                  {lineup.benchPoints > 0 && (
-                    <small className="muted"> · {lineup.benchPoints} on the bench</small>
-                  )}
-                </span>
-              </div>
-              <small className="muted">
-                {lineup.locked
-                  ? "Only these players scored for you this week."
-                  : lineup.isOwner
-                    ? "Tap a player below to activate or bench them. Locks when the week starts."
-                    : "Set by " + (lineup.setBy ?? "auto") + "."}
-              </small>
-            </>
-          )}
-          {lineupError && <p className="error-banner">{lineupError}</p>}
-        </div>
-      )}
+      {/* The week bar (its number, dates, lock pill, slot counter and points)
+          was removed 2026-08-02 per Nick — a good idea to bring back later, but
+          the width it took is what the lineup controls needed. The slot counter
+          is the one piece genuinely missed; the picker enforces the same limits
+          at the point of choosing, which is where it matters most. */}
+      {lineupError && <p className="error-banner">{lineupError}</p>}
 
       {loading && <LoadingLogo label="Loading stats…" />}
       {!loading && error && <p className="error-banner">{error}</p>}
@@ -583,11 +651,11 @@ export function Stats({
                             entry={lineupBySpotPlayer.get(r.id)!}
                             editable={!!lineup && lineup.isOwner && !lineup.locked}
                             busy={saving}
-                            onToggle={toggleActive}
+                            onToggle={setPickerSpotId}
                           />
                         )}
                         <button type="button" className="stats-player-btn" onClick={() => setOpenPlayerId(r.id)}>
-                          <span className="stats-player-name">{r.name}</span>
+                          <span className="stats-player-name">{formatShortName(r.name)}</span>
                           <span className={`stats-player-pos pos-compact-${posGroupClass(r.position)}`}>
                             {posGroup(r.position)}
                           </span>
@@ -648,6 +716,37 @@ export function Stats({
           )}
         </div>
       )}
+      {pickerSpotId && lineup && (() => {
+        const entry = lineup.entries.find((e) => e.spotId === pickerSpotId);
+        if (!entry) return null;
+        const max =
+          entry.positionGroup === "F" ? lineup.slots.forwards
+          : entry.positionGroup === "D" ? lineup.slots.defense
+          : lineup.slots.goalies;
+        const close = () => setPickerSpotId(null);
+        return (
+          <LineupPicker
+            entry={entry}
+            entries={lineup.entries}
+            slotIsFree={(lineup.used[entry.positionGroup] ?? 0) < max}
+            busy={saving}
+            onSwap={(inSpotId) => {
+              close();
+              // Activating a benched player into a free slot is the one case
+              // with nobody to take out.
+              if (inSpotId === entry.spotId) setActive(entry.spotId, true);
+              else if (entry.active) swap(entry.spotId, inSpotId);
+              else swap(inSpotId, entry.spotId);
+            }}
+            onBench={() => {
+              close();
+              setActive(entry.spotId, false);
+            }}
+            onClose={close}
+          />
+        );
+      })()}
+
       {openPlayerId != null && (
         <PlayerCard playerId={openPlayerId} onClose={() => setOpenPlayerId(null)} />
       )}

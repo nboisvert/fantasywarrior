@@ -66,6 +66,47 @@ public static class LineupEndpoints
             var weekTotals = await db.TeamPeriodScores
                 .FirstOrDefaultAsync(v => v.TeamId == team.TeamId && v.PeriodId == periodDoc.PeriodId);
 
+            // A week the nightly job has not reached yet has no assignment rows
+            // at all, so every player would read as benched — a GM setting next
+            // week's lineup ahead of time would start from an empty team rather
+            // than from the one he is already fielding.
+            //
+            // Show him what the job *would* pick: last week's active set carried
+            // forward and topped up. Computed, never written: this is a preview
+            // of a default, and persisting it would turn "we picked this for
+            // you" into "you chose this", which is the distinction the whole
+            // forgotten-lineup rule rests on.
+            var previewed = new HashSet<int>();
+            if (results.Count == 0)
+            {
+                var previous = await db.Periods
+                    .Where(p => p.Season == league.Season && p.Number < periodDoc.Number)
+                    .OrderByDescending(p => p.Number)
+                    .FirstOrDefaultAsync();
+                var previousActive = previous is null
+                    ? []
+                    : (await db.RosterAssignments
+                        .Where(a => a.PeriodId == previous.PeriodId && a.IsActive
+                                    && spots.Select(s => s.RosterSpotId).Contains(a.RosterSpotId))
+                        .Select(a => a.RosterSpotId)
+                        .ToListAsync());
+
+                var seasonSoFar = await db.RosterSpotTotals
+                    .Where(v => v.TeamId == team.TeamId)
+                    .ToDictionaryAsync(v => v.RosterSpotId, v => v.ActivePoints);
+                var candidates = spots
+                    .Select(s => new LineupCandidate(
+                        s.RosterSpotId.ToString(), s.PlayerId, s.PositionGroup,
+                        seasonSoFar.GetValueOrDefault(s.RosterSpotId), s.OpenedUtc))
+                    .ToList();
+
+                foreach (var id in LineupRules.CarryForward(
+                             candidates,
+                             [.. previousActive.Select(id => id.ToString())],
+                             new LineupSlots(league.ActiveForwards, league.ActiveDefense, league.ActiveGoalies)))
+                    previewed.Add(int.Parse(id));
+            }
+
             var entries = spots.Select(s =>
             {
                 players.TryGetValue(s.PlayerId, out var p);
@@ -80,7 +121,7 @@ public static class LineupEndpoints
                     team = p?.TeamAbbrev,
                     headshotUrl = p?.HeadshotUrl,
                     capHit = caps.TryGetValue(s.PlayerId, out var c) ? c : (long?)null,
-                    active = r?.IsActive ?? false,
+                    active = r?.IsActive ?? previewed.Contains(s.RosterSpotId),
                     points = r?.FantasyPoints ?? 0,
                     gamesPlayed = r?.GamesPlayed ?? 0,
                     fromDate = (DateOnly?)r?.EffectiveFrom,
@@ -102,7 +143,8 @@ public static class LineupEndpoints
                 periodIndex = periodDoc.Number, startDate = periodDoc.StartDate, endDate = periodDoc.EndDate,
                 gameCount = periodDoc.GameCount, locked, finalized = periodDoc.FinalizedUtc is not null,
                 isOwner, hidden = false,
-                setBy = lineup?.SetBy, submittedUtc = lineup?.SubmittedUtc,
+                setBy = lineup?.SetBy ?? (previewed.Count > 0 ? LineupSetBy.Auto : null),
+                submittedUtc = lineup?.SubmittedUtc,
                 activePoints = weekTotals?.ActivePoints ?? 0,
                 benchPoints = weekTotals?.BenchPoints ?? 0,
                 slots, used, entries, periods = periodsDto,
