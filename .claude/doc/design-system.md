@@ -1,0 +1,85 @@
+# Design system — « Night Arena »
+
+> Approuvé par Nick le 2026-07-22. Les **règles** vivent dans `CLAUDE.md` ; ce
+> document porte le détail qu'on va chercher au besoin (valeurs exactes,
+> typographie, procédure de régénération des assets).
+
+Tokens : `frontend/src/index.css` (variables CSS) · composants :
+`frontend/src/App.css` · écrans : `frontend/src/screens/` · icônes SVG :
+`frontend/src/components/Icons.tsx`.
+
+## Couleurs
+
+| Rôle | Valeur |
+|---|---|
+| Fond | `#0a0e1a`, avec des halos radiaux cyan/indigo fixes |
+| Surface élevée | `#10162a` |
+| Carte « verre » | `rgba(255,255,255,.045)` + bordure 1px `rgba(255,255,255,.09)` + backdrop-blur |
+| Accent (dégradé) | ice cyan `#38bdf8` → `#22d3ee` |
+| Lueur néon | `rgba(56,189,248,.35)` |
+| Danger / dépassement de plafond | rose `#f43f5e` |
+| Succès | `#4ade80` (`--success`) |
+| Podium du classement | or `#fbbf24`, argent `#c7d2e0`, bronze `#d0885a` |
+| Texte | `#f1f5f9` ; atténué `#8b96ab` |
+
+**Positions** : attaquant = ice cyan · défenseur = violet `#a78bfa` (`--defense`)
+· gardien = or. Le violet a remplacé l'argent le 2026-07-23 : l'argent était trop
+peu contrasté pour la défense.
+
+Contraste AA au minimum, partout.
+
+## Typographie
+
+**Russo One** pour l'affichage (titres, noms d'équipe, chiffres, majuscules) et
+**Chakra Petch** pour le corps de texte. Google Fonts, chargées dans `index.html`.
+
+## Forme et mouvement
+
+Rayons de 12 à 16 px. Transitions de 150 à 300 ms, et **uniquement** sur
+`color`/`opacity`/`filter` — jamais rien qui déplace la mise en page au survol.
+`fade-in` de 250 ms au montage d'un écran. `prefers-reduced-motion` respecté.
+
+## Mise en page
+
+Mobile d'abord, contenu à 680 px de large maximum. Barre de navigation basse
+fixe à 64 px + `env(safe-area-inset-bottom)`, **4 onglets** : Dashboard (défaut),
+Standings, Team, Trades — les réglages vivent dans un bouton-icône de la barre
+du haut, pas dans la navigation. Barre du haut collante et floutée, avec le
+sélecteur de ligue et l'utilisateur. Le rembourrage bas du contenu doit dégager
+la navigation.
+
+## Logo
+
+Écusson circulaire : guerrier barbu, casque rouge, bâtons croisés. Master
+`fw_logo.png` à la racine du dépôt (1024 px, transparent). Asset applicatif
+`frontend/src/assets/logo.webp` (512 px, nettoyé et recadré). Utilisé dans le
+héros de connexion (180 px, ombre portée cyan) et dans les barres du haut (30 px).
+
+## Icônes d'écran d'accueil et PWA (2026-07-25)
+
+`frontend/public/manifest.json` (lié dans `index.html`, `name`/`short_name`
+« Fantasy Warrior », `display: standalone`, `background_color` et `theme_color`
+à `#0a0e1a`) fait qu'« Ajouter à l'écran d'accueil » installe une vraie icône
+d'application plutôt qu'un raccourci de navigateur dans une boîte blanche.
+
+Tous les assets sont régénérés depuis `logo.webp` via Pillow — recadrage sur la
+boîte englobante du contenu, centrage, redimensionnement. **Si le logo change,
+les régénérer de la même façon.**
+
+| Fichier | Taille | Fond | Rôle |
+|---|---|---|---|
+| `favicon.png` | 64 | transparent | onglet du navigateur seulement |
+| `favicon-192.png` | 192 | transparent | manifest, `purpose: "any"` |
+| `favicon-512.png` | 512 | transparent | manifest, `purpose: "any"` |
+| `maskable-icon.png` | 512 | **`#0a0e1a` opaque** | manifest, `purpose: "maskable"` |
+| `apple-touch-icon.png` | 180 | **`#0a0e1a` opaque** | iOS |
+
+Les deux dernières **ne doivent jamais être transparentes ni blanches**. Sur
+`maskable-icon.png`, le logo est réduit à ~72 % pour survivre au recadrage de la
+zone de sécurité des icônes adaptatives d'Android ; un fond transparent est
+exactement ce qui produisait l'ancien rendu « cercle blanc avec badge Chrome ».
+iOS ne compose pas l'alpha de façon fiable sur les icônes tactiles, d'où le fond
+opaque sur `apple-touch-icon.png` aussi.
+
+`index.html` porte également les balises `apple-mobile-web-app-capable`,
+`-status-bar-style` et `-title` pour un lancement propre en mode autonome sur iOS.

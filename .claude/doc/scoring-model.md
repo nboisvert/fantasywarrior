@@ -11,7 +11,7 @@ Chaque semaine, un GM active un sous-ensemble de son roster. Seuls les points de
 
 ## 1. Les entités
 
-| Entité | Collection | Ce que c'est |
+| Entité | Table | Ce que c'est |
 |---|---|---|
 | **Period** | table `Periods` (globale) | Une semaine de pointage. Lundi→dimanche sur la date de match NHL (Est). ~28 par saison. |
 | **RosterSpot** | table `RosterSpots` | L'appartenance d'un joueur à une équipe, du jour X au jour Y. Jamais supprimé, seulement fermé. |
@@ -157,7 +157,7 @@ En ligne de commande : `set-league-rules --league <id> [--goal N] [--assist N] [
 | Tourner le pointage (nocturne) | `nightly` |
 | Rattraper un cron manqué / une saison importée | `nightly --backfill-from N` |
 | Dé-banquer pour recalculer | `UPDATE RosterAssignments SET IsFinalized = 0` + `Periods.FinalizedUtc = NULL`, puis `nightly --backfill-from N` |
-| Comparer à l'ancien modèle | `.claude/doc/golden-scores-preSql.json` (voir sql-migration-status.md) |
+| Comparer à l'ancien modèle | `.claude/doc/golden-scores-preSql.json` (méthode et résultat dans [data-model.md](data-model.md)) |
 | Déplacer un verrou de semaine | `UPDATE Periods SET LockUtc = ... WHERE Season = ... AND Number = ...` |
 
 Un backfill de saison complète est redevenu une opération ordinaire depuis le passage à Azure SQL — il n'y a plus de quota de lectures à ménager.

@@ -1,383 +1,167 @@
 # Fantasy Warrior — Project Status
 
-> **MUST be read at the start of every session and kept updated along the way.**
-> Last updated: 2026-08-02 (by Macklin Softwarini) — Azure SQL migration complete
-
-## ✅ The backend now runs on Azure SQL (migration complete, 2026-08-02)
-
-Firestore was replaced by **Azure SQL + EF Core**, keeping the UI untouched —
-`frontend/` did not change by a single line, because every API response is
-identical field for field.
-
-- **[sql-migration-status.md](sql-migration-status.md)** — what was done, what
-  the oracle comparison proved, and the four things left for Nick before it can
-  go live. **Start here.**
-- [sql-migration-plan.md](sql-migration-plan.md) — the approved design and why,
-  including the validation of Nick's data model.
-
-The headline result: replaying the season against a pre-migration snapshot
-showed the two systems pick **identical lineups**, and the only per-player
-discrepancy was one the *old* data got wrong — goalie decisions were not fully
-captured, so wins scored half what they should have.
-
-**Not deployed yet.** Production still runs the Cloud Run + Firestore build on
-`main`; the rewrite lives on branch `sql-migration`.
-
-Everything below this section is the **Firestore era**. It stays as history and
-as the description of what is still in production, but anything it says about
-storage has been replaced.
+> **Read at the start of every session, and keep updated along the way.**
+> Last updated: 2026-08-02.
+>
+> This file holds the **current state and the decisions behind it**. It is not a
+> changelog — `git log` is, and the commit messages in this repo are detailed.
+> Add a decision here when the *why* would be hard to recover from a diff.
 
 ## Current state
 
-**SCORING REFACTOR: weekly lineups, banked points (2026-07-31) — DONE, 11 commits**
-(plan: `C:\Users\nicolasc\.claude\plans\grosse-refacto-ajd-nous-peppy-harp.md` · rules: [scoring-model.md](scoring-model.md))
-
-The season-cumulative model was replaced end to end. Old model: recompute every
-player's whole season nightly, auto-select a top-X per position, and write a
-compensating ledger entry on every transaction so the total wouldn't jump. Three
-mechanisms fighting to produce a number nobody could explain, at ~90,000 Firestore
-reads a night for one league — against a 50,000/day free tier.
-
-New model: **each GM activates a subset of his roster each week; only active players
-score; a week's points are banked permanently when it closes.** A trade can never
-move history, so the entire compensation apparatus became meaningless and was deleted.
-
-- **Cost: ~1,600 reads/night, measured** (the job counts its own and warns past 10k).
-  One date-range query over the current week serves every league, replacing per-player
-  career scans. Flat for the whole season — finished weeks are never re-read.
-- **New**: `periods` (global weekly calendar, Mon–Sun ET, derived from `games`),
-  `rosterSpots` (renamed `Assignment`), `lineups` (one doc per team per week),
-  `StatLine`/`StatKeys`/`StatWindow` (one stat shape replacing four), `PoolClock`
-  (one definition of "today"), `firestore.indexes.json` + `check-indexes`.
-- **Deleted**: `Assignment`, `Adjustment` + `adjustments`, `ScoreLedgerEntry` +
-  `scoreLedger` (written nightly since July, never read by any code), `AssignmentStats`,
-  `ScoreCalcJob`, `TransactionAdjustment`, `/activity`, `Team.rawTopXScore`/
-  `adjustmentsTotal`/`countedPlayerIds`, 4 dead api.ts functions, dead `firebase.ts`.
-  Net −1,100 lines in that commit alone.
-- **Jobs**: `nightly` (one command, correct order enforced in C# not YAML),
-  `period-init`, `period-rollup`, `recompute`, `period-lock`, `backfill-roster-spots`,
-  `seed-mordus`, `player-dump`, `check-indexes`. Retired: `score-calc`,
-  `process-trades` (folded into `nightly`), `league-init-assignments`, `seed-allstars`.
-- **UI**: active/bench toggle inline in the Team grid (own team, unlocked week only),
-  week bar with slot counter and bench points, Standings shows "+N this week",
-  Dashboard shows the week and what was benched.
-- **Tests: 152 green** (was 56). Pure logic only, no mocking.
-
-**Three bugs shadow mode caught before any user saw them** — the reason the plan
-insisted on running the new scoring beside the old one: every team scored zero
-(spots dated from league creation, not season start), then everyone was benched
-(no lineup slots configured), then the job was clobbering GM-submitted lineups via
-a read-then-write of the whole document.
-
-**⚠️ Cloud Run redeploy required** — the API contract changed substantially.
-The frontend tolerates the old API (`?? 0` everywhere) so nothing is broken meanwhile.
-
-**Still open**: no auth (weekly lineups make this materially worse — silently benching
-a rival's star is undetectable), the Équipe slot scores nothing yet (rule unknown),
-salaries are estimated not real, cap and roster size are displayed but not enforced,
-39 unmatched Mordus players (see [mordus-pool.md](mordus-pool.md)).
-
-**Les Mordus league imported (2026-07-31)** — id `haPRaAJ3Vo3nqPufYGOM`, 14 GMs,
-360 players parsed out of Nick's PoolExpert PDF, 9F/4D/1G active, 23–35 roster,
-$115M cap, scoring 1/1/2/1/0 (goal/assist/goalie win/OT loss/shutout). See [mordus-pool.md](mordus-pool.md).
-
-**PlayerCard polish: top bar frame, age without "y", Last 10 / Career tabs, embedded Hockey-Reference (2026-07-31)**
-
-Nick asked for a PlayerCard polish pass, four pieces:
-- **Top bar**: `.pc-top` (drag handle + close button) previously floated transparent over the sheet; now has a subtle background + `border-bottom` so it reads as a distinct framed header. Added `overflow: hidden` on `.pc-sheet` so that background respects the sheet's rounded corners.
-- **Age/birthday**: Age value dropped the trailing "y" (just `38`, not `38y`). The birthday sub-value (`Aug 7th`) gets its own wider `margin-left` (`.pc-bio-inline-sub-birthday`, 0.6rem vs. the base 0.35rem used by the draft-team sub-value) so the ordinal "th" doesn't read as glued to the age digit.
-- **Last 10 games is now a real `<table>`** (`GamesTable` component, `.pc-games-table`) instead of one concatenated stat string per row — aligned columns (Date/Opp + G/A/+/-/TOI for skaters, Date/Opp + Dec/SV/GA/SO for goalies), sticky header, tabular-nums, hot-game row highlight preserved.
-- **New tabs**: "Last 10" / "Career" (`.pc-tabs`, `role="tablist"`, segmented-control style matching the ice-cyan active-state convention) replace the old standalone "Last 10 games" section heading. **Career tab embeds Hockey-Reference** via an `<iframe>` — there's no per-player Hockey-Reference ID mapping in our data model, so it routes through HR's own name search (`hockey-reference.com/search/search.fcgi?search=<name>`, which redirects straight to the player page on a unique match) rather than a maintained ID lookup. Always paired with a visible "Open ↗" link (`ExternalLinkIcon`, new in `Icons.tsx`) since cross-origin iframes give no reliable signal if the embed gets blocked (e.g. `X-Frame-Options`) — this sandbox can't reach hockey-reference.com to confirm live framing behavior either way, so the fallback link is the safety net, not an edge case. The iframe is lazy-mounted (`careerVisited` state) so opening a player card never fires an external request unless the Career tab is actually opened.
-- **Visually verified in a real browser this round** (Playwright against a temporary standalone preview harness with a mocked `/api/players/{id}` fetch, both skater and goalie fixtures, mobile + desktop widths — harness files deleted after screenshotting, same pattern as the Cockman chat verification). Frontend build clean (`tsc -b && vite build`). Frontend-only change, no backend/API involved, nothing to redeploy.
-
-**News service: Rotowire injuries page added as a third source (2026-07-29)**
-
-Following up the FantasySP HTML-scraping round (below): added `RotowireInjuryScraper` (`Jobs/News/RotowireInjuryScraper.cs`) targeting `rotowire.com/hockey/news.php?view=injuries`, per the integration guide's "Système 1, Étape 2" — Rotowire's RSS feed only carries plain-fact headlines and can be quiet off-season, so this HTML fallback adds team/injury-type/date detail as a supplement, not a replacement (both still run every sync). `NewsItem.Source` values now follow the guide's own normalized schema exactly: `rotowire_rss` | `rotowire_html` | `fantasysp` (renamed from the previous plain `rotowire`/`fantasysp` — harmless since no `rotowire`-sourced docs existed yet, RSS had returned 0 items on every live run so far). `news-sync` gained a third override flag, `--rotowire-injuries-url` (also added to `news-sync.yml`'s inputs). Frontend `NewsArticle.source` type widened to match; no other frontend code branches on the literal source string, so this was a mechanical, build-verified change (`tsc -b && vite build` clean).
-- Selectors (`.news-item` blocks, `.team-name`/`.injury-type`/`.date`/`.headline`/`.news-body`) are the guide's own documented placeholders, explicitly flagged there as unverified against live DOM — same "log loudly on a miss" convention as `FantasySpScraper` (which *did* work on the first real try against live FantasySP data, so there's a real chance this one does too, but it hasn't been confirmed by an actual `news-sync` run yet as of this entry).
-- Deliberately never captures Rotowire's "ANALYSIS" block (subscription-locked content) — only reads the factual news-body/headline, matching the guide's own placeholder which does the same, per the personal/non-commercial-use constraint.
-- Not yet live-verified or redeployed — check the next `news-sync.yml` log for `rotowire_html: N items` (or a `! https://...` diagnostic explaining why not), and the API needs another Cloud Run redeploy for the renamed source values to show correctly through `/api/news` (harmless either way — old `rotowire`-tagged docs never existed).
-- Still open, not built: Rotowire's other guide-listed endpoints (`rumors.php`, `news.php?view=free-agents`, `nhl-lineups.php`) — deferred pending Nick's priority call.
-
-**News service follow-up: FantasySP HTML scraping, diagnostic logging, standalone workflow (2026-07-29)**
-
-First live `news-sync` run (triggered manually to test, since this sandbox can't reach rotowire.com/fantasysp.com directly — see prior entry) came back `rotowire: 0 items` / `fantasysp: 0 items`, silently, because `RssNewsClient`'s original design swallowed all failures without logging why. Fixed in stages:
-- **Diagnostics first**: `RssNewsClient` now logs the HTTP status/content-type, or a body snippet on parse failure/0-`<item>` results, instead of just returning `[]` silently. Also split `news-sync` into its own standalone `news-sync.yml` workflow (manual trigger, feed-URL override inputs) so it can be iterated on without re-running the whole `daily-jobs.yml` chain (which also runs `process-trades` — re-triggering that early each time we wanted to test wasn't great).
-- **Root cause, from the new logs**: Rotowire's URL was actually already correct (`200 OK`, real `application/xml`) — 0 items is most likely NHL off-season quiet (per Nick's guide: "quasi nul hors-saison sauf transactions"), not a bug. FantasySP's guessed `/rss/nhl.xml` came back a clean `404` — **confirmed FantasySP has no public RSS feed at all**.
-- **Nick supplied an integration guide** (saved verbatim at `.claude/doc/news-integration-guide.md`) confirming the above and specifying FantasySP's real approach: scrape `https://www.fantasysp.com/injuries/nhl/`'s server-rendered table (h5 team headers + table rows: #, Player, Team, Pos, Injury, News).
-- **Architecture refactor**: fetch mechanism decoupled from orchestration — new shared `NewsFeedItem` record + `NewsFetcher` delegate (`Jobs/News/NewsFeedItem.cs`), `RssNewsClient` and new `FantasySpScraper` (HtmlAgilityPack, new package ref in `FantasyWarrior.Jobs.csproj`) both produce it, `NewsSyncJob` now takes a list of `NewsSource(Name, Fetch, HasReliablePublishedDate)` instead of being RSS-specific. FantasySP's scraped table has no per-item date, so `HasReliablePublishedDate: false` makes `NewsSyncJob` preserve a scraped item's original `PublishedUtc` across reruns (looked up from the existing `news` collection by doc id) instead of re-stamping "now" every night, which would otherwise make an unchanged standing injury look freshly published forever. `MatchPlayer` now prefers the source's own player identification (FantasySP's dedicated column) over the headline-colon heuristic when available.
-- **Not yet re-verified live** — this refactor was written and pushed but the next `news-sync` run (to confirm FantasySP's scraper actually finds real rows against the live DOM, whose exact selectors are unverified per the guide's own caveat) hadn't completed as of this entry. Check the next `news-sync.yml` run's log.
-- Also flagged, not yet built: Rotowire's guide lists further endpoints (`rumors.php`, `news.php?view=free-agents`, `nhl-lineups.php`) as potentially interesting additional sources — the new `NewsSource` list makes adding them straightforward, but each needs its own scraper (HTML, not RSS) with real DOM structure unverified, same caveat as FantasySP. Deferred until Nick confirms priority.
-- **Personal/non-commercial use only** per both sites' terms — no redistribution, never scrape Rotowire's locked "ANALYSIS" content. See the guide doc for full constraints (robots.txt, rate limiting).
-
-**News service: Rotowire + FantasySP feed the ticker, roster moves removed (2026-07-28)**
-
-First real content source for the ticker beyond league trades. Nick asked for a **news service** — first two sources **Rotowire** and **FantasySP** — with articles riding in the same ticker as trades, and roster-move (add/drop) items dropped from the ticker entirely.
-- Decisions confirmed with Nick: source via each site's public **RSS/XML feed** (not HTML scraping — more stable, standard syndication); cadence is **one step in the existing `daily-jobs.yml`** (same 09:30 UTC run as everything else, no new workflow); scope is **unfiltered** — the ticker's news half is a generic NHL feed, not filtered to a league's rostered players (trades stay league-scoped as before).
-- **Backend**: new global `news/{id}` collection (not per-league), model `Core/News/NewsItem.cs` (source, headline, url, best-effort `playerId`/`playerName` match, publishedUtc/fetchedUtc). New `Jobs/News/RssNewsClient.cs` (generic RSS 2.0 fetch+parse via `XDocument`, same "return `[]` on failure" convention as `NhlApiClient`) + `Jobs/News/NewsSyncJob.cs` (fetches both feeds, matches player names via the existing `NameNormalizer` against a full `players` scan — heuristic: text before the first `:` in the headline, e.g. Rotowire-style "Player Name: blurb" — idempotent upsert via a doc id hashed from source+guid, 30-day retention prune each run). New `news-sync [--rotowire-url] [--fantasysp-url]` job case in `Jobs/Program.cs`; new `GET /api/news?limit=` endpoint (global, not league-scoped). `daily-jobs.yml` gained a `News sync` step after `draft-sync`.
-- **⚠️ Feed URLs unverified**: this session's sandbox has rotowire.com/fantasysp.com blocked by its egress policy, so the default RSS URLs baked into `Jobs/Program.cs` couldn't be fetched live to confirm they're current/correct. First real `news-sync` run needs a manual check — see the new troubleshooting entry in `deployment.md`.
-- **Frontend**: `NewsTicker.tsx`'s `movement` (roster add/drop, sourced from `/activity`) kind is gone, replaced by an `article` kind sourced from new `api.news()`; new `NewspaperIcon` in `Icons.tsx`, `.news-ticker-icon-add`/`-drop` CSS classes replaced by a single `.news-ticker-icon-article`. Trade "hot" 30-min alert logic untouched (was already trade-only). `ActivityEntry`/`api.activity()` (frontend) and `GET /api/leagues/{id}/activity` (backend) are intentionally left in place even though NewsTicker was their only caller — that endpoint is flagged elsewhere in this doc as "deferred, to return later" for a possible Dashboard activity feed, not something to delete as a side effect of this change.
-- Not build/test-verified locally this round (no `dotnet`/`npm` build run in this session — see build notes on the PR/commit). **API changed (new `/api/news` endpoint, new `news` collection) — needs a manual Cloud Run redeploy** before news shows up in prod, and the next `daily-jobs.yml` run (manual or scheduled) needs to succeed once the real feed URLs are confirmed.
-
-**Garry Cockman — AI-mascot chat skeleton, pure UI mock (2026-07-27)**
-
-First concrete step on the "social/interactive" chat-mock lineage, closing the loop on the "Gary Coleman" idea explored-then-deferred on 2026-07-23 (see that entry below). Nick asked for a joke feature: **Garry Cockman**, a parody AI chatbot "President" of the league, "produced and sponsored by Fantasy Warrior," who talks about a fake token system (**cockcoin**). Explicitly a UI/visual mock only — no backend, no real AI, no real token system, evaluated on UI quality only.
-- New commissioner-only trigger ("Chat with Cockman") in `Settings.tsx`'s existing commissioner-gated block, sibling to "League rules."
-- New `frontend/src/components/CockmanChat.tsx` + `CockmanChat.css`: reuses `PlayerCard`'s modal-shell mechanics (overlay, focus trap, Escape/backdrop close, scroll lock, focus restore) and `ProfileMenu`'s scripted mock-chat state pattern (local-only thread, typed replies appended locally, a visible "not real" disclosure note), but with an entirely self-contained visual system — **deliberately clashes** with the Night Arena theme by design: literal hex values only (no shared CSS custom properties), light corporate-SaaS palette (`#2f5fdb` brand blue, white/light-grey surfaces, no blur/glass), system-UI font stack (not Russo One/Chakra Petch), and floats as a bottom-right-docked widget on desktop (not a page modal) — reads as a real embedded 3rd-party helpdesk widget (Intercom/Zendesk-style) bolted onto the app, on purpose.
-- New `CockcoinIcon` in `Icons.tsx` — deliberately breaks the shared flat-stroke icon convention on purpose (multi-ring bevel + radial gradient + off-axis highlight ellipse, faking a glossy "Candy Crush"-style 3D gold coin), shown inline next to every "cockcoin" mention in the scripted script.
-- Nick supplied a reference avatar (AI-generated cartoon caricature portrait) mid-session; saved as `frontend/src/assets/cockman.png` (resized 1024px→256px via a quick Pillow pass to keep the asset small).
-- Scripted intro (4 fixed messages: self-introduction, cockcoin explainer ×2, "how can I not help you") + one canned auto-reply deflection on any user-sent message, so the composer never feels like a dead end. Mock disclosure note always visible, in-character but unambiguous ("not a real president," "no messages here go anywhere").
-- **Visually verified in a real browser this round** (Playwright against a temporary standalone preview harness, not committed) — both desktop-docked and mobile-floating layouts confirmed to render as designed; harness files deleted after screenshotting.
-- Frontend-only, build clean (`tsc -b && vite build`). No backend involved, nothing to redeploy.
-
-**Same-day follow-up: cockcoin earn/unlock concept + first "bonus entry" + concept doc (2026-07-27)** — added two more scripted lines explaining the cockcoin economy: it tracks toward the user's *interaction within the app*, and unlocks *exclusive content* once a balance builds up. Replaced the old closing line with the first **bonus-entry** mechanic — a quick gamified question ("Describe {random fellow pooler} in three words," picked from `league.teams`) — with a dedicated one-time "logged, that's a bonus entry" reward reply (coin icon) the first time the user responds, reverting to the generic deflection after. `CockmanChat` now takes the full `league: LeagueDetail` prop (was just `leagueName`) to pick a real pooler. Also fixed: the thread now auto-scrolls to its latest message (`threadRef` + a `useEffect` on `[thread]`) — without it, the whole point of the update (the bonus-entry question) was scrolled out of view on open; and removed a stray "⚡" emoji from the footer that had slipped past the "no emojis, SVG icons only" rule. New living doc **[.claude/doc/cockman-concept.md](cockman-concept.md)** captures the full Cockman/cockcoin concept (pitch, token mechanics, UI direction, open questions) separate from this build log — linked from CLAUDE.md, meant to keep growing as Nick brainstorms more of it. Build clean.
-
-**Team screen: dedicated "Goalie" column group (W/OTL/SO) split out of Fantasy point (2026-07-27)**
-
-Follow-up to the same-day Roster-grid merge below, per Nick: pulled the "W" column back out of the "Fantasy point" group and, alongside it, brought back OTL/Shutouts (dropped in the merge just before this) into their own new **"Goalie"** column group (3 cols: W, OTL, SO — all season totals, dash `—` for skater rows), placed right after "Fantasy point". "Fantasy point"'s GP and PTS stay exactly where they were — still the single shared column for every position, per Nick's explicit ask. Removed the now-unused `assignmentWins`/`poolWins` (backend projection field + frontend field) added earlier the same day, since nothing references it anymore now that W moved to a season-total field. Frontend build clean; backend not build-verified (no local dotnet SDK) but the change is a pure removal, no new backend surface.
-
-**Team screen: merged Skaters+Goalies into one "Roster" grid + PlayerCard tweaks + git workflow note (2026-07-27)**
-
-Several small UI rounds in one session, all merged straight to `main` per Nick's new git workflow (see below):
-- **PlayerCard bio row**: collapsed each cell to one line (Age replaces Born: `32y Dec 25th`, Draft becomes `1st 2005 PIT`), then a follow-up dropped the parens in favor of a smaller/muted inline span (new `.pc-bio-inline-sub`) for the secondary bit (birth day/month; draft team).
-- **Trades history card bug fix**: expanding a trade card used to keep the collapsed "top 2 + N more" view visible *and* dump every player's full name again below it — a headliner could appear twice while "+N more" stayed on screen. `tradeSide()` now takes an `expanded` flag: collapsed shows top 2 + "+N more"; expanded drops "+N more" and lists the remaining players right below instead, no repeats. Removed the dead duplicate-list JSX/CSS.
-- **Team screen — Skaters/Goalies merged into one "Roster" grid**: single sortable table for the whole roster instead of two separate tables. New column order/grouping: **"Fantasy point"** group (renamed from "Pool", still accent-tinted) = GP/G/A/PTS(spotlight)/W/PTS-per-G, all scoped to the player's *current roster stint* (assignment-scoped) — this required exposing 3 new fields from the backend (`assignmentGoals`/`assignmentAssists`/`assignmentWins`, sourced from `Assignment`'s already-fetched-but-previously-discarded per-stint stat line in the `season-stats` endpoint); then **"NHL"** group (full season) = GP/G/A/PTS(spotlight)/PTS-per-G; then **Extra** (unchanged: +/-, PIM, SOG, GAA, SV% — GAA/SV% show "—" for skaters, W shows "—" for skaters) and **Salary** (unchanged). Title changed from "Skaters" to **"Roster (N / max player)"** with the count de-emphasized via the same muted-inline-span treatment as PlayerCard's bio row (new `.stats-table-title-sub`). Old goalie-only NHL columns (OTL, shutouts) were dropped from this grid entirely per the literal new column spec — still visible via PlayerCard's own season tiles, just not in this team-wide grid.
-- **New (unenforced) roster-size rule**: `RuleConfig.RosterSize { Min, Max }` (nullable ints, null = no limit), added to `RulesPanel.tsx` as a third settings block following the existing `topCount` nullable-int UI pattern. **Does nothing yet except save/display** (drives the new Roster grid's title count) — no add/drop enforcement, deliberately deferred. Nick's own league (Shemalz Pool) should be set to Max 18 / no min via the Rules panel.
-- **Git workflow formalized**: Nick asked to always merge feature branches straight to `main` (fast-forward push) instead of stopping at a PR, while he's solo on the repo — documented as a durable rule in CLAUDE.md so it isn't re-asked every session.
-- **Not build-verified for the backend** (no `dotnet` SDK in this session's sandbox, same constraint as prior sessions) — frontend `tsc -b && vite build` confirmed clean. **API changed (new `RosterSize` rule fields + 3 new season-stats response fields) — needs a manual Cloud Run redeploy** before the new Roster grid's Fantasy-point G/A/W columns show real numbers (they'll read 0 until then) and before the Rules panel's new roster-size fields persist.
-
-**PlayerCard: NHL entry draft info (2026-07-26)**
-
-Nick asked for draft round/pick/year/team on the PlayerCard, replacing the Shoots/Catches bio item ("Rnd 1 #3ov 1997(PIT)", bio order now Born/Draft/Cap hit). We didn't have this data — the roster/prospect endpoints `PlayerSyncJob` uses don't carry it, only the per-player `/v1/player/{id}/landing` endpoint does. Added `Player.DraftYear/DraftRound/DraftOverall/DraftTeamAbbrev/DraftChecked` (Firestore, merge-field protected like `capHit`), `NhlApiClient.GetPlayerLandingAsync`, and a new **`draft-sync`** job that backfills every player not yet `draftChecked` (one HTTP call per player — separate from the nightly roster sync on purpose, but wired into `daily-jobs.yml` right after `player-sync` since it's cheap/idempotent once the initial backfill is done — new prospects just get checked automatically going forward). `GET /api/players/{id}` now returns the four draft fields; `PlayerCard.tsx` formats them or shows "Undrafted".
-- **Not build/test-verified locally** — no dotnet SDK in this session's sandbox, and the NHL API domain (`api-web.nhle.com`) is blocked by this sandbox's outbound proxy, so the `draftDetails` JSON shape (`year`/`round`/`overallPick`/`teamAbbrev`) is unverified against a live response — built from well-established NHL API documentation, not confirmed live. **Needs a real check**: after the first `draft-sync` run (via the next `daily-jobs.yml` run, manual or scheduled), verify actual players in prod show correct draft info, not all "Undrafted" (which would indicate the DTO field names are wrong).
-- Frontend build clean. **API changed — needs a manual Cloud Run redeploy.**
-
-**Merged + deployed: light `league-detail` + on-demand rosters; Standings row opens team Stats (2026-07-25)**
-
-**Merged + deployed: light `league-detail` + on-demand rosters; Standings row opens team Stats (2026-07-25)**
-
-Nick had a branch (`claude/qui-es-tu-y0dihy`, commit `5ee0c2c`) from a prior session sitting unmerged — this was the "Standings click should go to Stats, not expand a player list" feature he was expecting. Fast-forward merged onto `main` (no conflicts, branch was already based on current `main`), Cloud Run API redeployed (run `30174265381`), and `daily-jobs.yml` run manually (`30174269339`) to populate the new precomputed team fields — both green.
-- **Backend**: `GET /api/leagues/{id}` is now a light read — team rows carry precomputed `rosterGamesPlayed`/`capTotal`/`playerNhlPoints` (written nightly by `score-calc`, no more per-request season-stats loop or full `PlayerCache` load) plus just the requesting user's own roster (`myRoster`, `?username=` param, batched `GetAllSnapshotsAsync`). Other teams' rosters load on demand (Stats screen, `CreateTradeSheet`).
-- **Frontend**: Standings rows no longer expand an inline roster — tapping one navigates to that team's Stats screen (own team by default, back link when viewing someone else's). `Dashboard`/`Roster` read `myRoster`; `Trades`/`NewsTicker` rank players via `teams[].playerNhlPoints`.
-- Also folded in earlier same-day work: the N+1 fix in `FetchWithCacheAsync` (`714556d`) and the full Trades privacy/cancelled-status/rating overhaul, which had been sitting undeployed since 2026-07-23 — that Cloud Run redeploy debt is now cleared too.
-- Not build/test-verified locally this round (no `dotnet` SDK in this session's sandbox) — frontend `tsc -b && vite build` confirmed clean; backend relied on CI + the green `api-deploy`/`daily-jobs` runs as the correctness signal. Worth Nick's own click-through once he's on the app, especially `ptsPerGame`/cap/points-behind values that depend on the new nightly-precomputed team fields.
-
-**Session wrap-up (2026-07-23)** — 33 commits today, ~6,200 lines generated / ~1,100 removed (net +5,091, via `git log --numstat`), spanning: Roster/Stats screen split, score ledger + per-assignment stats, Dashboard/Roster/Standings position-pill + row-density pass, breathing-logo loading state, global news ticker (built, then iterated on alert styling/scroll speed/starvation fix/user-scrollability across ~8 follow-up rounds), full trade feature (propose → accept/decline → nightly-process → community rating) plus its full privacy/cancelled-status/star-rating/history-timeline overhaul (2 rounds), profile menu + online GM list + inline chat mock, assignment creation/close field rename + one-command demo reseed, and a PlayerCard scroll fix. Everything is committed and pushed to `main`; **the Cloud Run API redeploy for the trade-privacy/rating backend changes is still on Nick to trigger** — see that entry below for what depends on it.
-
-**Trades history: chronological vertical timeline instead of per-trade stepper (2026-07-23)**
-
-Nick clarified after the overhaul below: the "timeline" ask was for the **past-trades list itself** — each past trade as one stop on a single chronological timeline (dot + recap + click-to-expand) — not a Proposed→Accepted→Processed stepper nested inside each trade. Reworked `Trades.tsx`: past trades now render as one dotted vertical timeline (`trade-history*` classes in `App.css`, cyan dot for processed / rose for declined-cancelled), each node showing the status pill, single most-relevant date, and the 2-3-player recap, expanding to the full player lists + all stage timestamps (now a compact inline `Proposed: … · Accepted: …` line, `StageDates`, replacing the old per-trade `TradeTimeline` stepper) + the rating widget (unchanged). Frontend-only, build clean, no backend redeploy needed for this part.
-
-**Trades screen overhaul: privacy, vertical timeline, recap, star rating (2026-07-23) — DONE** (plan: `C:\Users\nicolasc\.claude\plans\plusieurs-points-ici-param-trable-concurrent-mango.md`)
-
-Nick flagged five gaps after using the Trades screen for real: pending/declined trades were visible league-wide (should be private to the two teams involved), the old 1-5 rating scale was meaningless without knowing which side it favored, no distinct status existed for "proposer withdrew" vs "counterparty rejected", the collapsed row dumped full player-name lists instead of a quick recap, and the single date line should be a proper timeline.
-- **Privacy**: `GET /trades` now requires `username` and filters via new `TradeValidation.IsVisibleTo` — `accepted`/`processed` stay public to the whole league, `pending`/`declined`/`cancelled` are visible only to `proposerUsername`/`counterpartyUsername`.
-- **New `cancelled` status**, distinct from `declined`: `POST /trades/{id}/respond` with `accept=false` now branches by caller identity — proposer withdrawing their own offer → `cancelled` (via new `TradeValidation.CanCancel`), counterparty rejecting → `declined` (`CanDecline`, now proposer-excluded). The status alone communicates who acted, no extra field needed.
-- **Rating system rebuilt to be cross-trade-aggregable**: `TradeVote.Level: int` (1-5, proposer/counterparty-relative, meaningless without UI context) replaced with `FavoredUsername: string?` (the actual username favored, null = fair) + `Magnitude: int` (0/1/2) — a future "which GM wins their trades most" rollup can now filter votes by `FavoredUsername` directly across the whole league without needing to know proposer/counterparty roles per trade. `GET /trades` returns a bucketed tally (`proposerClear/proposerLean/fair/counterpartyLean/counterpartyClear/total`) instead of a bare average.
-- **Frontend**: `TradeRatingWidget.tsx` rewritten as a literal 5-option star scale (★★ / ★ / **Fair** / ★ / ★★, new `StarIcon` in `Icons.tsx`), selected option gets a visibly stronger scale-up + glow treatment, summary line names a team explicitly (e.g. "Team X favored, 3 of 5 voters") instead of a bare number. `Trades.tsx`: collapsed past-trade rows now show a 2-3-best-player recap per side (reusing `NewsTicker.tsx`'s NHL-points ranking) instead of a full name dump; the single date line became a real **vertical timeline** (Proposed → Accepted/Declined/Cancelled → Processed, filled/muted stops per Nick's "elegant, vertical" call); past-trades bucket now also includes `cancelled`.
-- Tests: 56 green (was 47; +9 `TradeValidationTests` — `CanCancel`/`CanDecline` split, `IsValidVote`, `CanVoteOnTrade`, `IsVisibleTo`). Backend + frontend build clean.
-- **Live-verified against prod Firestore** (Shemalz Pool): proposed a jay↔baby test trade, confirmed it's invisible to an uninvolved user (`nick`) while pending and stays invisible once declined; a second test trade confirmed proposer-cancel produces `cancelled` and blocks further action on it; cast an invalid vote (`magnitude=2` with `favoredUsername=null`) and confirmed rejection; cast a valid vote and confirmed the tally bucket incremented correctly and `myVote` round-tripped. Couldn't visually verify the rendered UI in a browser this session (no browser tooling available) — worth Nick's own pass once deployed.
-- **Note**: the "Gary Coleman" AI-commissioner-chat idea Nick asked to explore was fully designed then explicitly deferred ("conserve ce plan d'idée, on va travailler le Trade screen maintenant") — preserved outside the repo in Claude's memory system (not lost, just not in this file since it isn't built), to be picked up whenever Nick brings it up again.
-- **API changed significantly — needs a manual Cloud Run redeploy** before this works in prod.
-
-**News ticker: user-scrollable + Trades screen shows date/time (2026-07-23)**
-
-- **Ticker is now a real scrollable element, not a CSS transform animation.** `NewsTicker.tsx` drives auto-advance via a `requestAnimationFrame` loop nudging `scrollLeft` (matching the old pace: one loop of the content per 60s), but since it's genuine `overflow-x: auto` underneath, real touch/wheel/trackpad input on the same element moves that same `scrollLeft` — so a user can swipe through faster than the auto-advance. Auto-advance backs off for 1.5s after detected input, and pauses entirely (not just a timeout) for as long as the pointer/focus stays on it, matching the previous CSS `:hover`/`:focus-within` pause behavior (WCAG 2.2.2). Scrollbar hidden (`scrollbar-width: none` + `::-webkit-scrollbar{display:none}`) since it reads as a ticker, not a conventional list. The hot-trade `IntersectionObserver` logic needed no changes — real scrolling is if anything a more natural fit for it than the transform-based version.
-- **Trades screen shows date/time per row** — `tradeDateLabel()` in `Trades.tsx` picks the status-relevant timestamp (`Proposed`/`Accepted`/`Declined`/`Processed` + a formatted date+time), shown on both pending and past-trade rows.
-- Frontend-only, build clean, no backend redeploy needed.
-
-**Assignment field model renamed + one-command full demo reseed (2026-07-23)**
-
-Formalized the open/close tracking fields Nick asked to define: `Assignment.CreationEvent`/`CreationEventReferenceId` (values: `draft` | `trade` | `freeagent`, default `freeagent` — replaces the old `Source`/`SourceRefId`, dropping the separate `"initial"` concept entirely) and `CloseReason`/`CloseReasonReferenceId` (values: `trade` | `release` | null-while-open — `CloseReasonReferenceId` renamed from the previous session's `CloseSourceRefId`). `RosterChange.ApplyAsync` now takes independent creation/close parameter pairs instead of one shared `source`/`sourceRefId` (needed since the vocab differs by direction — e.g. a free-agency add opens with `freeagent` but a manual drop closes with `release`, not the same value). Renamed across `Assignment.cs`, `RosterChange.cs`, `Program.cs` (add/drop endpoints, `/activity`, `RosterChangeRequest` DTO), `ProcessTradesJob.cs`, `SeedTradesJob.cs`, `seed-allstars`/`league-init-assignments`, `RosterChangeTests.cs`, and the frontend `ActivityEntry.source` type. 47 tests green throughout.
-- **New `reseed-demo [--league-name] [--season]` command** (`Jobs/Demo/FullReseedJob.cs`) — the "one command for the full teaser" Nick asked for. Orchestrates: wipe everything pool-related (extended `wipe-pools` to also delete `trades`+`votes`, still never touches `players`/`games`/`playerGameStats`); recreate the 9 fixed GMs + league, **carrying over the current league's actual rules/cap** (read before wiping, not hardcoded); snake-draft rosters from real top performers (unchanged logic, still verifiably "the best by stats"); **stagger each initial assignment's `CreatedUtc`** 1-89 days into the past (deterministic, not random) so the news ticker doesn't show a wall of identical "just now" entries — `From` stays the true season-start date, this only affects the audit timestamp; estimate salaries for all 1000+ players (top 200 real scorers scaled $3M-$14M, flat $1M default — guarantees every drafted player has a real salary); seed the demo trade set via the existing `SeedTradesJob` (pending/accepted/declined/processed-and-hot); re-run `score-calc` last so everything is consistent.
-- **Live-verified end-to-end against prod Firestore**: ran `reseed-demo`, confirmed the fresh trade's add/drop events both correctly show `source: "trade"` (the earlier session's fix holds on new data too), confirmed 12+ staggered `freeagent` assignment dates spread across mid-July instead of one identical timestamp, confirmed top real performers were drafted (McDavid/Bouchard/Vasilevskiy leading their groups), confirmed all 72 rostered players have a salary (0 without), confirmed all 4 trade statuses present with the processed one 1.1 minutes old (inside the 30-min hot window).
-- **⚠️ New league id**: `dVdneUALgfPK4HyIlFUY` (the old `pfGBZO5rjcjIYgyxMLLn` no longer exists — wiped). Nick's browser has the old id cached in `localStorage`'s `fw-league`; the app will show a "league not found" error on next load until he reselects "Shemalz Pool" via the league switcher (his `myLeagues` list will show it correctly since the username/membership was recreated).
-- **Needs a Cloud Run redeploy** before any of this (the rename + the demo data shape) is correct on the live site — reminder, not self-triggerable.
-
-**Fixed: trades were leaking spurious "drop" movement news + fresh trade-status test data (2026-07-23)**
-
-Nick caught that trade-involved players were still generating plain movement news items alongside their dedicated trade item. Root cause was an **engine design gap, not a typo**: `RosterChange.ApplyAsync` closes a player's *existing* assignment when he's traded away, but that assignment's `source` field reflects why it was originally *opened* (e.g. `"initial"`, from the season-long roster) — never why it *closed*. The `/activity` endpoint's drop-event derivation blindly reused that same opening `source` for the close event too, so a trade-caused drop showed up misattributed to `"initial"`/`"free_agency"`, slipping past the news ticker's `source !== "trade"` filter.
-- Fixed by adding `Assignment.CloseReason`/`CloseSourceRefId` (distinct from `Source`/`SourceRefId`, populated only when an assignment closes), threaded through `RosterChange.BuildClosedAssignmentFields` (now takes `closeReason`/`closeSourceRefId` params) and consumed by `/activity`'s drop-event branch (`a.CloseReason ?? a.Source`, backward-compatible fallback for assignments closed before this field existed). Tests: 47 green (+2).
-- Live-verified: the drop side of a fresh trade now correctly shows `source: "trade"` (was `"initial"`) — confirmed all 4 events (2 adds + 2 drops) of a freshly-processed nick↔al trade report `source: "trade"`.
-- **New `seed-trades --league <id>` job** (`Jobs/Trades/SeedTradesJob.cs`): wipes a league's `trades` (+ `votes` subcollections) and reseeds one of each status with staggered timestamps — pending (10 min old), accepted-not-yet-processed (proposed 2h/accepted 1h ago), declined (a day old), and a **processed trade stamped "now"** (via a real `RosterChange` swap, not a fake status flag) so it's inside the news ticker's 30-minute hot window immediately after seeding. Ran against Shemalz Pool: sam↔vince (pending), dom↔didi (accepted), baby↔jay (declined), nick↔al (processed, confirmed 0.9 min old / HOT at verification time).
-- Nick should now see the ticker's gold pulse alert live when the nick↔al trade item scrolls into view (still hadn't seen it before this fix+reseed).
-- **Needs a Cloud Run redeploy** before the fix is live in prod (backend change) — reminder, not self-triggerable.
-
-**News ticker: real notification system (2026-07-23) — non-trade movements + processed trades + "hot" alert**
-
-Rewrote `NewsTicker.tsx` to merge two real data sources into one feed: plain player movements (add/drop) with `source !== "trade"` from the existing `/activity` endpoint, plus recently `processed` trades from `/trades`, each rendered richly (both teams' "star" player — highest NHL points among the league's currently-rostered players, looked up via a new `league` prop threaded down from `App.tsx` — plus a `(+N)` for any other players on that side). Trade-sourced individual add/drop events are filtered out of the plain-movement list so a trade never double-shows.
-- **"Hot" alert**: a processed trade counts as hot for 30 minutes. While a hot trade's ticker item is actually scrolled into the visible band (tracked with a real `IntersectionObserver` against the ticker's own viewport — not just "present in the data"), the whole ticker switches to a pulsing gold alert treatment; it reverts the instant the item scrolls back out, and — since the marquee loops — re-fires every time that item comes back around, for as long as it's still within the 30-minute window. A `setInterval` re-checks hotness every 30s so it correctly expires even if the tab's been open the whole time.
-- **Per-type icons**: add = `PlusIcon` (ice-cyan), drop = new `MinusIcon` (muted), trade = `ArrowLeftRightIcon` (gold) — trade reuses the exact same icon used everywhere else a trade is represented (Trades nav tab, CreateTradeSheet), per Nick's ask.
-- Live-verified the data layer against prod Firestore: confirmed trade-sourced activity entries are correctly excluded from the plain-movement list, and the two leftover test trades from the earlier trade-feature verification are correctly past their 30-min hot window (~81-83 min old) so they won't spuriously alert. Couldn't visually verify the IntersectionObserver-driven scroll-into-view behavior itself (no browser tooling this session) — worth a manual check once a genuinely fresh trade exists.
-- Build clean.
-
-**Inline chat mock in the profile menu (2026-07-23, UI mock only — no backend)**
-
-Added a message icon to each "League GMs" row in `ProfileMenu`; tapping it swaps the panel's content (same dropdown, no new dialog — "inline") from the GM list to a two-message mock thread + composer for that GM, with a back arrow to return. Deterministic seeded opening exchange per GM (same hash approach as the presence mock), typed replies append locally only. A small note in the chat view ("UI preview only — messages aren't sent anywhere yet") makes the mock status explicit to whoever's testing it. New icons added: `MessageCircleIcon`, `ArrowLeftIcon`, `SendIcon`. Real chat needs an actual backend (a `messages` collection + realtime listeners) — not built, out of scope this round. Build clean.
-
-**Position indicator: new durable convention + app-wide audit fix (2026-07-23)**
-
-Nick asked to settle this "once and for all": added a hard rule to CLAUDE.md's design system section — every F/D/G indicator app-wide must use one of exactly two patterns, **normal** (pill: `.roster-pos-pill` + `.roster-pos-pill-f/d/g`) or **compact** (bare colored letter, no pill: new `.pos-compact-f/d/g`), chosen per screen by data density, always built via a new shared `posGroupClass()` helper in `api.ts` (never inline `.toLowerCase()`).
-- Audited every `posGroup()` call site app-wide and found the rule was **not** actually being followed 4/8 places: Standings and PlayerCard used a flat single-color `.pos-badge` pill (same cyan regardless of F/D/G); Stats' tables and CreateTradeSheet's roster checklist used plain `--text-muted` grey text with zero color coding. Fixed all four — Standings/PlayerCard now use the real `.roster-pos-pill-*` pill classes (retired `.pos-badge` entirely, only 2 call sites existed), Stats/CreateTradeSheet now add `.pos-compact-f/d/g` alongside their existing sizing classes. Also fixed a stale App.css comment that said "silver for defense" (code/CLAUDE.md have used violet `--defense` since 2026-07-23 already) and two double-spacing bugs that surfaced once `.roster-pos-pill` (which carries its own `margin-inline`) got reused inside two parents that already had their own flex `gap` (`.pc-header-meta`, `.standing-player-info`) — zeroed the pill's margin in those two contexts.
-- Roster/Dashboard already had this right, just refactored their inline `posGroup(...).toLowerCase()` onto the new shared helper for consistency.
-- Build clean.
-
-**Profile menu — first piece of the social/interactive push (2026-07-23, styling only)**
-
-Nick's framing: this kicks off "the social/interactive side that will differentiate the app from others." First piece: the topbar's plain username text + Settings gear button rebranded into a single profile-indicator button (circular ice-cyan initials avatar + name, pill-shaped) that opens an anchored dropdown (not a bottom-sheet — content's too short for that weight): name header, Settings/Log out actions, divider, "In this league" presence list of the other poolers with an online/offline dot + last-seen label. Built by a React Exposito subagent (isolated worktree), scope-checked (only `App.tsx`'s topbar + two new files touched), integrated, build clean.
-- **Online/last-seen is mocked** — deliberately, per Nick ("that's only styling," no backend this round). `ProfileMenu.tsx`'s `getPresence()` derives a stable pseudo-random status from a hash of the username (not `Math.random()`, so it doesn't flicker on re-render) — clearly commented as a placeholder. Real presence needs a future backend piece (e.g. a `presence/{username}` doc + heartbeat); `User.LastLoginUtc` already exists in Firestore but nothing surfaces it via the API yet.
-- Accessibility: Escape closes + returns focus to trigger, click-outside closes, opening moves focus into the panel, `aria-haspopup`/`aria-expanded`, status never color-only (dot + text label).
-
-**Trade feature: propose → accept/decline → nightly-processed, with a community rating (2026-07-23) — DONE, Phase 6 pulled forward** (plan: `C:\Users\nicolasc\.claude\plans\plusieurs-points-ici-param-trable-concurrent-mango.md`)
-
-First real transaction feature since the read-only Roster era — any pooler can propose an N-for-M trade with another team; only the receiving pooler can accept/decline (either side can also decline to withdraw a still-pending offer). **Acceptance doesn't execute the trade immediately** — it sits `accepted` until the new nightly `process-trades` job (wired right after `score-calc` in `daily-jobs.yml`) actually swaps the rosters, so a given day's score is always computed on that day's rosters before any trade takes effect. Every `processed` trade becomes ratable by any league member on a 1-5 "who won" scale (1=proposer's team clearly won, 3=fair, 5=counterparty clearly won), one vote per member, average shown to everyone.
-- [x] Backend: new `Trade`/`TradeVote`/`TradeValidation` (`Core/Leagues/Trade.cs`) and a new shared `RosterChange.ApplyAsync` helper (`Core/Leagues/RosterChange.cs`) extracted from the existing add/drop roster endpoints — generalizes single-player add/drop to N-out/M-in so a trade calls it once per team with zero new scoring math (reuses `ScoringEngine`/`PlayerTotalsSource`/`AssignmentStats` exactly as before). `POST/GET .../trades`, `.../trades/{id}/respond`, `.../trades/{id}/vote` endpoints added; existing roster add/drop endpoints refactored onto the shared helper (behavior unchanged, verified by the existing test suite + a live smoke test). New job `Jobs/Trades/ProcessTradesJob.cs` (`process-trades` CLI command).
-- [x] Frontend: **Settings moved out of the bottom nav into a small topbar icon button** (new `.topbar-icon-btn`, deliberately not reusing `.icon-btn` — that class's hover is red/danger-tinted for LeagueGate's cancel button, wrong affordance for a neutral nav action) — freed the 5th bottom-nav slot for the new **Trades** tab (`ArrowLeftRightIcon`). New `screens/Trades.tsx` (pending list w/ accept・decline・cancel actions, past-trades list w/ tap-to-expand), `components/CreateTradeSheet.tsx` (clones `PlayerCard`'s bottom-sheet/focus-trap mechanics, different body: pick counterparty → multi-select players each way), `components/TradeRatingWidget.tsx` (5-segment vote scale + average marker).
-- [x] Tests: 45 green (was 31; +6 `TradeValidationTests` — accept/decline authorization, overlap detection; +8 `RosterChangeTests`, added after Nick flagged that the assignment-creation logic itself had no unit coverage — refactored `RosterChange` to pull the pure, Firestore-free parts out of `ApplyAsync` into `BuildOpenedAssignments`/`BuildClosedAssignmentFields`/`BuildNewPlayerIds`, same "extract pure logic" convention as `ScoreLedgerLogic`/`TradeValidation`, no mocking needed). Backend + frontend build clean.
-- [x] **Live-verified end-to-end against prod Firestore** (Shemalz Pool): proposed al↔chuck (O'Reilly for Gostisbehere), confirmed guardrails (wrong user/proposer can't accept, can't vote on a non-processed trade, can't accept an already-declined trade), accepted, confirmed **zero roster/score change** before processing, ran `process-trades`, confirmed the swap executed correctly with **exact transaction invariance held** (al's score stayed 636, chuck's stayed 613 — raw score moved, adjustment ledger absorbed the difference), voted from two users and confirmed the average/overwrite-on-revote logic. Then **reverted the live test swap** via a real reverse trade (same accept→process pipeline) to restore both rosters/scores to their exact original state. Net effect on prod data: 3 harmless trade records now sit in Shemalz Pool's trade history (the original swap + a declined throwaway + the reverse swap that undid it) — visible in the new Trades screen's "Past trades"/declined list; safe to ignore or ask to have purged directly from Firestore.
-- [ ] **API changed significantly — needs a manual Cloud Run redeploy** (Actions → Deploy API to Cloud Run → Run workflow) before trades work in prod; the new `process-trades` step in `daily-jobs.yml` also needs the next scheduled/manual cron run to take effect.
-- Not yet built (deliberately out of scope this round): notifications when a trade is proposed/accepted (no push/email infra yet), a trade-history filter by team.
-
-**Scoring traceability: daily ledger + per-assignment stats + Stats double-header (2026-07-23) — DONE** (plan: `C:\Users\nicolasc\.claude\plans\plusieurs-points-ici-param-trable-concurrent-mango.md`)
-
-Nick suspected a scoring bug (a 4th-best defenseman's big night overtaking the 3rd-best, worried the team would get credit for the player's whole game instead of just the boundary-crossing delta). **Verified against the actual code: no bug** — `score-calc` recomputes every team's top-X fresh from season-cumulative totals every night rather than accumulating day-by-day deltas, so a boundary crossing already nets out correctly on its own. The real gap was a missing audit trail, closed by two new pieces:
-- **`scoreLedger`** subcollection (`leagues/{id}/teams/{username}/scoreLedger`) — one entry per (team, player, day) written only when a player's cumulative fantasy points changed or his counted-flag flipped (`ScoreLedgerLogic.ShouldRecord`, unit-tested). Purely explanatory; `Team.Score` is never derived from it.
-- **`Assignment`** extended with a full per-stint stat line (goals/assists/... + `fantasyPoints` + `statsUpdatedUtc`), scoped to `[from, to ?? today]`, refreshed nightly for open assignments by `score-calc` (`RefreshOpenAssignmentsAsync`) and frozen once for good when an assignment closes (roster-remove endpoint).
-- Stats screen (`Stats.tsx`) now has a **two-row grouped header** — NHL (GP/G/A, season) / Pool (PTS, PTS/M — now sourced from `assignmentFantasyPoints`/`assignmentGamesPlayed`, no more client-side point-value math) / Extra (+/-/PIM/SOG or GAA/SV%) / Salary (Salary, $/PTS — now against Pool points). Goalies grid gained PTS/M and $/PTS columns to match. `league-detail` endpoint also exposes each rostered player's `nhlPoints` (season goals+assists).
-- Standings' expanded player list fixed to **1 line** (full name, not truncated + pos pill + team + `nhlPoints`, all inline) — this was bundled in as a small parallel request.
-- **New durable rule added to CLAUDE.md**: before touching any player-row list on any screen, ask how many lines / name truncation / right-side info — several earlier rounds this session were spent guessing this per screen.
-- Verified live against prod Firestore: temporarily bumped Shemalz Pool's assist value 1→2, ran `score-calc`, confirmed 6-7 ledger entries per team fired correctly, reverted the rule config and re-ran to restore correct scores (final restored scores: Al 636, Baby 597, Chuck 613, Didi 577, Dom 586, Jay 667, Nick 642 [raw 561 + adj 81], Sam 592, Vince 580).
-- Tests: 31 green (was 23; +5 `ScoreLedgerLogicTests`, +3 `PlayerTotalsSourceTests.AggregateRange`). Backend + frontend build clean. **Not yet visually verified in a browser** (no browser tooling available this session) — Nick should eyeball the Stats screen's new grouped header before considering this fully closed.
-- **API changed significantly — needs a manual Cloud Run redeploy** (Actions → Deploy API to Cloud Run → Run workflow); not self-triggerable (no `gh`/`GITHUB_TOKEN` available to this session).
-
-**UI adjustments (2026-07-23)**: Roster's team name moved out of the cap card, now sits unwrapped at the top of the page. Stats' adjustment line reworded to explain itself ("carried over from past trades/roster moves, so your total stayed fair at the time — your current roster alone has scored X pts") instead of a bare "adjustment · raw top-X score". Stats' "Season 2025-26 stats" heading removed. Standings replaced the cap/salary sub-line with **team PTS/M** — new `ptsPerGame` field on `GET /api/leagues/{id}` (team score ÷ summed games-played across the roster, via the existing `PlayerTotalsSource.FetchWithCacheAsync` cache, null when no games played yet).
-
-**Salary estimation (2026-07-22 night)** — Nick confirmed the NHL API genuinely has no contract/salary fields anywhere (verified live: grepped the player-landing and roster endpoints for salary/contract/capHit/aav, zero hits — PuckPedia really is the only source, and it's paid/private). Approved a stopgap: **`estimate-salaries`** job scales a plausible cap hit between $3M-$14M across the top 200 real scorers (goals+assists, from `playerSeasonStats`) and flats everyone else at $1M; every write is tagged `capHitSource: "estimated"` so it's never confused with real contract data later. Ran once (1371 players updated), then `score-calc` re-run for Shemalz Pool. **Real bulk salary data is still the long-term TODO** (CSV from Nick or a PuckPedia subscription) — this is a clearly-labeled placeholder.
-- Side finding while verifying post-estimate scores: `nick`'s team had 7 players instead of 8. Traced via the `assignments`/activity history: a genuine **drop** event for Zach Werenski exists, ~2 minutes after the initial draft (2026-07-23T02:23 UTC) — not a bug in any job (none of `estimate-salaries`/`set-league-cap`/`score-calc` touch roster composition). Likely dropped via the app's remove button during phone-testing, before Roster became read-only later that session. Werenski is untouched in the `players` collection; just ask if he should be re-added to `nick`'s roster.
-
-**Salary investigation (2026-07-22 night)** — Nick reported salaries "seem lost". Verified: **not a bug**. The 2 test players imported early this session (Danault $5.5M, Matheson $4.875M) still have intact `capHit` — the merge-field protection in `PlayerSyncJob` works correctly across every subsequent player-sync. What actually happened: a **real bulk salary import was never done** — only that original 3-player smoke-test CSV ever ran. Shemalz Pool's real roster (McDavid, Crosby, etc.) never had salary data to begin with (this was already an open TODO). PuckPedia's data API is private/paid (confirmed earlier — see Phase 1 notes); **still need Nick to provide a CSV or decide on a paid source** before cap totals mean anything for the current league.
-- [x] Added `set-league-cap --league <id> --amount <dollars>` job (reusable; 0 clears the cap). Set Shemalz Pool (`pfGBZO5rjcjIYgyxMLLn`) to **$100,000,000**.
-- [x] **Position display standardized "at all times" (2026-07-23, per Nick)**: `posGroup` (C/L/R→F, D→D, G→G) centralized as a single shared export in `api.ts` — was duplicated locally in Roster/Stats/Dashboard, now one source of truth. Applied everywhere a position is shown, no exceptions: PlayerCard's header and Standings' expanded roster (previously showed the raw code) now also collapse to F/D/G. Underlying data is untouched — `position` in Firestore/API stays the raw NHL code; this is a display-only rule. The pill itself (`.roster-pos-pill`) now carries its own `margin-inline` so it can never sit flush against a neighboring name/team, wherever it's placed (parent flex-gaps that would have doubled up on that spacing were removed). Dashboard's scorer rows collapsed from two lines to **one** (name + pill + team all inline, name ellipsizes first).
-- [x] **Dashboard scorer polish (2026-07-23)**: added a new `--defense` violet token (`#a78bfa`) — silver read too low-contrast for the D position pill, documented in CLAUDE.md's palette; `.roster-pos-pill` padding tightened slightly (shared class, so Roster benefits too). Dashboard's "Top scorers" rows now use the same F/D/G colored pill as Roster (was the plain `.pos-badge` before) and show short names ("S. Crosby" — first-initial + last name; Roster/Stats keep full names, this formatting is dashboard-only), plus a scoped tighter row padding/smaller headshot (`.dash-scorers` ancestor selector, Roster's own rows untouched). Also added a global `min-height: 44px` to `.player-hit` (was missing everywhere) so the new tighter Dashboard rows can't drop below the touch-target floor.
-- [x] **Stats grid v2 (2026-07-23)**: PTS on both grids is now the league's actual fantasy score (computed client-side from `league.ruleConfig.pointValues`: goal/assist for skaters, goalieWin/goalieOtLoss/shutout for goalies) instead of raw hockey points — a new **PTS column added to the Goalies grid** (didn't exist before), both PTS columns keep the ice-cyan accent highlight. Position pill removed from the Stats grid specifically (kept on Roster) — position now shows as plain muted text right after the player's name, before the numeric columns. **Both grids are now sortable**: click any column header to sort by it (toggles asc/desc, chevron indicator, nulls always sort last) — implemented as a small generic `useSort`/`SortableHead` pair, default sort is PTS descending on both tables.
-- [x] **Roster/Stats refinements (2026-07-23)**: unified salary format to `$9.6M` everywhere (removed the "9.6M$" variant that briefly existed on Roster's rows — one compact-money helper now, not two); Stats header reworked so team name + points total share one row/baseline (`.stats-header-top`), with the adjustment pill moved to its own line below; replaced the sticky "gros footer" totals card with a plain `<tfoot>` row per grid (Skaters/Goalies), summed per column (GAA/SV% recomputed from summed raw components, not averaged); added **PTS/M** (points per game), **Salary**, and **$/PTS** (cost per point) columns to the Skaters grid, **Salary** to the Goalies grid. Verified against live data (McDavid: 138 pts / 82 GP → 1.68 PTS/M, $14M cap → ~$101K/PTS).
-- [x] **Roster split into Roster + Stats screens (2026-07-23)**: new backend endpoint `GET /api/leagues/{id}/teams/{username}/season-stats` (cache-first via new `PlayerTotalsSource.FetchWithCacheAsync`, ~1 read/rostered player instead of re-scanning game lines) backs a new **5th bottom-nav tab, "Stats"** (Dashboard/Standings/Roster/Stats/Settings). Roster is now team/cap-composition only (score/points/adjustment header content removed); player rows are exactly two lines (F/D/G pill + name on line 1, team + compact salary "9.6M$" on line 2). Stats screen owns everything performance-related: a compact score/adjustment header (same content, visually smaller than Roster's old one) + two data grids (Skaters: GP/G/A/PTS/+‑/PIM/SOG; Goalies: GP/W/OTL/SO/GAA/SV%, sticky player-name column, horizontal scroll contained to the grid) + a sticky footer summing every column (GAA/SV% recomputed from summed raw components, not averaged-of-averages), positioned above the fixed bottom nav via `bottom: calc(var(--nav-height) + safe-area)`. Built by a React Exposito subagent (scope for once legitimately included `App.tsx` for the new tab), scope-checked, integrated, build clean.
-- [x] **Roster header/list redesign**: score is now the headline (big Russo One number), signed adjustment total shown as a pill next to it (hidden when zero), cap gauge rebuilt as two `PlayerCard`-style tiles (Available/Used, flips to danger red + "Over budget" past 100%) above the existing `.cap-track` bar, reads calmly at today's real 0%-used state (no salary data imported yet). Player rows: position collapsed to a color-coded F/D/G pill (`--ice-bright`/`--silver`/`--gold` tokens, never color-only — letter always shown), stray "—"/"·" artifacts from null capHit removed (cap-hit sub-text now omitted entirely when null, no punctuation-join separators). Built by a React Exposito subagent, scope-checked (Roster.tsx + Roster-only CSS), integrated, build clean.
-
-**Data reset (2026-07-22 night, redone with all-star draft)**: added `wipe-pools` job (deletes `users` + `leagues` incl. subcollections `teams`/`assignments`/`adjustments`; `players`/`games`/`playerGameStats` untouched — reusable for clearing test data) and `seed-allstars` job — drafts the top synced performers (by fantasy points, season stats already in Firestore) via a **snake draft** across 9 fixed GMs for roster balance, **writes team docs directly (no adjustment ledger)** so full-season production counts as if each player had always been on that team (no compensating transaction, per Nick's "assume all players belonged to their team for the whole season").
-- Superseded same night by a **full-season redo**: backfilled the **entire 2025-26 regular season** (confirmed boundaries via the NHL API: 2025-10-07 → 2026-04-16, gameType 2; preseason/playoffs excluded) — **1342 games, 51264 player lines** now in `playerGameStats`.
-- Added **`playerSeasonStats`**, a consolidated per-season cache (collection, doc id `{season}_{playerId}`) — see the new CLAUDE.md note under "advanced stats service". Populated as a write-through side effect of `PlayerTotalsSource.FetchAsync` (nightly scoring) and the `/api/players/{id}` endpoint (already fetches the lines for recentGames, so caching is free); bulk-seeded by `seed-allstars`'s full-season scan (1038 players cached in one pass). Deliberately **not** refreshed via scheduled full-season rescans — a season is ~49k lines, and Firestore's free tier caps at 50k reads/day.
-- `seed-allstars` reworked to draft **by position**: `--forwards 4 --defense 3 --goalies 1` (options, defaults shown), separate snake-drafted pools per `PositionGroup` instead of an undifferentiated skater/goalie split.
-- Re-seeded **"Shemalz Pool"** (id `pfGBZO5rjcjIYgyxMLLn`, season 20252026) from the full-season pool (615F/325D/98G available) — real recognizable stars: McDavid, MacKinnon, Draisaitl, Crosby, Kucherov, Pastrnak, Kaprizov, Makar, Hughes, Rantanen, Vasilevskiy... Season-long scores realistic and balanced: 577-667 pts across 9 teams, `adjustmentsTotal: 0` everywhere (full-season ownership assumption holds).
-- `PlayerRawTotals` (Core/Scoring) extended with the full stat line (plusMinus, pim, shots, hits, blockedShots, goalsAgainst, saves, shotsAgainst) so there's one aggregation shape shared by scoring, the cache, and the player-card API (removed a duplicate ad hoc aggregation in the API endpoint).
-- Earlier league ids (`PZPF8iZDlzW1y4TmHKTw`/6-per-team/20262027 and `cacsxkwrzp76djvtMZLz`/6-per-team) are gone (wiped); `pfGBZO5rjcjIYgyxMLLn` is current. `seed-allstars` remains a reusable command for future re-seeds.
-
-**DONE (2026-07-22 evening): GM Dashboard redesign**
-- [x] Backend: `GET /api/leagues/{id}/activity?limit=` — recent add/drop events (assignments-derived), enriched with player name/position/team name; `Assignment.closedUtc` added so drop events are orderable.
-- [x] Frontend IA rework (built by a React Exposito subagent, reviewed and integrated): bottom nav is now 4 tabs — **Dashboard** (new default: hero header, rank/score/cap stat chips, top-4 mini standings, top-8 scorers of my roster tappable to PlayerCard, relative-time activity feed) · Standings · Roster · **Settings** (create/join league forms + my-leagues switch list + commissioner RulesPanel + logout — moved out of the main flow). `LeagueGate` trimmed to a pure picker, shown only when the user has 2+ leagues and no remembered one, or via the topbar league-switch. 0-league users land straight on Settings; exactly 1 league auto-selects. `fw-league` in localStorage still drives "last opened league" persistence.
-- Verified: build clean, lint clean, landing-logic traced against real accounts (freshgm=0 leagues→Settings, testa=1 league→auto Dashboard, nick=2 leagues→picker).
-- [x] **Density pass (2026-07-22 night)**: Nick found the header (league name + season) ate ~1/4 of the screen; hero collapsed from a ~193px stacked card to a ~106px single-strip header + slim stat-chip row, using PlayerCard's tight-grid vocabulary as the density reference (briefed with ui-ux-pro-max's "Data-Dense Dashboard" numbers: 8-12px padding, ~56-64px header). Built by a React Exposito subagent, scope-checked (only Dashboard.tsx + the dashboard CSS block) and integrated. 44px touch targets preserved on tappable rows.
-- [x] **Round 5 (2026-07-22 night) — full restart, mobile-native**: Nick called out that rounds 3-4 had drifted into a "desktop BI dashboard crammed onto a phone" feel and asked for a from-scratch rebuild. New design: single vertical stack of full-width cards (no side-by-side grid), styled with **PlayerCard's own spacing/type-scale reused verbatim** (`.pc-tiles`/`.pc-tile` classes, not re-tightened). Content: an "At a glance" card with 4 tiles (Players count, Cap Space remaining in compact `$X.XM` format, Rank as ordinal, Points as the accented stat) + a "points behind leader" caption (or "Leading the pool"); a "Top scorers" card (5 players, reusing Roster's `.player-row` markup) tappable to `PlayerCard`. The activity ticker is fully removed (not hidden) — deferred, to return later. All prior dense-grid/2-column/ticker CSS deleted (CSS bundle shrank 19.7kB→15.8kB). Same night, **Roster became read-only** (add/drop UI removed — rosters are season-long per the current model; backend endpoints untouched for future use). Built by a React Exposito subagent (briefed against ui-ux-pro-max's touch-spacing guidance as a corrective), scope-checked, integrated, build clean.
-- [x] **Round 4 (2026-07-22 night) — phone-tested refinements**: (a) 2-column layout now actually fits real phones — collapse breakpoint dropped 480px→320px, padding/gaps tightened throughout (`.dash-grid` gap, `.mini-row` unified to `0.26rem 0.5rem` for both tables, `.cap-meter.dash-cap-meter` given explicit tight padding); (b) activity ticker reworked into a **3-row sliding vertical carousel** (doubled-list windowing, `translateY` slide every 3.6s, seamless wraparound rewind, static/no-timer fallback under `prefers-reduced-motion` or <3 entries, visually-hidden `aria-live` announcer for just the newly-entered row); (c) scorer rows gain an **F/D/G position pill** (`.msr-pos-pill`, cloned from the old `.counted-badge` pill look) next to the name, second column now just the NHL team abbreviation; (d) alignment pass unifying padding/columns between the standings and scorers mini-tables. Built by a React Exposito subagent, scope-checked (Dashboard.tsx + dashboard CSS only), integrated, build clean.
-- [x] **Round 3 (2026-07-22 night) — full redesign**: 2-column top section (CSS Grid, named areas, collapses to 1 column below 480px) — left: ultra-compact top-5 standings (rank/team/score, single line, no handle) with a **"gap to my rank" indicator**: if the viewer's team isn't in the top 5, show ranks 1-4, a bold ice-cyan divider, then the viewer's true rank as a 5th row; right column: a dedicated **Cap Space card** reusing Roster's `.cap-meter` gauge verbatim, stacked above a **Recent Activity ticker** (single entry at a time, auto-loops every 3.6s, pauses on hover/focus, respects `prefers-reduced-motion` via a live `matchMedia` hook, `aria-live="polite"`, fixed-height viewport to avoid layout jump). Below both columns, full width: top-7 scorers pushed to a third density pass (row padding 0.45rem→0.28rem, still 44px tap targets via the button's own min-height). Removed the old 3-chip stat row entirely (rank/score/cap now conveyed by the standings block + cap card, no duplication). Built by a React Exposito subagent (ui-ux-pro-max consulted for gauge/ticker/2-col dashboard + WCAG 2.2.2 pause requirement), scope-checked (Dashboard.tsx + dashboard CSS only), integrated, build clean.
-- [x] **Round 2 (2026-07-22 night)**: (a) new **no-duplicate-destination** rule added to CLAUDE.md — removed the "View full standings" link (Standings already in bottom nav); (b) mini-standings/top-scorers rebuilt as dense grid "mini-table" rows (no headshots, no position pills, no per-row cards — a single bordered container with hairline-separated grid rows); (c) league name + season moved out of the Dashboard body entirely, now shown subtly in the topbar's league-switch button (name + small muted season, hidden below 400px). Also dropped the "TOP" counted-badge text globally (Standings/Roster/Dashboard) — confusing without context; kept the quieter `.player-row.counted` border tint for future reuse. Built by a React Exposito subagent, scope-checked, integrated.
-
-**🚀 LIVE since 2026-07-22** — full stack in production, all free-tier:
-- App: https://nboisvert.github.io/fantasywarrior/ (GitHub Pages, auto-deploy on push)
-- API: https://fantasy-warrior-api-197228637471.northamerica-northeast1.run.app (Cloud Run, manual deploy workflow)
-- Nightly cron active (stats → scores → rosters, 09:30 UTC)
-- E2E verified in prod: login, standings, player card. See `.claude/doc/deployment.md` for the full runbook.
-
-**Priority change (Nick, 2026-07-22): minimal UI + league schema FIRST, auth bypassed** — login is username-only for now (API trusts the client; Firebase Auth token verification will replace it later). Stats service (Phase 2) pushed after the minimal UI.
-
-**League schema + minimal UI: DONE (first cut)**
-
-- [x] Firestore schema: `users/{username}`, `leagues/{id}` (name, season, capAmount, commissioner, memberUsernames), `leagues/{id}/teams/{username}` (one team per user per league, `playerIds` roster)
-- [x] API endpoints: login, my-leagues, create/join league (league id = invite code), league detail (teams + rosters + capTotal), player search (in-memory PlayerCache, 10-min TTL), roster add/remove with one-owner-per-player-per-league conflict check
-- [x] React UI (mobile-first, EN): username login → league gate (create/join/pick) → app shell with **fixed bottom nav (Standings default + Roster)** and league switcher in top bar
-- [x] UI design system (2026-07-22, via ui-ux-pro-max): dark "night arena" theme — bg `#0a0e1a`, ice-cyan accents `#38bdf8/#22d3ee`, glass cards, Russo One (display) + Chakra Petch (body), podium colors for ranks, cap meter with overage state, Lucide SVG icons. Tokens in `frontend/src/index.css`; screens in `frontend/src/screens/`
-- [x] End-to-end verified locally against prod Firestore: full flow incl. ownership conflict and cap totals. Test data left in prod: league "Buddies Pool Test" (users nick, marc)
-- [ ] Roster structure rules (nb of F/D/G) — needs Nick's pool rule sheet
-- [ ] Real auth (Firebase Auth) — deliberately deferred
-
-**Local dev**: API → `ASPNETCORE_URLS=http://localhost:5099 dotnet run --project backend/FantasyWarrior.Api --no-launch-profile` (+ `GOOGLE_APPLICATION_CREDENTIALS`, `FIRESTORE_PROJECT_ID=fantasywarriordb`); frontend → `npm run dev` in `frontend/` (API base URL via `VITE_API_URL`, defaults to localhost:5099).
-
-**Phase 4 — Scoring engine: DONE** (plan: `.claude/doc/plans/phase4-scoring-engine.md`)
-
-- [x] `RuleConfig` per league (commissioner-editable): point values (defaults G/A/OTL=1, W=2, SO=0) + top X per position group (F/D/G, null = all)
-- [x] `ScoringEngine` (Core, pure, 7 unit tests): player points, top-X selection with deterministic ties, transaction adjustment
-- [x] **Transaction invariance**: roster add/drop creates `adjustments` ledger entries so team score never moves at transaction time; `score = rawTopXScore + adjustmentsTotal`
-- [x] `assignments` history per league: playerId, team, from/to (ET dates), **source** (initial | free_agency | trade | draft) + sourceRefId; opened/closed by roster endpoints; `league-init-assignments` migration ran
-- [x] `score-calc` job (stateless recompute) wired in daily-jobs.yml between stats-sync and player-sync; `countsInScore` persisted as `countedPlayerIds` per team
-- [x] API: PATCH /api/leagues/{id}/rules (commissioner), GET /api/players/{id} (bio + season totals + last 10 games, isHome), league detail exposes score/points/counted/ruleConfig, teams sorted by score
-- [x] UI: standings show real scores (+adj), expandable team rosters, TOP badge on counted players; roster shows player points + cap meter; RulesPanel (gear icon, commissioner only); **PlayerCard** bottom-sheet (bio, season tiles, last 10 games) built by React Exposito agent, wired on all player rows
-- [x] E2E verified on 2025-26 data: league DJgrL5jEEMVSJekAZ3v5 (testa/testb) — top-X exclusion works, Marner↔Bratt trade left both scores unchanged, next-day sync moved only new production
-- Note: `isHome` added to playerGameStats (Apr 1-5 re-synced). Goalie goals/assists not in NHL boxscore goalie group — not counted (rare, acceptable v1).
-
-**Phase 2 — Stats service: DONE (cron pending secret)**
-
-- [x] Firestore: `games/{gameId}` (scores, lastPeriodType REG/OT/SO) and `playerGameStats/{gameId_playerId}` (full skater + goalie lines, queried by `date`)
-- [x] `StatsSyncJob`: `stats-sync [--date | --from/--to]` (default yesterday UTC), idempotent upserts, backfill-ready; derived flags: `shutout` (solo goalie, 0 GA), `otLoss` (decision O). `stats-check` for verification
-- [x] Unit tests (TOI parse, shutout rules, date ranges) — 16 tests green
-- [x] Verified on real 2025-26 data: 2026-04-01→04 synced (34 games, 1296 lines); spot-checked vs known results (Marner hat trick, Oettinger shutout, Kuemper OTL)
-- [x] `daily-jobs.yml`: cron 09:30 UTC (stats-sync + player-sync) with manual backfill inputs
-- [ ] **Nick: add GitHub secret `FIREBASE_SA_KEY`** (content of the service-account JSON) to activate the cron
-
-**Phase 1 — Player service: IN PROGRESS**
-
-- [x] `Player` model in Core (`players` collection, doc id = NHL player id)
-- [x] `NhlApiClient` (api-web.nhle.com: standings, rosters per season with offseason fallback, prospects)
-- [x] `PlayerSyncJob` — run: `dotnet run --project backend/FantasyWarrior.Jobs -- player-sync [--season YYYYYYYY]`; salary field (`capHit`) protected from sync overwrites via merge-fields
-- [x] First prod sync done 2026-07-22: **1371 players** upserted into project `fantasywarriordb`; verified with `player-check` command
-- [x] Salary import: `salary-import --file <csv>` (columns `nhlId?,firstName,lastName,teamAbbrev,capHit`; match by NHL id or normalized name + team tiebreak; unmatched rows reported). Verified end-to-end in prod incl. capHit surviving a full player-sync. **PuckPedia API is private/paid** (https://puckpedia.com/tools/data) → CSV is the retained path; Nick could still contact them.
-- [ ] Real full salary dataset to import (waiting on a source/CSV from Nick)
-- [ ] Daily cron workflow for player-sync (blocked on GitHub repo)
-
-**Firebase (live)**: project `fantasywarriordb`, Firestore Native in northamerica-northeast1, production-mode rules. Service account key (never committed): `C:\Nick\secrets\fantasywarriordb-sa.json`. Jobs need env vars `GOOGLE_APPLICATION_CREDENTIALS` + `FIRESTORE_PROJECT_ID=fantasywarriordb`.
-⚠️ `frontend/src/firebase.ts` still holds the web config of project `requinopen` (first attempt) — replace with the `fantasywarriordb` web app config (Nick to provide from console).
-
-**Phase 0 — Foundations: DONE (local scope)** — GitHub repo/Pages/GCP linking deferred by Nick (work local first, link repo later).
-
-- [x] Stack decided (see CLAUDE.md)
-- [x] Full roadmap approved by Nick (plan of 2026-07-22)
-- [x] CLAUDE.md updated (stack, AI team: React Exposito / Backend Mackinnon / Db Crosby)
-- [x] project_status.md initialized (this file)
-- [x] Monorepo scaffolding: `FantasyWarrior.slnx` (.NET 10: Api/Core/Jobs/Core.Tests), React+Vite+TS in `frontend/`, `.editorconfig`
-- [x] API `/health` endpoint + Dockerfile (Cloud Run ready, port 8080); verified locally (build, tests, curl /health OK; frontend `npm run build` OK)
-- [x] CI/CD workflows: `ci.yml` (build+test on PR/push), `frontend-deploy.yml` (GitHub Pages), `api-deploy.yml` (Cloud Run, **manual trigger until GCP secrets exist**)
-- [ ] Firebase/GCP setup (manual steps by Nick — see "Waiting on Nick" below)
-- [ ] Verification in prod: React page on GitHub Pages + API /health on Cloud Run (blocked on GitHub repo + GCP setup)
-
-Note: .NET 10 SDK generates the new `.slnx` solution format — use `FantasyWarrior.slnx` in all dotnet CLI commands.
-
-## Roadmap (approved 2026-07-22)
-
-| Phase | Scope | Status |
-|---|---|---|
-| 0 | Foundations: repo scaffolding, Firebase/GCP setup, CI/CD | In progress |
-| 1 | Player service: `players` collection, PlayerSync job (NHL API + PuckPedia salaries) | Todo |
-| 2 | Stats service: `games` + `playerGameStats`, daily StatsSync job, backfill | Todo |
-| 3 | Core domain: users, leagues, teams, multi-tenancy, auth middleware, security rules | Todo |
-| 4 | Rules & scoring engine (configurable per league) + daily ScoreCalc job | Todo |
-| 5 | Frontend MVP: login, standings, team/roster pages, commissioner UI | Todo |
-| 🏁 | **MVP in prod for early October 2026 (NHL 2026-27 season)** | — |
-| 6 | Transactions & free agency (post-MVP) | Todo |
-| 7 | Interactive live draft (target: 2027-28 season) | Todo |
-
-## Key decisions log
-
-- **2026-07-22** — Stack: React/Vite/TS on GitHub Pages, Firestore, Firebase Auth (Google + email/password), .NET 10 minimal API on Cloud Run, .NET jobs via GitHub Actions cron. Constraint: hosting easy and free.
-- **2026-07-22** — Scoring v1: points (goals, assists; goalie wins, shutouts, OT losses) + salary cap. Rules engine must be configurable per league for future configs.
-- **2026-07-22** — First increment: season tracking (rosters entered manually by commissioner); draft happens outside the app for 2026-27, live draft targeted for 2027-28.
-- **2026-07-22** — UI language: English only.
+**Live in production**, entirely on free tiers.
+
+| | |
+|---|---|
+| App | https://nboisvert.github.io/fantasywarrior/ (GitHub Pages, auto-deploy on push) |
+| API | https://fantasy-warrior-api.calmhill-00a494fd.canadacentral.azurecontainerapps.io |
+| Database | Azure SQL serverless, free tier, resource group `fw` |
+| Nightly cron | `daily-jobs.yml` — db-migrate → stats-sync → nightly → player-sync → draft-sync → news-sync |
+
+- **Reference data**: 1 567 players, the full 2025-26 regular season (1 342 games,
+  ~51 k player-game lines, 2025-10-07 → 2026-04-16), contracts scraped from CapWages.
+- **Les Mordus** is the live league — join code `Q7ZJ4G`, season `20252026`,
+  14 GMs, 9F/4D/1G active, 23-35 roster, $115M cap, scoring 1/1/2/1/0
+  (goal/assist/goalie win/OT loss/shutout). See [mordus-pool.md](mordus-pool.md).
+- **A season replay is running.** The simulated date is 2025-12-15. Everything in
+  the app believes it is that day — check `sim-clock` before treating any
+  date-related behaviour as a bug. See [testmode.md](testmode.md).
+
+**Built and working**: player and stats services, leagues/teams/multi-tenancy,
+weekly-lineup scoring with banked points, trades (propose → accept/decline →
+nightly-processed → community rating), the five screens, the news ticker.
+
+## Roadmap
+
+| Scope | Status |
+|---|---|
+| Player service — NHL identity, rosters, prospects, draft info | **Done** |
+| Stats service — game-by-game lines, daily sync, full-season backfill | **Done** |
+| Core domain — users, leagues, teams, multi-tenancy | **Done** |
+| Rules & scoring engine — weekly lineups, banked points | **Done** |
+| Frontend — Dashboard, Standings, Team, Trades, Settings | **Done** |
+| Trades — propose, respond, nightly processing, community rating | **Done** |
+| Contracts — CapWages import | **Done** |
+| Cap and roster-size **enforcement** (displayed today, not enforced) | Todo |
+| Real authentication | Todo |
+| Free agency | Todo |
+| 🏁 **Season-tracking MVP in prod for early October 2026** (NHL 2026-27) | — |
+| Interactive live draft (target: 2027-28 season) | Todo |
+
+## Decisions log
+
+Newest first. Each line is a decision that is still in force, with the reason it
+was taken — not a record of what changed.
+
+### Architecture
+
+- **2026-08-02 — Firestore → Azure SQL + EF Core.** Most of the backend's
+  remaining complexity existed only to dodge Firestore's 50 000 reads/day free
+  tier: a season-stats cache with its own invalidation rules, twelve
+  denormalised columns on `Teams`, a hand-maintained `score = finalizedScore +
+  periodPoints` invariant. In SQL those are a `GROUP BY`, some joins and a
+  `SUM()`. The UI did not change by a line — every API response stayed identical
+  field for field. See [data-model.md](data-model.md).
+- **2026-08-02 — Cloud Run → Azure Container Apps.** Cloud Run has no stable
+  outbound IP, so it could never be allowed through the Azure SQL firewall
+  without paying ~$32/month for Cloud NAT. Container Apps environments have
+  stable outbound IPs, so the firewall rule is derived by the deploy workflow
+  rather than maintained by hand.
+- **2026-08-02 — No registry credentials on the Container App.** `GITHUB_TOKEN`
+  expires when the workflow run ends, and an app with stored credentials never
+  falls back to an anonymous pull — so a dead token 401s even on a public image,
+  hours after a green deploy. The ghcr package is public; the deploy asserts
+  `/health` instead of only printing it.
+- **2026-08-02 — Salaries come from CapWages, scraped.** PuckPedia is the gold
+  source but its data API is private and paid. CapWages embeds the figures in
+  Next.js `__NEXT_DATA__` JSON with an `nhlId` for exact joins. Contracts live in
+  their own `PlayerContracts` table rather than a column on `Player`, because
+  they change every year and the old column needed hand-written merge-field
+  protection to survive a player sync.
+- **2026-07-22 — Auth deliberately bypassed.** Login is username-only and the API
+  trusts the client, so the UI and league schema could be built first. This is
+  now the single biggest open risk (see below).
+
+### Scoring
+
+- **2026-07-31 — Weekly lineups with permanently banked points**, replacing the
+  season-cumulative model. The old design recomputed every player's whole season
+  nightly, auto-selected a top-X per position, and wrote a compensating ledger
+  entry on every transaction so totals wouldn't jump — three mechanisms fighting
+  to produce a number nobody could explain, at ~90 000 Firestore reads a night
+  against a 50 000/day tier. Because a week's points are now banked when it
+  closes, **a trade can never move history**, and the entire compensation
+  apparatus became meaningless and was deleted. [scoring-model.md](scoring-model.md)
+  is authoritative.
+- **2026-08-02 — Cap hit is shown for the season being displayed**, not the
+  newest contract on file. Contracts run years ahead (Jack Eichel is $10M in
+  2025-26 and $13.5M from 2026-27), so taking the latest made the player card
+  disagree with the Team grid about the same player — and the grid was right.
+- **The "Équipe" roster slot scores nothing yet** — the rule has never been
+  specified.
+
+### UI
+
+- **2026-08-02 — The Team screen shows a second grid for departed players.** A
+  team keeps whatever a player banked for it, so the standings figure is not
+  explained by the current roster alone. Both grids share one `RosterGrid`
+  component: 21 columns and a derived footer duplicated would drift silently,
+  and this table changes often.
+- **2026-07-26 — The Roster screen was retired.** Its player list duplicated what
+  the Team/Stats grids already showed; only its cap-gauge detail was unique, so
+  that moved into Team as a collapsible section. Same reasoning as the
+  no-duplicate-destinations rule.
+- **2026-07-23 — Position display is standardised to F/D/G everywhere**, with
+  exactly two visual patterns (pill or bare coloured letter) chosen by data
+  density. Display-only: the raw NHL position code stays in the data. An audit
+  found the rule was being broken in 4 of 8 places before it was written down.
+- **2026-07-23 — Ask before building any player-row list** (how many lines, name
+  truncation, what sits on the right). Several rounds were spent guessing this
+  per screen; screens intentionally differ.
+- **2026-07-22 — Never two destinations to the same place on one screen.**
+- **2026-07-22 — Dashboard is the default tab**, Settings lives in a topbar icon
+  rather than the bottom nav, which freed the slot for Trades.
+
+### Trades
+
+- **2026-07-23 — Acceptance does not execute the trade.** It sits `accepted`
+  until the nightly job swaps the rosters, so a day's score is always computed on
+  that day's rosters before any trade takes effect.
+- **2026-07-23 — `cancelled` is distinct from `declined`.** The proposer
+  withdrawing and the counterparty rejecting are different events; the status
+  alone communicates who acted, with no extra field.
+- **2026-07-23 — Pending, declined and cancelled trades are private** to the two
+  teams involved. Accepted and processed trades are public to the league.
+- **2026-07-23 — Trade votes record which team was favoured**
+  (`FavoredTeamId` + magnitude), not a proposer-relative 1-5 scale. A "which GM
+  wins their trades most" rollup can then aggregate across trades without
+  knowing each trade's roles.
+
+### Product
+
+- **2026-07-27 — Merge feature branches straight to `main`** while Nick is solo.
+- **2026-07-27 — Garry Cockman clashes with the theme on purpose.** The mascot
+  chat is a UI mock with literal hex values, a light corporate palette and a
+  system font stack, so it reads as a real embedded third-party helpdesk widget
+  bolted onto the app. No backend. See [cockman-concept.md](cockman-concept.md).
+- **2026-07-28 — News is not league-scoped.** The ticker's news half is a generic
+  NHL feed; only trades are league-scoped. Roster-move items were removed from
+  the ticker in the same change.
+- **2026-07-22 — UI in English only.**
+- **2026-07-22 — The draft happens outside the app for 2026-27.** A live
+  interactive draft targets 2027-28.
 
 ## Open items
 
-- **Buddies' pool rule sheet** (exact point values, roster structure, cap amount) — needed for Phase 4. Ask Nick.
-- **PuckPedia salaries access** (ToS / method; fallback: manual CSV import) — validate in Phase 1.
-
-## Waiting on Nick (manual steps, Phase 0)
-
-1. Create the Firebase project (console.firebase.google.com), enable **Firestore** and **Auth** (Google + Email/Password providers).
-2. Enable GCP billing (credit card on file; expected bill: $0 at our scale) and enable **Cloud Run**.
-3. Create a **service account** for the API/jobs, download its JSON key (will go into GitHub secrets — never committed).
-4. Create the GitHub repository and push (repo is currently local-only, no remote).
+- **No authentication.** The API trusts the username the client sends. Weekly
+  lineups make this materially worse than it sounds: silently benching a rival's
+  best player every Sunday would be undetectable.
+- **Cap and roster size are displayed but not enforced** — no add/drop or trade
+  is rejected for breaking them.
+- **The "Équipe" roster slot scores nothing** — rule never specified.
+- **Unmatched Les Mordus players** still to reconcile — see [mordus-pool.md](mordus-pool.md).
+- **Rotate the deploy service principal secret.** It was passed through a chat
+  session and phone photos on 2026-08-02. Only the `AZURE_CREDENTIALS` GitHub
+  secret would need replacing.
+- **Free agency and the draft** are modelled in the schema but not built —
+  neither needs a migration.

@@ -1,70 +1,67 @@
 # CLAUDE.md
 
-This project is called **Fantasy Warrior**.
+**Fantasy Warrior** — a web application for managing hockey pools. Interaction
+between users is a key attraction to bring people in.
 
+You are the main architect assisting Nick, Sr. .NET specialist & architect on
+the solution. Your AI agent name is **Macklin Softwarini**.
 
-Fantasy Warrior is a web application for managing hockey pools.
-Interaction between users will be a key attraction to bring people in.
+## Stack
 
-You'll be the main architect assisting me, Nick, Sr. .NET specialist & architect on the solution. Your AI agent name is **Macklin Softwarini**.
-
-## Stack (decided 2026-07-22)
-
-- **Frontend**: React (mobile-first) + TypeScript + Vite, hosted on **GitHub Pages**. UI in English only.
-- **Database**: **Azure SQL** (serverless, free tier) via **EF Core 10**. Migrated off Firestore 2026-08-02 — see [.claude/doc/sql-migration-plan.md](.claude/doc/sql-migration-plan.md) for the design and why.
-- **Auth**: **Firebase Auth** — Google sign-in + email/password.
-- **API**: **.NET 10 minimal API** in a Docker container on **Azure Container Apps** (free grant, scales to zero), resource group `fw`, same region as the database. Moved off Cloud Run 2026-08-02 — Cloud Run has no stable outbound IP, so it could not pass the Azure SQL firewall without paying for Cloud NAT.
-- **Batch jobs**: .NET console apps run by **GitHub Actions cron** (`daily-jobs.yml`: db-migrate → stats-sync → nightly → player-sync → draft-sync → news-sync).
-- **Realtime**: none today. Firestore listeners were the plan but nothing ever used them; polling covers the current screens. SignalR is the option if it is ever needed.
-- **CI/CD**: GitHub Actions (frontend → GitHub Pages, API → Azure Container Apps via ghcr.io).
+- **Frontend**: React (mobile-first) + TypeScript + Vite on **GitHub Pages**. UI in English only.
+- **Database**: **Azure SQL** (serverless, free tier) via **EF Core 10**.
+- **API**: **.NET 10 minimal API**, Docker, on **Azure Container Apps** (scales to zero), resource group `fw`, same region as the database.
+- **Auth**: none yet. The API trusts the username the client sends. Firebase Auth is the intended replacement.
+- **Batch jobs**: .NET console apps on **GitHub Actions cron** (`daily-jobs.yml`: db-migrate → stats-sync → nightly → player-sync → draft-sync → news-sync).
+- **Realtime**: none. Polling covers the current screens; SignalR is the option if it is ever needed.
+- **CI/CD**: GitHub Actions (frontend → GitHub Pages, API → Container Apps via ghcr.io).
 
 Hosting must stay easy and free.
 
 ## Git workflow (Nick, 2026-07-27)
 
-**Always merge feature branches straight to `main` yourself (fast-forward push), don't stop at opening a PR and wait for Nick to merge it.** Faster than a PR round-trip for now, while it's just Nick working solo on this repo. This may change later if collaborators join — revisit then.
+**Merge feature branches straight to `main` yourself (fast-forward push).** Don't
+stop at opening a PR and wait for Nick. Faster than a PR round-trip while he is
+solo on this repo; revisit if collaborators join.
 
-## Key Points
+## Key points
 
-- Mobile-first app. Still should be responsive for larger devices.
-- App must be multi-tenancy like (multi-league, same user can belong to many leagues).
-- App relies on a **player service** that keeps information (except stats) about all players and prospects in the NHL ecosystem. See PuckPedia as the gold data source for salaries/contracts; official NHL API (`api-web.nhle.com`) for identity/rosters.
-- App relies on an **advanced stats service** that must fetch daily NHL player stats, drilled down to game-by-game stats (detail level required by/for other services). `PlayerGameStats` is the source of truth, one row per player per game (~50k a season); season totals are the `vPlayerSeasonStats` view, and totals *as of a simulated day* are the same aggregation with a date bound. There is no cache to keep fresh — that whole apparatus existed only to stay under Firestore's 50k reads/day.
-- App relies on a **score calculation & rules service**. Scoring is **weekly**: each GM activates a subset of his roster per week, only active players score, and a week's points are **banked permanently** once it closes — a trade can never move history. The full rules reference is [.claude/doc/scoring-model.md](.claude/doc/scoring-model.md), which **MUST** be read before changing anything about scoring, lineups, roster spots or periods, and kept in sync with the code.
-- App relies on a **news service** (added 2026-07-28) that pulls NHL news into a global `NewsItems` table (`NewsSyncJob`, run nightly in `daily-jobs.yml`, also available standalone via `news-sync.yml`). Two sites so far, three fetch sources (`NewsItem.Source` values): **Rotowire** via its public RSS feed (`rotowire_rss`) plus an HTML scrape of its injuries page for richer team/injury-type/date detail (`rotowire_html`), and **FantasySP** (`fantasysp`, no public RSS at all — HTML-scraped from its injuries table) — per `.claude/doc/news-integration-guide.md`. Not league-scoped: the global ticker (`NewsTicker.tsx`, mounted app-wide) shows these news items unfiltered alongside league trades. Roster-move (add/drop) items were removed from the ticker in the same change — trades + real news only now. **Personal/non-commercial use only** per both sites' terms (no redistribution, never scrape Rotowire's locked "ANALYSIS" content) — see the guide doc for the full constraints.
-- Fully intuitive interactive transaction, free agency and draft mechanisms.
-- First rules/features implemented will be based on my own buddies' pool, agile/incremental style.
-- You should always keep track of project progression in [.claude/doc/project_status.md](.claude/doc/project_status.md), which **MUST** be read at the start of every session and kept updated along the way.
-- Deployment, GCP/GitHub configuration, local dev commands and ops runbook: see [.claude/doc/deployment.md](.claude/doc/deployment.md). Keep it updated when infra changes.
-- **Season simulation (test mode)**: the 2025-26 season can be replayed day by day to exercise the pool for real — see [.claude/doc/testmode.md](.claude/doc/testmode.md) and the `/testmode` skill. The simulated date lives in the single-row `SimulationState` table and is the single source of truth; jobs and the API both read it. When one is running, **everything in the app believes it is that day**, so check `sim-clock` before concluding a date-related behaviour is a bug.
-- The "Garry Cockman" / cockcoin mascot-chatbot concept (currently a UI mock only, no backend): see [.claude/doc/cockman-concept.md](.claude/doc/cockman-concept.md), a living doc — keep appending as Nick brainstorms more of it.
-- Full project roadmap (phases 0-7): see project_status.md. Milestone: season-tracking MVP in prod for early October 2026 (NHL 2026-27 season).
+- **Mobile-first**, still responsive on larger screens.
+- **Multi-tenant**: many leagues, and one user can belong to several.
+- **Player service** — identity and rosters for the whole NHL ecosystem from the official NHL API (`api-web.nhle.com`); salaries and contracts scraped from **CapWages**.
+- **Stats service** — `PlayerGameStats` is the source of truth, one row per player per game (~50k a season). Season totals are the `vPlayerSeasonStats` view; totals *as of a simulated day* are the same aggregation with a date bound. **There is no cache to keep fresh.**
+- **Scoring is weekly**: each GM activates a subset of his roster per week, only active players score, and a week's points are **banked permanently** once it closes — a trade can never move history. [scoring-model.md](.claude/doc/scoring-model.md) **MUST** be read before changing anything about scoring, lineups, roster spots or periods, and kept in sync with the code.
+- **Season simulation (test mode)**: the 2025-26 season can be replayed day by day. The simulated date lives in the single-row `SimulationState` table and is the single source of truth for jobs and the API alike. When a replay is running, **everything in the app believes it is that day** — check `sim-clock` before concluding a date-related behaviour is a bug. See [testmode.md](.claude/doc/testmode.md) and the `/testmode` skill.
+- **News service** — pulls NHL news into a global `NewsItems` table, not league-scoped. **Personal/non-commercial use only** per both sites' terms: no redistribution, and never scrape Rotowire's subscription-locked "ANALYSIS" content. See [news-integration-guide.md](.claude/doc/news-integration-guide.md).
+- Features are built on Nick's own buddies' pool first, agile and incremental.
+- **Every feature that touches the database ships with mocking-free unit tests for its pure logic** — proactively, not only live-verified.
 
-## UI Design System — "Night Arena" (approved by Nick 2026-07-22)
+## Reference docs
 
-All UI work MUST follow this system. Tokens live in `frontend/src/index.css` (CSS variables), components in `frontend/src/App.css`, screens in `frontend/src/screens/`, SVG icons in `frontend/src/components/Icons.tsx`.
+| Doc | What it holds |
+|---|---|
+| [project_status.md](.claude/doc/project_status.md) | **Read at the start of every session.** Current state, roadmap, decisions log, open items. Keep it updated. |
+| [scoring-model.md](.claude/doc/scoring-model.md) | The scoring rules. Authoritative — if it and the code disagree, one of them is a bug. |
+| [data-model.md](.claude/doc/data-model.md) | The SQL schema and **why** it is shaped that way. |
+| [deployment.md](.claude/doc/deployment.md) | Infra, config, local dev commands, ops runbook, troubleshooting log. Keep it updated when infra changes. |
+| [design-system.md](.claude/doc/design-system.md) | Night Arena detail: exact colours, typography, PWA asset regeneration. |
+| [testmode.md](.claude/doc/testmode.md) | Season replay. |
+| [news-integration-guide.md](.claude/doc/news-integration-guide.md) | News sources and their ToS constraints. |
+| [mordus-pool.md](.claude/doc/mordus-pool.md) | Les Mordus league: import, vocabulary mapping, unmatched players. |
+| [cockman-concept.md](.claude/doc/cockman-concept.md) | The Garry Cockman / cockcoin mascot concept — a living doc, keep appending. |
 
-- **Theme**: dark only ("night arena"). Background `#0a0e1a` with fixed radial cyan/indigo glows; elevated `#10162a`; glass cards `rgba(255,255,255,.045)` + 1px border `rgba(255,255,255,.09)` + backdrop-blur.
-- **Accent**: ice cyan `#38bdf8` → `#22d3ee` (gradients, active states, subtle neon glow `rgba(56,189,248,.35)`). Danger/over-cap: rose `#f43f5e`. Standings podium: gold `#fbbf24`, silver `#c7d2e0`, bronze `#d0885a`. Position pills (F/D/G, `.roster-pos-pill-*`): forward = ice cyan, defense = violet `#a78bfa` (`--defense`, added 2026-07-23 — silver read too low-contrast for defense), goalie = gold.
-- **Text**: `#f1f5f9`; muted `#8b96ab`. Contrast AA minimum.
-- **Typography**: Russo One (display: headings, team names, numbers, uppercase) + Chakra Petch (body) — Google Fonts, loaded in `index.html`.
-- **Shape & motion**: radii 12-16px; transitions 150-300ms (color/opacity/filter only, no layout-shifting hover); `fade-in` 250ms for screen mounts; respect `prefers-reduced-motion`.
-- **Layout**: mobile-first, content max-width 680px; fixed bottom nav (4 tabs: Dashboard default, Standings, Team, Trades — Settings lives in a topbar icon button, not the nav) 64px + `env(safe-area-inset-bottom)`; sticky blurred topbar with league switcher + user; content bottom padding must clear the nav.
-- **Rules**: Lucide SVG icons only (never emojis), 44px touch targets, `cursor: pointer` on clickables, visible focus rings (`:focus-visible` cyan), aria-labels on icon-only buttons, alt text, error banners near the action.
-- **No duplicate destinations (Nick, 2026-07-22)**: never show two links/buttons on the same screen that navigate to the same place. If a destination is already reachable via primary navigation (e.g. a bottom-nav tab), don't also add an inline "view all" / shortcut link to it elsewhere on that screen — pick one path. (First case: removed the Dashboard's "View full standings" link since the Standings tab already goes there. Same reasoning retired the whole Roster screen 2026-07-26 — its player list duplicated what the Team/Stats grids already show; only its cap-gauge detail was unique, so that moved into Team as a collapsible section.)
-- **Player-row convention (Nick, 2026-07-23)**: before implementing or changing a player-row list on any screen, ask: how many lines, is the name truncated (full vs. "S. Crosby") or full, and what shows on the far right. Different screens intentionally use different answers (e.g. Team/Stats' tables = compact data-grid rows, Dashboard = 1-line short name) — don't assume consistency across screens, ask each time.
-- **Position indicator pattern (Nick, 2026-07-23)**: every F/D/G position indicator anywhere in the app MUST use one of these two canonical patterns — never a bespoke one-off style, and never a flat/uncolored letter:
-  - **Normal**: a pill — `.roster-pos-pill` + `.roster-pos-pill-f/d/g` (background + border + colored text, per the color code above: forward = ice cyan, defense = violet, goalie = gold).
-  - **Compact**: no pill/background — just the bare letter, same color code, applied to the font color only (`.pos-compact-f/d/g`).
-  - Pick per screen by data density: data-dense grids/lists (e.g. Team/Stats' tables, a multi-select roster checklist) use compact; everything more spacious (Dashboard, PlayerCard) uses normal/pill.
-  - Always build the class suffix via the shared `posGroupClass()` helper in `frontend/src/api.ts` (never hardcode `.toLowerCase()` on `posGroup()`'s result inline — keeps every call site consistent if the convention ever changes).
-- **Logo**: circular badge (bearded warrior, red helmet, crossed sticks). Master: `fw_logo.png` at repo root (1024px, transparent). App asset: `frontend/src/assets/logo.webp` (512px, cleaned/cropped). Used in login hero (180px, cyan drop-shadow), topbars (30px).
-- **Home-screen / PWA icons (2026-07-25)**: `frontend/public/manifest.json` (linked in `index.html`, name/short_name "Fantasy Warrior", `display: standalone`, `background_color`/`theme_color: #0a0e1a`) makes "Add to Home Screen" install as a real app icon instead of a generic white-boxed browser shortcut. Icon assets, all regenerated from `logo.webp` via Pillow (crop to content bbox, center, resize — regenerate the same way if the logo changes): `favicon.png` (64, browser tab only) + `favicon-192.png`/`favicon-512.png` (transparent bg, manifest `purpose: "any"`) + `maskable-icon.png` (512, **solid `#0a0e1a` bg**, logo scaled to ~72% so it survives Android's adaptive-icon safe-zone crop, manifest `purpose: "maskable"` — never transparent or white, that's what produced the old white-circle-with-Chrome-badge look) + `apple-touch-icon.png` (180, solid `#0a0e1a` bg — iOS doesn't composite alpha reliably on touch icons, so this one must stay opaque too). `index.html` also carries `apple-mobile-web-app-capable`/`-status-bar-style`/`-title` meta tags for a clean standalone launch on iOS.
+## UI rules — "Night Arena"
 
-## AI Team
+All UI work MUST follow this. Exact values and asset procedures live in
+[design-system.md](.claude/doc/design-system.md); what follows is the part you
+must respect without being reminded.
 
-You'll manage an AI team that you will launch as subagents per request:
-
-- **React Exposito**: frontend agent, React specialist, UI theme implementer
-- **Backend Mackinnon**: backend agent, C# / REST API specialist
-- **Db Crosby**: database implementer, SQL Server / EF Core modeling, indexes and constraints, clean data is key
+- **Dark theme only.** Ice-cyan accent, rose for danger/over-cap, violet for defense, gold for goalies.
+- **Lucide SVG icons only — never emojis.** 44px touch targets, `cursor: pointer` on clickables, visible `:focus-visible` rings, aria-labels on icon-only buttons, alt text, error banners near the action.
+- **No duplicate destinations (Nick, 2026-07-22)**: never put two links on one screen that go to the same place. If somewhere is already reachable from the bottom nav, don't add an inline "view all" shortcut to it — pick one path.
+- **Player-row convention (Nick, 2026-07-23)**: before implementing or changing a player-row list on any screen, **ask** — how many lines, is the name full or truncated ("S. Crosby"), and what shows on the far right. Screens intentionally differ; never assume consistency, ask each time.
+- **Position indicator (Nick, 2026-07-23)**: every F/D/G indicator MUST use one of exactly two patterns — never a one-off, never a flat uncoloured letter.
+  - **Normal** — a pill: `.roster-pos-pill` + `.roster-pos-pill-f/d/g`.
+  - **Compact** — the bare letter, colour on the font only: `.pos-compact-f/d/g`.
+  - Pick by data density: dense grids and multi-select lists use compact, roomier screens (Dashboard, PlayerCard) use the pill.
+  - Always build the suffix with `posGroupClass()` in `frontend/src/api.ts` — never inline `.toLowerCase()` on `posGroup()`.

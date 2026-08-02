@@ -7,7 +7,7 @@ Ce document sert deux fins : la **correspondance entre le vocabulaire du pool ac
 
 ## État
 
-**Ligue créée en prod le 2026-07-31 — id `haPRaAJ3Vo3nqPufYGOM`**, saison `20252026`, 14 équipes, 360 joueurs, commissaire `nick`. Créée par `seed-mordus`, qui vérifie chaque identifiant de joueur avant d'écrire quoi que ce soit et refuse d'écraser une ligue existante du même nom.
+**Ligue créée en prod le 2026-07-31, recréée sur Azure SQL le 2026-08-02 — code d'accès `Q7ZJ4G`**, saison `20252026`, 14 équipes, 360 joueurs, commissaire `nick`. Créée par `seed-mordus`, qui vérifie chaque identifiant de joueur avant d'écrire quoi que ce soit et refuse d'écraser une ligue existante du même nom.
 
 Les usernames sont le prénom du GM, désambiguïsé par l'initiale du nom en cas de collision (`jonathan` / `jonathanr`). Nicolas Boisvert réutilise son compte existant `nick` plutôt qu'un nouveau `nicolas`, pour que ses deux ligues vivent sous un seul login.
 
@@ -21,7 +21,7 @@ Les usernames sont le prénom du GM, désambiguïsé par l'initiale du nom en ca
 |---|---|---|
 | Participant (« Steeve Lachance Montreal ») | `User` + `Team` dans la ligue | Un `Team` par participant par ligue. |
 | Concession NHL du participant (« Montreal ») | `Team.name` + `Team.franchiseAbbrev` | Voir §3 — le slot `E` du PDF. |
-| Colonne `T` vide / `D` / `G` | `Player.position` → groupe F/D/G | **Ignorée à l'import** : la position vient de la collection `players`, qui fait autorité. Le PDF ne sert qu'à savoir *qui* est sur l'équipe. |
+| Colonne `T` vide / `D` / `G` | `Player.position` → groupe F/D/G | **Ignorée à l'import** : la position vient de la table `Players`, qui fait autorité. Le PDF ne sert qu'à savoir *qui* est sur l'équipe. |
 | Bloc du haut (avant « JOUEURS DE RÉSERVE ») | Joueurs **actifs** de la période courante | Devient le `Lineup` de la semaine (`activeSpotIds`). |
 | « JOUEURS DE RÉSERVE » | Joueurs **au banc** de la période courante | Même `RosterSpot`, simplement absent de `activeSpotIds`. |
 | Appartenance d'un joueur à une équipe | `RosterSpot` | Persiste d'une semaine à l'autre; le banc n'est pas une entité distincte. |
@@ -67,7 +67,7 @@ Le registre du §2 est donc vraisemblablement complet, et le découpage des noms
 
 ## 2. Joueurs non appariés — à ajouter
 
-**39 entrées** n'ont pas trouvé de correspondance dans la collection `players` (1 386 documents). Ils sont conservés ici pour ajout futur.
+**39 entrées** n'ont pas trouvé de correspondance dans la table `Players`. Elles sont conservées ici pour ajout futur.
 
 ### Pourquoi ils manquent
 
@@ -134,7 +134,7 @@ Les entrées en **Actif** sont prioritaires : elles laissent l'alignement de l'�
 
 Le PDF donne à chaque participant une ligne `E` contenant **sa propre franchise NHL** (Lachance → Canadiens Montreal, Boisvert → Avalanche Colorado). Elle apparaît exactement 14 fois, à 0 $ de salaire, et n'est jamais échangée.
 
-**Décision de modélisation : un champ `franchiseAbbrev` sur le document `Team`, et non un `RosterSpot`.** Un spot polymorphe — contenant tantôt un joueur, tantôt une équipe — contaminerait tout le modèle de roster, de lineup et de transaction pour un cas unique, permanent et non échangeable. Ses points se calculeront depuis la collection `games`, déjà présente.
+**Décision de modélisation : une colonne `FranchiseAbbrev` sur `Teams`, et non un `RosterSpot`.** Un spot polymorphe — contenant tantôt un joueur, tantôt une équipe — contaminerait tout le modèle de roster, de lineup et de transaction pour un cas unique, permanent et non échangeable. Ses points se calculeront depuis la table `Games`, déjà présente.
 
 Nick a confirmé que ce slot **rapporte des points** en plus de porter l'identité. **La règle exacte reste à obtenir** avant de pouvoir la coder.
 
