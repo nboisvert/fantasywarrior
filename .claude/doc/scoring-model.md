@@ -1,7 +1,7 @@
 # Modèle de pointage — référence
 
 > La référence pour toute règle de pointage. Si le code et ce document divergent, l'un des deux est un bug.
-> Dernière mise à jour : 2026-07-31.
+> Dernière mise à jour : 2026-08-02 (migration Azure SQL).
 
 ## En une phrase
 
@@ -13,12 +13,12 @@ Chaque semaine, un GM active un sous-ensemble de son roster. Seuls les points de
 
 | Entité | Collection | Ce que c'est |
 |---|---|---|
-| **Period** | `periods` (globale) | Une semaine de pointage. Lundi→dimanche sur la date de match NHL (Est). ~28 par saison. |
-| **RosterSpot** | `leagues/{id}/rosterSpots` | L'appartenance d'un joueur à une équipe, du jour X au jour Y. Jamais supprimé, seulement fermé. |
-| **Lineup** | `leagues/{id}/lineups` | L'alignement d'une équipe pour une semaine. **Un document par équipe par semaine.** |
-| **Team** | `leagues/{id}/teams` | Porte les cumuls : `finalizedScore`, `periodPoints`, `score`. |
+| **Period** | table `Periods` (globale) | Une semaine de pointage. Lundi→dimanche sur la date de match NHL (Est). ~28 par saison. |
+| **RosterSpot** | table `RosterSpots` | L'appartenance d'un joueur à une équipe, du jour X au jour Y. Jamais supprimé, seulement fermé. |
+| **RosterAssignment** | table `RosterAssignments` | Ce qu'un spot a produit une semaine, et s'il était actif. **Une ligne par (spot, semaine)** — le seul grain stocké. |
+| **Team** | table `Teams` | Ne porte **aucun cumul**. Tous les totaux sont des vues (`vStandings`, `vTeamPeriodScores`, `vRosterSpotTotals`). |
 
-**Invariant central** : `team.score = team.finalizedScore + team.periodPoints`.
+**Invariant central** : score = finalizedScore + livePoints. Il tient désormais **par construction** — les deux côtés sortent de la même requête sur les mêmes lignes, au lieu d'être trois champs tenus à la main.
 
 ---
 
@@ -130,9 +130,9 @@ Des calendriers par ligue ramèneraient une requête par ligue — c'est la rais
 ## 8. Propriétés à ne pas casser
 
 - **Idempotence.** La semaine en cours est recalculée à zéro, jamais accumulée. Banquer est protégé par `finalizedThroughPeriodIndex`, écrit dans la **même** mise à jour atomique que la valeur qu'il garde. Relancer le job nocturne est sans effet.
-- **Champs disjoints.** Le GM écrit `activeSpotIds`/`setBy`; le job écrit `results`/`activePoints`. Firestore ne met jamais en conflit deux mises à jour sur des champs différents — mais **seulement si le job ne fait jamais de `Set` complet**.
+- **Provenance de l'alignement.** Le GM écrit `RosterAssignment.IsActive` et une ligne `TeamPeriodLineups` à son nom ; le job écrit les stats et les points. Le job lit cette attribution pour distinguer un vrai choix de son propre auto-remplissage — sans elle, il écraserait les décisions du GM.
 - **Périodes immuables.** Déplacer une frontière après coup restaterait des points acquis. `period-init` n'ajoute jamais, ne réécrit jamais.
-- **Écriture atomique du lineup.** L'ensemble actif tient dans **un seul champ**, donc la contrainte de slots est appliquée sans transaction. Ne jamais introduire d'endpoint de bascule par joueur.
+- **Soumission transactionnelle.** L'alignement complet est validé puis écrit dans une transaction, donc deux onglets ne peuvent pas produire un roster illégal.
 
 ---
 
@@ -156,11 +156,11 @@ En ligne de commande : `set-league-rules --league <id> [--goal N] [--assist N] [
 | Générer le calendrier d'une saison | `period-init --season 20262027` |
 | Tourner le pointage (nocturne) | `nightly` |
 | Rattraper un cron manqué / une saison importée | `nightly --backfill-from N` |
-| Dé-banquer pour recalculer | `recompute --season X --from N` puis `nightly --backfill-from N` |
-| Vérifier les index Firestore | `check-indexes` (**jamais contre l'émulateur** — il les ignore) |
-| Déplacer un verrou de semaine | `period-lock --season X --index N --utc <ISO>` |
+| Dé-banquer pour recalculer | `UPDATE RosterAssignments SET IsFinalized = 0` + `Periods.FinalizedUtc = NULL`, puis `nightly --backfill-from N` |
+| Comparer à l'ancien modèle | `.claude/doc/golden-scores-preSql.json` (voir sql-migration-status.md) |
+| Déplacer un verrou de semaine | `UPDATE Periods SET LockUtc = ... WHERE Season = ... AND Number = ...` |
 
-Un backfill de saison complète coûte ~50 000 lectures, soit la journée entière du quota gratuit. Opération délibérée, pas routinière.
+Un backfill de saison complète est redevenu une opération ordinaire depuis le passage à Azure SQL — il n'y a plus de quota de lectures à ménager.
 
 ---
 
@@ -168,5 +168,5 @@ Un backfill de saison complète coûte ~50 000 lectures, soit la journée entiè
 
 - **Aucune authentification.** L'API fait confiance au `username` envoyé. Avec les lineups c'est nettement plus grave qu'avant : on peut discrètement mettre le meilleur joueur d'un rival au banc chaque dimanche soir, et ça ressemble à son propre oubli. **À régler avant que de vrais utilisateurs y touchent.**
 - Le slot **Équipe** (`team.franchiseAbbrev`) porte l'identité mais ne rapporte encore aucun point — règle à obtenir de Nick.
-- Les salaires sont **estimés** (`capHitSource: "estimated"`), pas réels.
+- Les salaires sont **réels** depuis 2026-08-02 (CapWages, table `PlayerContracts`) — 685 des 701 joueurs NHL actifs.
 - Le plafond et la taille de roster ne sont pas appliqués.

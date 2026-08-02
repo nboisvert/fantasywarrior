@@ -1,30 +1,31 @@
 # Fantasy Warrior — Project Status
 
 > **MUST be read at the start of every session and kept updated along the way.**
-> Last updated: 2026-08-01 (by Macklin Softwarini) — Azure SQL migration under way
+> Last updated: 2026-08-02 (by Macklin Softwarini) — Azure SQL migration complete
 
-## ⚠️ A backend rewrite is in progress — read this first
+## ✅ The backend now runs on Azure SQL (migration complete, 2026-08-02)
 
-Nick decided on 2026-08-01 to **replace Firestore with Azure SQL + EF Core**.
-The UI is considered finished and must not change; the whole backend is being
-rebuilt underneath it, starting from empty data.
+Firestore was replaced by **Azure SQL + EF Core**, keeping the UI untouched —
+`frontend/` did not change by a single line, because every API response is
+identical field for field.
 
-**Two documents own that work, and they are the ones to read:**
+- **[sql-migration-status.md](sql-migration-status.md)** — what was done, what
+  the oracle comparison proved, and the four things left for Nick before it can
+  go live. **Start here.**
+- [sql-migration-plan.md](sql-migration-plan.md) — the approved design and why,
+  including the validation of Nick's data model.
 
-- **[sql-migration-status.md](sql-migration-status.md)** — where it actually
-  stands, what to do next, how to run it locally. **Start here.**
-- [sql-migration-plan.md](sql-migration-plan.md) — the approved target design
-  and why (including the validation of Nick's data model, with three
-  corrections). Stable; only its "Amendements" section grows.
+The headline result: replaying the season against a pre-migration snapshot
+showed the two systems pick **identical lineups**, and the only per-player
+discrepancy was one the *old* data got wrong — goalie decisions were not fully
+captured, so wins scored half what they should have.
 
-State as of 2026-08-01: phases 0 and 1 done (schema deployed to Azure SQL,
-1,275 players and 3,269 real contracts loaded), phase 3 one job in. **Nothing is
-deployed** — production still runs the Cloud Run + Firestore stack described
-below, untouched, on branch `main`. The rewrite lives on branch `sql-migration`.
+**Not deployed yet.** Production still runs the Cloud Run + Firestore build on
+`main`; the rewrite lives on branch `sql-migration`.
 
-Everything below this section describes the **Firestore-era** system. It stays
-accurate as history and as the description of what is currently in production,
-but anything it says about data model or storage is being replaced.
+Everything below this section is the **Firestore era**. It stays as history and
+as the description of what is still in production, but anything it says about
+storage has been replaced.
 
 ## Current state
 

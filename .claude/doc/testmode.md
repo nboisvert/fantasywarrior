@@ -1,7 +1,7 @@
 # Mode test — rejouer la saison 2025-26
 
 > Documentation et journal. **La date simulée n'est pas ici** — elle vit dans le
-> document Firestore `simulation/clock`, seule source de vérité. Ce fichier n'est
+> table `SimulationState` (une seule ligne), seule source de vérité. Ce fichier n'est
 > jamais lu par le code.
 >
 > Le skill : [`.claude/skills/testmode/SKILL.md`](../skills/testmode/SKILL.md).
@@ -20,14 +20,13 @@ l'aurait fait.
 
 ## Ce qui est simulé
 
-**Une seule étape est sautée : `stats-sync`.** Les gamelogs sont déjà là, aller
-les rechercher auprès de l'API NHL serait du gaspillage. Tout le reste
+**Une seule étape est sautée : `stats-sync`.** Les gamelogs sont déjà en base, aller les rechercher auprès de l'API NHL serait du gaspillage. Tout le reste
 s'exécute réellement : agrégats de saison des joueurs, pointage hebdomadaire,
 banquage, exécution des échanges, matérialisation de la semaine suivante.
 
 | Sur l'horloge simulée | Volontairement sur l'horloge réelle |
 |---|---|
-| La journée courante de toute l'app (API incluse) | Le cache joueurs — sinon il ne se rafraîchirait jamais |
+| La journée courante de toute l'app (API incluse) | — |
 | Le pointage et le banquage | La synchro des nouvelles et sa purge 30 jours — vrai pipeline de données |
 | Les verrous d'alignement | `player-sync` — les alignements NHL récupérés doivent rester les vrais |
 | L'exécution des échanges | |
@@ -35,7 +34,7 @@ banquage, exécution des échanges, matérialisation de la semaine suivante.
 
 ## Le curseur
 
-`simulation/clock.asOfDate` est **le dernier jour de match dont les résultats
+`SimulationState.AsOfDate` est **le dernier jour de match dont les résultats
 sont connus**. La journée simulée est le lendemain, ce qui reproduit exactement
 la relation du monde réel (`lastStatDate = today − 1`) — c'est pourquoi aucun
 code de pointage n'a de cas particulier pour la simulation.
@@ -51,16 +50,16 @@ que quiconque ait pu le saisir.
 |---|---|
 | Où on en est | `sim-clock` |
 | Avancer | `sim-advance --to 2025-11-23` |
-| Repartir du début | `sim-reset --season 20252026` (toujours `--dry-run` d'abord) |
+| Repartir du début | `wipe-pools` puis `seed-mordus` et `sim-clock --set 2025-10-04` |
 | Revenir au temps réel | `sim-clock --off` |
 
 `sim-advance` **s'arrête à chaque fin de semaine** traversée. C'est ce qui fait
 qu'un échange proposé en semaine 5 s'exécute à la frontière de la semaine 5 et
 non à la fin d'un saut jusqu'à la semaine 8.
 
-**Coût** : ~2 000 lectures par semaine avancée, ~15 000 pour un mois. Une saison
-complète d'un coup dépasse le quota gratuit journalier de 50 000 — avancer
-semaine par semaine est de toute façon le rythme de test naturel.
+**Coût** : plus de quota de lectures depuis le passage à Azure SQL. Rejouer une
+saison complète d'un coup est redevenu une opération ordinaire ; avancer semaine
+par semaine reste le rythme de test naturel.
 
 ## Deux choses qui surprennent
 

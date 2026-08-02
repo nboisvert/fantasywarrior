@@ -2,18 +2,6 @@
 
 This project is called **Fantasy Warrior**.
 
-> ## ⚠️ Backend rewrite in progress (since 2026-08-01)
->
-> Firestore is being replaced by **Azure SQL + EF Core**. The UI is finished and
-> must not change — the rebuild keeps every API response identical field for
-> field. Read **[.claude/doc/sql-migration-status.md](.claude/doc/sql-migration-status.md)**
-> before touching the backend; the target design is in
-> [sql-migration-plan.md](.claude/doc/sql-migration-plan.md).
->
-> Work happens on branch **`sql-migration`**. `main` still holds the live
-> Firestore stack and is what production runs. Much of the "Stack" and data-model
-> detail below therefore describes the system being replaced — treat the two
-> migration docs as authoritative for anything storage-related.
 
 Fantasy Warrior is a web application for managing hockey pools.
 Interaction between users will be a key attraction to bring people in.
@@ -23,11 +11,11 @@ You'll be the main architect assisting me, Nick, Sr. .NET specialist & architect
 ## Stack (decided 2026-07-22)
 
 - **Frontend**: React (mobile-first) + TypeScript + Vite, hosted on **GitHub Pages**. UI in English only.
-- **Database**: **Firebase Firestore** (single Firebase project owned by Nick).
+- **Database**: **Azure SQL** (serverless, free tier) via **EF Core 10**. Migrated off Firestore 2026-08-02 — see [.claude/doc/sql-migration-plan.md](.claude/doc/sql-migration-plan.md) for the design and why.
 - **Auth**: **Firebase Auth** — Google sign-in + email/password.
 - **API**: **.NET 10 minimal API** in a Docker container on **Google Cloud Run** (free tier, scales to zero).
-- **Batch jobs**: .NET console apps run by **GitHub Actions cron** (daily NHL stats scraping, score calculation).
-- **Realtime**: Firestore realtime listeners on the client (no self-hosted websockets).
+- **Batch jobs**: .NET console apps run by **GitHub Actions cron** (`daily-jobs.yml`: db-migrate → stats-sync → nightly → player-sync → draft-sync → news-sync).
+- **Realtime**: none today. Firestore listeners were the plan but nothing ever used them; polling covers the current screens. SignalR is the option if it is ever needed.
 - **CI/CD**: GitHub Actions (frontend → GitHub Pages, API → Cloud Run).
 
 Hosting must stay easy and free.
@@ -41,14 +29,14 @@ Hosting must stay easy and free.
 - Mobile-first app. Still should be responsive for larger devices.
 - App must be multi-tenancy like (multi-league, same user can belong to many leagues).
 - App relies on a **player service** that keeps information (except stats) about all players and prospects in the NHL ecosystem. See PuckPedia as the gold data source for salaries/contracts; official NHL API (`api-web.nhle.com`) for identity/rosters.
-- App relies on an **advanced stats service** that must fetch daily NHL player stats, drilled down to game-by-game stats (detail level required by/for other services). Model supports per-season stat retention: `playerGameStats` (game-by-game, source of truth) plus a consolidated `playerSeasonStats` cache (one doc per season/player) kept fresh as a write-through side effect of nightly scoring and player-card views — never a full-season rescan on a schedule (a whole season is ~49k game-lines, and the Firestore free tier caps at 50k reads/day, so that must stay a rare, deliberate operation, not routine).
+- App relies on an **advanced stats service** that must fetch daily NHL player stats, drilled down to game-by-game stats (detail level required by/for other services). `PlayerGameStats` is the source of truth, one row per player per game (~50k a season); season totals are the `vPlayerSeasonStats` view, and totals *as of a simulated day* are the same aggregation with a date bound. There is no cache to keep fresh — that whole apparatus existed only to stay under Firestore's 50k reads/day.
 - App relies on a **score calculation & rules service**. Scoring is **weekly**: each GM activates a subset of his roster per week, only active players score, and a week's points are **banked permanently** once it closes — a trade can never move history. The full rules reference is [.claude/doc/scoring-model.md](.claude/doc/scoring-model.md), which **MUST** be read before changing anything about scoring, lineups, roster spots or periods, and kept in sync with the code.
-- App relies on a **news service** (added 2026-07-28) that pulls NHL news into a global `news` Firestore collection (`NewsSyncJob`, run nightly in `daily-jobs.yml`, also available standalone via `news-sync.yml`). Two sites so far, three fetch sources (`NewsItem.Source` values): **Rotowire** via its public RSS feed (`rotowire_rss`) plus an HTML scrape of its injuries page for richer team/injury-type/date detail (`rotowire_html`), and **FantasySP** (`fantasysp`, no public RSS at all — HTML-scraped from its injuries table) — per `.claude/doc/news-integration-guide.md`. Not league-scoped: the global ticker (`NewsTicker.tsx`, mounted app-wide) shows these news items unfiltered alongside league trades. Roster-move (add/drop) items were removed from the ticker in the same change — trades + real news only now. **Personal/non-commercial use only** per both sites' terms (no redistribution, never scrape Rotowire's locked "ANALYSIS" content) — see the guide doc for the full constraints.
+- App relies on a **news service** (added 2026-07-28) that pulls NHL news into a global `NewsItems` table (`NewsSyncJob`, run nightly in `daily-jobs.yml`, also available standalone via `news-sync.yml`). Two sites so far, three fetch sources (`NewsItem.Source` values): **Rotowire** via its public RSS feed (`rotowire_rss`) plus an HTML scrape of its injuries page for richer team/injury-type/date detail (`rotowire_html`), and **FantasySP** (`fantasysp`, no public RSS at all — HTML-scraped from its injuries table) — per `.claude/doc/news-integration-guide.md`. Not league-scoped: the global ticker (`NewsTicker.tsx`, mounted app-wide) shows these news items unfiltered alongside league trades. Roster-move (add/drop) items were removed from the ticker in the same change — trades + real news only now. **Personal/non-commercial use only** per both sites' terms (no redistribution, never scrape Rotowire's locked "ANALYSIS" content) — see the guide doc for the full constraints.
 - Fully intuitive interactive transaction, free agency and draft mechanisms.
 - First rules/features implemented will be based on my own buddies' pool, agile/incremental style.
 - You should always keep track of project progression in [.claude/doc/project_status.md](.claude/doc/project_status.md), which **MUST** be read at the start of every session and kept updated along the way.
 - Deployment, GCP/GitHub configuration, local dev commands and ops runbook: see [.claude/doc/deployment.md](.claude/doc/deployment.md). Keep it updated when infra changes.
-- **Season simulation (test mode)**: the 2025-26 season can be replayed day by day to exercise the pool for real — see [.claude/doc/testmode.md](.claude/doc/testmode.md) and the `/testmode` skill. The simulated date lives in the Firestore doc `simulation/clock` and is the single source of truth; jobs and the API both read it. When one is running, **everything in the app believes it is that day**, so check `sim-clock` before concluding a date-related behaviour is a bug.
+- **Season simulation (test mode)**: the 2025-26 season can be replayed day by day to exercise the pool for real — see [.claude/doc/testmode.md](.claude/doc/testmode.md) and the `/testmode` skill. The simulated date lives in the single-row `SimulationState` table and is the single source of truth; jobs and the API both read it. When one is running, **everything in the app believes it is that day**, so check `sim-clock` before concluding a date-related behaviour is a bug.
 - The "Garry Cockman" / cockcoin mascot-chatbot concept (currently a UI mock only, no backend): see [.claude/doc/cockman-concept.md](.claude/doc/cockman-concept.md), a living doc — keep appending as Nick brainstorms more of it.
 - Full project roadmap (phases 0-7): see project_status.md. Milestone: season-tracking MVP in prod for early October 2026 (NHL 2026-27 season).
 
@@ -79,4 +67,4 @@ You'll manage an AI team that you will launch as subagents per request:
 
 - **React Exposito**: frontend agent, React specialist, UI theme implementer
 - **Backend Mackinnon**: backend agent, C# / REST API specialist
-- **Db Crosby**: database implementer, Firestore/NoSQL data modeling, security rules guru, clean data is key
+- **Db Crosby**: database implementer, SQL Server / EF Core modeling, indexes and constraints, clean data is key
