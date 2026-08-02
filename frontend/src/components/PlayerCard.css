@@ -151,7 +151,7 @@
   white-space: nowrap;
 }
 
-.pc-number {
+.pc-age-badge {
   color: var(--text-muted);
   font-family: var(--font-display);
   font-size: 0.9rem;
@@ -162,7 +162,7 @@
 
 .pc-bio-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 0.6rem;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -186,7 +186,7 @@
 }
 
 /* Each cell is a single line (2026-07-27, per Nick) — truncate rather than
-   wrap so the three bio cells always stay the same height. */
+   wrap so the bio cells always stay the same height. */
 .pc-bio-value {
   font-size: 0.9rem;
   font-weight: 600;
@@ -195,21 +195,14 @@
   text-overflow: ellipsis;
 }
 
-/* Secondary bit of a bio value (birth day/month next to age, draft team next
-   to round+year) — de-emphasized via type instead of parens (2026-07-27,
-   per Nick: no more "()", just a lighter/muted inline span). */
+/* Secondary bit of a bio value (draft team next to round+year) —
+   de-emphasized via type instead of parens (2026-07-27, per Nick: no more
+   "()", just a lighter/muted inline span). */
 .pc-bio-inline-sub {
   font-size: 0.78rem;
   font-weight: 400;
   color: var(--text-muted);
   margin-left: 0.35rem;
-}
-
-/* Age's birthday sub-value needs more breathing room than the draft-team one
-   above it, so the "th" doesn't read as glued to the age digits (2026-07-31,
-   per Nick). */
-.pc-bio-inline-sub-birthday {
-  margin-left: 0.6rem;
 }
 
 /* ---------- season stat tiles ---------- */
