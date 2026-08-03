@@ -9,7 +9,9 @@
 // option reveals its vote count and a proportional fill, and the plurality
 // leader gets extra emphasis — independent of which one is "mine".
 //
-// One vote per league member per trade (re-voting overwrites). Only
+// One vote per league member per trade, and it's permanent (2026-08-03, per
+// Nick) — a confirm step sits between tapping an option and it actually
+// being sent, and the server rejects a second vote regardless. Only
 // meaningful for `processed` trades (the screen only renders this on the
 // past-trades list).
 
@@ -36,9 +38,11 @@ export function TradeVoteWidget({
   onVoted: () => void;
 }) {
   const [voting, setVoting] = useState(false);
-  // Optimistic selection: reflect the just-clicked option immediately, before
-  // the parent's full refetch round-trips `trade.myVote` back to us.
+  // Optimistic selection: reflect the just-confirmed option immediately,
+  // before the parent's full refetch round-trips `trade.myVote` back to us.
   const [pendingVote, setPendingVote] = useState<{ favoredUsername: string | null } | null>(null);
+  // The option awaiting a yes/no in the confirm popup — not yet sent.
+  const [confirming, setConfirming] = useState<VoteOption | null>(null);
 
   const options: VoteOption[] = [
     { key: "proposer", favoredUsername: trade.proposerUsername, label: trade.proposerTeamName },
@@ -46,8 +50,17 @@ export function TradeVoteWidget({
     { key: "counterparty", favoredUsername: trade.counterpartyUsername, label: trade.counterpartyTeamName },
   ];
 
-  const vote = async (opt: VoteOption) => {
-    if (voting) return;
+  // Optimistic pick wins until the refetched trade catches up to it — and
+  // its mere presence is also what locks the options against a second vote,
+  // without waiting on that refetch.
+  const selected = pendingVote ?? trade.myVote;
+  const hasVoted = selected != null;
+  const isMine = (opt: VoteOption) => selected != null && selected.favoredUsername === opt.favoredUsername;
+
+  const confirmVote = async () => {
+    const opt = confirming;
+    if (opt == null || voting) return;
+    setConfirming(null);
     setPendingVote({ favoredUsername: opt.favoredUsername });
     setVoting(true);
     try {
@@ -59,10 +72,6 @@ export function TradeVoteWidget({
       setVoting(false);
     }
   };
-
-  // Optimistic pick wins until the refetched trade catches up to it.
-  const selected = pendingVote ?? trade.myVote;
-  const isMine = (opt: VoteOption) => selected != null && selected.favoredUsername === opt.favoredUsername;
 
   // Only populated once the viewer has voted — the blind-ballot rule is
   // enforced server-side (trade.votes is null until then), this just renders
@@ -78,6 +87,7 @@ export function TradeVoteWidget({
 
   return (
     <div className="tvw">
+      <span className="tvw-label">Who won the trade?</span>
       <div className={`tvw-options${voting ? " saving" : ""}`}>
         {options.map((opt) => {
           const mine = isMine(opt);
@@ -89,8 +99,8 @@ export function TradeVoteWidget({
               key={opt.key}
               type="button"
               className={`tvw-option tvw-option-${opt.key}${mine ? " mine" : ""}${isLeader ? " leading" : ""}`}
-              onClick={() => vote(opt)}
-              disabled={voting}
+              onClick={() => setConfirming(opt)}
+              disabled={voting || hasVoted}
               aria-pressed={mine}
               aria-label={votes != null ? `${opt.label}: ${count} of ${votes.total} votes` : opt.label}
             >
@@ -114,6 +124,24 @@ export function TradeVoteWidget({
             ? `${votes.total} vote${votes.total === 1 ? "" : "s"} total`
             : "Vote to see how everyone else voted."}
       </small>
+
+      {confirming && (
+        <div className="tvw-confirm-overlay" role="dialog" aria-modal="true" onClick={() => setConfirming(null)}>
+          <div className="tvw-confirm" onClick={(e) => e.stopPropagation()}>
+            <p className="tvw-confirm-text">
+              Vote for <strong>{confirming.label}</strong>? This can't be changed once cast.
+            </p>
+            <div className="tvw-confirm-actions">
+              <button type="button" className="btn-ghost" onClick={() => setConfirming(null)}>
+                Cancel
+              </button>
+              <button type="button" className="btn" onClick={() => void confirmVote()}>
+                Confirm vote
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

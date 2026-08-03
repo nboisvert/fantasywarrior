@@ -70,7 +70,9 @@ public sealed class TradeVoteConfiguration : IEntityTypeConfiguration<TradeVote>
     {
         b.ToTable("TradeVotes");
 
-        // One vote per member per trade; re-voting is an update, not a second row.
+        // One vote per member per trade — this key is also the backstop against
+        // a second one landing if the app-level check in TradeEndpoints is ever
+        // bypassed (votes are permanent, not an update).
         b.HasKey(x => new { x.TradeId, x.UserId });
 
         b.HasOne(x => x.Trade)

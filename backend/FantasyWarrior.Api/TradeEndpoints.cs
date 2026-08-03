@@ -263,17 +263,17 @@ public static class TradeEndpoints
             var user = await db.Users.FirstOrDefaultAsync(u => u.Username == username);
             if (user is null) return Results.NotFound(new { error = "User not found." });
 
-            var vote = await db.TradeVotes.FirstOrDefaultAsync(v => v.TradeId == id && v.UserId == user.UserId);
-            if (vote is null)
-                db.TradeVotes.Add(new TradeVote
-                {
-                    TradeId = id, UserId = user.UserId, FavoredTeamId = favoredTeamId, VotedUtc = DateTime.UtcNow,
-                });
-            else
+            // Votes are permanent (2026-08-03, per Nick) — the frontend confirms
+            // before ever sending this, but the server is the one that actually
+            // enforces it, same as every other rule here.
+            var alreadyVoted = await db.TradeVotes.AnyAsync(v => v.TradeId == id && v.UserId == user.UserId);
+            if (alreadyVoted)
+                return Results.BadRequest(new { error = "You've already voted on this trade — votes can't be changed." });
+
+            db.TradeVotes.Add(new TradeVote
             {
-                vote.FavoredTeamId = favoredTeamId;
-                vote.VotedUtc = DateTime.UtcNow;
-            }
+                TradeId = id, UserId = user.UserId, FavoredTeamId = favoredTeamId, VotedUtc = DateTime.UtcNow,
+            });
             await db.SaveChangesAsync();
             return Results.Ok(new { ok = true });
         });

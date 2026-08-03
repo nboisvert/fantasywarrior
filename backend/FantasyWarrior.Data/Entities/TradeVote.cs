@@ -2,7 +2,8 @@ namespace FantasyWarrior.Data.Entities;
 
 /// <summary>
 /// One league member's "who won this trade" verdict. One vote per member per
-/// trade; re-voting overwrites.
+/// trade, and permanent — re-voting is rejected, not an overwrite (2026-08-03,
+/// per Nick).
 ///
 /// Storing the favored *team* rather than a proposer-relative 1-5 rating is
 /// what makes votes meaningful on their own: a future "which GM comes out ahead

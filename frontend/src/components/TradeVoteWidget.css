@@ -4,6 +4,14 @@
   gap: 0.4rem;
 }
 
+.tvw-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
 .tvw-options {
   display: flex;
   gap: 0.5rem;
@@ -35,9 +43,17 @@
   transition: color 0.2s, border-color 0.2s, background-color 0.2s, box-shadow 0.2s;
 }
 
-.tvw-option:hover {
+.tvw-option:hover:not(:disabled) {
   color: var(--text);
   border-color: var(--border-strong);
+}
+
+/* Once voted, every option is locked (votes are permanent) — no dimming,
+   since the whole point of this state is showing the result at full
+   strength, just no hover affordance or pointer cursor inviting a click
+   that will never do anything. */
+.tvw-option:disabled {
+  cursor: default;
 }
 
 /* The vote-share fill — absent entirely until the viewer has voted (the
@@ -115,4 +131,51 @@
 
 .tvw-hint {
   align-self: center;
+}
+
+/* ---------- confirm popup ----------
+   Votes are permanent, so nothing gets sent on the first tap — this sits
+   between picking an option and it actually going out. Same overlay
+   mechanics as the app's other confirm/picker sheets (PlayerCard, the
+   lineup replacement picker): fixed, centered, dismissible by tapping the
+   backdrop. */
+.tvw-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(4, 7, 15, 0.62);
+  backdrop-filter: blur(2px);
+  animation: fade-in 180ms ease-out;
+}
+
+.tvw-confirm {
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1.1rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+.tvw-confirm-text {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.tvw-confirm-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.tvw-confirm-actions .btn,
+.tvw-confirm-actions .btn-ghost {
+  flex: 1;
 }
