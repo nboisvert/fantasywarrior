@@ -6,6 +6,7 @@ import {
   ArrowLeftRightIcon,
   BriefcaseIcon,
   ChevronDownIcon,
+  MessageSquareIcon,
   TrophyIcon,
 } from "./components/Icons";
 import { LoadingLogo } from "./components/LoadingLogo";
@@ -19,6 +20,9 @@ import { Stats } from "./screens/Stats";
 import { Trades } from "./screens/Trades";
 import { Settings } from "./screens/Settings";
 import { NewsTicker } from "./components/NewsTicker";
+import { ChatSheet } from "./components/ChatSheet";
+import { ToastHost } from "./components/Toast";
+import { LiveProvider } from "./live/LiveProvider";
 import "./App.css";
 
 type Tab = "dashboard" | "standings" | "stats" | "trades" | "settings";
@@ -38,6 +42,12 @@ export default function App() {
   // pending trade: an offer you sent is waiting on someone else, and a badge
   // that lights up for your own outgoing offer is noise, not a notification.
   const [offersToAnswer, setOffersToAnswer] = useState(0);
+  // Chat lives in a sheet, not a tab: the bottom nav is full, and a
+  // conversation is something you dip into from wherever you are rather than a
+  // place you navigate to. `chatPeer` non-null opens straight onto one thread.
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatPeer, setChatPeer] = useState<string | null>(null);
+  const [unread, setUnread] = useState(0);
 
   const openLeague = (id: string) => {
     localStorage.setItem("fw-league", id);
@@ -89,6 +99,29 @@ export default function App() {
       .catch(() => setOffersToAnswer(0));
   }, [leagueId, username, tab]);
 
+  // Same shape as the offers badge above, for the same reason. While a live
+  // connection is up the sheet keeps this current by calling refreshUnread
+  // itself; this covers the rest of the time, when the app is deliberately
+  // disconnected (see LiveProvider) and no push can arrive.
+  const refreshUnread = useCallback(() => {
+    if (!leagueId || !username) {
+      setUnread(0);
+      return;
+    }
+    api
+      .unreadCount(leagueId, username)
+      .then((r) => setUnread(r.count))
+      .catch(() => setUnread(0));
+  }, [leagueId, username]);
+  useEffect(refreshUnread, [refreshUnread, tab]);
+
+  // Closing the league closes the conversation with it — the thread belongs to
+  // the pool, so keeping it open across a switch would show the wrong one.
+  useEffect(() => {
+    setChatOpen(false);
+    setChatPeer(null);
+  }, [leagueId]);
+
   // First-time landing logic: with no remembered league, decide where returning
   // vs. brand-new users go — one league auto-selects it, several open the
   // picker, zero sends the user straight to Settings (create/join lives there).
@@ -137,7 +170,13 @@ export default function App() {
       />
     );
 
+  const openChat = (peer: string | null) => {
+    setChatPeer(peer);
+    setChatOpen(true);
+  };
+
   return (
+    <LiveProvider username={username} leagueId={leagueId}>
     <div className="shell">
       <header className="topbar">
         <img className="topbar-logo" src={logo} alt="" />
@@ -148,11 +187,27 @@ export default function App() {
           </span>
           <ChevronDownIcon size={16} />
         </button>
+        {league && (
+          <button
+            className="topbar-chat"
+            onClick={() => openChat(null)}
+            aria-label={unread > 0 ? `Messages, ${unread} unread` : "Messages"}
+          >
+            <MessageSquareIcon size={20} />
+            {unread > 0 && (
+              <span className="topbar-chat-badge" aria-hidden="true">
+                {unread > 9 ? "9+" : unread}
+              </span>
+            )}
+          </button>
+        )}
         <ProfileMenu
           username={username}
+          leagueId={leagueId}
           otherMembers={league?.members.filter((m) => m !== username) ?? []}
           onSettings={() => setTab("settings")}
           onLogout={logout}
+          onOpenChat={openChat}
         />
       </header>
 
@@ -256,6 +311,23 @@ export default function App() {
           Trades
         </button>
       </nav>
+
+      <ToastHost />
+
+      {chatOpen && league && username && (
+        <ChatSheet
+          leagueId={league.id}
+          username={username}
+          initialPeer={chatPeer}
+          onClose={() => {
+            setChatOpen(false);
+            setChatPeer(null);
+            refreshUnread();
+          }}
+          onUnreadChanged={refreshUnread}
+        />
+      )}
     </div>
+    </LiveProvider>
   );
 }

@@ -57,6 +57,54 @@
   flex-shrink: 0;
 }
 
+/* Chat entry point. Sits beside the profile menu rather than in the bottom
+   nav: the nav is full, and a conversation is something you dip into from
+   wherever you are, not a destination you navigate to. The profile menu's
+   per-GM message buttons open the same sheet on one thread — a different
+   destination, not a second route to this one. */
+.topbar-chat {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  margin-left: auto;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s, background-color 0.2s;
+}
+
+.topbar-chat:hover {
+  color: var(--text);
+  border-color: var(--ice);
+  background: var(--surface-strong);
+}
+
+/* Ice rather than the nav badge's gold: gold is reserved for "an offer is
+   waiting on you", and an unread message is an invitation, not a deadline. */
+.topbar-chat-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 2px solid var(--bg);
+  background: var(--ice);
+  box-shadow: 0 0 7px var(--ice-glow);
+  color: #06121f;
+  font-family: var(--font-display);
+  font-size: 0.58rem;
+  line-height: 1;
+}
+
 /* ---------- bottom navigation ---------- */
 
 .bottom-nav {

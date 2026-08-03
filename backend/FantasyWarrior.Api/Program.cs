@@ -19,8 +19,24 @@ builder.Services.AddFantasyWarriorData();
 // request.
 builder.Services.AddScoped<SimulationClockService>();
 
+builder.Services.AddSignalR();
+
+// Singleton: it is the process's memory of who currently holds a live
+// connection, and of which usernames have had LastSeenUtc written recently.
+// Correct only while the Container App runs a single replica -- see the class
+// remarks and --max-replicas 1 in api-deploy.yml.
+builder.Services.AddSingleton<PresenceRegistry>();
+
 var app = builder.Build();
 app.UseCors();
+
+// Explicit, so the presence middleware below is unambiguously downstream of
+// routing and can read the {username} route value.
+app.UseRouting();
+
+// Presence costs no heartbeat: ordinary traffic is the signal. See
+// PresenceMiddleware for why the request body is not consulted.
+app.UsePresenceStamping();
 
 app.MapGet("/", () => "Fantasy Warrior API");
 
@@ -71,5 +87,10 @@ LineupEndpoints.Map(app);
 TradeEndpoints.Map(app);
 PlayerEndpoints.Map(app);
 CockcoinEndpoints.Map(app);
+MessageEndpoints.Map(app);
+
+// The one live channel: direct messages and presence today, event pop-ups next.
+// Push only -- clients never call into it, they POST and it pushes.
+app.MapHub<LiveHub>("/hubs/live");
 
 app.Run();

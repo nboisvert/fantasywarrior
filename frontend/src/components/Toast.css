@@ -1,0 +1,64 @@
+/* ToastHost — live-event pop-ups, scoped with a "toast-" prefix.
+
+   Sits above the news ticker and the bottom nav rather than over them: the
+   ticker is a permanent fixture of the shell, and covering it to announce
+   something transient would trade a standing feature for a six-second one. */
+
+.toast-host {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--nav-height) + var(--ticker-height) + env(safe-area-inset-bottom) + 0.75rem);
+  z-index: 55;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: min(420px, calc(100vw - 1.6rem));
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.5rem 0.6rem 0.85rem;
+  border: 1px solid var(--border-strong);
+  border-left: 3px solid var(--ice);
+  border-radius: 12px;
+  background: var(--bg-elevated);
+  box-shadow: 0 10px 30px rgba(4, 7, 15, 0.6);
+  pointer-events: auto;
+  animation: toast-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes toast-in {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+}
+
+.toast-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.82rem;
+}
+
+.toast-close {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.toast-close:hover {
+  background: var(--surface-strong);
+  color: var(--text);
+}

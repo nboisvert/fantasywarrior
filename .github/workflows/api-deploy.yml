@@ -144,6 +144,15 @@ jobs:
       #
       # Scale to zero keeps this inside the free grant: fourteen people do not
       # keep a container busy.
+      #
+      # MAX ONE REPLICA, and that is a correctness requirement, not a budget
+      # one (2026-08-03). The API now hosts a SignalR hub, and two things in it
+      # are per-process: the hub's own connection groups, and PresenceRegistry's
+      # map of who is connected. With two replicas, a GM on one would never
+      # receive a message pushed from the other, and each would report half the
+      # league as offline -- intermittently, only under load, which is the worst
+      # kind of bug to chase. Raising this needs a backplane (Azure SignalR
+      # Service or Redis) plus a shared presence store, not just a bigger number.
       - name: Create or update the app
         run: |
           RG="${{ vars.AZURE_RESOURCE_GROUP }}"
@@ -165,7 +174,7 @@ jobs:
               || echo "No ghcr.io credentials stored, as expected."
             az containerapp update --name "${{ env.APP }}" -g "$RG" \
               --image "$IMAGE_TAG" \
-              --min-replicas 0 --max-replicas 2 \
+              --min-replicas 0 --max-replicas 1 \
               --set-env-vars "AZURE_SQL_CONNECTION=secretref:sql-connection" \
               --only-show-errors
           else
@@ -176,7 +185,7 @@ jobs:
               --environment "${{ env.ENVIRONMENT }}" \
               --image "$IMAGE_TAG" \
               --target-port 8080 --ingress external \
-              --min-replicas 0 --max-replicas 2 \
+              --min-replicas 0 --max-replicas 1 \
               --secrets "sql-connection=${{ secrets.AZURE_SQL_CONNECTION }}" \
               --env-vars "AZURE_SQL_CONNECTION=secretref:sql-connection" \
               --only-show-errors

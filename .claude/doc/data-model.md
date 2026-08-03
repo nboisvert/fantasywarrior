@@ -195,6 +195,40 @@ PlayerId (FK null), DraftPickId (FK null)
 **`TradeVotes`** — PK (TradeId, UserId), FavoredTeamId (FK null = « équitable »),
 Magnitude, VotedUtc
 
+**`Messages`** — `MessageId` (bigint), LeagueId (FK), SenderUserId (FK),
+RecipientUserId (FK), Body (nvarchar 1000), SentUtc, ReadUtc (null)
+→ index (LeagueId, SenderUserId, RecipientUserId, SentUtc) pour lire un fil
+→ index filtré `IX_Messages_Unread` sur (RecipientUserId, LeagueId) `WHERE ReadUtc IS NULL`
+
+> **Les fils sont par ligue.** Un usager appartient à plusieurs pools ; les mêmes
+> deux personnes qui se parlent dans deux ligues ont deux conversations, parce
+> que le contexte est le pool. Ça garde aussi la liste de contacts trivialement
+> juste : c'est la membriété de la ligue, jamais une union entre pools.
+>
+> **Pas de table `Conversations`.** Un fil, c'est « les messages entre ces deux
+> usagers », lu dans les deux sens ; à une douzaine de GMs, la jointure que ça
+> économiserait ne vaut pas la ligne qu'elle coûterait. Le regroupement vit dans
+> `ConversationSummary` (Core), donc il est testé sans base.
+>
+> **`ReadUtc` null = non lu**, et c'est toute la requête du badge — aucun
+> compteur à tenir en accord avec les lignes. L'index filtré reste de la taille
+> de ce qui est effectivement non lu plutôt que de l'historique, qui lui ne fait
+> que grossir.
+>
+> ⚠️ **Les deux FK vers `Users` sont en NO ACTION**, et pas seulement par
+> l'habitude conservatrice du reste du schéma : deux chemins de cascade vers la
+> même table, c'est l'erreur « may cause cycles or multiple cascade paths » et
+> SQL Server refuse carrément de créer la contrainte.
+
+**`Users.LastSeenUtc`** — estampillé par le middleware de présence de l'API sur
+le trafic ordinaire, pas seulement au login.
+
+> C'est la moitié *durable* de la présence : elle répond « 12m ago » pour les
+> treize GMs qui ne sont pas connectés. La pastille verte en direct vient du
+> registre de connexions SignalR, en mémoire. `Presence.Resolve` (Core) combine
+> les deux, avec une fenêtre de grâce de 90 s pour qu'un socket tombé pendant
+> qu'on navigue encore ne fasse pas passer quelqu'un pour parti.
+
 ## Vues
 
 | Vue | Ce qu'elle donne |

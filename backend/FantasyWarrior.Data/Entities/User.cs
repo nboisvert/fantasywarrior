@@ -29,6 +29,16 @@ public sealed class User
 
     public DateTime? LastLoginUtc { get; set; }
 
+    /// <summary>
+    /// Last time this user was seen doing anything, stamped by the API's
+    /// presence middleware rather than only at login. This is the *durable*
+    /// half of presence: it answers "12m ago" for someone who is not connected.
+    /// The live green dot comes from the SignalR connection registry instead —
+    /// see <c>Presence.Resolve</c> in FantasyWarrior.Core for how the two
+    /// combine.
+    /// </summary>
+    public DateTime? LastSeenUtc { get; set; }
+
     public ICollection<LeagueMember> Memberships { get; set; } = [];
 
     public ICollection<Team> Teams { get; set; } = [];

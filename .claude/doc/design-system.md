@@ -48,6 +48,25 @@ du haut, pas dans la navigation. Barre du haut collante et floutée, avec le
 sélecteur de ligue et l'utilisateur. Le rembourrage bas du contenu doit dégager
 la navigation.
 
+## Messagerie (2026-08-03)
+
+Les DMs vivent dans une **feuille plein écran**, préfixe `chat-`
+(`components/ChatSheet.css`), et **dans** le thème — contrairement à
+`CockmanChat.css`, qui est autonome et détonne exprès parce qu'il joue un widget
+tiers greffé sur l'app. Une feuille pour deux vues qui s'échangent, liste ↔ fil,
+même forme que les deux panneaux du `ProfileMenu`.
+
+Deux portes, deux destinations distinctes — la règle « pas de destination
+dupliquée » tient : la bulle de la barre du haut ouvre la **liste** (et porte la
+pastille de non-lus, en `--ice` et non en or, l'or restant réservé à « une offre
+t'attend »), tandis que le bouton message d'une ligne GM du `ProfileMenu` ouvre
+**un fil précis**.
+
+Ligne de conversation : avatar avec pastille de présence, nom, heure à droite ;
+2e ligne l'aperçu du dernier message (préfixé « You: » si c'est le nôtre) et la
+pastille de non-lus. Les pop-ups d'événements live sont préfixées `toast-` et se
+placent **au-dessus** du bandeau d'actualités, jamais par-dessus.
+
 ## Logo
 
 Écusson circulaire : guerrier barbu, casque rouge, bâtons croisés. Master

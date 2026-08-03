@@ -1,7 +1,7 @@
 # Fantasy Warrior — Project Status
 
 > **Read at the start of every session, and keep updated along the way.**
-> Last updated: 2026-08-02.
+> Last updated: 2026-08-03.
 >
 > This file holds the **current state and the decisions behind it**. It is not a
 > changelog — `git log` is, and the commit messages in this repo are detailed.
@@ -42,6 +42,7 @@ nightly-processed → community rating), the five screens, the news ticker.
 | Frontend — Dashboard, Standings, Team, Trades, Settings | **Done** |
 | Trades — propose, respond, nightly processing, community rating | **Done** |
 | Contracts — CapWages import | **Done** |
+| GM-to-GM direct messages and live presence (SignalR) | **Done** |
 | Cap and roster-size **enforcement** (displayed today, not enforced) | Todo |
 | Real authentication | Todo |
 | Free agency | Todo |
@@ -55,6 +56,32 @@ was taken — not a record of what changed.
 
 ### Architecture
 
+- **2026-08-03 — SignalR, with a connection that is treated as a consumable.**
+  Polling was the cheaper option and it was rejected: presence and event
+  pop-ups both need a push, and a badge that only updates on tab change is not
+  the feature. The cost of that choice is real — a WebSocket is a request that
+  never ends, so the API cannot scale to zero while anyone is connected, and
+  the free grant is only about 100 awake hours a month. So the *client* owns
+  the budget: connect on league load, drop after 3 min idle, drop 60 s after
+  the tab is hidden, stop on `pagehide`. Billing is per replica-second, not per
+  connection, so fourteen GMs at once cost what one does; what costs money is a
+  forgotten tab, and `visibilitychange` is what kills that. See
+  [deployment.md](deployment.md).
+- **2026-08-03 — The Container App is capped at one replica.** Not a budget
+  decision: the hub's connection groups and `PresenceRegistry` are both
+  per-process, so a second replica would silently drop messages between GMs
+  split across the two and report half the league offline. Going wider needs a
+  backplane and a shared presence store, not a bigger number.
+- **2026-08-03 — Presence is passive, in two layers.** No heartbeat: a
+  middleware stamps `User.LastSeenUtc` from ordinary traffic (throttled to one
+  write a minute per user), which is the durable half and answers "12m ago" for
+  anyone not connected. The live green dot is the SignalR connection registry.
+  A 90-second grace window reconciles them, so a socket that drops while the
+  app is still being used does not make someone look gone. The offline
+  broadcast is deliberately debounced *past* that window — announcing sooner
+  would push "offline" while every fetch of the same list still said "online",
+  and the dot would flip on refresh. **The debounce is derived from the grace
+  window in code**, so the two cannot drift apart.
 - **2026-08-02 — Firestore → Azure SQL + EF Core.** Most of the backend's
   remaining complexity existed only to dodge Firestore's 50 000 reads/day free
   tier: a season-stats cache with its own invalidation rules, twelve
@@ -146,6 +173,15 @@ was taken — not a record of what changed.
 
 ### Product
 
+- **2026-08-03 — Direct messages are 1-to-1 and scoped to a league**, not a
+  league-wide room. Threads are per pool because the context of a conversation
+  *is* the pool, and it keeps the contact list trivially correct — it is the
+  league's membership, never a union across pools. There is no `Conversations`
+  table: a thread is just the messages between two users, read both ways.
+- **2026-08-03 — The chat sheet is inside the Night Arena theme**, which is the
+  exact opposite of the Cockman rule below and for the same reason. Cockman
+  clashes because it plays a bolted-on third-party widget; this is a native
+  screen and has to read as one.
 - **2026-07-27 — Merge feature branches straight to `main`** while Nick is solo.
 - **2026-07-27 — Garry Cockman clashes with the theme on purpose.** The mascot
   chat is a UI mock with literal hex values, a light corporate palette and a
@@ -163,6 +199,11 @@ was taken — not a record of what changed.
 - **No authentication.** The API trusts the username the client sends. Weekly
   lineups make this materially worse than it sounds: silently benching a rival's
   best player every Sunday would be undetectable.
+  **Direct messages changed the nature of this risk, not just its size**
+  (2026-08-03): the hub and the message routes trust a username in the query
+  string like everything else, so anyone who knows a handle can read that
+  person's private threads. For a pool of friends that is a tolerable trade,
+  but it is the first place where the gap exposes content rather than actions.
 - **Cap and roster size are displayed but not enforced** — no add/drop or trade
   is rejected for breaking them.
 - **The "Équipe" roster slot scores nothing** — rule never specified.

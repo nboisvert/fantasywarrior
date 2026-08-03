@@ -1,7 +1,7 @@
 # Deployment & Operations Runbook
 
 > Everything needed to run Fantasy Warrior live.
-> Last updated: 2026-08-02 — Azure SQL migration complete.
+> Last updated: 2026-08-03 — SignalR hub, and why the app is capped at one replica.
 
 ## Architecture (live)
 
@@ -20,6 +20,44 @@ stable outbound IP, so it could never be allowed through the Azure SQL firewall
 without paying for Cloud NAT (about $32/month), which breaks the project's
 "hosting stays free" rule. Co-locating also removed the cross-cloud round-trip
 on every query and made the database's wake-up far less visible.
+
+## The Container App runs exactly one replica (2026-08-03)
+
+`api-deploy.yml` sets `--min-replicas 0 --max-replicas 1`. The ceiling is a
+**correctness** requirement since the API started hosting a SignalR hub, not a
+budget one. Two things in it are per-process:
+
+- the hub's connection groups — a GM on replica A never receives a message
+  pushed from replica B;
+- `PresenceRegistry`, the in-memory map of who is connected — each replica would
+  report the half of the league it doesn't hold as offline.
+
+Both fail intermittently and only under load, which is the worst kind to chase.
+Raising the ceiling needs a **backplane** (Azure SignalR Service or Redis) *and*
+a shared presence store — not a bigger number.
+
+### The awake-time budget
+
+A WebSocket is a request that never ends, so **the app cannot scale to zero
+while anyone is connected**. The free grant is 180 000 vCPU-s + 360 000 GiB-s a
+month, and the replica is the default 0.5 vCPU / 1 GiB (no `--cpu`/`--memory` in
+the workflow) — so the grant buys roughly **100 hours of an awake replica per
+month**, past which it is pay-as-you-go, on the order of $30-35/month if it
+never sleeps. Confirm against the Azure pricing calculator before assuming those
+figures.
+
+Billing is **per replica-second, not per connection**: five GMs connected at
+once cost what one does. The budget is wall-clock *union* time where at least
+one person is active, not the sum of their sessions.
+
+What keeps it inside the grant is the client, in
+`frontend/src/live/LiveProvider.tsx` — connect when a league loads, drop
+after 3 min without interaction, drop 60 s after the tab is hidden, stop
+immediately on `pagehide`. The 3-minute idle timeout is deliberately shorter
+than Container Apps' own ~5 min scale-down cooldown: come back inside that and
+the replica is still warm, so reconnecting costs a handshake instead of a cold
+start. **If the awake hours ever look wrong, read that file first** — it is the
+only thing standing between this feature and a monthly bill.
 
 ## Azure SQL configuration
 

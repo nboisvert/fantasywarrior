@@ -55,6 +55,7 @@ public sealed class FantasyWarriorDbContext(DbContextOptions<FantasyWarriorDbCon
     public DbSet<TradeAsset> TradeAssets => Set<TradeAsset>();
     public DbSet<TradeVote> TradeVotes => Set<TradeVote>();
     public DbSet<CockcoinAward> CockcoinAwards => Set<CockcoinAward>();
+    public DbSet<Message> Messages => Set<Message>();
 
     // --- views: everything above the assignment grain is derived, never stored.
     // See Team's remarks for why.

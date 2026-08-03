@@ -1,0 +1,354 @@
+/* ChatSheet — direct messages, full-screen sheet, scoped with a "chat-" prefix.
+
+   Unlike CockmanChat.css, which is self-contained and deliberately off-theme,
+   everything here reads from index.css's tokens: this is a native screen and
+   has to look like one. */
+
+.chat-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(4, 7, 15, 0.72);
+  backdrop-filter: blur(3px);
+  animation: chat-fade 0.16s ease-out;
+}
+
+@keyframes chat-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.chat-sheet {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 640px;
+  /* Full height on a phone, a tall panel on a desktop — the thread wants every
+     row it can get, and a short sheet would show three messages. */
+  height: 100dvh;
+  max-height: 100dvh;
+  padding-bottom: env(safe-area-inset-bottom);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  animation: chat-rise 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (min-width: 641px) {
+  .chat-sheet {
+    height: min(720px, 92dvh);
+    border-radius: 18px 18px 0 0;
+  }
+}
+
+@keyframes chat-rise {
+  from {
+    transform: translateY(3%);
+    opacity: 0;
+  }
+}
+
+/* ---------- header ---------- */
+
+.chat-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+  padding: 0.7rem 0.8rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.chat-header-title {
+  font: 1rem var(--font-display);
+  letter-spacing: 0.03em;
+}
+
+.chat-header-peer {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.chat-header-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.chat-header-name {
+  font: 600 0.92rem var(--font-body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-header-sub {
+  font-size: 0.72rem;
+}
+
+.chat-header-close {
+  margin-left: auto;
+}
+
+.chat-icon-btn {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.chat-icon-btn:hover {
+  background: var(--surface-strong);
+  color: var(--text);
+}
+
+.chat-error {
+  flex-shrink: 0;
+  margin: 0.6rem 0.8rem 0;
+}
+
+.chat-status {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0.35rem 0.9rem;
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+/* ---------- avatar and presence ---------- */
+
+.chat-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.chat-avatar {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--ice) 0%, var(--ice-bright) 100%);
+  box-shadow: 0 0 10px var(--ice-glow);
+  color: #06121f;
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+}
+
+.chat-dot {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  /* The ring is the sheet's own background, so the dot reads as cut out of
+     the avatar rather than stuck on top of it. */
+  border: 2px solid var(--bg-elevated);
+  background: var(--text-muted);
+  transition: background-color 0.25s, box-shadow 0.25s;
+}
+
+.chat-dot.online {
+  background: var(--online);
+  box-shadow: 0 0 7px var(--online-glow);
+}
+
+/* ---------- conversation list ---------- */
+
+.chat-list {
+  flex: 1;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0.35rem 0;
+  list-style: none;
+}
+
+.chat-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  min-height: 64px;
+  padding: 0.55rem 0.9rem;
+  border: none;
+  border-left: 2px solid transparent;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.chat-row:hover {
+  background: var(--surface);
+  border-left-color: var(--ice);
+}
+
+.chat-row-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.16rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.chat-row-top,
+.chat-row-bottom {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.chat-row-name {
+  flex: 1;
+  min-width: 0;
+  font: 600 0.9rem var(--font-body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-row-stamp {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+}
+
+.chat-row-preview {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Unread pulls the preview up to full contrast — the badge says how many, the
+   weight says "this one". */
+.chat-row-preview.unread {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.chat-row-badge {
+  flex-shrink: 0;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--ice);
+  box-shadow: 0 0 8px var(--ice-glow);
+  color: #06121f;
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  line-height: 1;
+}
+
+/* ---------- thread ---------- */
+
+.chat-thread {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0.9rem;
+  list-style: none;
+}
+
+.chat-bubble {
+  max-width: 78%;
+  align-self: flex-start;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 14px 14px 14px 4px;
+  background: var(--surface-strong);
+}
+
+.chat-bubble.mine {
+  align-self: flex-end;
+  border-radius: 14px 14px 4px 14px;
+  border-color: rgba(56, 189, 248, 0.35);
+  background: rgba(56, 189, 248, 0.14);
+}
+
+.chat-bubble-text {
+  font-size: 0.86rem;
+  /* Preserves the line breaks someone typed without letting a pasted URL blow
+     the bubble past the sheet. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chat-bubble-time {
+  flex-shrink: 0;
+  font-size: 0.62rem;
+  transform: translateY(1px);
+}
+
+.chat-empty {
+  margin: auto;
+  padding: 2rem 1rem;
+  text-align: center;
+  font-size: 0.84rem;
+}
+
+/* ---------- composer ---------- */
+
+.chat-composer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  padding: 0.6rem 0.8rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.chat-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-send {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--ice) 0%, var(--ice-bright) 100%);
+  box-shadow: 0 0 12px var(--ice-glow);
+  color: #06121f;
+  cursor: pointer;
+  transition: opacity 0.15s, box-shadow 0.15s;
+}
+
+.chat-send:disabled {
+  background: var(--surface-strong);
+  box-shadow: none;
+  color: var(--text-muted);
+  cursor: not-allowed;
+}

@@ -3,6 +3,10 @@
 
 const BASE = import.meta.env.VITE_API_URL || "http://localhost:5099";
 
+/** Exported for the SignalR client, which builds its own URL rather than going
+ * through `request`. */
+export const API_BASE = BASE;
+
 export interface PlayerDto {
   id: number;
   name: string;
@@ -302,6 +306,43 @@ export interface Trade {
   canVote: boolean;
 }
 
+/** A GM's presence as the server resolved it. `presenceLabel` is rendered
+ * verbatim — the wording lives in FantasyWarrior.Core so there is one tested
+ * implementation of it rather than a second timeAgo drifting on this side. */
+export interface MemberPresence {
+  username: string;
+  online: boolean;
+  lastSeenUtc: string | null;
+  presenceLabel: string;
+}
+
+/** One row of the chat sheet's conversation list: a league-mate, their
+ * presence, and the last thing said if anything ever was. */
+export interface Conversation extends MemberPresence {
+  preview: string | null;
+  lastSentUtc: string | null;
+  lastFromMe: boolean;
+  unreadCount: number;
+}
+
+export interface ChatMessage {
+  id: string;
+  fromMe: boolean;
+  body: string;
+  sentUtc: string;
+}
+
+/** A message as it arrives on the live channel — addressed by username, since
+ * the recipient has no idea what our local `fromMe` framing would mean. */
+export interface LiveMessage {
+  id: string;
+  leagueId: string;
+  from: string;
+  to: string;
+  body: string;
+  sentUtc: string;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     headers: { "Content-Type": "application/json" },
@@ -403,6 +444,35 @@ export const api = {
    * server already turns that into 0 rather than an absent value. */
   cockcoinBalance: (username: string) =>
     request<{ balance: number }>(`/api/users/${encodeURIComponent(username)}/cockcoin`),
+
+  /** Every other GM in the league, whether or not anything has ever been said —
+   * a pool of fourteen is a contact list and an inbox at once. Already sorted
+   * by the server. */
+  conversations: (leagueId: string, username: string) =>
+    request<Conversation[]>(
+      `/api/leagues/${encodeURIComponent(leagueId)}/messages?username=${encodeURIComponent(username)}`,
+    ),
+  thread: (leagueId: string, username: string, peer: string) =>
+    request<ChatMessage[]>(
+      `/api/leagues/${encodeURIComponent(leagueId)}/messages/${encodeURIComponent(peer)}` +
+        `?username=${encodeURIComponent(username)}`,
+    ),
+  /** The response is the stored message. It also arrives over the live channel
+   * a moment later — the sheet dedupes on `id` rather than guessing which wins. */
+  sendMessage: (leagueId: string, username: string, to: string, body: string) =>
+    request<LiveMessage>(`/api/leagues/${encodeURIComponent(leagueId)}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ username, to, body }),
+    }),
+  markRead: (leagueId: string, username: string, peer: string) =>
+    request<{ marked: number }>(
+      `/api/leagues/${encodeURIComponent(leagueId)}/messages/${encodeURIComponent(peer)}/read`,
+      { method: "POST", body: JSON.stringify({ username }) },
+    ),
+  unreadCount: (leagueId: string, username: string) =>
+    request<{ count: number }>(
+      `/api/leagues/${encodeURIComponent(leagueId)}/unread?username=${encodeURIComponent(username)}`,
+    ),
 };
 
 export const formatCap = (amount: number | null | undefined) =>
@@ -422,6 +492,20 @@ export function formatShortName(name: string): string {
   const spaceIndex = name.indexOf(" ");
   if (spaceIndex <= 0) return name;
   return `${name[0]}. ${name.slice(spaceIndex + 1)}`;
+}
+
+/** First letters of up to the first two "words" of a username (usernames in
+ * this app are plain handles, not "First Last", but a couple may contain a
+ * dot/underscore/dash separator — handle that gracefully, fall back to the
+ * first two characters otherwise).
+ *
+ * Shared rather than living in ProfileMenu since 2026-08-03: the chat sheet
+ * draws the same avatar, and two copies would eventually disagree about the
+ * same person's initials. */
+export function initials(username: string): string {
+  const parts = username.split(/[.\-_ ]+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return username.slice(0, 2).toUpperCase();
 }
 
 export type PosGroup = "F" | "D" | "G";
