@@ -33,10 +33,16 @@ public static class MessageEndpoints
             if (context.Error is not null) return context.Error;
             var (league, me) = (context.League!, context.Me!);
 
-            var peers = await db.LeagueMembers
-                .Where(m => m.LeagueId == league.LeagueId && m.UserId != me.UserId)
-                .Select(m => new { m.UserId, m.User!.Username, m.User.LastSeenUtc })
-                .ToListAsync();
+            // Presence comes from the shared roster builder, the same one the
+            // hub pushes, so a fetched dot and a pushed dot can never disagree.
+            var roster = await PresenceRoster.ForLeagueAsync(db, presence, league.LeagueId);
+            // Projected in the query, not in ToDictionary's selectors: those run
+            // client-side over materialized LeagueMember rows, where User is
+            // null because nothing asked SQL to join it.
+            var peerIds = await db.LeagueMembers
+                .Where(m => m.LeagueId == league.LeagueId)
+                .Select(m => new { m.UserId, m.User!.Username })
+                .ToDictionaryAsync(x => x.Username, x => x.UserId);
 
             var rows = await db.Messages.AsNoTracking()
                 .Where(m => m.LeagueId == league.LeagueId
@@ -46,19 +52,21 @@ public static class MessageEndpoints
                 .ToListAsync();
 
             var conversations = ConversationSummary.Build(rows, me.UserId).ToDictionary(c => c.PeerUserId);
-            var now = DateTime.UtcNow;
 
-            var contacts = peers
+            var contacts = roster
+                .Where(p => p.Username != me.Username)
                 .Select(p =>
                 {
-                    conversations.TryGetValue(p.UserId, out var c);
-                    var state = Presence.Resolve(presence.IsOnline(p.UserId), p.LastSeenUtc, now);
+                    Conversation? c = null;
+                    if (peerIds.TryGetValue(p.Username, out var peerId))
+                        conversations.TryGetValue(peerId, out c);
+
                     return new
                     {
                         username = p.Username,
-                        online = state.Online,
-                        lastSeenUtc = state.LastSeenUtc,
-                        presenceLabel = state.Label,
+                        online = p.Online,
+                        lastSeenUtc = p.LastSeenUtc,
+                        label = p.Label,
                         preview = c?.Preview,
                         lastSentUtc = c?.LastSentUtc,
                         lastFromMe = c?.LastFromMe ?? false,

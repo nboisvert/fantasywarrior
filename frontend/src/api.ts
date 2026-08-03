@@ -306,14 +306,17 @@ export interface Trade {
   canVote: boolean;
 }
 
-/** A GM's presence as the server resolved it. `presenceLabel` is rendered
- * verbatim — the wording lives in FantasyWarrior.Core so there is one tested
- * implementation of it rather than a second timeAgo drifting on this side. */
+/** A GM's presence as the server resolved it. `label` is rendered verbatim —
+ * the wording lives in FantasyWarrior.Core so there is one tested
+ * implementation of it rather than a second timeAgo drifting on this side.
+ *
+ * `online` means one thing: a live connection. There is no "seen recently so
+ * probably still around" — `lastSeenUtc` only ever words the label. */
 export interface MemberPresence {
   username: string;
   online: boolean;
   lastSeenUtc: string | null;
-  presenceLabel: string;
+  label: string;
 }
 
 /** One row of the chat sheet's conversation list: a league-mate, their

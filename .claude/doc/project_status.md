@@ -72,16 +72,27 @@ was taken — not a record of what changed.
   per-process, so a second replica would silently drop messages between GMs
   split across the two and report half the league offline. Going wider needs a
   backplane and a shared presence store, not a bigger number.
-- **2026-08-03 — Presence is passive, in two layers.** No heartbeat: a
-  middleware stamps `User.LastSeenUtc` from ordinary traffic (throttled to one
-  write a minute per user), which is the durable half and answers "12m ago" for
-  anyone not connected. The live green dot is the SignalR connection registry.
-  A 90-second grace window reconciles them, so a socket that drops while the
-  app is still being used does not make someone look gone. The offline
-  broadcast is deliberately debounced *past* that window — announcing sooner
-  would push "offline" while every fetch of the same list still said "online",
-  and the dot would flip on refresh. **The debounce is derived from the grace
-  window in code**, so the two cannot drift apart.
+- **2026-08-03 — Presence is broadcast as a roster, never as a delta.** The
+  first cut pushed "nick just arrived", which the league could apply but which
+  told *nick* nothing about the five people already there — his own counter read
+  zero until some REST call happened to seed it. The whole league now travels in
+  one payload on every connect and disconnect: a few hundred bytes for fourteen
+  GMs, it reaches the arriving client through the same group as everyone else,
+  and it is idempotent, so a missed event is repaired by the next one instead of
+  leaving a dot stuck. `PresenceRoster.ForLeagueAsync` is the single builder,
+  used by both the push and the REST fetch, so the two cannot answer differently.
+- **2026-08-03 — Online means one thing: a live connection.** There is no
+  "recently active so probably still around" window. The earlier version had a
+  90-second one, and it cost far more than it bought: the offline announcement
+  had to be delayed past it, which forced a detached timer with its own DI
+  scope, which then disagreed with the very window it was built around. One
+  predicate deletes that whole class of bug, and since the client only holds a
+  connection while the app is actually being used, "connected" and "here" mean
+  the same thing anyway. `LastSeenUtc` survives to word the label for people who
+  are *not* online; it never decides the dot.
+- **2026-08-03 — Presence is still passive underneath.** No heartbeat: a
+  middleware stamps `User.LastSeenUtc` from ordinary traffic, throttled to one
+  write a minute per user.
 - **2026-08-02 — Firestore → Azure SQL + EF Core.** Most of the backend's
   remaining complexity existed only to dodge Firestore's 50 000 reads/day free
   tier: a season-stats cache with its own invalidation rules, twelve

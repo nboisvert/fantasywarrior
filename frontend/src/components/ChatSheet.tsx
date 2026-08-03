@@ -57,7 +57,7 @@ export function ChatSheet({
   /** Lets the topbar badge settle without waiting for the next tab change. */
   onUnreadChanged: () => void;
 }) {
-  const { presence, seedPresence, onMessage, status } = useLive();
+  const { presenceOf, setRoster, onMessage, status } = useLive();
 
   const [peer, setPeer] = useState<string | null>(initialPeer);
   const [conversations, setConversations] = useState<Conversation[] | null>(null);
@@ -75,12 +75,14 @@ export function ChatSheet({
       .conversations(leagueId, username)
       .then((rows) => {
         setConversations(rows);
-        // Presence arrived with the list; hand it to the provider so the
-        // ProfileMenu shows the same dots without fetching again.
-        seedPresence(rows);
+        // The list carries the same presence the hub pushes, built by the same
+        // roster code — so it doubles as a roster refresh for the ProfileMenu
+        // when the connection happens to be idle-disconnected. The viewer is
+        // absent from it, which is fine: nothing renders the viewer's own dot.
+        setRoster(rows);
       })
       .catch((e) => setError((e as Error).message));
-  }, [leagueId, username, seedPresence]);
+  }, [leagueId, username, setRoster]);
 
   useEffect(loadConversations, [loadConversations]);
 
@@ -217,10 +219,10 @@ export function ChatSheet({
   };
 
   /** Live presence wins over whatever the list was fetched with. */
-  const presenceOf = (row: Conversation) => presence[row.username] ?? row;
+  const livePresence = (row: Conversation) => presenceOf(row.username) ?? row;
 
   const peerRow = peer ? conversations?.find((c) => c.username === peer) : undefined;
-  const peerPresence = peer ? presence[peer] ?? peerRow : undefined;
+  const peerPresence = peer ? presenceOf(peer) ?? peerRow : undefined;
 
   return (
     <div className="chat-overlay" onClick={onBackdrop}>
@@ -255,7 +257,7 @@ export function ChatSheet({
               </span>
               <span className="chat-header-text">
                 <span className="chat-header-name">{peer}</span>
-                <span className="chat-header-sub muted">{peerPresence?.presenceLabel ?? ""}</span>
+                <span className="chat-header-sub muted">{peerPresence?.label ?? ""}</span>
               </span>
             </span>
           ) : (
@@ -282,7 +284,7 @@ export function ChatSheet({
               <li className="chat-empty muted">No other GMs in this league yet.</li>
             ) : (
               conversations.map((row) => {
-                const p = presenceOf(row);
+                const p = livePresence(row);
                 return (
                   <li key={row.username}>
                     <button className="chat-row" onClick={() => setPeer(row.username)}>
@@ -292,7 +294,7 @@ export function ChatSheet({
                         </span>
                         <span
                           className={`chat-dot${p.online ? " online" : ""}`}
-                          aria-label={p.online ? "Online" : p.presenceLabel}
+                          aria-label={p.online ? "Online" : p.label}
                         />
                       </span>
 
@@ -300,7 +302,7 @@ export function ChatSheet({
                         <span className="chat-row-top">
                           <span className="chat-row-name">{row.username}</span>
                           <span className="chat-row-stamp muted">
-                            {row.lastSentUtc ? stampLabel(row.lastSentUtc) : p.presenceLabel}
+                            {row.lastSentUtc ? stampLabel(row.lastSentUtc) : p.label}
                           </span>
                         </span>
                         <span className="chat-row-bottom">

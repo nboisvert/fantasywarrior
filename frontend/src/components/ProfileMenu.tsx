@@ -44,7 +44,7 @@ export function ProfileMenu({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  const { presence, seedPresence } = useLive();
+  const { roster, setRoster } = useLive();
 
   // Click-outside closes.
   useEffect(() => {
@@ -95,23 +95,24 @@ export function ProfileMenu({
     };
   }, [open, username]);
 
-  // Seeds presence from the conversation list rather than a route of its own:
-  // it is the same data, and warming it here means opening this menu has
-  // already loaded what the chat sheet needs. Pushes keep it current after.
+  // A fallback, not the source. The hub pushes the whole roster the moment the
+  // connection opens, so the badge is already right before this menu is ever
+  // opened; this only covers the case where the connection is idle-disconnected
+  // (see LiveProvider) and there is nothing live to listen to.
   useEffect(() => {
     if (!open || !leagueId) return;
     let ignore = false;
     api
       .conversations(leagueId, username)
       .then((rows) => {
-        if (!ignore) seedPresence(rows);
+        if (!ignore) setRoster(rows);
       })
       // Silent: the list still renders, just without dots.
       .catch(() => {});
     return () => {
       ignore = true;
     };
-  }, [open, leagueId, username, seedPresence]);
+  }, [open, leagueId, username, setRoster]);
 
   // Focus the panel itself rather than its first control. Now that Settings
   // and Log out sit at the bottom, focusing a button would scroll a
@@ -121,25 +122,27 @@ export function ProfileMenu({
     if (open) panelRef.current?.focus();
   }, [open]);
 
-  // Online first, then whoever was seen most recently; a stable alphabetical
-  // tiebreak keeps the order from jittering between renders.
+  // Rendered in the order the server sent (online first, then most recently
+  // seen). The sort used to live here and had to guess at members with no
+  // presence yet; now the roster arrives complete and already ordered, so
+  // there is nothing to re-derive. `otherMembers` is only a fallback for the
+  // moment before the first roster lands.
   const members = useMemo(() => {
-    const seenRank = (name: string) => {
-      const p = presence[name];
-      if (!p) return Number.POSITIVE_INFINITY;
-      if (p.online) return -1;
-      return p.lastSeenUtc ? -new Date(p.lastSeenUtc).getTime() : Number.POSITIVE_INFINITY;
-    };
-    return [...otherMembers].sort(
-      (a, b) => seenRank(a) - seenRank(b) || a.localeCompare(b),
-    );
-  }, [otherMembers, presence]);
+    const peers = roster.filter((m) => m.username !== username);
+    if (peers.length > 0) return peers;
+    return otherMembers.map((name) => ({
+      username: name,
+      online: false,
+      lastSeenUtc: null,
+      label: "—",
+    }));
+  }, [roster, otherMembers, username]);
 
   // Other GMs only. Counting the viewer (2026-08-03, per Nick) meant the badge
   // never read below 1, so "1 online" was indistinguishable from "nobody is
   // here" — it announced your own presence back at you. A badge should say
   // something you don't already know.
-  const onlineCount = members.filter((m) => presence[m]?.online).length;
+  const onlineCount = members.filter((m) => m.online).length;
 
   return (
     <div className="profile-menu">
@@ -196,12 +199,12 @@ export function ProfileMenu({
             <p className="profile-empty muted">No other poolers yet.</p>
           ) : (
             <ul className="profile-member-list">
-              {members.map((member) => {
-                const p = presence[member];
+              {members.map((p) => {
+                const member = p.username;
                 return (
                   <li key={member} className="profile-member-row">
                     <span
-                      className={`profile-status-dot${p?.online ? " online" : ""}`}
+                      className={`profile-status-dot${p.online ? " online" : ""}`}
                       aria-hidden="true"
                     />
                     <span className="profile-member-name">{member}</span>
@@ -224,7 +227,7 @@ export function ProfileMenu({
                      * wording of the interval itself comes from Core either
                      * way, so there is still one implementation of it. */}
                     <span className="profile-member-seen muted">
-                      {p?.online ? "Online" : p?.presenceLabel ? `last seen ${p.presenceLabel}` : "—"}
+                      {p.online ? "Online" : p.label === "—" ? "—" : `last seen ${p.label}`}
                     </span>
                   </li>
                 );

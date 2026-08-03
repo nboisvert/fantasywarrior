@@ -223,11 +223,12 @@ RecipientUserId (FK), Body (nvarchar 1000), SentUtc, ReadUtc (null)
 **`Users.LastSeenUtc`** — estampillé par le middleware de présence de l'API sur
 le trafic ordinaire, pas seulement au login.
 
-> C'est la moitié *durable* de la présence : elle répond « 12m ago » pour les
-> treize GMs qui ne sont pas connectés. La pastille verte en direct vient du
-> registre de connexions SignalR, en mémoire. `Presence.Resolve` (Core) combine
-> les deux, avec une fenêtre de grâce de 90 s pour qu'un socket tombé pendant
-> qu'on navigue encore ne fasse pas passer quelqu'un pour parti.
+> Sert **uniquement à formuler le libellé** (« last seen 45min ago ») pour ceux
+> qui ne sont pas en ligne. La pastille verte, elle, ne dépend que du registre
+> de connexions SignalR en mémoire : en ligne == une connexion vivante, point.
+> Il y a eu une fenêtre de grâce de 90 s ; elle obligeait à retarder l'annonce
+> hors-ligne au-delà d'elle-même, donc à un timer détaché, qui finissait par la
+> contredire. Un seul prédicat supprime toute cette classe de bug.
 
 ## Vues
 

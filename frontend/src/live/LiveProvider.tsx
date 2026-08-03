@@ -61,11 +61,21 @@ export interface LiveNotice {
   text: string;
 }
 
+/** The whole league's presence, the only shape presence ever travels in —
+ * pushed on every connect and disconnect, and returned by the REST list. */
+interface RosterPayload {
+  leagueId: string;
+  members: MemberPresence[];
+}
+
 interface LiveContextValue {
   status: LiveStatus;
-  /** By username. Seeded by whatever fetched a list; kept current by pushes. */
-  presence: Record<string, MemberPresence>;
-  seedPresence: (members: MemberPresence[]) => void;
+  /** Server-ordered (online first), and complete: every member of the league,
+   * including the viewer. Replaced wholesale, never patched. */
+  roster: MemberPresence[];
+  presenceOf: (username: string) => MemberPresence | undefined;
+  /** For the REST paths, which return the same complete list. */
+  setRoster: (members: MemberPresence[]) => void;
   onMessage: (handler: (m: LiveMessage) => void) => () => void;
   onNotice: (handler: (n: LiveNotice) => void) => () => void;
 }
@@ -77,8 +87,9 @@ const LiveContext = createContext<LiveContextValue | null>(null);
  * connection and never an event. */
 const INERT: LiveContextValue = {
   status: "idle",
-  presence: {},
-  seedPresence: () => {},
+  roster: [],
+  presenceOf: () => undefined,
+  setRoster: () => {},
   onMessage: () => () => {},
   onNotice: () => () => {},
 };
@@ -97,7 +108,7 @@ export function LiveProvider({
   children: ReactNode;
 }) {
   const [status, setStatus] = useState<LiveStatus>("idle");
-  const [presence, setPresence] = useState<Record<string, MemberPresence>>({});
+  const [roster, setRoster] = useState<MemberPresence[]>([]);
 
   const connectionRef = useRef<HubConnection | null>(null);
   const idleTimer = useRef<number | undefined>(undefined);
@@ -124,13 +135,13 @@ export function LiveProvider({
     };
   }, []);
 
-  const seedPresence = useCallback((members: MemberPresence[]) => {
-    setPresence((prev) => {
-      const next = { ...prev };
-      for (const m of members) next[m.username] = m;
-      return next;
-    });
-  }, []);
+  // Lookup rebuilt from the roster rather than stored beside it, so there is
+  // one array to keep right and no second copy to fall out of step with it.
+  const byUsername = useMemo(
+    () => new Map(roster.map((m) => [m.username, m])),
+    [roster],
+  );
+  const presenceOf = useCallback((username: string) => byUsername.get(username), [byUsername]);
 
   const stop = useCallback(async () => {
     const connection = connectionRef.current;
@@ -160,9 +171,9 @@ export function LiveProvider({
     connection.on("message", (m: LiveMessage) => {
       for (const handler of messageHandlers.current) handler(m);
     });
-    connection.on("presence", (p: MemberPresence) => {
-      setPresence((prev) => ({ ...prev, [p.username]: p }));
-    });
+    // Wholesale replace, never a merge: the payload is the complete league, so
+    // anything not in it is gone, and applying it twice changes nothing.
+    connection.on("presence", (r: RosterPayload) => setRoster(r.members));
     connection.on("notice", (n: LiveNotice) => {
       for (const handler of noticeHandlers.current) handler(n);
     });
@@ -214,7 +225,7 @@ export function LiveProvider({
 
   useEffect(() => {
     if (!username || !leagueId) {
-      setPresence({});
+      setRoster([]);
       return;
     }
 
@@ -266,8 +277,8 @@ export function LiveProvider({
   }, [username, leagueId, wake, stop]);
 
   const value = useMemo<LiveContextValue>(
-    () => ({ status, presence, seedPresence, onMessage, onNotice }),
-    [status, presence, seedPresence, onMessage, onNotice],
+    () => ({ status, roster, presenceOf, setRoster, onMessage, onNotice }),
+    [status, roster, presenceOf, onMessage, onNotice],
   );
 
   return <LiveContext.Provider value={value}>{children}</LiveContext.Provider>;

@@ -1,37 +1,53 @@
 namespace FantasyWarrior.Core.Messaging;
 
-/// <summary>How a GM's presence reads to everyone else.</summary>
+/// <summary>One league member as everyone else sees them.</summary>
 /// <param name="Online">Whether to light the green dot.</param>
 /// <param name="LastSeenUtc">Null for someone who has never been seen at all.</param>
-/// <param name="Label">Ready to render: "Online", "12m ago", "3d ago", "—".</param>
-public sealed record PresenceState(bool Online, DateTime? LastSeenUtc, string Label);
+/// <param name="Label">Ready to render: "Online", "45min ago", "3d ago", "—".</param>
+public sealed record MemberPresence(string Username, bool Online, DateTime? LastSeenUtc, string Label);
+
+/// <summary>A league member as the database holds them, before presence is applied.</summary>
+public sealed record MemberSeen(int UserId, string Username, DateTime? LastSeenUtc);
 
 /// <summary>
-/// Presence in two layers.
+/// Who is in a league and who is there right now.
 ///
-/// The live layer is the SignalR connection registry — an open connection is
-/// the only thing that actually proves someone is there right now. The durable
-/// layer is <c>User.LastSeenUtc</c>, stamped by the API's presence middleware,
-/// which is what still has an answer for the fourteen GMs who are not connected.
+/// <b>Online means one thing: a live connection.</b> There is no "recently
+/// active so probably still around" window, and that is a deliberate
+/// simplification (2026-08-03). The earlier version had one, which forced the
+/// offline announcement to be delayed past it, which forced a detached timer,
+/// which then disagreed with the window it was built around. One predicate
+/// removes that whole class of bug — and with the client holding its
+/// connection only while the app is actually being used, "connected" and
+/// "here" mean the same thing anyway.
 ///
-/// The grace window is what stops the two from contradicting each other. A
-/// connection drops for reasons that have nothing to do with the person: a
-/// revision swap on deploy, a phone changing towers, the client's own idle
-/// timeout firing a second before they touch the screen again. Anyone whose
-/// REST traffic is that recent is still here, whatever the socket says.
+/// <c>LastSeenUtc</c> survives, but only to word the label for people who are
+/// *not* online. It never decides the dot.
 /// </summary>
 public static class Presence
 {
-    /// <summary>How stale <c>LastSeenUtc</c> may be before a disconnected user reads as away.</summary>
-    public static readonly TimeSpan GraceWindow = TimeSpan.FromSeconds(90);
+    /// <summary>
+    /// The whole league in one shot, which is the only thing ever sent or
+    /// fetched. A roster is idempotent where a per-person delta is not: apply
+    /// it twice and nothing changes, miss one and the next arrival repairs it,
+    /// and a client that has just connected learns about everyone already
+    /// there rather than only about itself.
+    ///
+    /// Ordered online-first, then most recently seen, then alphabetically —
+    /// once, here, so no caller has to re-derive it and drift.
+    /// </summary>
+    public static IReadOnlyList<MemberPresence> Roster(
+        IEnumerable<MemberSeen> members, Func<int, bool> isConnected, DateTime nowUtc) =>
+        members
+            .Select(m => For(m, isConnected(m.UserId), nowUtc))
+            .OrderByDescending(m => m.Online)
+            .ThenByDescending(m => m.LastSeenUtc ?? DateTime.MinValue)
+            .ThenBy(m => m.Username, StringComparer.Ordinal)
+            .ToList();
 
-    public static PresenceState Resolve(bool isConnected, DateTime? lastSeenUtc, DateTime nowUtc)
-    {
-        var online = isConnected
-            || (lastSeenUtc is not null && nowUtc - lastSeenUtc.Value <= GraceWindow);
-
-        return new PresenceState(online, lastSeenUtc, Describe(online, lastSeenUtc, nowUtc));
-    }
+    public static MemberPresence For(MemberSeen member, bool isConnected, DateTime nowUtc) =>
+        new(member.Username, isConnected, member.LastSeenUtc,
+            Describe(isConnected, member.LastSeenUtc, nowUtc));
 
     /// <summary>
     /// The label the UI renders. It lives here rather than in the frontend so
