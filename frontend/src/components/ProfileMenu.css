@@ -5,9 +5,12 @@
 .profile-menu {
   position: relative;
   flex-shrink: 0;
-  /* Last item in the topbar's space-between row — anchors the dropdown to
-     the actual right edge instead of wherever flex distribution lands it. */
-  margin-left: auto;
+  /* No margin-left:auto here (2026-08-03). `.topbar-chat` carries it, and two
+     auto margins in one flex row *split* the free space between them instead of
+     one absorbing it all — which is what left the message icon sitting near the
+     middle. With it on the chat button alone, the pair travels to the right
+     edge together. When no league is selected the chat button is not rendered
+     and the topbar's own space-between still anchors this to the right. */
 }
 
 /* ---------- trigger ---------- */

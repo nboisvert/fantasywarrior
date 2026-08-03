@@ -64,9 +64,12 @@
    destination, not a second route to this one. */
 /* Bare icon, no chip (2026-08-03, per Nick): the profile trigger beside it is
    already a pill, and two pills in a row read as a segmented control rather
-   than as one identity and one action. margin-left:auto pushes the pair to the
-   right edge — the profile menu's own auto margin then has no slack left, so
-   the two sit together. */
+   than as one identity and one action.
+
+   This is the *only* auto margin in the topbar. It used to share one with
+   .profile-menu, and two auto margins in a flex row split the free space
+   between them rather than letting the first absorb it — which is what left
+   this icon sitting near the middle instead of against the profile. */
 .topbar-chat {
   position: relative;
   display: grid;

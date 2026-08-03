@@ -22,10 +22,26 @@ import { Settings } from "./screens/Settings";
 import { NewsTicker } from "./components/NewsTicker";
 import { ChatSheet } from "./components/ChatSheet";
 import { ToastHost } from "./components/Toast";
-import { LiveProvider } from "./live/LiveProvider";
+import { LiveProvider, useLive } from "./live/LiveProvider";
 import "./App.css";
 
 type Tab = "dashboard" | "standings" | "stats" | "trades" | "settings";
+
+/** Keeps the topbar's unread badge live while the chat sheet is closed.
+ *
+ * The sheet subscribes to incoming messages itself, but it is only mounted
+ * while it is open — so a message arriving with it closed had nothing
+ * listening, and the badge sat still until the next tab change. This has to
+ * live inside LiveProvider, which is why it is a component rather than a hook
+ * call in App. Renders nothing. */
+function UnreadBridge({ username, onIncoming }: { username: string; onIncoming: () => void }) {
+  const { onMessage } = useLive();
+  useEffect(
+    () => onMessage((m) => { if (m.to === username) onIncoming(); }),
+    [onMessage, username, onIncoming],
+  );
+  return null;
+}
 
 export default function App() {
   const [username, setUsername] = useState<string | null>(localStorage.getItem("fw-username"));
@@ -313,6 +329,8 @@ export default function App() {
           Trades
         </button>
       </nav>
+
+      <UnreadBridge username={username} onIncoming={refreshUnread} />
 
       <ToastHost />
 
