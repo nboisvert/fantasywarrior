@@ -6,82 +6,13 @@
 // import below) so the numbers match PlayerCard exactly instead of being
 // re-derived and re-tightened.
 
-import { useEffect, useMemo, useState } from "react";
-import { api, topPlayersByNhlPoints } from "../api";
-import type { LeagueDetail, Trade, TradePlayer } from "../api";
-import { ArrowLeftRightIcon } from "../components/Icons";
+import { useEffect, useState } from "react";
+import { api } from "../api";
+import type { LeagueDetail } from "../api";
+import { ActivityIcon, UsersIcon } from "../components/Icons";
 import { PlayerCard } from "../components/PlayerCard";
-
-/** Same window the news ticker uses for its "hot" gold glow — a trade is
- * fresh news for 30 minutes after its own stage timestamp. */
-const HOT_WINDOW_MS = 30 * 60 * 1000;
-
-/** Small local helper, not shared — same duplicated-per-file convention as
- * NewsTicker's own timeAgo (and Stats.tsx's formatMoneyCompact). */
-function timeAgo(dateUtc: string): string {
-  const ms = Date.now() - new Date(dateUtc).getTime();
-  const minutes = Math.floor(ms / 60_000);
-  if (minutes < 1) return "now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
-
-/** The trade's own "just happened" timestamp and status label — same
- * priority Trades.tsx's primaryDate uses (processed beats accepted beats
- * proposed), but only the two history-worthy stages ever reach this card. */
-function tradeTimestamp(t: Trade): { label: string; iso: string } {
-  if (t.status === "processed" && t.processedUtc) return { label: "Processed", iso: t.processedUtc };
-  if (t.status === "accepted" && t.respondedUtc) return { label: "Accepted", iso: t.respondedUtc };
-  return { label: "Proposed", iso: t.createdUtc };
-}
-
-/** One team's column: "To {team}" on top, the headliners (by NHL points) it
- * *acquired* below, "+N more" for the rest — the collapsed view Trades.tsx's
- * own trade cards use, reused verbatim (same classes) so this reads as the
- * same visual language, not a smaller copy of it. No expand affordance
- * here: this is a glance at what happened, not the place to act on or rate
- * a trade — that's what the Trades tab already is.
- *
- * Callers pass the *other* side's assets here — see teamsSplit in
- * Trades.tsx for why "To {team}" pairs with what it acquired, not what it
- * gave (2026-08-03, per Nick). */
-function TradeSide({
-  teamName, acquires, pointsById, align, onOpenPlayer,
-}: {
-  teamName: string;
-  acquires: TradePlayer[];
-  pointsById: Map<number, number>;
-  align: "left" | "right";
-  onOpenPlayer: (playerId: number) => void;
-}) {
-  const top = topPlayersByNhlPoints(acquires, pointsById, 2);
-  const topIds = new Set(top.map((p) => p.id));
-  const rest = acquires.filter((p) => !topIds.has(p.id));
-  return (
-    <div className={`trade-side trade-side-${align}`}>
-      <span className="trade-side-name">To {teamName}</span>
-      <div className="trade-side-acquired">
-        {top.length === 0 ? (
-          <span className="muted">nothing</span>
-        ) : (
-          top.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              className="dash-news-player"
-              onClick={() => onOpenPlayer(p.id)}
-            >
-              {p.name}
-            </button>
-          ))
-        )}
-        {rest.length > 0 && <span className="muted">+{rest.length} more</span>}
-      </div>
-    </div>
-  );
-}
+import { TopPlayerGrid } from "../components/TopPlayerGrid";
+import type { TopPlayerCard } from "../components/TopPlayerGrid";
 
 /** Compact cap-space format for the "at a glance" tile: millions with one
  * decimal ($9.2M), thousands in $K under a million, sign preserved so an
@@ -115,45 +46,6 @@ function ordinal(n: number): string {
 
 export function Dashboard({ league, username }: { league: LeagueDetail; username: string }) {
   const [openPlayerId, setOpenPlayerId] = useState<number | null>(null);
-  const [trades, setTrades] = useState<Trade[] | null>(null);
-
-  // Ticks every 30s purely to re-evaluate "is this trade still within its
-  // 30-minute hot window" — same reasoning as NewsTicker's own clock.
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(id);
-  }, []);
-
-  useEffect(() => {
-    let ignore = false;
-    api
-      .trades(league.id, username)
-      .then((list) => {
-        if (!ignore) setTrades(list);
-      })
-      .catch(() => {
-        if (!ignore) setTrades([]);
-      });
-    return () => {
-      ignore = true;
-    };
-  }, [league.id, username]);
-
-  const pointsById = useMemo(() => {
-    const map = new Map<number, number>();
-    for (const team of league.teams)
-      for (const [id, pts] of Object.entries(team.playerNhlPoints)) map.set(Number(id), pts);
-    return map;
-  }, [league]);
-
-  // Same "history" scope Trades.tsx shows (processed, plus accepted trades
-  // still awaiting tonight's processing) — declined/cancelled/pending offers
-  // aren't news yet. Most recent stage first.
-  const recentTrades = (trades ?? [])
-    .filter((t) => t.status === "processed" || t.status === "accepted")
-    .map((t) => ({ trade: t, ...tradeTimestamp(t) }))
-    .sort((a, b) => new Date(b.iso).getTime() - new Date(a.iso).getTime());
 
   const myIndex = league.teams.findIndex((t) => t.ownerUsername === username);
   const myTeam = myIndex >= 0 ? league.teams[myIndex] : undefined;
@@ -212,55 +104,143 @@ export function Dashboard({ league, username }: { league: LeagueDetail; username
         </p>
       </div>
 
-      <div className="card dash-news">
-        <span className="section-title">League News</span>
-        {trades == null ? null : recentTrades.length === 0 ? (
-          <p className="empty-state">No trades yet.</p>
-        ) : (
-          <ul className="dash-news-list">
-            {recentTrades.map(({ trade, label, iso }, i) => {
-              const isHot = now - new Date(iso).getTime() < HOT_WINDOW_MS;
-              return (
-                <li
-                  key={trade.id}
-                  className={`dash-news-card${isHot ? " hot" : ""}`}
-                  style={{ animationDelay: `${Math.min(i, 5) * 60}ms` }}
-                >
-                  <div className="trade-row-head">
-                    <span className="trade-row-date">
-                      <span className="trade-row-date-label">{label}</span> {timeAgo(iso)}
-                    </span>
-                    {trade.status === "accepted" && (
-                      <span className="trade-awaiting-pill">Awaiting processing</span>
-                    )}
-                  </div>
-                  <div className="trade-teams-split">
-                    <TradeSide
-                      teamName={trade.proposerTeamName}
-                      acquires={trade.playersFromCounterparty}
-                      pointsById={pointsById}
-                      align="left"
-                      onOpenPlayer={setOpenPlayerId}
-                    />
-                    <span className="dash-news-icon" aria-hidden="true">
-                      <ArrowLeftRightIcon size={16} />
-                    </span>
-                    <TradeSide
-                      teamName={trade.counterpartyTeamName}
-                      acquires={trade.playersFromProposer}
-                      pointsById={pointsById}
-                      align="right"
-                      onOpenPlayer={setOpenPlayerId}
-                    />
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
+      <TopReserve league={league} username={username} onOpenPlayer={setOpenPlayerId} />
+      <TopFreeAgents league={league} onOpenPlayer={setOpenPlayerId} />
 
       {openPlayerId != null && <PlayerCard playerId={openPlayerId} onClose={() => setOpenPlayerId(null)} />}
     </section>
+  );
+}
+
+/** Currently benched (as of *this* week's lineup), ranked by what they
+ * scored *last* week — two different periods, so two lineup fetches joined
+ * on `spotId` (stable across periods for the same held roster spot):
+ * one for who's benched now, one for last week's points (2026-08-02, per
+ * Nick — "top réserve" is who's on the bench today, not who was benched
+ * last week). Both reuse the existing lineup endpoint; no new API needed. */
+function TopReserve({
+  league, username, onOpenPlayer,
+}: {
+  league: LeagueDetail;
+  username: string;
+  onOpenPlayer: (playerId: number) => void;
+}) {
+  const [cards, setCards] = useState<TopPlayerCard[] | null>(null);
+  const previousIndex = league.currentPeriod ? league.currentPeriod.index - 1 : null;
+
+  useEffect(() => {
+    if (previousIndex == null || previousIndex < 1) {
+      setCards([]);
+      return;
+    }
+    let ignore = false;
+    Promise.all([
+      api.lineup(league.id, username, username),
+      api.lineup(league.id, username, username, previousIndex),
+    ])
+      .then(([current, previous]) => {
+        if (ignore) return;
+        const benchedNow = new Set(current.entries.filter((e) => !e.active).map((e) => e.spotId));
+        const ranked = previous.entries
+          .filter((e) => benchedNow.has(e.spotId))
+          .sort((a, b) => b.points - a.points)
+          .slice(0, 4)
+          .map((e): TopPlayerCard => ({
+            playerId: e.playerId,
+            name: e.name,
+            team: e.team,
+            headshotUrl: e.headshotUrl,
+            position: e.position,
+            statValue: e.points,
+            statLabel: `Wk ${previousIndex} pts`,
+            secondaryLine: `${e.gamesPlayed} GP · ${e.seasonPoints} season`,
+          }));
+        setCards(ranked);
+      })
+      .catch(() => {
+        if (!ignore) setCards([]);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [league.id, username, previousIndex]);
+
+  if (cards === null) return null;
+  return (
+    <TopPlayerGrid
+      title="Top Reserve"
+      icon={<ActivityIcon size={16} />}
+      cards={cards}
+      emptyMessage={
+        previousIndex == null || previousIndex < 1
+          ? "No previous week yet."
+          : "No bench standouts last week."
+      }
+      onOpenPlayer={onOpenPlayer}
+    />
+  );
+}
+
+/** League-wide unrostered players, ranked by fantasy points from *last*
+ * week under the league's own scoring scale — same "previous period" window
+ * as Top Reserve, applied to the whole player pool instead of just the
+ * viewer's own bench. Scoring through the league's scale (not raw NHL
+ * points) is what puts goalies in the mix (2026-08-02, per Nick). */
+function TopFreeAgents({
+  league, onOpenPlayer,
+}: {
+  league: LeagueDetail;
+  onOpenPlayer: (playerId: number) => void;
+}) {
+  const [cards, setCards] = useState<TopPlayerCard[] | null>(null);
+  const previousIndex = league.currentPeriod ? league.currentPeriod.index - 1 : null;
+
+  useEffect(() => {
+    if (previousIndex == null || previousIndex < 1) {
+      setCards([]);
+      return;
+    }
+    let ignore = false;
+    api
+      .freeAgents(league.id, previousIndex)
+      .then((rows) => {
+        if (ignore) return;
+        setCards(
+          rows.map((r): TopPlayerCard => ({
+            playerId: r.playerId,
+            name: r.name,
+            team: r.team,
+            headshotUrl: r.headshotUrl,
+            position: r.position,
+            statValue: r.points,
+            statLabel: `Wk ${previousIndex} pts`,
+            secondaryLine:
+              r.positionGroup === "G"
+                ? `${r.wins}-${r.otLosses} · ${r.saves} SV`
+                : `${r.goals}G ${r.assists}A`,
+          })),
+        );
+      })
+      .catch(() => {
+        if (!ignore) setCards([]);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [league.id, previousIndex]);
+
+  if (cards === null) return null;
+  return (
+    <TopPlayerGrid
+      title="Top Free Agents"
+      icon={<UsersIcon size={16} />}
+      cards={cards}
+      emptyMessage={
+        previousIndex == null || previousIndex < 1
+          ? "No previous week yet."
+          : "No standout free agents last week."
+      }
+      onOpenPlayer={onOpenPlayer}
+    />
   );
 }

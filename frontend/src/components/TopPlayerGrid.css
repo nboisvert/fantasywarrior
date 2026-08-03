@@ -1,0 +1,173 @@
+/* TopPlayerGrid — the shared "wow" leaderboard card used by GM Office's Top
+   Reserve and Top Free Agents sections (2026-08-02, per Nick: same format,
+   different stats). Headshot glow ring is color-coded by position group —
+   CLAUDE.md's own F/D/G palette (ice/violet/gold) doing double duty as this
+   card's one visual flourish, rather than inventing a new accent. */
+
+.top-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.top-grid-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.top-grid-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+}
+
+@media (min-width: 768px) {
+  .top-grid-cards {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.top-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.9rem 0.5rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background-color 0.2s, transform 0.15s;
+  animation: top-card-in 0.4s ease both;
+}
+
+.top-card:hover {
+  border-color: var(--ice);
+  background: var(--surface-strong);
+  transform: translateY(-2px);
+}
+
+@keyframes top-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .top-card {
+    animation: none;
+  }
+  .top-card:hover {
+    transform: none;
+  }
+}
+
+.top-card-rank {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  min-width: 1.4rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.14);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: var(--ice-bright);
+  font-family: var(--font-display);
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+/* #1 gets a brighter, gold-glow badge — the one deliberate "you're looking
+   at a leaderboard" hierarchy cue, cheap to build, reads at a glance. */
+.top-card-rank-first {
+  background: rgba(251, 191, 36, 0.18);
+  border-color: rgba(251, 191, 36, 0.5);
+  color: var(--gold);
+  box-shadow: 0 0 10px rgba(251, 191, 36, 0.35);
+}
+
+.top-card-headshot-wrap {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  padding: 2px;
+}
+
+.top-card-headshot {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--bg-elevated);
+  border: 2px solid rgba(56, 189, 248, 0.55);
+  box-shadow: 0 0 16px var(--ice-glow);
+}
+
+/* Position-coded glow ring — same color story as .roster-pos-pill, applied
+   to the one element every card centers on instead of just the tiny pill. */
+.top-card-d .top-card-headshot {
+  border-color: rgba(167, 139, 250, 0.6);
+  box-shadow: 0 0 16px rgba(167, 139, 250, 0.4);
+}
+
+.top-card-g .top-card-headshot {
+  border-color: rgba(251, 191, 36, 0.6);
+  box-shadow: 0 0 16px rgba(251, 191, 36, 0.4);
+}
+
+.top-card-name {
+  max-width: 100%;
+  font-weight: 600;
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.top-card .roster-pos-pill {
+  margin-inline: 0;
+}
+
+.top-card-team {
+  margin-top: -0.2rem;
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.top-card-stat {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+  margin-top: 0.15rem;
+}
+
+.top-card-stat-value {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  color: var(--ice-bright);
+  text-shadow: 0 0 14px var(--ice-glow);
+}
+
+.top-card-stat-label {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+}
+
+.top-card-secondary {
+  font-size: 0.7rem;
+}

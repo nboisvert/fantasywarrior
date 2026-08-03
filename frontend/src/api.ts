@@ -105,6 +105,28 @@ export interface LineupEntry {
   seasonPoints: number;
 }
 
+/** One unrostered player's fantasy score for a period, under the league's
+ * own scoring rules (see `api.freeAgents`) — that scale is what lets a
+ * goalie's wins/saves compete with a skater's goals/assists on this list. */
+export interface FreeAgentRow {
+  playerId: number;
+  name: string;
+  team: string | null;
+  headshotUrl: string | null;
+  position: string;
+  positionGroup: 'F' | 'D' | 'G';
+  points: number;
+  gamesPlayed: number;
+  goals: number;
+  assists: number;
+  wins: number;
+  otLosses: number;
+  shutouts: number;
+  goalsAgainst: number;
+  saves: number;
+  shotsAgainst: number;
+}
+
 export interface LineupDto {
   periodIndex: number;
   startDate: string;
@@ -343,6 +365,14 @@ export const api = {
     request<{ ok: boolean; periodIndex: number; active: number }>(
       `/api/leagues/${encodeURIComponent(leagueId)}/teams/${encodeURIComponent(username)}/lineup`,
       { method: "PUT", body: JSON.stringify({ username, periodIndex, activeSpotIds }) },
+    ),
+  /** League-wide unrostered players, ranked by fantasy points under the
+   * league's own scale. Omit `period` for the current one; the dashboard
+   * always asks for the previous one explicitly. */
+  freeAgents: (leagueId: string, period?: number, limit?: number) =>
+    request<FreeAgentRow[]>(
+      `/api/leagues/${encodeURIComponent(leagueId)}/free-agents` +
+        `?${period ? `period=${period}&` : ""}${limit ? `limit=${limit}` : ""}`,
     ),
   trades: (leagueId: string, username: string) =>
     request<Trade[]>(

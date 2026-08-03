@@ -102,6 +102,13 @@ was taken — not a record of what changed.
 
 ### UI
 
+- **2026-08-02 — GM Office's dashboard replaced "League News" with "Top
+  Reserve" and "Top Free Agents".** Two leaderboard card grids: the viewer's
+  currently-benched players ranked by what they scored last week, and
+  league-wide unrostered players ranked by fantasy points under the league's
+  own scale — which is what lets a goalie's wins/saves compete with a
+  skater's goals/assists for a spot. New `GET /free-agents` endpoint; Top
+  Reserve needed no new endpoint, just two `lineup` calls joined on `spotId`.
 - **2026-08-02 — The Team screen shows a second grid for departed players.** A
   team keeps whatever a player banked for it, so the standings figure is not
   explained by the current roster alone. Both grids share one `RosterGrid`

@@ -1,4 +1,5 @@
 using FantasyWarrior.Core.Lineups;
+using FantasyWarrior.Core.Scoring;
 using FantasyWarrior.Core.Time;
 using FantasyWarrior.Data;
 using FantasyWarrior.Data.Entities;
@@ -149,6 +150,68 @@ public static class LineupEndpoints
                 benchPoints = weekTotals?.BenchPoints ?? 0,
                 slots, used, entries, periods = periodsDto,
             });
+        });
+
+        // League-wide unrostered players, ranked by fantasy points under the
+        // league's own scale rather than raw NHL points — the only way a
+        // goalie's wins/saves can compete with a skater's goals/assists for a
+        // spot on this list.
+        app.MapGet("/api/leagues/{leagueId}/free-agents", async (
+            string leagueId, int? period, int? limit, FantasyWarriorDbContext db, SimulationClockService clock) =>
+        {
+            var league = await Queries.LeagueByCodeAsync(db, leagueId);
+            if (league is null) return Results.NotFound(new { error = "League not found." });
+
+            var now = await clock.NowAsync();
+            var (periodDoc, _) = await Queries.ResolvePeriodAsync(
+                db, league.Season, period, PoolClock.TodayEt(now));
+            if (periodDoc is null) return Results.NotFound(new { error = "No period calendar for this season." });
+
+            var rosteredIds = await db.RosterSpots
+                .Where(s => s.LeagueId == league.LeagueId && s.EndDate == null)
+                .Select(s => s.PlayerId)
+                .ToListAsync();
+
+            var lines = await db.PlayerGameStats
+                .Where(l => l.Season == league.Season && l.GameType == GameType.RegularSeason
+                            && l.GameDate >= periodDoc.StartDate && l.GameDate <= periodDoc.EndDate
+                            && !rosteredIds.Contains(l.PlayerId))
+                .ToListAsync();
+
+            var perPlayer = lines
+                .GroupBy(l => l.PlayerId)
+                .Select(g => (g.Key, StatLine.Sum(g.Select(StatColumns.ToStatLine))));
+
+            var scale = await Queries.ScaleAsync(db, league.LeagueId);
+            var ranked = FreeAgentRanking.Rank(perPlayer, scale, limit ?? 4);
+
+            var playerIds = ranked.Select(r => r.PlayerId).ToList();
+            var players = await db.Players.Where(p => playerIds.Contains(p.PlayerId))
+                .ToDictionaryAsync(p => p.PlayerId);
+
+            return Results.Ok(ranked.Select(r =>
+            {
+                players.TryGetValue(r.PlayerId, out var p);
+                return new
+                {
+                    playerId = r.PlayerId,
+                    name = p?.FullName ?? "Unknown player",
+                    position = p?.Position ?? "F",
+                    positionGroup = p?.PositionGroup ?? "F",
+                    team = p?.TeamAbbrev,
+                    headshotUrl = p?.HeadshotUrl,
+                    points = r.Points,
+                    gamesPlayed = r.Line[StatKeys.GamesPlayed],
+                    goals = r.Line[StatKeys.Goals],
+                    assists = r.Line[StatKeys.Assists],
+                    wins = r.Line[StatKeys.Wins],
+                    otLosses = r.Line[StatKeys.OtLosses],
+                    shutouts = r.Line[StatKeys.Shutouts],
+                    goalsAgainst = r.Line[StatKeys.GoalsAgainst],
+                    saves = r.Line[StatKeys.Saves],
+                    shotsAgainst = r.Line[StatKeys.ShotsAgainst],
+                };
+            }));
         });
 
         app.MapMethods("/api/leagues/{leagueId}/teams/{username}/lineup", ["PUT"], async (
