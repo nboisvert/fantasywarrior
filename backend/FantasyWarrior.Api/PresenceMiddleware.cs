@@ -43,8 +43,8 @@ public static class PresenceMiddleware
             try
             {
                 var db = context.RequestServices.GetRequiredService<FantasyWarriorDbContext>();
-                var registry = context.RequestServices.GetRequiredService<PresenceRegistry>();
-                await registry.StampAsync(db, Queries.Normalize(raw), DateTime.UtcNow, context.RequestAborted);
+                var stamper = context.RequestServices.GetRequiredService<LastSeenStamper>();
+                await stamper.StampAsync(db, Queries.Normalize(raw), DateTime.UtcNow, context.RequestAborted);
             }
             catch (Exception ex)
             {

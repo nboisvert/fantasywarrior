@@ -1,4 +1,5 @@
 using FantasyWarrior.Api;
+using FantasyWarrior.Core.Messaging;
 using FantasyWarrior.Core.Time;
 using FantasyWarrior.Data;
 using Microsoft.EntityFrameworkCore;
@@ -21,11 +22,12 @@ builder.Services.AddScoped<SimulationClockService>();
 
 builder.Services.AddSignalR();
 
-// Singleton: it is the process's memory of who currently holds a live
-// connection, and of which usernames have had LastSeenUtc written recently.
-// Correct only while the Container App runs a single replica -- see the class
-// remarks and --max-replicas 1 in api-deploy.yml.
-builder.Services.AddSingleton<PresenceRegistry>();
+// Singletons, and both are process memory by design. PresenceService is now the
+// *only* record of who is online, which is what makes --max-replicas 1 in
+// api-deploy.yml structural rather than a preference. LastSeenStamper holds the
+// throttle that keeps presence from being a write on every request.
+builder.Services.AddSingleton<PresenceService>();
+builder.Services.AddSingleton<LastSeenStamper>();
 
 var app = builder.Build();
 app.UseCors();

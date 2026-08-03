@@ -5,30 +5,30 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FantasyWarrior.Api;
 
-/// <summary>
-/// The league's presence, whole. One shape, whether it was pushed or fetched.
-/// </summary>
-public sealed record RosterPayload(string LeagueId, IReadOnlyList<MemberPresence> Members);
+/// <summary>Who is online in a league, right now. The entire presence payload.</summary>
+public sealed record OnlinePayload(string LeagueId, IReadOnlyList<string> Online);
 
 /// <summary>
-/// The app's one live channel. Named <c>Live</c> rather than <c>Chat</c> because
-/// it already carries presence, and the <c>notice</c> event exists for the
-/// event pop-ups that will follow — a <c>ChatHub</c> would have become a lie on
-/// the first one.
+/// The app's one live channel, and it does exactly two things: tell a league who
+/// is online, and deliver private messages between its GMs.
 ///
-/// <b>Push only.</b> The hub exposes no client-callable method: sending a
-/// message is a POST to <c>MessageEndpoints</c>, which persists it and then
-/// pushes through <see cref="IHubContext{LiveHub}"/>. One write path means one
-/// place that validates and one place that stores, instead of two that have to
-/// agree — the same reasoning as awarding cockcoin inline at the earning action.
+/// <b>Push only.</b> No client-callable method. Sending a message is a POST to
+/// <c>MessageEndpoints</c>, which persists it and then pushes through
+/// <see cref="IHubContext{LiveHub}"/> — one write path, so one place validates
+/// and one place stores. A hub method would be more idiomatic SignalR and would
+/// save a hop, but it can only be called while connected, and the client
+/// deliberately drops its connection whenever the tab is hidden.
 ///
-/// <b>Presence is broadcast as a roster, never as a delta</b> (2026-08-03).
-/// Sending "nick just arrived" tells the league something it can apply, but
-/// tells *nick* nothing about the five people already there — his own counter
-/// would read zero until some REST call happened to seed it. Sending the whole
-/// list on every change costs a few hundred bytes for fourteen GMs, reaches the
-/// arriving client through the same group as everyone else, and is idempotent:
-/// a missed event is repaired by the next one instead of leaving a dot stuck.
+/// <b>Presence is a list of who is online, never a delta.</b> Sending "nick just
+/// arrived" tells the league something it can apply but tells *nick* nothing
+/// about the five people already there. Sending the set is idempotent, repairs a
+/// missed event on the next change, and reaches the arriving client through the
+/// same group as everyone else.
+///
+/// <b>No database in the broadcast path.</b> <see cref="PresenceService"/>
+/// already knows who is connected; the labels for people who are *not* online
+/// come from the REST list instead, because they change slowly and nobody needs
+/// them to the second.
 ///
 /// TEMPORARY AUTH MODEL: the username arrives in the query string and is
 /// trusted, exactly like the REST API. The stakes are higher here than
@@ -37,13 +37,10 @@ public sealed record RosterPayload(string LeagueId, IReadOnlyList<MemberPresence
 /// </summary>
 public sealed class LiveHub(
     FantasyWarriorDbContext db,
-    PresenceRegistry presence,
+    PresenceService presence,
+    LastSeenStamper lastSeen,
     ILogger<LiveHub> log) : Hub
 {
-    private const string UserIdKey = "userId";
-    private const string LeagueIdKey = "leagueId";
-    private const string LeagueCodeKey = "leagueCode";
-
     public static string UserGroup(int userId) => $"u:{userId}";
     public static string LeagueGroup(int leagueId) => $"league:{leagueId}";
 
@@ -53,107 +50,88 @@ public sealed class LiveHub(
         var rawUsername = http?.Request.Query["username"].ToString();
         var leagueCode = http?.Request.Query["league"].ToString();
 
-        if (string.IsNullOrWhiteSpace(rawUsername))
+        // Without both, this connection can neither receive messages nor appear
+        // in a presence list. Abort rather than hold a socket open that does
+        // nothing but keep the replica awake.
+        if (string.IsNullOrWhiteSpace(rawUsername) || string.IsNullOrWhiteSpace(leagueCode))
         {
-            // Nothing to attach the connection to. Abort rather than hold an
-            // anonymous socket open, which would keep the replica awake for a
-            // client that can never receive anything.
             Context.Abort();
             return;
         }
 
         var username = Queries.Normalize(rawUsername);
         var user = await db.Users.FirstOrDefaultAsync(u => u.Username == username);
-        if (user is null)
+        var league = await Queries.LeagueByCodeAsync(db, leagueCode);
+        if (user is null || league is null)
         {
             Context.Abort();
             return;
         }
 
-        Context.Items[UserIdKey] = user.UserId;
         await Groups.AddToGroupAsync(Context.ConnectionId, UserGroup(user.UserId));
-
-        // The league group is how presence reaches the other GMs. The client
-        // reconnects with a new league code when the user switches pools, so a
-        // connection only ever belongs to the one being looked at.
-        if (!string.IsNullOrWhiteSpace(leagueCode))
-        {
-            var league = await Queries.LeagueByCodeAsync(db, leagueCode);
-            if (league is not null)
-            {
-                Context.Items[LeagueIdKey] = league.LeagueId;
-                Context.Items[LeagueCodeKey] = league.JoinCode;
-                await Groups.AddToGroupAsync(Context.ConnectionId, LeagueGroup(league.LeagueId));
-            }
-        }
+        await Groups.AddToGroupAsync(Context.ConnectionId, LeagueGroup(league.LeagueId));
 
         try
         {
-            await presence.StampAsync(db, user.Username, DateTime.UtcNow);
+            await lastSeen.StampAsync(db, user.Username, DateTime.UtcNow);
         }
         catch (Exception ex)
         {
             log.LogWarning(ex, "Could not stamp LastSeenUtc for {Username} on connect.", user.Username);
         }
 
-        presence.Connect(user.UserId);
+        presence.Join(Context.ConnectionId, user.UserId, user.Username, league.LeagueId, league.JoinCode);
 
-        // Unconditional, even when this is the user's second tab and the roster
-        // has not changed: the new connection is the one that needs it.
-        await BroadcastRosterAsync();
+        // Unconditional, even on a user's second tab where the set has not
+        // changed: that new connection is the one that needs to be told.
+        await BroadcastAsync(league.LeagueId, league.JoinCode);
 
         await base.OnConnectedAsync();
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        if (Context.Items.TryGetValue(UserIdKey, out var raw) && raw is int userId
-            && presence.Disconnect(userId))
-        {
-            // Plainly awaited, inside the scope SignalR gives this callback.
-            // The previous version deferred this behind a timer and had to
-            // rebuild a DI scope to serve it; with no grace window left to wait
-            // out, there is nothing to defer.
-            await BroadcastRosterAsync();
-        }
+        var (leagueId, leagueCode, changed) = presence.Leave(Context.ConnectionId);
+
+        // Not a single query on this path: the service carried the join code in
+        // from the connect, so a disconnect is pure memory plus one send.
+        if (leagueId is not null && changed)
+            await BroadcastAsync(leagueId.Value, leagueCode ?? string.Empty);
 
         await base.OnDisconnectedAsync(exception);
     }
 
-    private async Task BroadcastRosterAsync()
+    private async Task BroadcastAsync(int leagueId, string leagueCode)
     {
-        if (Context.Items[LeagueIdKey] is not int leagueId) return;
-        var code = Context.Items[LeagueCodeKey] as string ?? string.Empty;
-
         try
         {
-            var members = await PresenceRoster.ForLeagueAsync(db, presence, leagueId);
             await Clients.Group(LeagueGroup(leagueId))
-                .SendAsync("presence", new RosterPayload(code, members));
+                .SendAsync("presence", new OnlinePayload(leagueCode, presence.OnlineUsernames(leagueId)));
         }
         catch (Exception ex)
         {
-            // A dropped roster repairs itself on the next connect or
-            // disconnect, so this is never worth failing a connection over.
-            log.LogWarning(ex, "Could not broadcast the roster for league {LeagueId}.", leagueId);
+            // A dropped broadcast repairs itself on the next connect or
+            // disconnect, so it is never worth failing a connection over.
+            log.LogWarning(ex, "Could not broadcast presence for league {LeagueId}.", leagueId);
         }
     }
 }
 
 /// <summary>
-/// The one place a league's presence is assembled from the database, shared by
-/// the hub's push and the REST fetch so the two cannot answer differently.
+/// A league's members with their presence and their "last seen" wording, for
+/// the REST list. The push does not use this — it carries only who is online,
+/// which needs no database at all.
 /// </summary>
 public static class PresenceRoster
 {
     public static async Task<IReadOnlyList<MemberPresence>> ForLeagueAsync(
-        FantasyWarriorDbContext db, PresenceRegistry presence, int leagueId, CancellationToken ct = default)
+        FantasyWarriorDbContext db, PresenceService presence, int leagueId, CancellationToken ct = default)
     {
         var members = await db.LeagueMembers
             .Where(m => m.LeagueId == leagueId)
             .Select(m => new MemberSeen(m.UserId, m.User!.Username, m.User.LastSeenUtc))
             .ToListAsync(ct);
 
-        return Presence.Roster(members, presence.IsOnline, DateTime.UtcNow);
+        return Presence.Roster(members, userId => presence.IsOnline(leagueId, userId), DateTime.UtcNow);
     }
 }

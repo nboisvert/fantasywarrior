@@ -1,30 +1,32 @@
-/* LiveProvider — the app's single SignalR connection, and the policy that
- * decides when it is allowed to exist.
+/* LiveProvider — the app's single SignalR connection.
+ *
+ * It exists for exactly two things: telling the league who is online, and
+ * delivering private messages between its GMs. Nothing else belongs here.
  *
  * ---------------------------------------------------------------------------
- * WHY THIS FILE IS SO OPINIONATED ABOUT DISCONNECTING
+ * CONNECTION LIFETIME
  * ---------------------------------------------------------------------------
- * A WebSocket is a request that never ends. While one is open, Azure Container
- * Apps sees work in flight and **cannot scale the API to zero**. The free
- * grant (180 000 vCPU-s + 360 000 GiB-s a month) buys roughly 100 hours of an
- * awake replica; past that it is billed, and a single tab left open on a desk
- * overnight would burn the month on nobody.
+ * A WebSocket is a request that never ends, so Azure Container Apps cannot
+ * scale the API to zero while one is open, and the free grant is only about a
+ * hundred awake hours a month. The lever that matters is the hidden tab: a tab
+ * forgotten on a second monitor would otherwise hold the container up all
+ * night for nobody.
  *
- * So the connection is a consumable, not a fixture:
+ *   league loaded, tab visible -> connect
+ *   tab hidden for 60 s        -> disconnect
+ *   tab visible again          -> connect
+ *   pagehide                   -> disconnect now
  *
- *   league loaded        -> connect
- *   3 min no interaction -> disconnect (reconnects on the next touch)
- *   tab hidden 60 s      -> disconnect
- *   pagehide             -> disconnect now, don't wait for a server timeout
+ * That is the whole policy. There is deliberately **no idle timeout and no
+ * activity tracking**: SignalR keeps its own connection alive with pings, and
+ * an earlier version that dropped the socket after three minutes without a
+ * pointerdown/keydown/scroll bought little and cost a lot — it needed listeners
+ * on scroll, it made "connected" a poor proxy for "in the app", and its retry
+ * path could hammer /hubs/live/negotiate once per scroll event when the API was
+ * cold. Drops mid-session are `withAutomaticReconnect()`'s job, not ours.
  *
- * The idle timeout is deliberately shorter than Container Apps' own ~5 min
- * scale-down cooldown: come back inside that window and the replica is still
- * warm, so reconnecting costs a handshake rather than a cold start. Go quiet
- * for longer and the app sleeps, which is the entire point.
- *
- * Presence agrees with this by construction — `Presence.GraceWindow` on the
- * server is 90 s, so a client that idles out reads as away rather than as a
- * green dot that is lying.
+ * The 60 s delay on hidden is not an idle timer — it only stops an alt-tab from
+ * blinking every dot in the league.
  * ---------------------------------------------------------------------------
  */
 
@@ -41,15 +43,15 @@ import {
 import { HubConnectionBuilder, type HubConnection } from "@microsoft/signalr";
 import { API_BASE, type LiveMessage, type MemberPresence } from "../api";
 
-const IDLE_MS = 3 * 60_000;
 const HIDDEN_GRACE_MS = 60_000;
 
-/** Activity that counts as "still here". Deliberately coarse: this only ever
- * resets a three-minute timer, so listening for mousemove would be a lot of
- * work to learn nothing extra. */
-const ACTIVITY_EVENTS = ["pointerdown", "keydown", "scroll"] as const;
-
 export type LiveStatus = "idle" | "connecting" | "connected";
+
+/** The whole presence payload: who is online in this league, right now. */
+interface OnlinePayload {
+  leagueId: string;
+  online: string[];
+}
 
 /** A pushed event with no screen of its own — the channel the trade/scoring
  * pop-ups will use. Nothing produces one yet; the plumbing ships first so
@@ -61,35 +63,40 @@ export interface LiveNotice {
   text: string;
 }
 
-/** The whole league's presence, the only shape presence ever travels in —
- * pushed on every connect and disconnect, and returned by the REST list. */
-interface RosterPayload {
-  leagueId: string;
-  members: MemberPresence[];
-}
-
 interface LiveContextValue {
   status: LiveStatus;
-  /** Server-ordered (online first), and complete: every member of the league,
-   * including the viewer. Replaced wholesale, never patched. */
+  /** Authoritative for green dots and the counter. Replaced wholesale on every
+   * push, so applying one twice changes nothing and a missed one is repaired by
+   * the next. */
+  online: ReadonlySet<string>;
+  /** Authoritative for the "last seen 45min ago" wording. Comes from REST,
+   * because it changes slowly and nobody needs it to the second. */
   roster: MemberPresence[];
-  presenceOf: (username: string) => MemberPresence | undefined;
-  /** For the REST paths, which return the same complete list. */
   setRoster: (members: MemberPresence[]) => void;
+  /** The two sources merged: live for the dot, fetched for the words. */
+  presenceOf: (username: string) => MemberPresence;
   onMessage: (handler: (m: LiveMessage) => void) => () => void;
   onNotice: (handler: (n: LiveNotice) => void) => () => void;
 }
 
 const LiveContext = createContext<LiveContextValue | null>(null);
 
+const UNKNOWN = (username: string): MemberPresence => ({
+  username,
+  online: false,
+  lastSeenUtc: null,
+  label: "—",
+});
+
 /** Null-object fallback so a component can call `useLive()` without caring
  * whether a league is open — outside the provider there is simply never a
  * connection and never an event. */
 const INERT: LiveContextValue = {
   status: "idle",
+  online: new Set(),
   roster: [],
-  presenceOf: () => undefined,
   setRoster: () => {},
+  presenceOf: UNKNOWN,
   onMessage: () => () => {},
   onNotice: () => () => {},
 };
@@ -108,10 +115,10 @@ export function LiveProvider({
   children: ReactNode;
 }) {
   const [status, setStatus] = useState<LiveStatus>("idle");
+  const [online, setOnline] = useState<ReadonlySet<string>>(() => new Set());
   const [roster, setRoster] = useState<MemberPresence[]>([]);
 
   const connectionRef = useRef<HubConnection | null>(null);
-  const idleTimer = useRef<number | undefined>(undefined);
   const hiddenTimer = useRef<number | undefined>(undefined);
   /** False once the provider unmounts or the identity changes, so an in-flight
    * start() can't resurrect a connection nobody wants any more — StrictMode
@@ -135,18 +142,29 @@ export function LiveProvider({
     };
   }, []);
 
-  // Lookup rebuilt from the roster rather than stored beside it, so there is
-  // one array to keep right and no second copy to fall out of step with it.
-  const byUsername = useMemo(
-    () => new Map(roster.map((m) => [m.username, m])),
-    [roster],
+  const byUsername = useMemo(() => new Map(roster.map((m) => [m.username, m])), [roster]);
+
+  const presenceOf = useCallback(
+    (name: string): MemberPresence => {
+      const known = byUsername.get(name);
+      const isOnline = online.has(name);
+      // The live set wins over the fetched row: the row may have been fetched
+      // minutes ago, the set is what the server said a moment ago.
+      return {
+        username: name,
+        online: isOnline,
+        lastSeenUtc: known?.lastSeenUtc ?? null,
+        label: isOnline ? "Online" : known?.label ?? "—",
+      };
+    },
+    [byUsername, online],
   );
-  const presenceOf = useCallback((username: string) => byUsername.get(username), [byUsername]);
 
   const stop = useCallback(async () => {
     const connection = connectionRef.current;
     connectionRef.current = null;
     setStatus("idle");
+    setOnline(new Set());
     if (connection) await connection.stop().catch(() => {});
   }, []);
 
@@ -164,16 +182,15 @@ export function LiveProvider({
       // API's AllowAnyOrigin cannot legally be combined with.
       .withUrl(url, { withCredentials: false })
       // Every deploy publishes a new revision and drops all sockets at once.
-      // Reconnecting is the normal case here, not an error path.
+      // Reconnecting is the normal case here, not an error path — and it is
+      // SignalR's job, which is why there is no retry logic of our own.
       .withAutomaticReconnect()
       .build();
 
     connection.on("message", (m: LiveMessage) => {
       for (const handler of messageHandlers.current) handler(m);
     });
-    // Wholesale replace, never a merge: the payload is the complete league, so
-    // anything not in it is gone, and applying it twice changes nothing.
-    connection.on("presence", (r: RosterPayload) => setRoster(r.members));
+    connection.on("presence", (p: OnlinePayload) => setOnline(new Set(p.online)));
     connection.on("notice", (n: LiveNotice) => {
       for (const handler of noticeHandlers.current) handler(n);
     });
@@ -184,6 +201,9 @@ export function LiveProvider({
       if (connectionRef.current === connection) {
         connectionRef.current = null;
         setStatus("idle");
+        // Nothing is arriving any more, so claiming anyone is online would be
+        // a guess. The next connection re-establishes the truth in one push.
+        setOnline(new Set());
       }
     });
 
@@ -200,9 +220,9 @@ export function LiveProvider({
       }
       setStatus("connected");
     } catch {
-      // A cold start can outlast the first attempt. Staying silent is right:
-      // the next interaction retries, and a banner for this would fire on a
-      // situation that fixes itself.
+      // A cold start can outlast the first attempt. Silence is right: the next
+      // visibility change retries, and a banner here would fire on a situation
+      // that fixes itself.
       if (connectionRef.current === connection) {
         connectionRef.current = null;
         setStatus("idle");
@@ -210,55 +230,33 @@ export function LiveProvider({
     }
   }, [username, leagueId]);
 
-  /** Called on any sign of life: restarts the idle countdown, and reconnects
-   * if a previous countdown already expired. */
-  const wake = useCallback(() => {
-    if (!wanted.current) return;
-
-    window.clearTimeout(idleTimer.current);
-    idleTimer.current = window.setTimeout(() => {
-      void stop();
-    }, IDLE_MS);
-
-    if (!connectionRef.current) void start();
-  }, [start, stop]);
-
   useEffect(() => {
     if (!username || !leagueId) {
       setRoster([]);
+      setOnline(new Set());
       return;
     }
 
     wanted.current = true;
-    wake();
-
-    const onActivity = () => {
-      // Cheap guard: while connected and already counting down, this is a
-      // clearTimeout/setTimeout pair per event, which is what we want on a
-      // scroll handler.
-      wake();
-    };
-    for (const event of ACTIVITY_EVENTS) {
-      window.addEventListener(event, onActivity, { passive: true });
-    }
+    if (document.visibilityState === "visible") void start();
 
     const onVisibility = () => {
       if (document.visibilityState === "hidden") {
         // The tab-on-a-second-monitor case is the expensive one: no value to
         // anybody, full price. Give it a minute in case they flick back.
-        hiddenTimer.current = window.setTimeout(() => {
-          void stop();
-        }, HIDDEN_GRACE_MS);
+        hiddenTimer.current = window.setTimeout(() => void stop(), HIDDEN_GRACE_MS);
       } else {
         window.clearTimeout(hiddenTimer.current);
-        wake();
+        void start();
       }
     };
     document.addEventListener("visibilitychange", onVisibility);
 
     // pagehide rather than beforeunload: it is the one that actually fires on
     // mobile Safari, where a backgrounded tab is otherwise killed with the
-    // socket still nominally open.
+    // socket still nominally open. A clean stop here is what lets the other
+    // GMs see you leave immediately instead of waiting out the server's
+    // 30-second timeout.
     const onPageHide = () => {
       wanted.current = false;
       void stop();
@@ -267,18 +265,16 @@ export function LiveProvider({
 
     return () => {
       wanted.current = false;
-      window.clearTimeout(idleTimer.current);
       window.clearTimeout(hiddenTimer.current);
-      for (const event of ACTIVITY_EVENTS) window.removeEventListener(event, onActivity);
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("pagehide", onPageHide);
       void stop();
     };
-  }, [username, leagueId, wake, stop]);
+  }, [username, leagueId, start, stop]);
 
   const value = useMemo<LiveContextValue>(
-    () => ({ status, roster, presenceOf, setRoster, onMessage, onNotice }),
-    [status, roster, presenceOf, onMessage, onNotice],
+    () => ({ status, online, roster, setRoster, presenceOf, onMessage, onNotice }),
+    [status, online, roster, presenceOf, onMessage, onNotice],
   );
 
   return <LiveContext.Provider value={value}>{children}</LiveContext.Provider>;

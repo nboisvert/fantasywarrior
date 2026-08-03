@@ -58,6 +58,8 @@ export function ChatSheet({
   onUnreadChanged: () => void;
 }) {
   const { presenceOf, setRoster, onMessage, status } = useLive();
+  // Named apart from the row's own fetched fields: the live set decides the
+  // dot, the fetched row only supplied the wording.
 
   const [peer, setPeer] = useState<string | null>(initialPeer);
   const [conversations, setConversations] = useState<Conversation[] | null>(null);
@@ -218,11 +220,8 @@ export function ChatSheet({
     }
   };
 
-  /** Live presence wins over whatever the list was fetched with. */
-  const livePresence = (row: Conversation) => presenceOf(row.username) ?? row;
-
-  const peerRow = peer ? conversations?.find((c) => c.username === peer) : undefined;
-  const peerPresence = peer ? presenceOf(peer) ?? peerRow : undefined;
+  const livePresence = (row: Conversation) => presenceOf(row.username);
+  const peerPresence = peer ? presenceOf(peer) : undefined;
 
   return (
     <div className="chat-overlay" onClick={onBackdrop}>

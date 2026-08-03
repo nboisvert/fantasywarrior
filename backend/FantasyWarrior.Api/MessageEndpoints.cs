@@ -27,7 +27,7 @@ public static class MessageEndpoints
         // and an inbox at once, so splitting them into two screens would only
         // make starting a conversation harder.
         app.MapGet("/api/leagues/{leagueId}/messages", async (
-            string leagueId, string username, FantasyWarriorDbContext db, PresenceRegistry presence) =>
+            string leagueId, string username, FantasyWarriorDbContext db, PresenceService presence) =>
         {
             var context = await ResolveAsync(db, leagueId, username);
             if (context.Error is not null) return context.Error;

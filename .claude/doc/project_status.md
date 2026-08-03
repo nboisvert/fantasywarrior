@@ -56,17 +56,31 @@ was taken — not a record of what changed.
 
 ### Architecture
 
-- **2026-08-03 — SignalR, with a connection that is treated as a consumable.**
-  Polling was the cheaper option and it was rejected: presence and event
-  pop-ups both need a push, and a badge that only updates on tab change is not
-  the feature. The cost of that choice is real — a WebSocket is a request that
-  never ends, so the API cannot scale to zero while anyone is connected, and
-  the free grant is only about 100 awake hours a month. So the *client* owns
-  the budget: connect on league load, drop after 3 min idle, drop 60 s after
-  the tab is hidden, stop on `pagehide`. Billing is per replica-second, not per
-  connection, so fourteen GMs at once cost what one does; what costs money is a
-  forgotten tab, and `visibilitychange` is what kills that. See
-  [deployment.md](deployment.md).
+- **2026-08-03 — SignalR does exactly two things**: tell a league who is online,
+  and deliver private messages. Polling was cheaper and was rejected — presence
+  and event pop-ups both need a push. The cost is real, since a WebSocket is a
+  request that never ends and the API cannot scale to zero while one is open,
+  so the *client* owns the budget: connect while a league is loaded and the tab
+  is visible, drop 60 s after it is hidden, stop on `pagehide`. Billing is per
+  replica-second, not per connection, so fourteen GMs at once cost what one
+  does; what costs money is a forgotten tab, and `visibilitychange` is the whole
+  lever.
+- **2026-08-03 — No idle timeout, no activity tracking.** A first version
+  dropped the socket after 3 min without a pointerdown/keydown/scroll. SignalR
+  keeps its own connection alive with pings, so that was never about staying
+  connected — it was a budget mechanism grafted onto the connection lifecycle,
+  and it was the root of most of this feature's complexity: listeners on scroll,
+  "the normal state is disconnected" leaking into unrelated decisions, and a
+  retry path with no backoff that could hammer `/hubs/live/negotiate` once per
+  scroll event against a cold API. `visibilitychange` alone covers the case that
+  actually costs money.
+- **2026-08-03 — `PresenceService` owns who is online, and never touches SQL.**
+  It is keyed by league and refcounted by connection, so a GM with the app on
+  his phone and his laptop does not go dark when he closes one. A disconnect is
+  now pure memory plus one send — measured at 0 queries, against 2 on connect
+  which are unavoidable (username → id, join code → id). It lives in
+  `FantasyWarrior.Core` rather than beside the hub because it contains no
+  SignalR at all, and Core is the project whose tests actually run in CI.
 - **2026-08-03 — The Container App is capped at one replica.** Not a budget
   decision: the hub's connection groups and `PresenceRegistry` are both
   per-process, so a second replica would silently drop messages between GMs

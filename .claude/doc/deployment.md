@@ -51,13 +51,21 @@ once cost what one does. The budget is wall-clock *union* time where at least
 one person is active, not the sum of their sessions.
 
 What keeps it inside the grant is the client, in
-`frontend/src/live/LiveProvider.tsx` — connect when a league loads, drop
-after 3 min without interaction, drop 60 s after the tab is hidden, stop
-immediately on `pagehide`. The 3-minute idle timeout is deliberately shorter
-than Container Apps' own ~5 min scale-down cooldown: come back inside that and
-the replica is still warm, so reconnecting costs a handshake instead of a cold
-start. **If the awake hours ever look wrong, read that file first** — it is the
-only thing standing between this feature and a monthly bill.
+`frontend/src/live/LiveProvider.tsx`: connect when a league loads and the tab is
+visible, drop 60 s after the tab is hidden, stop immediately on `pagehide`.
+**The hidden tab is the whole lever** — a tab forgotten on a second monitor is
+what would otherwise hold the container up all night for nobody.
+
+There is deliberately **no idle timeout and no activity tracking** (2026-08-03).
+An earlier version dropped the socket after three minutes without a
+pointerdown/keydown/scroll. It bought little on top of `visibilitychange` and
+cost a lot: listeners on scroll, a "connected" flag that was a poor proxy for
+"in the app", and a retry path that could hammer `/hubs/live/negotiate` once per
+scroll event whenever the API was cold. Reconnection after a mid-session drop is
+`withAutomaticReconnect()`'s job, not ours.
+
+**If the awake hours ever look wrong, read that file first** — it is the only
+thing standing between this feature and a monthly bill.
 
 ## Azure SQL configuration
 

@@ -44,7 +44,7 @@ export function ProfileMenu({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  const { roster, setRoster } = useLive();
+  const { presenceOf, setRoster } = useLive();
 
   // Click-outside closes.
   useEffect(() => {
@@ -122,21 +122,21 @@ export function ProfileMenu({
     if (open) panelRef.current?.focus();
   }, [open]);
 
-  // Rendered in the order the server sent (online first, then most recently
-  // seen). The sort used to live here and had to guess at members with no
-  // presence yet; now the roster arrives complete and already ordered, so
-  // there is nothing to re-derive. `otherMembers` is only a fallback for the
-  // moment before the first roster lands.
-  const members = useMemo(() => {
-    const peers = roster.filter((m) => m.username !== username);
-    if (peers.length > 0) return peers;
-    return otherMembers.map((name) => ({
-      username: name,
-      online: false,
-      lastSeenUtc: null,
-      label: "—",
-    }));
-  }, [roster, otherMembers, username]);
+  // Built from the league's own membership, not from whatever presence has
+  // arrived: everyone is listed from the first render, and `presenceOf` fills
+  // in the dot live and the wording once a fetch has happened.
+  const members = useMemo(
+    () =>
+      otherMembers
+        .map(presenceOf)
+        .sort(
+          (a, b) =>
+            Number(b.online) - Number(a.online) ||
+            (b.lastSeenUtc ?? "").localeCompare(a.lastSeenUtc ?? "") ||
+            a.username.localeCompare(b.username),
+        ),
+    [otherMembers, presenceOf],
+  );
 
   // Other GMs only. Counting the viewer (2026-08-03, per Nick) meant the badge
   // never read below 1, so "1 online" was indistinguishable from "nobody is
