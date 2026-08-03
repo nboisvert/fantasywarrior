@@ -104,7 +104,8 @@
   top: calc(100% + 10px);
   right: 0;
   z-index: 5;
-  width: min(280px, 84vw);
+  /* Wider since the GM rows spell out "last seen 45min ago" (2026-08-03). */
+  width: min(320px, 90vw);
   display: flex;
   flex-direction: column;
   gap: 0.7rem;
@@ -193,14 +194,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  min-height: 44px;
+  gap: 0.4rem;
+  /* Under the app's usual 44px target (2026-08-03, per Nick): these moved to
+     the bottom of the panel and are the two things you reach for least, so
+     they read as a footer rather than as the menu's main actions. */
+  min-height: 36px;
   padding: 0 0.5rem;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 9px;
   background: var(--surface);
   color: var(--text);
-  font: 600 0.85rem var(--font-body);
+  font: 600 0.78rem var(--font-body);
   cursor: pointer;
   transition: background-color 0.2s, color 0.2s, border-color 0.2s;
 }
@@ -276,8 +280,14 @@
 
 .profile-member-seen {
   flex-shrink: 0;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   white-space: nowrap;
+}
+
+/* Focused programmatically on open so Tab starts at the top of the list; it is
+   not reachable by Tab itself, so there is no keyboard ring to preserve. */
+.profile-panel:focus {
+  outline: none;
 }
 
 .profile-msg-btn {

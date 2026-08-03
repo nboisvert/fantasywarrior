@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, formatSeason } from "./api";
+import { api } from "./api";
 import type { LeagueDetail } from "./api";
 import {
   ActivityIcon,
@@ -180,10 +180,12 @@ export default function App() {
     <div className="shell">
       <header className="topbar">
         <img className="topbar-logo" src={logo} alt="" />
+        {/* No season next to the name (2026-08-03, per Nick) — it is the same
+            every week, so it spent topbar width saying nothing. Settings still
+            shows it where it is actually being read. */}
         <button className="league-switch" onClick={() => setShowPicker(true)} aria-label="Switch league">
           <span className="league-switch-text">
             <span className="name">{league?.name ?? (leagueId ? "…" : "Select league")}</span>
-            {league && <span className="season">{formatSeason(league.season)}</span>}
           </span>
           <ChevronDownIcon size={16} />
         </button>

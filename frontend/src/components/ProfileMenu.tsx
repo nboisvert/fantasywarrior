@@ -43,7 +43,6 @@ export function ProfileMenu({
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const firstItemRef = useRef<HTMLButtonElement>(null);
 
   const { presence, seedPresence } = useLive();
 
@@ -114,9 +113,12 @@ export function ProfileMenu({
     };
   }, [open, leagueId, username, seedPresence]);
 
-  // Move focus into the panel when it opens.
+  // Focus the panel itself rather than its first control. Now that Settings
+  // and Log out sit at the bottom, focusing a button would scroll a
+  // thirteen-GM list straight to its end on open; from the container, Tab
+  // still walks the list in order.
   useEffect(() => {
-    if (open) firstItemRef.current?.focus();
+    if (open) panelRef.current?.focus();
   }, [open]);
 
   // Online first, then whoever was seen most recently; a stable alphabetical
@@ -133,9 +135,11 @@ export function ProfileMenu({
     );
   }, [otherMembers, presence]);
 
+  // Other GMs only. Counting the viewer (2026-08-03, per Nick) meant the badge
+  // never read below 1, so "1 online" was indistinguishable from "nobody is
+  // here" — it announced your own presence back at you. A badge should say
+  // something you don't already know.
   const onlineCount = members.filter((m) => presence[m]?.online).length;
-  // The viewer is, definitionally, online right now — the badge counts everyone.
-  const totalOnlineCount = onlineCount + 1;
 
   return (
     <div className="profile-menu">
@@ -145,21 +149,27 @@ export function ProfileMenu({
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="true"
         aria-expanded={open}
-        aria-label={`Profile menu — ${username}, ${totalOnlineCount} online in this league`}
+        aria-label={
+          onlineCount > 0
+            ? `Profile menu — ${username}, ${onlineCount} other GM${onlineCount > 1 ? "s" : ""} online`
+            : `Profile menu — ${username}, nobody else online`
+        }
       >
         <span className="profile-avatar-wrap">
           <span className="profile-avatar" aria-hidden="true">
             {initials(username)}
           </span>
-          <span className="profile-online-badge" aria-hidden="true">
-            {totalOnlineCount}
-          </span>
+          {onlineCount > 0 && (
+            <span className="profile-online-badge" aria-hidden="true">
+              {onlineCount}
+            </span>
+          )}
         </span>
         <span className="profile-trigger-name">{username}</span>
       </button>
 
       {open && (
-        <div ref={panelRef} className="profile-panel" role="dialog" aria-label="Profile menu">
+        <div ref={panelRef} className="profile-panel" role="dialog" aria-label="Profile menu" tabIndex={-1}>
           <div className="profile-panel-header">
             <span className="profile-avatar profile-avatar-lg" aria-hidden="true">
               {initials(username)}
@@ -177,32 +187,6 @@ export function ProfileMenu({
               </span>
             </span>
           </div>
-
-          <div className="profile-panel-actions">
-            <button
-              ref={firstItemRef}
-              className="profile-action"
-              onClick={() => {
-                close();
-                onSettings();
-              }}
-            >
-              <SettingsIcon size={18} />
-              Settings
-            </button>
-            <button
-              className="profile-action profile-action-danger"
-              onClick={() => {
-                close();
-                onLogout();
-              }}
-            >
-              <LogOutIcon size={18} />
-              Log out
-            </button>
-          </div>
-
-          <div className="profile-panel-divider" />
 
           <span className="section-title profile-panel-section">
             <UsersIcon size={13} className="inline-icon" /> League GMs ({onlineCount} online)
@@ -234,12 +218,47 @@ export function ProfileMenu({
                     >
                       <MessageSquareIcon size={15} />
                     </button>
-                    <span className="profile-member-seen muted">{p?.presenceLabel ?? "—"}</span>
+                    {/* "last seen" spelled out here (2026-08-03, per Nick) —
+                     * this row has the width for it, unlike the chat list's
+                     * right-aligned stamp, which keeps the bare form. The
+                     * wording of the interval itself comes from Core either
+                     * way, so there is still one implementation of it. */}
+                    <span className="profile-member-seen muted">
+                      {p?.online ? "Online" : p?.presenceLabel ? `last seen ${p.presenceLabel}` : "—"}
+                    </span>
                   </li>
                 );
               })}
             </ul>
           )}
+
+          {/* Below the GM list, not above it (2026-08-03, per Nick): the list
+           * is what the menu is for, and Settings/Log out are the things you
+           * reach for least. Compact for the same reason. */}
+          <div className="profile-panel-divider" />
+
+          <div className="profile-panel-actions">
+            <button
+              className="profile-action"
+              onClick={() => {
+                close();
+                onSettings();
+              }}
+            >
+              <SettingsIcon size={15} />
+              Settings
+            </button>
+            <button
+              className="profile-action profile-action-danger"
+              onClick={() => {
+                close();
+                onLogout();
+              }}
+            >
+              <LogOutIcon size={15} />
+              Log out
+            </button>
+          </div>
         </div>
       )}
     </div>

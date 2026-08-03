@@ -44,9 +44,22 @@ Rayons de 12 à 16 px. Transitions de 150 à 300 ms, et **uniquement** sur
 Mobile d'abord, contenu à 680 px de large maximum. Barre de navigation basse
 fixe à 64 px + `env(safe-area-inset-bottom)`, **4 onglets** : Dashboard (défaut),
 Standings, Team, Trades — les réglages vivent dans un bouton-icône de la barre
-du haut, pas dans la navigation. Barre du haut collante et floutée, avec le
-sélecteur de ligue et l'utilisateur. Le rembourrage bas du contenu doit dégager
-la navigation.
+du haut, pas dans la navigation. Le rembourrage bas du contenu doit dégager la
+navigation.
+
+Barre du haut collante et floutée, dans cet ordre : logo, sélecteur de ligue,
+puis **collés à droite** l'icône de messagerie et le menu profil. Le sélecteur
+porte le nom de la ligue seul, sans la saison — elle ne change pas d'une semaine
+à l'autre et ne payait pas sa largeur (2026-08-03). L'icône de messagerie est
+**nue**, sans pastille de fond : la pilule du profil est juste à côté, et deux
+pilules côte à côte se lisent comme un contrôle segmenté plutôt que comme une
+identité et une action.
+
+Le compteur vert du profil ne compte **que les autres** — s'y inclure faisait un
+badge qui ne descendait jamais sous 1, donc « 1 en ligne » et « personne » se
+ressemblaient. Dans le menu, la liste des GMs passe avant Settings/Log out, qui
+deviennent un pied de menu compact (36 px, sous la cible habituelle de 44 px,
+assumé).
 
 ## Messagerie (2026-08-03)
 

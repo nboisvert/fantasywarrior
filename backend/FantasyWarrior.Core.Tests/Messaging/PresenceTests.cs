@@ -52,7 +52,7 @@ public class PresenceTests
         // Presence has to agree with that, or the dot lies about who is around.
         var state = Presence.Resolve(isConnected: false, lastSeenUtc: AgoMinutes(3), Now);
         Assert.False(state.Online);
-        Assert.Equal("3m ago", state.Label);
+        Assert.Equal("3min ago", state.Label);
     }
 
     [Fact]
@@ -74,8 +74,8 @@ public class PresenceTests
 
     [Theory]
     [InlineData(0.2, "just now")]
-    [InlineData(5, "5m ago")]
-    [InlineData(59, "59m ago")]
+    [InlineData(5, "5min ago")]
+    [InlineData(59, "59min ago")]
     [InlineData(60, "1h ago")]
     [InlineData(60 * 23, "23h ago")]
     [InlineData(60 * 24, "1d ago")]

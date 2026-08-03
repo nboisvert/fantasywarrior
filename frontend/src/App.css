@@ -62,6 +62,11 @@
    wherever you are, not a destination you navigate to. The profile menu's
    per-GM message buttons open the same sheet on one thread — a different
    destination, not a second route to this one. */
+/* Bare icon, no chip (2026-08-03, per Nick): the profile trigger beside it is
+   already a pill, and two pills in a row read as a segmented control rather
+   than as one identity and one action. margin-left:auto pushes the pair to the
+   right edge — the profile menu's own auto margin then has no slack left, so
+   the two sit together. */
 .topbar-chat {
   position: relative;
   display: grid;
@@ -70,18 +75,15 @@
   width: 34px;
   height: 34px;
   margin-left: auto;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface);
+  border: none;
+  background: none;
   color: var(--text-muted);
   cursor: pointer;
-  transition: color 0.2s, border-color 0.2s, background-color 0.2s;
+  transition: color 0.2s;
 }
 
 .topbar-chat:hover {
   color: var(--text);
-  border-color: var(--ice);
-  background: var(--surface-strong);
 }
 
 /* Ice rather than the nav badge's gold: gold is reserved for "an offer is
@@ -936,7 +938,7 @@
   border: none;
   background: none;
   color: var(--text);
-  font: 600 0.9rem var(--font-body);
+  font: 600 1.05rem var(--font-body);
   cursor: pointer;
   padding: 0.3rem 0.4rem;
   border-radius: 8px;
@@ -959,20 +961,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.league-switch .season {
-  flex-shrink: 0;
-  font-size: 0.62rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
-@media (max-width: 400px) {
-  .league-switch .season {
-    display: none;
-  }
 }
 
 /* ---------- standings ---------- */

@@ -34,9 +34,14 @@ public static class Presence
     }
 
     /// <summary>
-    /// The label the UI renders verbatim. It lives here rather than in the
-    /// frontend so there is one implementation of it under CI, instead of a
-    /// second hand-rolled timeAgo drifting away from this one.
+    /// The label the UI renders. It lives here rather than in the frontend so
+    /// there is one implementation of it under CI, instead of a second
+    /// hand-rolled timeAgo drifting away from this one.
+    ///
+    /// Deliberately the *short* form ("45min ago"), not "last seen 45min ago":
+    /// the profile menu spells that out because it has the width, while the
+    /// chat list uses the same string as a right-aligned stamp where the prefix
+    /// would not fit. One wording, two framings.
     /// </summary>
     public static string Describe(bool online, DateTime? lastSeenUtc, DateTime nowUtc)
     {
@@ -49,7 +54,7 @@ public static class Presence
         // little in the future; "just now" is a better answer than a negative
         // number of minutes.
         if (elapsed < TimeSpan.FromMinutes(1)) return "just now";
-        if (elapsed < TimeSpan.FromHours(1)) return $"{(int)elapsed.TotalMinutes}m ago";
+        if (elapsed < TimeSpan.FromHours(1)) return $"{(int)elapsed.TotalMinutes}min ago";
         if (elapsed < TimeSpan.FromDays(1)) return $"{(int)elapsed.TotalHours}h ago";
         if (elapsed < TimeSpan.FromDays(30)) return $"{(int)elapsed.TotalDays}d ago";
         return "a while ago";
