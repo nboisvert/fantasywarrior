@@ -2112,6 +2112,59 @@
   border-top: 1px solid var(--border);
 }
 
+/* ---------- collapsed vote teaser ----------
+   A full-width strip under the collapsed teams-split so a trade's vote
+   status is readable without opening the card (2026-08-03, per Nick). Three
+   states, one shared shape (full-width, 44px, rounded, centered) so they
+   don't jump around as a trade moves between them. */
+.trade-vote-teaser {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 0.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 12px;
+  border: none;
+  font: 700 0.82rem var(--font-body);
+  cursor: pointer;
+  transition: filter 0.2s, box-shadow 0.2s;
+}
+
+/* The flashy one — same gradient/glow as the app's primary .btn, since this
+   is genuinely meant to pull a tap the way a primary action would. */
+.trade-vote-teaser.cast {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #06121f;
+  background: linear-gradient(135deg, var(--ice) 0%, var(--ice-bright) 100%);
+  box-shadow: 0 4px 20px rgba(56, 189, 248, 0.35);
+}
+
+.trade-vote-teaser.cast:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 4px 28px rgba(56, 189, 248, 0.5);
+}
+
+/* The other two are informational, not a nudge — quiet by comparison. */
+.trade-vote-teaser.result,
+.trade-vote-teaser.empty {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.trade-vote-teaser.result:hover,
+.trade-vote-teaser.empty:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.trade-vote-teaser.result strong {
+  color: var(--text);
+}
+
 /* ---------- Weekly lineup (Team screen) ---------- */
 /* Reuses existing tokens only — no new colours. Active is the ice-cyan accent
    used for anything "counting"; bench is plain muted text. */

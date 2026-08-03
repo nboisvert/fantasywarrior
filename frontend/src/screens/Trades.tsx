@@ -43,7 +43,10 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
   const [trades, setTrades] = useState<Trade[] | null>(null);
   const [error, setError] = useState("");
   const [showCreate, setShowCreate] = useState(false);
-  const [expanded, setExpanded] = useState<string | null>(null);
+  // A set, not a single id — expanding one card no longer collapses another
+  // (2026-08-03, per Nick: comparing two trades meant losing your place in
+  // the first one every time you opened a second).
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = () => {
@@ -71,6 +74,14 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
   const received = (trades ?? []).filter((t) => t.status === "pending" && t.counterpartyUsername === username);
   const sent = (trades ?? []).filter((t) => t.status === "pending" && t.proposerUsername === username);
   const history = (trades ?? []).filter((t) => t.status === "processed" || t.status === "accepted");
+
+  const toggleExpanded = (tradeId: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(tradeId)) next.delete(tradeId);
+      else next.add(tradeId);
+      return next;
+    });
 
   const respond = async (tradeId: string, accept: boolean) => {
     setBusyId(tradeId);
@@ -155,11 +166,11 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
    * an offer of more than two players a side could not be read in full before
    * accepting it. Shared here so a fourth caller cannot reintroduce that. */
   const teamsSplitToggle = (trade: Trade) => {
-    const isOpen = expanded === trade.id;
+    const isOpen = expanded.has(trade.id);
     return (
       <button
         className="trade-row-toggle"
-        onClick={() => setExpanded(isOpen ? null : trade.id)}
+        onClick={() => toggleExpanded(trade.id)}
         aria-expanded={isOpen}
       >
         {teamsSplit(trade, isOpen)}
@@ -167,15 +178,58 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
     );
   };
 
+  /** The collapsed card's own pitch — expanding is no longer required to see
+   * where a trade's vote stands (2026-08-03, per Nick). Three states: a
+   * flashy nudge when the viewer can vote and hasn't; the plurality leader
+   * once there's a real vote to report; a quiet "no votes yet" when a party
+   * to the trade (who can never vote themselves) is looking at one nobody
+   * has weighed in on yet. Tapping any of them expands the card, same as
+   * tapping the teams themselves. */
+  const voteTeaser = (trade: Trade) => {
+    if (trade.status !== "processed") return null;
+    const votes = trade.votes;
+
+    if (votes == null) {
+      if (!trade.canVote) return null;
+      return (
+        <button type="button" className="trade-vote-teaser cast" onClick={() => toggleExpanded(trade.id)}>
+          Cast your vote
+        </button>
+      );
+    }
+
+    if (votes.total === 0) {
+      return (
+        <button type="button" className="trade-vote-teaser empty" onClick={() => toggleExpanded(trade.id)}>
+          No votes yet
+        </button>
+      );
+    }
+
+    const entries = [
+      { label: trade.proposerTeamName, count: votes.proposer },
+      { label: "Fair trade", count: votes.fair },
+      { label: trade.counterpartyTeamName, count: votes.counterparty },
+    ];
+    const leader = entries.reduce((best, e) => (e.count > best.count ? e : best));
+    return (
+      <button type="button" className="trade-vote-teaser result" onClick={() => toggleExpanded(trade.id)}>
+        <strong>{leader.label}</strong> won · {leader.count} of {votes.total} vote{votes.total === 1 ? "" : "s"}
+      </button>
+    );
+  };
+
   /** A history card: the teams/headliners visual (expanding in place to show
-   * every player, no separate duplicate list), and, once open, the rating
-   * (processed) or an awaiting note (accepted). */
+   * every player, no separate duplicate list), the collapsed vote teaser
+   * when it's shut, and the full widget (processed) or an awaiting note
+   * (accepted) once open. */
   const historyCard = (trade: Trade) => {
-    const isOpen = expanded === trade.id;
+    const isOpen = expanded.has(trade.id);
     return (
       <li key={trade.id} className="card trade-row">
         {cardHead(trade)}
         {teamsSplitToggle(trade)}
+        {!isOpen && voteTeaser(trade)}
         {isOpen && (
           <div className="trade-row-expanded">
             {trade.status === "processed" ? (
