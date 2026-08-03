@@ -4,8 +4,8 @@ import type { LeagueDetail } from "./api";
 import {
   ActivityIcon,
   ArrowLeftRightIcon,
+  BriefcaseIcon,
   ChevronDownIcon,
-  HomeIcon,
   TrophyIcon,
 } from "./components/Icons";
 import { LoadingLogo } from "./components/LoadingLogo";
@@ -209,8 +209,8 @@ export default function App() {
           onClick={() => setTab("dashboard")}
           aria-current={tab === "dashboard" ? "page" : undefined}
         >
-          <HomeIcon size={22} />
-          Dashboard
+          <BriefcaseIcon size={22} />
+          GM Office
         </button>
         <button
           className={`nav-tab${tab === "standings" ? " active" : ""}`}

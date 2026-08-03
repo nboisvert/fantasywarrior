@@ -6,12 +6,78 @@
 // import below) so the numbers match PlayerCard exactly instead of being
 // re-derived and re-tightened.
 
-import { useState } from "react";
-import { formatShortName, posGroup, posGroupClass } from "../api";
-import type { LeagueDetail } from "../api";
+import { useEffect, useMemo, useState } from "react";
+import { api, topPlayersByNhlPoints } from "../api";
+import type { LeagueDetail, Trade, TradePlayer } from "../api";
+import { ArrowLeftRightIcon } from "../components/Icons";
 import { PlayerCard } from "../components/PlayerCard";
 
-const TOP_SCORERS = 5;
+/** Same window the news ticker uses for its "hot" gold glow — a trade is
+ * fresh news for 30 minutes after its own stage timestamp. */
+const HOT_WINDOW_MS = 30 * 60 * 1000;
+
+/** Small local helper, not shared — same duplicated-per-file convention as
+ * NewsTicker's own timeAgo (and Stats.tsx's formatMoneyCompact). */
+function timeAgo(dateUtc: string): string {
+  const ms = Date.now() - new Date(dateUtc).getTime();
+  const minutes = Math.floor(ms / 60_000);
+  if (minutes < 1) return "now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+/** The trade's own "just happened" timestamp and status label — same
+ * priority Trades.tsx's primaryDate uses (processed beats accepted beats
+ * proposed), but only the two history-worthy stages ever reach this card. */
+function tradeTimestamp(t: Trade): { label: string; iso: string } {
+  if (t.status === "processed" && t.processedUtc) return { label: "Processed", iso: t.processedUtc };
+  if (t.status === "accepted" && t.respondedUtc) return { label: "Accepted", iso: t.respondedUtc };
+  return { label: "Proposed", iso: t.createdUtc };
+}
+
+/** One team's column: name on top, its headliners (by NHL points) below,
+ * "+N more" for the rest — the collapsed view Trades.tsx's own trade cards
+ * use, reused verbatim (same classes) so this reads as the same visual
+ * language, not a smaller copy of it. No expand affordance here: this is a
+ * glance at what happened, not the place to act on or rate a trade — that's
+ * what the Trades tab already is. */
+function TradeSide({
+  teamName, players, pointsById, align, onOpenPlayer,
+}: {
+  teamName: string;
+  players: TradePlayer[];
+  pointsById: Map<number, number>;
+  align: "left" | "right";
+  onOpenPlayer: (playerId: number) => void;
+}) {
+  const top = topPlayersByNhlPoints(players, pointsById, 2);
+  const topIds = new Set(top.map((p) => p.id));
+  const rest = players.filter((p) => !topIds.has(p.id));
+  return (
+    <div className={`trade-side trade-side-${align}`}>
+      <span className="trade-side-name">{teamName}</span>
+      <div className="trade-side-given">
+        {top.length === 0 ? (
+          <span className="muted">nothing</span>
+        ) : (
+          top.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              className="dash-news-player"
+              onClick={() => onOpenPlayer(p.id)}
+            >
+              {p.name}
+            </button>
+          ))
+        )}
+        {rest.length > 0 && <span className="muted">+{rest.length} more</span>}
+      </div>
+    </div>
+  );
+}
 
 /** Compact cap-space format for the "at a glance" tile: millions with one
  * decimal ($9.2M), thousands in $K under a million, sign preserved so an
@@ -45,6 +111,45 @@ function ordinal(n: number): string {
 
 export function Dashboard({ league, username }: { league: LeagueDetail; username: string }) {
   const [openPlayerId, setOpenPlayerId] = useState<number | null>(null);
+  const [trades, setTrades] = useState<Trade[] | null>(null);
+
+  // Ticks every 30s purely to re-evaluate "is this trade still within its
+  // 30-minute hot window" — same reasoning as NewsTicker's own clock.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    let ignore = false;
+    api
+      .trades(league.id, username)
+      .then((list) => {
+        if (!ignore) setTrades(list);
+      })
+      .catch(() => {
+        if (!ignore) setTrades([]);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [league.id, username]);
+
+  const pointsById = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const team of league.teams)
+      for (const [id, pts] of Object.entries(team.playerNhlPoints)) map.set(Number(id), pts);
+    return map;
+  }, [league]);
+
+  // Same "history" scope Trades.tsx shows (processed, plus accepted trades
+  // still awaiting tonight's processing) — declined/cancelled/pending offers
+  // aren't news yet. Most recent stage first.
+  const recentTrades = (trades ?? [])
+    .filter((t) => t.status === "processed" || t.status === "accepted")
+    .map((t) => ({ trade: t, ...tradeTimestamp(t) }))
+    .sort((a, b) => new Date(b.iso).getTime() - new Date(a.iso).getTime());
 
   const myIndex = league.teams.findIndex((t) => t.ownerUsername === username);
   const myTeam = myIndex >= 0 ? league.teams[myIndex] : undefined;
@@ -65,8 +170,6 @@ export function Dashboard({ league, username }: { league: LeagueDetail; username
   const capOver = league.capAmount != null && league.capAmount - myTeam.capTotal < 0;
   const capValue =
     league.capAmount == null ? "No cap" : formatCapCompact(league.capAmount - myTeam.capTotal);
-
-  const topScorers = league.myRoster.slice(0, TOP_SCORERS);
 
   return (
     <section className="fade-in dash-stack">
@@ -105,31 +208,50 @@ export function Dashboard({ league, username }: { league: LeagueDetail; username
         </p>
       </div>
 
-      <div className="card dash-scorers">
-        <span className="section-title">Top scorers</span>
-        {topScorers.length === 0 ? (
-          <p className="empty-state">Empty roster.</p>
+      <div className="card dash-news">
+        <span className="section-title">League News</span>
+        {trades == null ? null : recentTrades.length === 0 ? (
+          <p className="empty-state">No trades yet.</p>
         ) : (
-          <ul className="player-list">
-            {topScorers.map((p) => (
-              <li key={p.id} className="player-row">
-                <button
-                  className="player-hit"
-                  onClick={() => setOpenPlayerId(p.id)}
-                  aria-label={`Open ${p.name} card`}
+          <ul className="dash-news-list">
+            {recentTrades.map(({ trade, label, iso }, i) => {
+              const isHot = now - new Date(iso).getTime() < HOT_WINDOW_MS;
+              return (
+                <li
+                  key={trade.id}
+                  className={`dash-news-card${isHot ? " hot" : ""}`}
+                  style={{ animationDelay: `${Math.min(i, 5) * 60}ms` }}
                 >
-                  <img className="headshot" src={p.headshotUrl ?? ""} alt="" loading="lazy" />
-                  <span className="player-info dash-scorer-info">
-                    <span className="name">{formatShortName(p.name)}</span>
-                    <span className={`roster-pos-pill roster-pos-pill-${posGroupClass(p.position)}`}>
-                      {posGroup(p.position)}
+                  <div className="trade-row-head">
+                    <span className="trade-row-date">
+                      <span className="trade-row-date-label">{label}</span> {timeAgo(iso)}
                     </span>
-                    <span className="dash-scorer-team muted">{p.team}</span>
-                  </span>
-                  <span className="pts-small">{p.points} pts</span>
-                </button>
-              </li>
-            ))}
+                    {trade.status === "accepted" && (
+                      <span className="trade-awaiting-pill">Awaiting processing</span>
+                    )}
+                  </div>
+                  <div className="trade-teams-split">
+                    <TradeSide
+                      teamName={trade.proposerTeamName}
+                      players={trade.playersFromProposer}
+                      pointsById={pointsById}
+                      align="left"
+                      onOpenPlayer={setOpenPlayerId}
+                    />
+                    <span className="dash-news-icon" aria-hidden="true">
+                      <ArrowLeftRightIcon size={16} />
+                    </span>
+                    <TradeSide
+                      teamName={trade.counterpartyTeamName}
+                      players={trade.playersFromCounterparty}
+                      pointsById={pointsById}
+                      align="right"
+                      onOpenPlayer={setOpenPlayerId}
+                    />
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
