@@ -97,34 +97,25 @@
   color: var(--text);
 }
 
-.cts-card-count {
-  display: grid;
-  place-items: center;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: 999px;
-  background: var(--ice);
-  color: #06121f;
-  font-size: 0.6rem;
-  letter-spacing: 0;
+/* The salary this side is sending. The largest thing on the card, because it
+   is the number a GM weighs (2026-08-03, per Nick) — and distinct from the
+   team's cap total, which lives in the board below. */
+.cts-card-total {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
-/* The reason the accordion works: what you took from a side stays readable
-   while it is shut, so closing a card does not hide the offer. */
-.cts-card-summary {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: right;
-  font-size: 0.76rem;
+.cts-card-total.live {
+  color: var(--ice-bright);
+  text-shadow: 0 0 12px var(--ice-glow);
 }
 
 .cts-card-chevron {
   flex-shrink: 0;
-  margin-left: auto;
   color: var(--text-muted);
   font-size: 0.7rem;
 }
@@ -135,8 +126,88 @@
   transform: rotate(180deg);
 }
 
-.cts-card-summary + .cts-card-chevron {
-  margin-left: 0;
+/* Every selected asset, always — a closed card exists to answer "what did I
+   put in" without reopening it, and a truncated answer sends you back in. */
+.cts-card-assets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0 0.7rem 0.5rem;
+  font-size: 0.74rem;
+}
+
+.cts-asset-tag {
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  background: rgba(56, 189, 248, 0.1);
+  color: var(--text);
+  white-space: nowrap;
+}
+
+/* ---------- the board, inside the card it describes ----------
+   It used to be one table under both cards naming "Colorado" and "Montreal"
+   while the cards said "you give" and "you get", leaving the reader to join
+   the two by hand. That is what made the screen hard to read. */
+
+.cts-board {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.7rem;
+  padding: 0.4rem 0.7rem;
+  border-top: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+  font-size: 0.74rem;
+}
+
+.cts-board.bad {
+  background: rgba(244, 63, 94, 0.07);
+}
+
+.cts-board-metric {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.28rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.cts-board-key {
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  font-weight: 700;
+}
+
+.cts-board-arrow {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+}
+
+.cts-board-now {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Same danger treatment as .cap-fill.over and .pc-tile.danger elsewhere. */
+.cts-board-over {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.cts-board-unknown {
+  font-size: 0.64rem;
+}
+
+.cts-board-verdict {
+  margin-left: auto;
+  color: var(--success);
+  font-size: 0.78rem;
+}
+
+.cts-board.bad .cts-board-verdict {
+  color: var(--danger);
 }
 
 .cts-card-body {
@@ -237,87 +308,3 @@
   padding: 0.75rem;
 }
 
-/* ---------- the recap ----------
-   Two rows, one per team, because a trade moves both — and the side that
-   breaks is very often the other one. */
-
-.cts-recap {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  padding: 0.6rem 0.7rem;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface);
-}
-
-.cts-recap-head,
-.cts-recap-row {
-  display: grid;
-  grid-template-columns: 1fr auto auto 1rem;
-  align-items: baseline;
-  gap: 0.7rem;
-}
-
-.cts-recap-head {
-  font-size: 0.6rem;
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  color: var(--text-muted);
-  font-weight: 700;
-}
-
-.cts-recap-rows {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.cts-recap-row {
-  font-size: 0.82rem;
-}
-
-.cts-recap-team {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 600;
-}
-
-.cts-recap-cap,
-.cts-recap-roster {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.3rem;
-  font-variant-numeric: tabular-nums;
-}
-
-.cts-recap-arrow {
-  color: var(--text-muted);
-  font-size: 0.7rem;
-}
-
-/* Same danger treatment as .cap-fill.over and .pc-tile.danger elsewhere. */
-.cts-recap-over {
-  color: var(--danger);
-  font-weight: 700;
-}
-
-.cts-recap-row.bad .cts-recap-verdict {
-  color: var(--danger);
-}
-
-.cts-recap-verdict {
-  text-align: right;
-  color: var(--success);
-  font-size: 0.8rem;
-}
-
-.cts-recap-note {
-  margin: 0;
-  font-size: 0.68rem;
-}

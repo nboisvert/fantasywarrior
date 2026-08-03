@@ -77,62 +77,63 @@ function impactOf(
   };
 }
 
-function RecapRow({ impact }: { impact: SideImpact }) {
+/**
+ * One team's cap and roster, before and after this trade — sitting inside that
+ * team's own card.
+ *
+ * It used to be a single table under both cards, listing "Colorado" and
+ * "Montreal" while the cards above said "you give" and "you get". That left the
+ * reader to join the two by hand, which is what made the screen hard to read
+ * (2026-08-03, per Nick). A card that carries its own team's numbers needs no
+ * such bridge.
+ */
+function SideBoard({ impact }: { impact: SideImpact }) {
   const bad = impact.violations.length > 0;
+  const capBust = impact.violations.includes("cap");
+  const rosterBust = impact.violations.includes("max") || impact.violations.includes("min");
+
   return (
-    <li className={`cts-recap-row${bad ? " bad" : ""}`}>
-      <span className="cts-recap-team">{impact.teamName}</span>
-      <span className="cts-recap-cap">
+    <div className={`cts-board${bad ? " bad" : ""}`}>
+      <span className="cts-board-metric">
+        <span className="cts-board-key">Cap</span>
         {impact.spaceBefore == null ? (
-          <span className="muted">no cap</span>
+          <span className="muted">none</span>
         ) : (
           <>
             <span className="muted">{formatCapCompact(impact.spaceBefore)}</span>
-            <span className="cts-recap-arrow" aria-hidden="true">
+            <span className="cts-board-arrow" aria-hidden="true">
               ▸
             </span>
-            <span className={impact.violations.includes("cap") ? "cts-recap-over" : ""}>
+            <span className={capBust ? "cts-board-over" : "cts-board-now"}>
               {formatCapCompact(impact.spaceAfter)}
             </span>
           </>
         )}
       </span>
-      <span className="cts-recap-roster">
+
+      <span className="cts-board-metric">
+        <span className="cts-board-key">Roster</span>
         <span className="muted">{impact.countBefore}</span>
-        <span className="cts-recap-arrow" aria-hidden="true">
+        <span className="cts-board-arrow" aria-hidden="true">
           ▸
         </span>
-        <span
-          className={
-            impact.violations.includes("max") || impact.violations.includes("min")
-              ? "cts-recap-over"
-              : ""
-          }
-        >
-          {impact.countAfter}
-        </span>
+        <span className={rosterBust ? "cts-board-over" : "cts-board-now"}>{impact.countAfter}</span>
       </span>
-      <span className="cts-recap-verdict" aria-hidden="true">
+
+      {impact.unknownContracts > 0 && (
+        // Counted as $0 by the standings and by the server alike. Saying so is
+        // the only honest option — we cannot validate a salary nobody has.
+        <span className="cts-board-unknown muted">{impact.unknownContracts} with no contract</span>
+      )}
+
+      <span className="cts-board-verdict" aria-hidden="true">
         {bad ? "✕" : "✓"}
       </span>
-    </li>
+    </div>
   );
 }
 
 const pickLabel = (p: DraftPickDto) => `${p.year} rd ${p.round}`;
-
-/** What the collapsed card says instead of its list. Names first because that
- * is what a GM is checking, then the money, which is what the recap below then
- * turns into a verdict. */
-function summarise(players: PickPlayer[], picks: DraftPickDto[]): string {
-  const names = [...players.map((p) => formatShortName(p.name)), ...picks.map(pickLabel)];
-  if (names.length === 0) return "Nothing selected";
-
-  const shown = names.slice(0, 2).join(", ");
-  const rest = names.length > 2 ? ` +${names.length - 2}` : "";
-  const money = players.reduce((t, p) => t + (p.capHit ?? 0), 0);
-  return money > 0 ? `${shown}${rest} · ${formatCapCompact(money)}` : `${shown}${rest}`;
-}
 
 /**
  * One side of the trade: a card that is either the scrolling picker or, when
@@ -158,6 +159,7 @@ function SideCard({
   onTogglePlayer,
   onTogglePick,
   loading,
+  impact,
 }: {
   title: string;
   open: boolean;
@@ -169,28 +171,44 @@ function SideCard({
   onTogglePlayer: (id: number) => void;
   onTogglePick: (id: number) => void;
   loading?: boolean;
+  /** This card's own team. Null only before a counterparty is resolved. */
+  impact: SideImpact | null;
 }) {
   const chosenPlayers = players.filter((p) => selectedPlayers.has(p.id));
   const chosenPicks = picks.filter((p) => selectedPicks.has(p.id));
-  const count = chosenPlayers.length + chosenPicks.length;
+  const names = [...chosenPlayers.map((p) => formatShortName(p.name)), ...chosenPicks.map(pickLabel)];
+  // The salary this side is actually sending — not the team's cap total. It is
+  // the number a GM is weighing, so it gets the size.
+  const moving = chosenPlayers.reduce((t, p) => t + (p.capHit ?? 0), 0);
 
   return (
     <section className={`cts-card${open ? " open" : ""}`}>
-      <button
-        type="button"
-        className="cts-card-head"
-        aria-expanded={open}
-        onClick={onOpen}
-      >
-        <span className="cts-card-title">
-          {title}
-          {count > 0 && <span className="cts-card-count">{count}</span>}
+      <button type="button" className="cts-card-head" aria-expanded={open} onClick={onOpen}>
+        <span className="cts-card-title">{title}</span>
+        <span className={`cts-card-total${moving > 0 ? " live" : ""}`}>
+          {formatCapCompact(moving)}
         </span>
-        {!open && <span className="cts-card-summary muted">{summarise(chosenPlayers, chosenPicks)}</span>}
         <span className={`cts-card-chevron${open ? " up" : ""}`} aria-hidden="true">
           ▾
         </span>
       </button>
+
+      {/* Every asset, never "+2" (2026-08-03, per Nick): the point of a closed
+          card is to answer "what did I put in" without reopening it, and a
+          truncated answer sends you back in. Wraps rather than clips. */}
+      <div className="cts-card-assets">
+        {names.length === 0 ? (
+          <span className="muted">Nothing selected</span>
+        ) : (
+          names.map((n) => (
+            <span key={n} className="cts-asset-tag">
+              {n}
+            </span>
+          ))
+        )}
+      </div>
+
+      {impact && <SideBoard impact={impact} />}
 
       {open && (
         <div className="cts-card-body">
@@ -406,9 +424,9 @@ export function CreateTradeSheet({
   const myImpact = impactOf(myTeam, outgoing, incoming, cap, rosterMin, rosterMax);
   const theirImpact = impactOf(counterpartyTeam, incoming, outgoing, cap, rosterMin, rosterMax);
 
-  const impacts = [myImpact, theirImpact].filter((i): i is SideImpact => i !== null);
-  const illegal = impacts.some((i) => i.violations.length > 0);
-  const unknownContracts = myImpact?.unknownContracts ?? 0;
+  // Each card reports its own team now, so nothing here needs the pair — only
+  // whether either side breaks, which is what gates the send button.
+  const illegal = [myImpact, theirImpact].some((i) => i != null && i.violations.length > 0);
 
   const anySelected = mine.size > 0 || theirs.size > 0 || myPicks.size > 0 || theirPicks.size > 0;
   const canSubmit = !submitting && counterparty !== "" && anySelected && !illegal;
@@ -487,6 +505,7 @@ export function CreateTradeSheet({
                   selectedPicks={myPicks}
                   onTogglePlayer={(id) => toggle(mine, setMine, id)}
                   onTogglePick={(id) => toggle(myPicks, setMyPicks, id)}
+                  impact={myImpact}
                 />
                 <SideCard
                   title={`You get · ${counterpartyTeam?.name ?? "—"}`}
@@ -499,33 +518,9 @@ export function CreateTradeSheet({
                   onTogglePlayer={(id) => toggle(theirs, setTheirs, id)}
                   onTogglePick={(id) => toggle(theirPicks, setTheirPicks, id)}
                   loading={theirLoading}
+                  impact={theirImpact}
                 />
               </div>
-
-              {impacts.length === 2 && (
-                <div className="cts-recap">
-                  <div className="cts-recap-head">
-                    <span />
-                    <span>Cap space</span>
-                    <span>Roster</span>
-                    <span />
-                  </div>
-                  <ul className="cts-recap-rows">
-                    {impacts.map((i) => (
-                      <RecapRow key={i.teamName} impact={i} />
-                    ))}
-                  </ul>
-                  {unknownContracts > 0 && (
-                    // Counted as $0 by the standings and by the server alike.
-                    // Saying so is the only honest option — we cannot validate
-                    // a salary nobody has on file.
-                    <p className="cts-recap-note muted">
-                      {unknownContracts} player{unknownContracts > 1 ? "s" : ""} with no contract on
-                      file, counted as $0.
-                    </p>
-                  )}
-                </div>
-              )}
 
               {error && <p className="error-banner">{error}</p>}
 
