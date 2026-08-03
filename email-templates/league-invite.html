@@ -1,0 +1,145 @@
+<!--
+  Fantasy Warrior — league invite email.
+  Placeholders to fill in when wiring this into the send path:
+    {{InviterName}}  GM sending the invite
+    {{LeagueName}}   league being joined
+    {{JoinCode}}     League.JoinCode
+    {{JoinUrl}}      e.g. https://nboisvert.github.io/fantasywarrior/?join={{JoinCode}}
+-->
+<!doctype html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="color-scheme" content="dark">
+<meta name="supported-color-schemes" content="dark">
+<title>You're invited to Fantasy Warrior</title>
+<!--[if mso]>
+<noscript>
+<xml>
+<o:OfficeDocumentSettings>
+<o:PixelsPerInch>96</o:PixelsPerInch>
+</o:OfficeDocumentSettings>
+</xml>
+</noscript>
+<![endif]-->
+<style>
+  body, table, td { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+  table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+  img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; }
+  body { margin: 0; padding: 0; width: 100% !important; background-color: #0a0e1a; }
+
+  a.cta:hover { filter: brightness(1.08); }
+
+  @media screen and (max-width: 600px) {
+    .container { width: 100% !important; }
+    .px { padding-left: 20px !important; padding-right: 20px !important; }
+    .headline { font-size: 26px !important; }
+  }
+</style>
+</head>
+<body style="margin:0; padding:0; background-color:#0a0e1a;">
+<div style="display:none; max-height:0; overflow:hidden; opacity:0; mso-hide:all;">
+  {{InviterName}} just opened a GM chair in {{LeagueName}}. Your ice is waiting.
+</div>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0a0e1a;">
+<tr>
+<td align="center" style="padding: 32px 16px;">
+
+  <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px;">
+
+    <!-- Logo + wordmark -->
+    <tr>
+      <td align="center" style="padding-bottom: 24px;">
+        <img src="https://nboisvert.github.io/fantasywarrior/favicon-192.png" width="56" height="56" alt="Fantasy Warrior" style="display:block; margin: 0 auto 10px;">
+        <span style="font-family: 'Russo One', Impact, 'Arial Narrow', sans-serif; font-size: 20px; letter-spacing: 0.5px; color: #f1f5f9;">
+          FANTASY <span style="color:#38bdf8;">WARRIOR</span>
+        </span>
+      </td>
+    </tr>
+
+    <!-- Card -->
+    <tr>
+      <td class="px" style="background-color:#10162a; border: 1px solid #232a42; border-radius: 16px; padding: 40px 36px;">
+
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td align="center" class="headline" style="font-family: 'Russo One', Impact, 'Arial Narrow', sans-serif; font-size: 30px; line-height: 1.25; color: #f1f5f9; padding-bottom: 18px;">
+              A GM CHAIR<br>JUST OPENED UP.
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="font-family: 'Chakra Petch', Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #c7d2e0; padding-bottom: 28px;">
+              <strong style="color:#f1f5f9;">{{InviterName}}</strong> is calling you up to
+              <strong style="color:#38bdf8;">{{LeagueName}}</strong> on Fantasy Warrior.
+              Draft your squad, set your lines, and find out who's really got it in the standings.
+            </td>
+          </tr>
+
+          <!-- CTA button -->
+          <tr>
+            <td align="center" style="padding-bottom: 24px;">
+              <!--[if mso]>
+              <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="{{JoinUrl}}" style="height:50px;v-text-anchor:middle;width:220px;" arcsize="16%" fillcolor="#38bdf8" stroke="f">
+              <w:anchorlock/>
+              <center style="color:#0a0e1a;font-family:Arial,sans-serif;font-size:16px;font-weight:bold;">Join the League</center>
+              </v:roundrect>
+              <![endif]-->
+              <!--[if !mso]><!-->
+              <a class="cta" href="{{JoinUrl}}" style="display:inline-block; background: linear-gradient(135deg, #38bdf8, #22d3ee); background-color:#38bdf8; color:#0a0e1a; font-family: 'Chakra Petch', Arial, sans-serif; font-size: 16px; font-weight: 700; text-decoration: none; padding: 14px 36px; border-radius: 14px;">
+                Join the League
+              </a>
+              <!--<![endif]-->
+            </td>
+          </tr>
+
+          <!-- Invite code fallback -->
+          <tr>
+            <td align="center" style="font-family: 'Chakra Petch', Arial, sans-serif; font-size: 13px; color: #8b96ab; padding-bottom: 10px;">
+              Button not working? Open Fantasy Warrior and enter your invite code.
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding-bottom: 8px;">
+              <span style="display:inline-block; font-family: 'Russo One', Impact, monospace; font-size: 20px; letter-spacing: 3px; color: #f1f5f9; background-color: #0a0e1a; border: 1px solid #232a42; border-radius: 10px; padding: 10px 20px;">
+                {{JoinCode}}
+              </span>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="font-family: 'Chakra Petch', Arial, sans-serif; font-size: 13px; color: #8b96ab; padding-top: 18px;">
+              No account yet? No problem — just pick a username. No password, no hassle.
+            </td>
+          </tr>
+        </table>
+
+      </td>
+    </tr>
+
+    <!-- Tagline -->
+    <tr>
+      <td align="center" style="padding: 28px 16px 8px;">
+        <span style="font-family: 'Chakra Petch', Arial, sans-serif; font-size: 14px; color: #8b96ab; font-style: italic;">
+          Your pool. Your ice. Your bragging rights.
+        </span>
+      </td>
+    </tr>
+
+    <!-- Footer -->
+    <tr>
+      <td align="center" style="font-family: 'Chakra Petch', Arial, sans-serif; font-size: 11px; color: #5c6580; padding: 4px 16px 0;">
+        You're getting this because {{InviterName}} invited you to {{LeagueName}} on Fantasy Warrior.
+        If that wasn't meant for you, just ignore this email.
+      </td>
+    </tr>
+
+  </table>
+
+</td>
+</tr>
+</table>
+
+</body>
+</html>
