@@ -238,9 +238,26 @@ le trafic ordinaire, pas seulement au login.
 | `vRosterSpotTotals` | points et matchs par spot, actifs et banc séparés |
 | `vTeamPeriodScores` | points actifs/banc par équipe par semaine → l'historique hebdomadaire |
 | `vStandings` | classement : SUM par équipe, cap total, matchs du roster, points/match |
+| `vTeamCommitments` | par équipe, le **delta** de cap et d'effectif qu'engagent les échanges **acceptés mais pas encore exécutés** |
 
 Les totaux **à une date** (mode test) sont des requêtes paramétrées, pas des
 vues — c'est la même agrégation avec un `WHERE GameDate <= @asOf`.
+
+> **`vTeamCommitments` est séparée de `vStandings` exprès.** Les deux répondent à
+> des questions différentes : le classement montre le roster **d'aujourd'hui**,
+> la seconde ce qui est **déjà promis** pour la semaine prochaine. Les fusionner
+> ferait mentir le classement. La validation d'échange additionne les deux ; rien
+> d'autre ne le fait.
+>
+> Elle ne compte que `AssetType = Player` : un choix au repêchage n'a ni salaire
+> ni place au roster. Et un contrat manquant y vaut 0 $ **comme dans
+> `vStandings`** — les deux chiffres se font additionner, donc ils doivent
+> traiter l'inconnu pareil, sinon la somme ne veut rien dire.
+>
+> Un delta plutôt qu'un drapeau `TradeEngaged` sur les lignes : une agrégation
+> sur un journal d'événements honnête ne peut pas dériver, alors qu'un drapeau
+> oublié gèle un joueur pour toujours, en silence. Même raisonnement que le
+> ledger cockcoin.
 
 ---
 

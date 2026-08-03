@@ -1,15 +1,24 @@
 /* CreateTradeSheet — body content only; overlay/sheet/close/handle chrome
    comes from PlayerCard.css's generic "pc-*" classes (imported alongside). */
 
-.cts-title {
-  font-size: 1.15rem;
-  margin: 0;
-}
+/* The title is gone (2026-08-03, per Nick) — the dialog's aria-label carries
+   it, and the height it spent is what the recap needed. */
 
 .cts-field {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+}
+
+/* The native select arrow sits differently in every browser, and .field never
+   styled selects at all. Owning the chevron removes the variance and puts it
+   where the league switcher's already is. */
+.cts-select {
+  appearance: none;
+  padding-right: 2.4rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238b96ab' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.9rem center;
 }
 
 .cts-sides {
@@ -79,7 +88,113 @@
      (.pos-compact-f/d/g) applied alongside this class — see CLAUDE.md. */
 }
 
+.cts-player-cap {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Already moving in an accepted trade. Kept visible rather than filtered out:
+   a player who simply vanished from the list would read as a bug. */
+.cts-player-row.engaged {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.cts-player-row.engaged:hover {
+  background: none;
+}
+
+.cts-pick-list {
+  max-height: 7rem;
+}
+
 .cts-empty {
   margin: 0;
   padding: 0.75rem;
+}
+
+/* ---------- the recap ----------
+   Two rows, one per team, because a trade moves both — and the side that
+   breaks is very often the other one. */
+
+.cts-recap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.cts-recap-head,
+.cts-recap-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto 1rem;
+  align-items: baseline;
+  gap: 0.7rem;
+}
+
+.cts-recap-head {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.cts-recap-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.cts-recap-row {
+  font-size: 0.82rem;
+}
+
+.cts-recap-team {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.cts-recap-cap,
+.cts-recap-roster {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.cts-recap-arrow {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+/* Same danger treatment as .cap-fill.over and .pc-tile.danger elsewhere. */
+.cts-recap-over {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.cts-recap-row.bad .cts-recap-verdict {
+  color: var(--danger);
+}
+
+.cts-recap-verdict {
+  text-align: right;
+  color: var(--success);
+  font-size: 0.8rem;
+}
+
+.cts-recap-note {
+  margin: 0;
+  font-size: 0.68rem;
 }

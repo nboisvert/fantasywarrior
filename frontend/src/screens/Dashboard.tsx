@@ -7,7 +7,7 @@
 // re-derived and re-tightened.
 
 import { useEffect, useState } from "react";
-import { api } from "../api";
+import { api, formatCapCompact } from "../api";
 import type { LeagueDetail } from "../api";
 import { ActivityIcon, UsersIcon } from "../components/Icons";
 import { PlayerCard } from "../components/PlayerCard";
@@ -28,18 +28,9 @@ function weekLine(
   return `${s.gamesPlayed}GP · ${s.goals}G · ${s.assists}A`;
 }
 
-/** Compact cap-space format for the "at a glance" tile: millions with one
- * decimal ($9.2M), thousands in $K under a million, sign preserved so an
- * over-cap (negative remaining room) team reads as "-$1.3M". Distinct from
- * api.ts's `formatCap` (long-form "$X,XXX,XXX" used on Roster/Settings) —
- * that one stays as-is, this is just for this one small tile. */
-function formatCapCompact(amount: number): string {
-  const sign = amount < 0 ? "-" : "";
-  const abs = Math.abs(amount);
-  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1)}M`;
-  if (abs >= 1_000) return `${sign}$${Math.round(abs / 1_000)}K`;
-  return `${sign}$${abs}`;
-}
+/* formatCapCompact moved to api.ts (2026-08-03) — the trade sheet's cap recap
+ * needs the identical wording, and two copies of a money formatter is how the
+ * same number starts reading two ways on two screens. */
 
 
 /** 1 -> "1st", 3 -> "3rd", 11 -> "11th", etc. */

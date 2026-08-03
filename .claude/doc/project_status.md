@@ -43,7 +43,8 @@ nightly-processed → community rating), the five screens, the news ticker.
 | Trades — propose, respond, nightly processing, community rating | **Done** |
 | Contracts — CapWages import | **Done** |
 | GM-to-GM direct messages and live presence (SignalR) | **Done** |
-| Cap and roster-size **enforcement** (displayed today, not enforced) | Todo |
+| Cap and roster-size **enforcement** | **Done for trades** — no other path changes a roster yet |
+| Draft picks — tradable, one year ahead | **Done** (the draft itself is not) |
 | Real authentication | Todo |
 | Free agency | Todo |
 | 🏁 **Season-tracking MVP in prod for early October 2026** (NHL 2026-27) | — |
@@ -183,6 +184,27 @@ was taken — not a record of what changed.
 
 ### Trades
 
+- **2026-08-03 — The cap is enforced against *engaged* figures, not the
+  standings.** An accepted trade is irreversible and lands at the next week
+  boundary, but `vStandings` still describes today's roster. Validating against
+  it would let a GM accept a $9M contract in the morning and bust the cap in the
+  afternoon, each trade looking fine on its own. `vTeamCommitments` carries the
+  difference, and it is a **view rather than a `TradeEngaged` flag**: an
+  aggregate over an honest event log cannot drift, whereas a flag nobody cleared
+  freezes a player forever, silently. Same reasoning as the cockcoin ledger.
+- **2026-08-03 — Accepted trades lock their assets; pending ones do not.**
+  Shopping the same player to three GMs is normal and only one offer can ever be
+  accepted — the others are refused at that moment. Once accepted, re-offering
+  the same player would otherwise blow up inside the nightly job at 09:30 UTC
+  rather than at the proposal.
+- **2026-08-03 — Validation runs at propose *and* accept**, through one shared
+  helper. Rosters move in between, and accepting is the last moment anyone can
+  be told. Execution is deliberately not a third checkpoint: refusing there
+  would need a new terminal status for a trade both GMs already agreed to.
+- **2026-08-03 — A player with no contract counts as $0 and is reported.** 16 of
+  701 active NHL players have no salary on file. We cannot validate what we do
+  not know, so the count of unknowns is shown next to the figure instead of
+  being quietly folded into it.
 - **2026-07-23 — Acceptance does not execute the trade.** It sits `accepted`
   until the nightly job swaps the rosters, so a day's score is always computed on
   that day's rosters before any trade takes effect.

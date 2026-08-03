@@ -25,7 +25,26 @@ export interface LeagueSummary {
   members: number;
 }
 
-export interface RosterPlayer extends PlayerDto {
+/** One unused draft pick a team holds. Picks exist one season ahead and only
+ * one, so the year is shown but never chosen. */
+export interface DraftPickDto {
+  id: number;
+  year: number;
+  round: number;
+  /** Whose pick it originally was — "Martin's 2nd, via Boston" needs it. */
+  originalTeamName: string;
+  viaTrade: boolean;
+  /** Already moving in an accepted trade, so it cannot be offered again. */
+  engaged: boolean;
+}
+
+/** Already moving in an accepted trade, so it cannot be offered again — the
+ * trade sheet greys these out rather than letting a GM build a doomed offer. */
+export interface Engageable {
+  engaged?: boolean;
+}
+
+export interface RosterPlayer extends PlayerDto, Engageable {
   /** Fantasy points banked for this team. */
   points: number;
   nhlPoints: number;
@@ -43,6 +62,11 @@ export interface TeamDto {
   ptsPerGame: number | null;
   capTotal: number;
   playerCount: number;
+  /** Cap and headcount including accepted-but-unexecuted trades. These are what
+   * the server validates a new trade against, so they are what the trade sheet
+   * must show — the two above describe the roster as it stands today. */
+  engagedCapTotal: number;
+  engagedPlayerCount: number;
   playerNhlPoints: Record<string, number>;
   /** The NHL franchise this GM owns for life, when the league uses them. */
   franchiseAbbrev: string | null;
@@ -77,6 +101,8 @@ export interface RuleConfig {
     min: number | null;
     max: number | null;
   };
+  /** Picks per team per year — one per round. Null = no draft. */
+  draftRounds: number | null;
 }
 
 /** One scoring week. Weeks run Monday-Sunday on the NHL's Eastern game date. */
@@ -174,7 +200,7 @@ export interface LeagueDetail {
   myRoster: RosterPlayer[];
 }
 
-export interface PlayerSeasonStatsRow {
+export interface PlayerSeasonStatsRow extends Engageable {
   id: number;
   name: string;
   position: string;
@@ -429,16 +455,31 @@ export const api = {
     request<Trade[]>(
       `/api/leagues/${encodeURIComponent(leagueId)}/trades?username=${encodeURIComponent(username)}`,
     ),
+  /** Unused picks a team still holds. Only one draft year ever exists, so
+   * there is no year to ask for. */
+  picks: (leagueId: string, username: string) =>
+    request<DraftPickDto[]>(
+      `/api/leagues/${encodeURIComponent(leagueId)}/teams/${encodeURIComponent(username)}/picks`,
+    ),
   proposeTrade: (
     leagueId: string,
     username: string,
     counterpartyUsername: string,
     playersFromProposer: number[],
     playersFromCounterparty: number[],
+    picksFromProposer: number[] = [],
+    picksFromCounterparty: number[] = [],
   ) =>
     request<{ id: string }>(`/api/leagues/${encodeURIComponent(leagueId)}/trades`, {
       method: "POST",
-      body: JSON.stringify({ username, counterpartyUsername, playersFromProposer, playersFromCounterparty }),
+      body: JSON.stringify({
+        username,
+        counterpartyUsername,
+        playersFromProposer,
+        playersFromCounterparty,
+        picksFromProposer,
+        picksFromCounterparty,
+      }),
     }),
   respondTrade: (leagueId: string, tradeId: string, username: string, accept: boolean) =>
     request<{ ok: boolean; status: TradeStatus }>(
@@ -487,6 +528,20 @@ export const api = {
 
 export const formatCap = (amount: number | null | undefined) =>
   amount == null ? "—" : `$${amount.toLocaleString("en-US")}`;
+
+/** Signed, compact money for tiles and tight rows: `$9.2M`, `-$1.3M`, `$850K`.
+ *
+ * Shared since 2026-08-03 — it started private to the Dashboard, and the trade
+ * sheet needs the identical wording for its cap recap. Three private dollar
+ * formatters were already in circulation; this is the one that belongs here. */
+export function formatCapCompact(amount: number | null | undefined): string {
+  if (amount == null) return "—";
+  const sign = amount < 0 ? "-" : "";
+  const abs = Math.abs(amount);
+  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000) return `${sign}$${Math.round(abs / 1_000)}K`;
+  return `${sign}$${abs}`;
+}
 
 /** "20262027" -> "2026-27" */
 export const formatSeason = (season: string): string =>

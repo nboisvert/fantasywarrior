@@ -142,8 +142,22 @@ Des calendriers par ligue ramèneraient une requête par ligue — c'est la rais
 |---|---|---|
 | Valeurs de points (5 fixes + extras) | `ruleConfig.pointValues` / `.extraPointValues` | oui, au calcul |
 | Slots actifs par position | `ruleConfig.topCount` | **oui, à la soumission du lineup** |
-| Taille de roster min/max | `ruleConfig.rosterSize` | non — affiché seulement |
-| Plafond salarial | `league.capAmount` | non — affiché seulement |
+| Taille de roster min/max | `ruleConfig.rosterSize` | **oui, sur les échanges** (proposition et acceptation) |
+| Plafond salarial | `league.capAmount` | **oui, sur les échanges** (proposition et acceptation) |
+| Choix au repêchage par équipe par année | `ruleConfig.draftRounds` | un par ronde, généré par `draft-picks-init` |
+
+**Le plafond est appliqué contre les chiffres *engagés*, pas contre le
+classement** (2026-08-03). Un échange accepté est irréversible : il s'exécute à
+la frontière de semaine, mais `vStandings` décrit encore le roster
+d'aujourd'hui. Valider contre lui laisserait un GM accepter un contrat de 9 M$
+le matin et faire sauter le plafond l'après-midi, chaque échange paraissant
+légal isolément. `vTeamCommitments` porte la différence. Même logique pour les
+actifs : un joueur ou un choix déjà en mouvement dans un échange accepté ne peut
+pas être réoffert. Les offres *en attente*, elles, ne verrouillent rien.
+
+Ce qui n'est toujours **pas** appliqué : rien n'empêche un roster d'être hors
+limites par un autre chemin — il n'existe simplement aucun autre chemin
+aujourd'hui (pas d'ajout/retrait de joueur libre).
 
 En ligne de commande : `set-league-rules --league <id> [--goal N] [--assist N] [--goalie-win N] [--goalie-otl N] [--shutout N] [--forwards N] [--defense N] [--goalies N] [--roster-min N] [--roster-max N] [--cap N]`.
 
@@ -154,6 +168,7 @@ En ligne de commande : `set-league-rules --league <id> [--goal N] [--assist N] [
 | Besoin | Commande |
 |---|---|
 | Générer le calendrier d'une saison | `period-init --season 20262027` |
+| Générer les choix au repêchage | `draft-picks-init --league <joinCode> [--year YYYY]` |
 | Tourner le pointage (nocturne) | `nightly` |
 | Rattraper un cron manqué / une saison importée | `nightly --backfill-from N` |
 | Dé-banquer pour recalculer | `UPDATE RosterAssignments SET IsFinalized = 0` + `Periods.FinalizedUtc = NULL`, puis `nightly --backfill-from N` |
@@ -169,4 +184,8 @@ Un backfill de saison complète est redevenu une opération ordinaire depuis le 
 - **Aucune authentification.** L'API fait confiance au `username` envoyé. Avec les lineups c'est nettement plus grave qu'avant : on peut discrètement mettre le meilleur joueur d'un rival au banc chaque dimanche soir, et ça ressemble à son propre oubli. **À régler avant que de vrais utilisateurs y touchent.**
 - Le slot **Équipe** (`team.franchiseAbbrev`) porte l'identité mais ne rapporte encore aucun point — règle à obtenir de Nick.
 - Les salaires sont **réels** depuis 2026-08-02 (CapWages, table `PlayerContracts`) — 685 des 701 joueurs NHL actifs.
-- Le plafond et la taille de roster ne sont pas appliqués.
+  Les **16 restants comptent 0 $**, dans `vStandings` comme dans la validation
+  d'échange. C'est signalé à l'écran plutôt qu'avalé : on ne peut pas valider un
+  salaire que personne n'a au dossier.
+- Le repêchage lui-même n'existe pas. Les choix se créent et s'échangent ; rien
+  ne les convertit encore en joueurs (`DraftPick.UsedUtc` n'est jamais écrit).
