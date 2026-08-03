@@ -34,6 +34,10 @@ the rest of the app's dark "Night Arena" look, so it reads as an embedded
   rendered by `CockcoinIcon` (`Icons.tsx`) clipped to a circle in CSS
   regardless of the source PNG's own edge (a faint rendering-artifact halo
   sits right at its rim in the raw asset).
+- **Currency symbol: `CK`** (2026-08-03) — shown right after the amount
+  ("42 CK"), with the word "cockcoin" trailing/below as the quieter unit
+  label. Both the bank display (`ProfileMenu`) and the reward pop
+  (`CockcoinReward`) follow this amount → CK → "cockcoin" hierarchy.
 - **How it's earned**: cockcoin tracks toward the user's *interaction within
   the app* — the more you use/engage with the app, the more you accrue.
 - **What it unlocks**: access to *exclusive content within the app* once a

@@ -14,7 +14,9 @@ import "./CockcoinReward.css";
 export function CockcoinReward({ amount, onDone }: { amount: number; onDone: () => void }) {
   return (
     <span className="cockcoin-reward" aria-live="polite" onAnimationEnd={onDone}>
-      <CockcoinIcon size={36} />+{amount} cockcoin
+      <CockcoinIcon size={36} />
+      <span className="cockcoin-reward-amount">+{amount} CK</span>
+      <span className="cockcoin-reward-label">cockcoin</span>
     </span>
   );
 }

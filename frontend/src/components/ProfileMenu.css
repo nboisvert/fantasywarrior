@@ -150,31 +150,34 @@
   white-space: nowrap;
 }
 
-/* Its own full-width strip below the header, not squeezed inline next to a
-   40px avatar — a 32px coin needs that room to actually read as a coin
-   (2026-08-03, per Nick: "assez gros pour être reconnu", and "refais
-   l'affichage" after the first, cramped attempt). The one deliberate clash
-   with this app's flat-stroke icon set/cyan-glass palette — see
-   CockcoinIcon's own comment. */
+/* Back inline in the header (2026-08-03, per Nick — the full-width bordered
+   strip was one iteration too many). No frame, no tinted background: the
+   coin itself is the one thing allowed to stand out here (its size already
+   does that job), everything next to it stays quiet on purpose — this is a
+   dropdown menu, not the screen's focal point. */
 .profile-cockcoin {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.6rem 0.8rem;
-  border-radius: 14px;
-  background: linear-gradient(135deg, rgba(245, 166, 35, 0.16), rgba(245, 166, 35, 0.06));
-  border: 1px solid rgba(245, 166, 35, 0.35);
+  gap: 0.45rem;
+}
+
+.profile-cockcoin-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  line-height: 1.1;
 }
 
 .profile-cockcoin-amount {
   font-family: var(--font-display);
-  font-size: 1.15rem;
-  font-weight: 700;
-  color: #ffd54f;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
 }
 
 .profile-cockcoin-label {
-  font-size: 0.72rem;
+  font-size: 0.6rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-muted);

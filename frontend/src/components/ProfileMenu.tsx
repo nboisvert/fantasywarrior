@@ -284,15 +284,17 @@ export function ProfileMenu({
               {initials(username)}
             </span>
             <span className="profile-panel-name">{username}</span>
-          </div>
-
-          {/* Its own row, not squeezed into the header next to a 40px avatar
-           * — the coin needs room to actually read as a coin (2026-08-03,
-           * per Nick: "assez gros pour être reconnu"). */}
-          <div className="profile-cockcoin" aria-label={`${cockcoin ?? 0} cockcoin`}>
-            <CockcoinIcon size={32} />
-            <span className="profile-cockcoin-amount">{cockcoin ?? 0}</span>
-            <span className="profile-cockcoin-label">cockcoin</span>
+            {/* Back inline with the profile row (2026-08-03, per Nick) — the
+             * icon alone carries the "look here", everything next to it
+             * (amount, ticker, label) stays quiet on purpose: no frame, no
+             * gold background, this isn't the screen's focal point. */}
+            <span className="profile-cockcoin" aria-label={`${cockcoin ?? 0} CK cockcoin`}>
+              <CockcoinIcon size={32} />
+              <span className="profile-cockcoin-text">
+                <span className="profile-cockcoin-amount">{cockcoin ?? 0} CK</span>
+                <span className="profile-cockcoin-label">cockcoin</span>
+              </span>
+            </span>
           </div>
 
           <div className="profile-panel-actions">

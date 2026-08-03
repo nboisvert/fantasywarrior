@@ -23,6 +23,16 @@
   animation: cockcoin-reward-pop 3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
+/* "+N CK" carries the base span's full size/weight/glow; "cockcoin" trails
+   as a quieter unit label, same amount-then-ticker-then-word hierarchy as
+   the bank display (2026-08-03, per Nick: CK is the currency symbol now). */
+.cockcoin-reward-label {
+  font-size: 0.62em;
+  font-weight: 600;
+  opacity: 0.75;
+  text-shadow: none;
+}
+
 @keyframes cockcoin-reward-pop {
   0% {
     opacity: 0;
