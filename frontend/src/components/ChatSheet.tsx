@@ -164,11 +164,17 @@ export function ChatSheet({
   }, [onClose, peer, initialPeer]);
 
   useEffect(() => {
-    const prevOverflow = document.body.style.overflow;
+    const prevBody = document.body.style.overflow;
+    // The root too, not just the body: whichever of the two is the scrolling
+    // element varies, and locking only one left the page scrollable behind the
+    // overlay with a stray scrollbar down the side.
+    const prevRoot = document.documentElement.style.overflow;
     const prevFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = prevOverflow;
+      document.body.style.overflow = prevBody;
+      document.documentElement.style.overflow = prevRoot;
       prevFocus?.focus();
     };
   }, []);

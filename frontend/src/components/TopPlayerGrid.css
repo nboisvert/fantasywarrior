@@ -28,12 +28,27 @@
   }
 }
 
+/* Exactly one row, always: three cards on a phone, four once there is room
+   (2026-08-03, per Nick). The caller sends at most four and the fourth is
+   dropped here rather than in JS, so there is no resize listener and no
+   re-render on rotation. */
+@media (max-width: 767px) {
+  .top-grid-cards > :nth-child(n + 4) {
+    display: none;
+  }
+}
+
 .top-card {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.3rem;
+  /* Grid items default to min-width:auto, so a long name widened its own
+     column past 1fr and pushed the whole grid off-screen — the name's
+     max-width:100% then resolved against a box that had already grown, so the
+     ellipsis never engaged. This is what actually lets it truncate. */
+  min-width: 0;
   padding: 0.9rem 0.5rem 0.7rem;
   border: 1px solid var(--border);
   border-radius: 14px;

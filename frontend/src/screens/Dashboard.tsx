@@ -202,7 +202,9 @@ function TopFreeAgents({
     }
     let ignore = false;
     api
-      .freeAgents(league.id, previousIndex)
+      // Four is the most the grid ever shows (three on a phone, where CSS
+      // drops the fourth) — asking for more would just be fetched and hidden.
+      .freeAgents(league.id, previousIndex, 4)
       .then((rows) => {
         if (ignore) return;
         setCards(

@@ -34,6 +34,9 @@
   padding-bottom: env(safe-area-inset-bottom);
   border: 1px solid var(--border);
   background: var(--bg-elevated);
+  /* Belt and braces with the min-width:0 fixes below: nothing inside the sheet
+     may ever widen the page. */
+  overflow: hidden;
   animation: chat-rise 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -213,6 +216,11 @@
   display: flex;
   align-items: baseline;
   gap: 0.5rem;
+  /* Flex items default to min-width:auto, so a long username or preview grew
+     these rows past the sheet and put a horizontal scrollbar on the page —
+     the nowrap/ellipsis below can only engage once the box is allowed to
+     shrink. */
+  min-width: 0;
 }
 
 .chat-row-name {
