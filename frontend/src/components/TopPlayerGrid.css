@@ -43,13 +43,13 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.15rem;
   /* Grid items default to min-width:auto, so a long name widened its own
      column past 1fr and pushed the whole grid off-screen — the name's
      max-width:100% then resolved against a box that had already grown, so the
      ellipsis never engaged. This is what actually lets it truncate. */
   min-width: 0;
-  padding: 0.9rem 0.5rem 0.7rem;
+  padding: 0.6rem 0.4rem 0.5rem;
   border: 1px solid var(--border);
   border-radius: 14px;
   background: var(--surface);
@@ -87,33 +87,13 @@
   }
 }
 
-.top-card-rank {
-  position: absolute;
-  top: 0.5rem;
-  left: 0.5rem;
-  min-width: 1.4rem;
-  padding: 0.05rem 0.3rem;
-  border-radius: 999px;
-  background: rgba(56, 189, 248, 0.14);
-  border: 1px solid rgba(56, 189, 248, 0.4);
-  color: var(--ice-bright);
-  font-family: var(--font-display);
-  font-size: 0.66rem;
-  font-weight: 700;
-}
-
-/* #1 gets a brighter, gold-glow badge — the one deliberate "you're looking
-   at a leaderboard" hierarchy cue, cheap to build, reads at a glance. */
-.top-card-rank-first {
-  background: rgba(251, 191, 36, 0.18);
-  border-color: rgba(251, 191, 36, 0.5);
-  color: var(--gold);
-  box-shadow: 0 0 10px rgba(251, 191, 36, 0.35);
-}
+/* The rank badge is gone (2026-08-03, per Nick). The cards are already in rank
+   order and there are only three or four of them, so a number on each one was
+   spending a corner of every card to say what the reading order already said. */
 
 .top-card-headshot-wrap {
-  width: 64px;
-  height: 64px;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
   padding: 2px;
 }
@@ -142,47 +122,58 @@
 
 .top-card-name {
   max-width: 100%;
+  margin-top: 0.15rem;
   font-weight: 600;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.top-card .roster-pos-pill {
-  margin-inline: 0;
+/* Position and NHL team on one line — two short tokens that would each waste a
+   whole row of a card this size. */
+.top-card-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 0.28rem;
+  max-width: 100%;
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  letter-spacing: 0.05em;
 }
 
 .top-card-team {
-  margin-top: -0.2rem;
-  font-family: var(--font-display);
-  font-size: 0.7rem;
-  letter-spacing: 0.05em;
   color: var(--text-muted);
 }
 
 .top-card-stat {
   display: flex;
-  flex-direction: column;
-  line-height: 1.15;
-  margin-top: 0.15rem;
+  align-items: baseline;
+  gap: 0.22rem;
+  margin-top: 0.2rem;
+  line-height: 1;
 }
 
 .top-card-stat-value {
   font-family: var(--font-display);
-  font-size: 1.3rem;
+  font-size: 1.1rem;
   color: var(--ice-bright);
   text-shadow: 0 0 14px var(--ice-glow);
 }
 
 .top-card-stat-label {
-  font-size: 0.62rem;
+  font-size: 0.58rem;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.09em;
   font-weight: 700;
 }
 
+/* The raw line for the week. Allowed to wrap to a second line rather than be
+   clipped: on a narrow phone "3GP · 2G · 3A" is the widest thing on the card,
+   and losing the assists to an ellipsis would defeat the point of showing it. */
 .top-card-secondary {
-  font-size: 0.7rem;
+  max-width: 100%;
+  font-size: 0.62rem;
+  line-height: 1.25;
 }

@@ -125,6 +125,14 @@ public static class LineupEndpoints
                     active = r?.IsActive ?? previewed.Contains(s.RosterSpotId),
                     points = r?.FantasyPoints ?? 0,
                     gamesPlayed = r?.GamesPlayed ?? 0,
+                    // The week's raw line, so a card can say what actually
+                    // happened rather than only what it scored. Already on the
+                    // assignment row, so this costs nothing extra to return.
+                    goals = r?.Goals ?? 0,
+                    assists = r?.Assists ?? 0,
+                    wins = r?.Wins ?? 0,
+                    otLosses = r?.OtLosses ?? 0,
+                    saves = r?.Saves ?? 0,
                     fromDate = (DateOnly?)r?.EffectiveFrom,
                     toDate = (DateOnly?)r?.EffectiveTo,
                     seasonPoints = seasonPoints.GetValueOrDefault(s.RosterSpotId),

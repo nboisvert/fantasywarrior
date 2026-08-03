@@ -14,6 +14,20 @@ import { PlayerCard } from "../components/PlayerCard";
 import { TopPlayerGrid } from "../components/TopPlayerGrid";
 import type { TopPlayerCard } from "../components/TopPlayerGrid";
 
+/** Last week's raw line under a leaderboard card: "3GP · 2G · 3A".
+ *
+ * Goalies get their own shape, because 0G 0A is technically true and entirely
+ * useless — a goalie's week is wins and saves. Shared by both sections so the
+ * two cannot drift into describing the same week differently. */
+function weekLine(
+  positionGroup: "F" | "D" | "G",
+  s: { gamesPlayed: number; goals: number; assists: number; wins: number; otLosses: number; saves: number },
+): string {
+  if (positionGroup === "G")
+    return `${s.gamesPlayed}GP · ${s.wins}-${s.otLosses} · ${s.saves}SV`;
+  return `${s.gamesPlayed}GP · ${s.goals}G · ${s.assists}A`;
+}
+
 /** Compact cap-space format for the "at a glance" tile: millions with one
  * decimal ($9.2M), thousands in $K under a million, sign preserved so an
  * over-cap (negative remaining room) team reads as "-$1.3M". Distinct from
@@ -152,8 +166,8 @@ function TopReserve({
             headshotUrl: e.headshotUrl,
             position: e.position,
             statValue: e.points,
-            statLabel: `Wk ${previousIndex} pts`,
-            secondaryLine: `${e.gamesPlayed} GP · ${e.seasonPoints} season`,
+            statLabel: "pts",
+            secondaryLine: weekLine(e.positionGroup, e),
           }));
         setCards(ranked);
       })
@@ -215,11 +229,8 @@ function TopFreeAgents({
             headshotUrl: r.headshotUrl,
             position: r.position,
             statValue: r.points,
-            statLabel: `Wk ${previousIndex} pts`,
-            secondaryLine:
-              r.positionGroup === "G"
-                ? `${r.wins}-${r.otLosses} · ${r.saves} SV`
-                : `${r.goals}G ${r.assists}A`,
+            statLabel: "pts",
+            secondaryLine: weekLine(r.positionGroup, r),
           })),
         );
       })

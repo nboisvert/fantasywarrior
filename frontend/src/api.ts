@@ -103,6 +103,13 @@ export interface LineupEntry {
   active: boolean;
   points: number;
   gamesPlayed: number;
+  /** The week's raw line, for cards that say what happened rather than only
+   * what it scored. Goalie fields are 0 for skaters and vice versa. */
+  goals: number;
+  assists: number;
+  wins: number;
+  otLosses: number;
+  saves: number;
   /** The days of the week this spot owned — set when a player was acquired mid-week. */
   fromDate: string | null;
   toDate: string | null;

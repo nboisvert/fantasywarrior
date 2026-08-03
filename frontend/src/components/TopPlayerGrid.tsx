@@ -3,7 +3,7 @@
 // only thing that differs between the two call sites is which stat headlines
 // the card and what the secondary line says.
 
-import { posGroup, posGroupClass } from "../api";
+import { formatShortName, posGroup, posGroupClass } from "../api";
 import "./TopPlayerGrid.css";
 
 export interface TopPlayerCard {
@@ -48,17 +48,19 @@ export function TopPlayerGrid({
               style={{ animationDelay: `${i * 80}ms` }}
               onClick={() => onOpenPlayer(c.playerId)}
             >
-              <span className={`top-card-rank${i === 0 ? " top-card-rank-first" : ""}`}>
-                #{i + 1}
-              </span>
               <span className="top-card-headshot-wrap">
                 <img className="top-card-headshot" src={c.headshotUrl ?? ""} alt="" />
               </span>
-              <span className="top-card-name">{c.name}</span>
-              <span className={`roster-pos-pill roster-pos-pill-${posGroupClass(c.position)}`}>
-                {posGroup(c.position)}
+              <span className="top-card-name">{formatShortName(c.name)}</span>
+              {/* Compact position — the bare coloured letter, per CLAUDE.md's
+                  two-pattern rule. These cards are a dense grid, so the pill
+                  they used to carry was the wrong half of it. */}
+              <span className="top-card-meta">
+                <span className={`pos-compact-${posGroupClass(c.position)}`}>
+                  {posGroup(c.position)}
+                </span>
+                {c.team && <span className="top-card-team">{c.team}</span>}
               </span>
-              {c.team && <span className="top-card-team">{c.team}</span>}
               <span className="top-card-stat">
                 <span className="top-card-stat-value">{c.statValue}</span>
                 <span className="top-card-stat-label">{c.statLabel}</span>
