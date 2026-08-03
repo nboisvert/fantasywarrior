@@ -140,10 +140,6 @@
 }
 
 .profile-panel-name {
-  /* Fills the row so .profile-cockcoin (the header's only other child, when
-     present) lands against the right edge instead of trailing right after
-     the name (2026-08-03, per Nick: "there's a space top-right" for the
-     balance). Harmless in the chat header too, where it's the last child. */
   flex: 1;
   min-width: 0;
   font-family: var(--font-display);
@@ -154,22 +150,34 @@
   white-space: nowrap;
 }
 
-/* The glossy coin icon is deliberately the one clash with this app's flat-
-   stroke icon set everywhere it appears — see CockcoinIcon's own comment. */
+/* Its own full-width strip below the header, not squeezed inline next to a
+   40px avatar — a 32px coin needs that room to actually read as a coin
+   (2026-08-03, per Nick: "assez gros pour être reconnu", and "refais
+   l'affichage" after the first, cramped attempt). The one deliberate clash
+   with this app's flat-stroke icon set/cyan-glass palette — see
+   CockcoinIcon's own comment. */
 .profile-cockcoin {
-  flex-shrink: 0;
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.3rem 0.6rem;
-  border-radius: 99px;
-  background: rgba(245, 166, 35, 0.12);
+  gap: 0.6rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(245, 166, 35, 0.16), rgba(245, 166, 35, 0.06));
   border: 1px solid rgba(245, 166, 35, 0.35);
-  color: #ffd54f;
+}
+
+.profile-cockcoin-amount {
   font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #ffd54f;
+}
+
+.profile-cockcoin-label {
   font-size: 0.72rem;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
 }
 
 .profile-panel-actions {

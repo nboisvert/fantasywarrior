@@ -1,5 +1,7 @@
 // Inline Lucide icons (MIT) — consistent 24x24 viewBox, stroke-based.
 
+import cockcoinImg from "../assets/cockcoin.png";
+
 interface IconProps {
   size?: number;
   className?: string;
@@ -193,31 +195,22 @@ export const ExternalLinkIcon = (p: IconProps) => (
   </Icon>
 );
 
-/** Cockcoin — deliberately NOT the shared flat-stroke `Icon` wrapper above.
- * A filled/gradient "glossy 3D" coin (Garry Cockman's fake token), built to
- * clash with the rest of this file on purpose: multi-ring bevel + radial
- * gradient face + an off-axis highlight ellipse is the standard cheap trick
- * for faking a glossy sphere in flat SVG (2026-07-27, per Nick). Kept in a
- * warmer/richer gold range than `--gold` so it never reads as the goalie-pill/
- * podium gold used elsewhere — this is a coin, not a badge. Always pair with
- * the word "cockcoin" in surrounding text; never icon-alone. */
+/** Cockcoin — the real coin artwork (2026-08-03, replaces the earlier hand-
+ * drawn SVG gradient-sphere trick), deliberately NOT the shared flat-stroke
+ * `Icon` wrapper above: it's the one clash with this file's/app's palette on
+ * purpose, same reasoning as before, just a photo-real asset now instead of
+ * an SVG fake. Clipped to a perfect circle here regardless of the source
+ * PNG's own edge (a faint rendering-artifact halo sits right at its rim) —
+ * every caller gets a clean coin without needing to know that. Always pair
+ * with the word "cockcoin" in surrounding text; never icon-alone. */
 export const CockcoinIcon = ({ size = 20, className }: IconProps) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" className={className} aria-hidden="true">
-    <defs>
-      <radialGradient id="cockcoin-face" cx="35%" cy="30%" r="75%">
-        <stop offset="0%" stopColor="#fff9c4" />
-        <stop offset="35%" stopColor="#ffd54f" />
-        <stop offset="75%" stopColor="#f5a623" />
-        <stop offset="100%" stopColor="#c9780a" />
-      </radialGradient>
-    </defs>
-    <circle cx="12" cy="12" r="11" fill="#8a5a06" />
-    <circle cx="12" cy="12" r="9.5" fill="#e08e12" />
-    <circle cx="12" cy="12" r="8.5" fill="url(#cockcoin-face)" stroke="#a86608" strokeWidth="0.5" />
-    <path d="M14.5 9a3 3 0 1 0 0 6" fill="none" stroke="#8a5a06" strokeWidth="1.8" strokeLinecap="round" />
-    <ellipse cx="9" cy="8" rx="3.2" ry="1.8" fill="#ffffff" opacity="0.75" transform="rotate(-25 9 8)" />
-    <circle cx="16.5" cy="16" r="0.9" fill="#ffffff" opacity="0.5" />
-  </svg>
+  <img
+    src={cockcoinImg}
+    alt=""
+    aria-hidden="true"
+    className={className}
+    style={{ width: size, height: size, borderRadius: "50%", display: "inline-block", flexShrink: 0 }}
+  />
 );
 
 /** Lucide `circle-check` — a player in this week's active lineup. */

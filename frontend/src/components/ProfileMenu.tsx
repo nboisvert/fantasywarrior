@@ -284,10 +284,15 @@ export function ProfileMenu({
               {initials(username)}
             </span>
             <span className="profile-panel-name">{username}</span>
-            <span className="profile-cockcoin" aria-label={`${cockcoin ?? 0} cockcoin`}>
-              <CockcoinIcon size={16} />
-              {cockcoin ?? 0} cockcoin
-            </span>
+          </div>
+
+          {/* Its own row, not squeezed into the header next to a 40px avatar
+           * — the coin needs room to actually read as a coin (2026-08-03,
+           * per Nick: "assez gros pour être reconnu"). */}
+          <div className="profile-cockcoin" aria-label={`${cockcoin ?? 0} cockcoin`}>
+            <CockcoinIcon size={32} />
+            <span className="profile-cockcoin-amount">{cockcoin ?? 0}</span>
+            <span className="profile-cockcoin-label">cockcoin</span>
           </div>
 
           <div className="profile-panel-actions">

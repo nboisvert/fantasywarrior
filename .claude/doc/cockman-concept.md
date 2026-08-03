@@ -26,10 +26,14 @@ the rest of the app's dark "Night Arena" look, so it reads as an embedded
 - **Cockcoin** is Fantasy Warrior's in-universe, entirely fictional token
   economy. Presented completely straight-faced by Cockman (in on the joke:
   "very real-sounding, very fake").
-- Has its own icon: a glossy, saturated, "Candy Crush"-style gold coin —
-  deliberately breaks the app's flat-stroke Lucide-icon convention on
-  purpose, for comic/visual contrast. Shown inline next to every mention of
-  the word "cockcoin."
+- Has its own icon: a glossy gold coin embossed with Garry Cockman's own
+  face (helmet, visor, beard, crossed sticks) — deliberately breaks the
+  app's flat-stroke Lucide-icon convention on purpose, for comic/visual
+  contrast. Shown inline next to every mention of the word "cockcoin."
+  Real artwork now (2026-08-03) — `frontend/src/assets/cockcoin.png`,
+  rendered by `CockcoinIcon` (`Icons.tsx`) clipped to a circle in CSS
+  regardless of the source PNG's own edge (a faint rendering-artifact halo
+  sits right at its rim in the raw asset).
 - **How it's earned**: cockcoin tracks toward the user's *interaction within
   the app* — the more you use/engage with the app, the more you accrue.
 - **What it unlocks**: access to *exclusive content within the app* once a
