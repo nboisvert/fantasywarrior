@@ -205,6 +205,13 @@ export default function App() {
           </span>
           <ChevronDownIcon size={16} />
         </button>
+        {/* The week earns its topbar width where the season did not: it changes
+            every Monday, and "which week am I looking at" is the question
+            behind most of what the app shows. Not a button — it is a status,
+            and nothing here would be a sensible destination. */}
+        {league?.currentPeriod && (
+          <span className="topbar-week">Week {league.currentPeriod.index}</span>
+        )}
         {league && (
           <button
             className="topbar-chat"

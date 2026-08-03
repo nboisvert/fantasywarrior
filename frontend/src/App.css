@@ -62,6 +62,38 @@
    wherever you are, not a destination you navigate to. The profile menu's
    per-GM message buttons open the same sheet on one thread — a different
    destination, not a second route to this one. */
+/* Current week, beside the league it belongs to. Ice-tinted rather than plain
+   surface so it reads as live state rather than as another control, and it is
+   the only thing in the topbar that changes on its own. Uppercased in CSS so
+   the DOM keeps "Week 10" for screen readers. */
+.topbar-week {
+  flex-shrink: 0;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid rgba(56, 189, 248, 0.38);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(56, 189, 248, 0.18), rgba(56, 189, 248, 0.08));
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  color: var(--ice-bright);
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* The league name yields first when the bar gets tight — it is the one piece
+   here with an ellipsis to fall back on. */
+@media (max-width: 420px) {
+  .league-switch {
+    max-width: 34vw;
+  }
+
+  .topbar-week {
+    padding: 0.2rem 0.45rem;
+    letter-spacing: 0.08em;
+  }
+}
+
 /* Bare icon, no chip (2026-08-03, per Nick): the profile trigger beside it is
    already a pill, and two pills in a row read as a segmented control rather
    than as one identity and one action.
