@@ -49,6 +49,10 @@ using FantasyWarrior.Jobs.Sql;
 //   period-rollup [--league <id>] [--week N] [--dry-run]
 //     Scores one week into RosterAssignment rows. Everything above that grain
 //     is a view, so this writes nothing else.
+//   draft-picks-init --league <joinCode> [--year YYYY] [--dry-run]
+//     One pick per team per round for one season, defaulting to the season
+//     after the current one. Picks exist one year ahead and only one, which is
+//     what makes "tradable a year in advance" true without a rule saying so.
 //
 // --- league setup ---
 //   seed-mordus [--file data/mordus-rosters.json] [--season] [--commissioner]
@@ -172,6 +176,18 @@ switch (job)
     {
         await using var db = DataServiceCollectionExtensions.CreateContext();
         return await new PeriodInitJob(db).RunAsync(GetOption(args, "--season") ?? "20252026", dryRun);
+    }
+
+    case "draft-picks-init":
+    {
+        await using var db = DataServiceCollectionExtensions.CreateContext();
+        // Year defaults to the season after the current one: picks are always
+        // generated one year ahead, never for the season being played.
+        var defaultYear = int.Parse(CurrentSeason()[..4]) + 1;
+        return await new DraftPicksInitJob(db).RunAsync(
+            GetOption(args, "--league"),
+            int.TryParse(GetOption(args, "--year"), out var draftYear) ? draftYear : defaultYear,
+            dryRun);
     }
 
     case "period-rollup":

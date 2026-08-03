@@ -112,6 +112,40 @@ public sealed class StandingsView
 }
 
 /// <summary>
+/// What a team's <b>accepted but not yet executed</b> trades already commit it
+/// to — a delta, not a total.
+///
+/// This exists because <see cref="StandingsView"/> is the wrong number to
+/// validate a trade against. Standings show the roster as it is today; an
+/// accepted trade is a decision nobody can take back, and it lands at the next
+/// week boundary. Validating a new offer against today's cap lets a GM accept a
+/// $9M contract in the morning and bust the cap in the afternoon, with both
+/// trades individually looking fine.
+///
+/// Kept separate from the standings rather than folded into them on purpose:
+/// the two answer different questions, and the league table must keep showing
+/// what is true now, not what has been promised.
+///
+/// No row for a team with nothing pending — that is a zero delta, and the
+/// caller treats an absent row as such.
+/// </summary>
+public sealed class TeamCommitmentView
+{
+    public int TeamId { get; set; }
+    public int LeagueId { get; set; }
+
+    /// <summary>
+    /// Cap arriving minus cap leaving. Players with no contract on file count
+    /// as 0, exactly as they do in the standings — the two must agree or the
+    /// arithmetic between them is meaningless.
+    /// </summary>
+    public long CapDelta { get; set; }
+
+    /// <summary>Players arriving minus players leaving. Draft picks are not roster spots.</summary>
+    public int CountDelta { get; set; }
+}
+
+/// <summary>
 /// One Pooler's (team's) whole trade-voting history, from either side of the
 /// table — a team's own trades as proposer and as counterparty both count
 /// toward the same row. No row at all for a team with no processed trades:

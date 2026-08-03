@@ -64,6 +64,7 @@ public sealed class FantasyWarriorDbContext(DbContextOptions<FantasyWarriorDbCon
     public DbSet<RosterSpotTotalsView> RosterSpotTotals => Set<RosterSpotTotalsView>();
     public DbSet<TeamPeriodScoreView> TeamPeriodScores => Set<TeamPeriodScoreView>();
     public DbSet<StandingsView> Standings => Set<StandingsView>();
+    public DbSet<TeamCommitmentView> TeamCommitments => Set<TeamCommitmentView>();
     public DbSet<PoolerTradeRecordView> PoolerTradeRecords => Set<PoolerTradeRecordView>();
     public DbSet<CockcoinBalanceView> CockcoinBalances => Set<CockcoinBalanceView>();
 

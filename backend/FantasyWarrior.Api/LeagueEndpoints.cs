@@ -150,19 +150,10 @@ public static class LeagueEndpoints
                 return Results.Json(new { error = "Only the commissioner can change the rules." }, statusCode: 403);
 
             var config = req.RuleConfig;
-            // An unrecognised stat key would score zero forever, silently, and
-            // read as a calculation bug rather than the typo it is.
-            var errors = new List<string>();
-            foreach (var key in config.ExtraPointValues.Keys.Where(k => !StatKeys.IsKnown(k)))
-                errors.Add($"Unknown stat \"{key}\". Known stats: {string.Join(", ", StatKeys.All)}.");
-            foreach (var (name, slots) in new[]
-                     {
-                         ("forwards", config.TopCount.Forwards), ("defense", config.TopCount.Defense),
-                         ("goalies", config.TopCount.Goalies),
-                     })
-                if (slots is < 0) errors.Add($"Active {name} slots cannot be negative.");
-            if (config.RosterSize.Min is { } min && config.RosterSize.Max is { } max && min > max)
-                errors.Add($"Roster minimum ({min}) cannot exceed the maximum ({max}).");
+            // Was a hand-copied reimplementation of this until 2026-08-03. Two
+            // identical copies of a validation rule is exactly how they stop
+            // being identical.
+            var errors = RuleConfigValidation.Validate(config);
             if (errors.Count > 0)
                 return Results.BadRequest(new { error = string.Join(" ", errors), errors });
 
@@ -171,6 +162,7 @@ public static class LeagueEndpoints
             league.ActiveGoalies = config.TopCount.Goalies ?? 0;
             league.RosterMin = config.RosterSize.Min;
             league.RosterMax = config.RosterSize.Max;
+            league.DraftRounds = config.DraftRounds;
 
             // Replace the whole scale: a value removed from the config must stop
             // scoring, which an upsert-only pass would never achieve.
@@ -233,6 +225,13 @@ public static class LeagueEndpoints
             var normalized = username is null ? null : Queries.Normalize(username);
             var myTeam = normalized is null ? null : teams.FirstOrDefault(t => t.Owner == normalized);
 
+            var commitments = await db.TeamCommitments
+                .Where(c => c.LeagueId == league.LeagueId)
+                .ToDictionaryAsync(c => c.TeamId);
+            // Players already moving in an accepted trade: the sheet greys them
+            // out rather than letting a GM build an offer the server will refuse.
+            var engagedPlayers = (await TradeValidation.EngagedAssetsAsync(db, league.LeagueId)).PlayerIds;
+
             object[] myRoster = [];
             if (myTeam is not null)
             {
@@ -258,6 +257,7 @@ public static class LeagueEndpoints
                         headshotUrl = p.HeadshotUrl,
                         points = pointsByPlayer.GetValueOrDefault(p.PlayerId),
                         nhlPoints = nhlPoints.GetValueOrDefault(p.PlayerId.ToString()),
+                        engaged = engagedPlayers.Contains(p.PlayerId),
                     })
                     .OrderByDescending(x => x.points)
                     .Cast<object>()];
@@ -291,6 +291,12 @@ public static class LeagueEndpoints
                                 : (double?)null,
                             capTotal = s?.CapTotal ?? 0,
                             playerCount = s?.PlayerCount ?? 0,
+                            // What accepted-but-unexecuted trades already commit
+                            // this team to. The trade sheet validates against
+                            // these, not the two above — otherwise its recap
+                            // would show a number the server then contradicts.
+                            engagedCapTotal = (s?.CapTotal ?? 0) + (commitments.GetValueOrDefault(t.TeamId)?.CapDelta ?? 0),
+                            engagedPlayerCount = (s?.PlayerCount ?? 0) + (commitments.GetValueOrDefault(t.TeamId)?.CountDelta ?? 0),
                             playerNhlPoints = teamPlayers
                                 .Where(id => nhlPoints.ContainsKey(id.ToString()))
                                 .ToDictionary(id => id.ToString(), id => nhlPoints[id.ToString()]),

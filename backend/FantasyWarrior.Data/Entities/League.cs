@@ -28,16 +28,27 @@ public sealed class League
 
     public int CommissionerUserId { get; set; }
 
-    /// <summary>Salary cap per team in whole dollars; null = no cap rule. Displayed, not enforced.</summary>
+    /// <summary>Salary cap per team in whole dollars; null = no cap rule.</summary>
     public long? CapAmount { get; set; }
 
-    // --- roster composition. Only the active-slot counts are actually enforced
-    // (at lineup submission); min/max roster size is displayed only. See
-    // scoring-model.md §9.
+    // --- roster composition. Active-slot counts are enforced at lineup
+    // submission; the cap and min/max roster size are enforced on trades since
+    // 2026-08-03 -- against the *engaged* figures, which include accepted but
+    // unexecuted trades. See scoring-model.md §9.
 
     public int? RosterMin { get; set; }
 
     public int? RosterMax { get; set; }
+
+    /// <summary>
+    /// Draft rounds generated per season; one pick per team per round, so this
+    /// is also "picks per team per year". Les Mordus: 3. Null = no draft.
+    ///
+    /// One per round is not a simplification but what the schema already
+    /// enforces — <c>DraftPicks</c> is unique on
+    /// (LeagueId, Year, Round, OriginalTeamId).
+    /// </summary>
+    public int? DraftRounds { get; set; }
 
     /// <summary>Active forward slots per week. Les Mordus: 9.</summary>
     public int ActiveForwards { get; set; }

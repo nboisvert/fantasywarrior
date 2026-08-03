@@ -24,6 +24,12 @@ public sealed class RuleConfig
     public RosterSize RosterSize { get; set; } = new();
 
     /// <summary>
+    /// Draft rounds generated per season; one pick per team per round, so this
+    /// is also "picks per team per year". Null = no draft.
+    /// </summary>
+    public int? DraftRounds { get; set; }
+
+    /// <summary>
     /// The whole scale as one <see cref="StatKeys"/>-keyed map — the only form
     /// the scoring engine consumes, so callers never have to know which half a
     /// value came from.

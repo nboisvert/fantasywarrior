@@ -446,6 +446,7 @@ public static class LineupEndpoints
             var spotTotals = await db.RosterSpotTotals
                 .Where(v => v.TeamId == team.TeamId)
                 .ToDictionaryAsync(v => v.RosterSpotId);
+            var engagedPlayers = (await TradeValidation.EngagedAssetsAsync(db, league.LeagueId)).PlayerIds;
 
             // One row shape, two lists — the grids are identical by design, so
             // the projection has to be too.
@@ -462,6 +463,10 @@ public static class LineupEndpoints
                     team = p?.TeamAbbrev,
                     capHit = caps.TryGetValue(spot.PlayerId, out var c) ? c : (long?)null,
                     headshotUrl = p?.HeadshotUrl,
+                    // Already moving in an accepted trade — the trade sheet
+                    // greys these out instead of letting a GM build an offer
+                    // the server will refuse.
+                    engaged = engagedPlayers.Contains(spot.PlayerId),
                     isGoalie = spot.PositionGroup == "G",
                     gamesPlayed = t?.GamesPlayed ?? 0,
                     goals = t?.Goals ?? 0,

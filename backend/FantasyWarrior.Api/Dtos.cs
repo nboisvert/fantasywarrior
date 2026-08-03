@@ -46,6 +46,9 @@ public static class Dtos
                 goalies = (int?)league.ActiveGoalies,
             },
             rosterSize = new { min = league.RosterMin, max = league.RosterMax },
+            // One pick per team per round, so this doubles as "picks per team
+            // per year". Les Mordus: 3.
+            draftRounds = league.DraftRounds,
         };
     }
 

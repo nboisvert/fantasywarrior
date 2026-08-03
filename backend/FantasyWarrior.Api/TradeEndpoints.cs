@@ -20,6 +20,28 @@ public static class TradeEndpoints
         _ => "processed",
     };
 
+    /// <summary>
+    /// Runs the cap and roster checks for both teams against their *engaged*
+    /// figures. Shared by propose and accept so the two can never drift into
+    /// deciding differently — the whole point of re-checking on accept is that
+    /// it asks the same question of newer facts.
+    /// </summary>
+    private static async Task<IReadOnlyList<string>> ValidateAgainstEngagedAsync(
+        FantasyWarriorDbContext db, League league, int proposerTeamId, int counterpartyTeamId,
+        IReadOnlyCollection<long> fromProposer, IReadOnlyCollection<long> fromCounterparty)
+    {
+        var engaged = await TradeValidation.EngagedStateAsync(db, league.LeagueId);
+        if (!engaged.TryGetValue(proposerTeamId, out var proposerState)
+            || !engaged.TryGetValue(counterpartyTeamId, out var counterpartyState))
+            return [];
+
+        var capHits = await Queries.CapHitsAsync(
+            db, league.Season, [.. fromProposer.Concat(fromCounterparty)]);
+
+        return TradeValidation.Validate(
+            league, proposerState, counterpartyState, fromProposer, fromCounterparty, capHits);
+    }
+
     public static void Map(WebApplication app)
     {
         app.MapPost("/api/leagues/{leagueId}/trades", async (
@@ -35,8 +57,9 @@ public static class TradeEndpoints
 
             var fromProposer = req.PlayersFromProposer ?? [];
             var fromCounterparty = req.PlayersFromCounterparty ?? [];
-            if (fromProposer.Count == 0 && fromCounterparty.Count == 0)
-                return Results.BadRequest(new { error = "Trade must include at least one player." });
+            if (fromProposer.Count == 0 && fromCounterparty.Count == 0
+                && (req.PicksFromProposer ?? []).Count == 0 && (req.PicksFromCounterparty ?? []).Count == 0)
+                return Results.BadRequest(new { error = "Trade must include at least one player or pick." });
             if (fromProposer.Intersect(fromCounterparty).Any())
                 return Results.BadRequest(new { error = "A player can't appear on both sides of a trade." });
 
@@ -63,6 +86,47 @@ public static class TradeEndpoints
             if (fromCounterparty.Any(id => !counterpartyHas.Contains(id)))
                 return Results.BadRequest(new { error = "Requested players aren't on that team's roster." });
 
+            // Draft picks. Held, unused, and of the one tradable year — picks
+            // only ever exist one season ahead, so anything else is a stale id.
+            var picksFromProposer = req.PicksFromProposer ?? [];
+            var picksFromCounterparty = req.PicksFromCounterparty ?? [];
+            var pickIds = picksFromProposer.Concat(picksFromCounterparty).ToList();
+            var picks = pickIds.Count == 0
+                ? []
+                : await db.DraftPicks.Where(p => p.LeagueId == league.LeagueId && pickIds.Contains(p.DraftPickId))
+                    .ToListAsync();
+
+            foreach (var (ids, teamId, whose) in new[]
+                     {
+                         (picksFromProposer, proposerTeam.TeamId, "your own"),
+                         (picksFromCounterparty, counterpartyTeam.TeamId, "that team's"),
+                     })
+                foreach (var id in ids)
+                {
+                    var pick = picks.FirstOrDefault(p => p.DraftPickId == id);
+                    if (pick is null || pick.CurrentTeamId != teamId)
+                        return Results.BadRequest(new { error = $"You can only trade {whose} draft picks." });
+                    if (pick.UsedUtc is not null || pick.PlayerId is not null)
+                        return Results.BadRequest(new { error = "That pick has already been used." });
+                }
+
+            // Nothing already promised away by an accepted trade. Without this
+            // the same player can be sold twice between the acceptance and the
+            // nightly job, and the second trade explodes at 09:30 UTC instead
+            // of here.
+            var engagedAssets = await TradeValidation.EngagedAssetsAsync(db, league.LeagueId);
+            if (fromProposer.Concat(fromCounterparty).Any(engagedAssets.PlayerIds.Contains))
+                return Results.BadRequest(
+                    new { error = "A player in this offer is already committed in an accepted trade." });
+            if (pickIds.Any(engagedAssets.DraftPickIds.Contains))
+                return Results.BadRequest(
+                    new { error = "A pick in this offer is already committed in an accepted trade." });
+
+            var capErrors = await ValidateAgainstEngagedAsync(
+                db, league, proposerTeam.TeamId, counterpartyTeam.TeamId, fromProposer, fromCounterparty);
+            if (capErrors.Count > 0)
+                return Results.BadRequest(new { error = string.Join(" ", capErrors), errors = capErrors });
+
             var trade = new Trade
             {
                 LeagueId = league.LeagueId,
@@ -86,9 +150,60 @@ public static class TradeEndpoints
                     TradeId = trade.TradeId, FromTeamId = counterpartyTeam.TeamId, ToTeamId = proposerTeam.TeamId,
                     AssetType = TradeAssetType.Player, PlayerId = playerId,
                 });
+            foreach (var pickId in picksFromProposer)
+                db.TradeAssets.Add(new TradeAsset
+                {
+                    TradeId = trade.TradeId, FromTeamId = proposerTeam.TeamId, ToTeamId = counterpartyTeam.TeamId,
+                    AssetType = TradeAssetType.DraftPick, DraftPickId = pickId,
+                });
+            foreach (var pickId in picksFromCounterparty)
+                db.TradeAssets.Add(new TradeAsset
+                {
+                    TradeId = trade.TradeId, FromTeamId = counterpartyTeam.TeamId, ToTeamId = proposerTeam.TeamId,
+                    AssetType = TradeAssetType.DraftPick, DraftPickId = pickId,
+                });
             await db.SaveChangesAsync();
 
             return Results.Ok(new { id = trade.TradeId.ToString() });
+        });
+
+        // What a team holds. Picks only ever exist one season ahead, so there
+        // is no year to ask for — whatever exists is what is tradable.
+        app.MapGet("/api/leagues/{leagueId}/teams/{username}/picks", async (
+            string leagueId, string username, FantasyWarriorDbContext db) =>
+        {
+            var league = await Queries.LeagueByCodeAsync(db, leagueId);
+            if (league is null) return Results.NotFound(new { error = "League not found." });
+
+            var team = await Queries.TeamAsync(db, league.LeagueId, Queries.Normalize(username));
+            if (team is null) return Results.NotFound(new { error = "Team not found." });
+
+            var engaged = (await TradeValidation.EngagedAssetsAsync(db, league.LeagueId)).DraftPickIds;
+
+            var picks = await db.DraftPicks
+                .Where(p => p.CurrentTeamId == team.TeamId && p.UsedUtc == null && p.PlayerId == null)
+                .OrderBy(p => p.Year).ThenBy(p => p.Round)
+                .Select(p => new
+                {
+                    p.DraftPickId,
+                    p.Year,
+                    p.Round,
+                    // "Pittsburgh's 2nd, via Boston" is expressible only because
+                    // the original owner is never overwritten by a trade.
+                    originalTeamName = p.OriginalTeam!.Name,
+                    viaTrade = p.OriginalTeamId != p.CurrentTeamId,
+                })
+                .ToListAsync();
+
+            return Results.Ok(picks.Select(p => new
+            {
+                id = p.DraftPickId,
+                p.Year,
+                p.Round,
+                p.originalTeamName,
+                p.viaTrade,
+                engaged = engaged.Contains(p.DraftPickId),
+            }));
         });
 
         app.MapPost("/api/leagues/{leagueId}/trades/{tradeId}/respond", async (
@@ -114,6 +229,42 @@ public static class TradeEndpoints
             {
                 if (trade.Status != TradeStatus.Pending || !isCounterparty)
                     return Results.Json(new { error = "Only the receiving team can accept this trade." }, statusCode: 403);
+
+                // Re-check, because accepting is the last moment anyone can be
+                // told. Rosters move between proposing and answering: another
+                // trade executes, or one of these players gets promised
+                // elsewhere and accepted first.
+                var league = await db.Leagues.FirstAsync(l => l.LeagueId == trade.LeagueId);
+                var assets = await db.TradeAssets.Where(a => a.TradeId == trade.TradeId).ToListAsync();
+
+                var offered = assets
+                    .Where(a => a.AssetType == TradeAssetType.Player && a.FromTeamId == trade.ProposerTeamId)
+                    .Select(a => a.PlayerId!.Value).ToList();
+                var requested = assets
+                    .Where(a => a.AssetType == TradeAssetType.Player && a.FromTeamId == trade.CounterpartyTeamId)
+                    .Select(a => a.PlayerId!.Value).ToList();
+
+                // This trade's own assets are not yet engaged — it is still
+                // pending — so anything flagged here belongs to a *different*
+                // accepted trade.
+                var engagedAssets = await TradeValidation.EngagedAssetsAsync(db, trade.LeagueId);
+                if (offered.Concat(requested).Any(engagedAssets.PlayerIds.Contains))
+                    return Results.BadRequest(new
+                    {
+                        error = "A player in this offer has since been committed in another accepted trade.",
+                    });
+                if (assets.Where(a => a.AssetType == TradeAssetType.DraftPick)
+                        .Any(a => engagedAssets.DraftPickIds.Contains(a.DraftPickId!.Value)))
+                    return Results.BadRequest(new
+                    {
+                        error = "A pick in this offer has since been committed in another accepted trade.",
+                    });
+
+                var errors = await ValidateAgainstEngagedAsync(
+                    db, league, trade.ProposerTeamId, trade.CounterpartyTeamId, offered, requested);
+                if (errors.Count > 0)
+                    return Results.BadRequest(new { error = string.Join(" ", errors), errors });
+
                 trade.Status = TradeStatus.Accepted;
                 trade.RespondedUtc = now;
                 await db.SaveChangesAsync();
@@ -320,6 +471,7 @@ public static class TradeEndpoints
 
 public record ProposeTradeRequest(
     string? Username, string? CounterpartyUsername,
-    List<long>? PlayersFromProposer, List<long>? PlayersFromCounterparty);
+    List<long>? PlayersFromProposer, List<long>? PlayersFromCounterparty,
+    List<int>? PicksFromProposer = null, List<int>? PicksFromCounterparty = null);
 public record RespondTradeRequest(string? Username, bool Accept);
 public record VoteTradeRequest(string? Username, string? FavoredUsername);
