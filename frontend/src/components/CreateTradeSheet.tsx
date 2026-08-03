@@ -7,7 +7,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
-import { api, formatCapCompact, posGroup, posGroupClass } from "../api";
+import { api, formatCapCompact, formatShortName, posGroup, posGroupClass } from "../api";
 import type { DraftPickDto, LeagueDetail, TeamDto } from "../api";
 import { XIcon } from "./Icons";
 import "./PlayerCard.css";
@@ -119,75 +119,138 @@ function RecapRow({ impact }: { impact: SideImpact }) {
   );
 }
 
-function PlayerCheckList({
-  players,
-  selected,
-  onToggle,
-}: {
-  players: PickPlayer[];
-  selected: Set<number>;
-  onToggle: (id: number) => void;
-}) {
-  if (players.length === 0) return <p className="empty-state cts-empty">No players on this roster.</p>;
-  return (
-    <ul className="cts-player-list">
-      {players.map((p) => (
-        <li key={p.id}>
-          <label className={`cts-player-row${p.engaged ? " engaged" : ""}`}>
-            <input
-              type="checkbox"
-              checked={selected.has(p.id)}
-              disabled={p.engaged}
-              onChange={() => onToggle(p.id)}
-            />
-            <span className="cts-player-name">{p.name}</span>
-            <span className={`cts-player-pos pos-compact-${posGroupClass(p.position)}`}>
-              {posGroup(p.position)}
-            </span>
-            {/* Shown rather than hidden (2026-08-03): a player who simply
-                vanished from the list would read as a bug. */}
-            <span className="cts-player-cap muted">
-              {p.engaged ? "in a trade" : formatCapCompact(p.capHit)}
-            </span>
-          </label>
-        </li>
-      ))}
-    </ul>
-  );
+const pickLabel = (p: DraftPickDto) => `${p.year} rd ${p.round}`;
+
+/** What the collapsed card says instead of its list. Names first because that
+ * is what a GM is checking, then the money, which is what the recap below then
+ * turns into a verdict. */
+function summarise(players: PickPlayer[], picks: DraftPickDto[]): string {
+  const names = [...players.map((p) => formatShortName(p.name)), ...picks.map(pickLabel)];
+  if (names.length === 0) return "Nothing selected";
+
+  const shown = names.slice(0, 2).join(", ");
+  const rest = names.length > 2 ? ` +${names.length - 2}` : "";
+  const money = players.reduce((t, p) => t + (p.capHit ?? 0), 0);
+  return money > 0 ? `${shown}${rest} · ${formatCapCompact(money)}` : `${shown}${rest}`;
 }
 
-function PickCheckList({
+/**
+ * One side of the trade: a card that is either the scrolling picker or, when
+ * collapsed, the summary of what has been taken from it.
+ *
+ * Only one is open at a time (2026-08-03, per Nick). That is what removes the
+ * nested scrolling the old layout had — four scroll areas inside a body that
+ * scrolled too — and it roughly doubles how many rows fit, because the open
+ * card gets the height the other three were spending.
+ *
+ * The cost is that balancing an offer means toggling back and forth, which is
+ * exactly what makes the recap below load-bearing rather than decorative: it
+ * shows the net effect without reopening the other side.
+ */
+function SideCard({
+  title,
+  open,
+  onOpen,
+  players,
   picks,
-  selected,
-  onToggle,
+  selectedPlayers,
+  selectedPicks,
+  onTogglePlayer,
+  onTogglePick,
+  loading,
 }: {
+  title: string;
+  open: boolean;
+  onOpen: () => void;
+  players: PickPlayer[];
   picks: DraftPickDto[];
-  selected: Set<number>;
-  onToggle: (id: number) => void;
+  selectedPlayers: Set<number>;
+  selectedPicks: Set<number>;
+  onTogglePlayer: (id: number) => void;
+  onTogglePick: (id: number) => void;
+  loading?: boolean;
 }) {
-  if (picks.length === 0) return null;
+  const chosenPlayers = players.filter((p) => selectedPlayers.has(p.id));
+  const chosenPicks = picks.filter((p) => selectedPicks.has(p.id));
+  const count = chosenPlayers.length + chosenPicks.length;
+
   return (
-    <ul className="cts-player-list cts-pick-list">
-      {picks.map((p) => (
-        <li key={p.id}>
-          <label className={`cts-player-row${p.engaged ? " engaged" : ""}`}>
-            <input
-              type="checkbox"
-              checked={selected.has(p.id)}
-              disabled={p.engaged}
-              onChange={() => onToggle(p.id)}
-            />
-            <span className="cts-player-name">
-              {p.year} round {p.round}
-              {/* "Martin's 2nd, via Boston" is only expressible because the
-                  original owner survives every trade. */}
-              {p.viaTrade && <span className="muted"> · via {p.originalTeamName}</span>}
-            </span>
-            {p.engaged && <span className="cts-player-cap muted">in a trade</span>}
-          </label>
-        </li>
-      ))}
-    </ul>
+    <section className={`cts-card${open ? " open" : ""}`}>
+      <button
+        type="button"
+        className="cts-card-head"
+        aria-expanded={open}
+        onClick={onOpen}
+      >
+        <span className="cts-card-title">
+          {title}
+          {count > 0 && <span className="cts-card-count">{count}</span>}
+        </span>
+        {!open && <span className="cts-card-summary muted">{summarise(chosenPlayers, chosenPicks)}</span>}
+        <span className={`cts-card-chevron${open ? " up" : ""}`} aria-hidden="true">
+          ▾
+        </span>
+      </button>
+
+      {open && (
+        <div className="cts-card-body">
+          {loading ? (
+            <p className="empty-state cts-empty">Loading roster…</p>
+          ) : players.length === 0 && picks.length === 0 ? (
+            <p className="empty-state cts-empty">Nothing on this roster.</p>
+          ) : (
+            <ul className="cts-asset-list">
+              {players.map((p) => (
+                <li key={`p${p.id}`}>
+                  <label className={`cts-row${p.engaged ? " engaged" : ""}`}>
+                    <input
+                      type="checkbox"
+                      checked={selectedPlayers.has(p.id)}
+                      disabled={p.engaged}
+                      onChange={() => onTogglePlayer(p.id)}
+                    />
+                    <span className="cts-row-name">{p.name}</span>
+                    <span className={`cts-row-pos pos-compact-${posGroupClass(p.position)}`}>
+                      {posGroup(p.position)}
+                    </span>
+                    {/* Shown rather than hidden: a player who simply vanished
+                        from the list would read as a bug. */}
+                    <span className="cts-row-cap muted">
+                      {p.engaged ? "in a trade" : formatCapCompact(p.capHit)}
+                    </span>
+                  </label>
+                </li>
+              ))}
+
+              {picks.length > 0 && (
+                <li className="cts-row-divider" aria-hidden="true">
+                  Draft picks
+                </li>
+              )}
+              {picks.map((p) => (
+                <li key={`d${p.id}`}>
+                  <label className={`cts-row${p.engaged ? " engaged" : ""}`}>
+                    <input
+                      type="checkbox"
+                      checked={selectedPicks.has(p.id)}
+                      disabled={p.engaged}
+                      onChange={() => onTogglePick(p.id)}
+                    />
+                    <span className="cts-row-name">
+                      {pickLabel(p)}
+                      {/* "Martin's 2nd, via Boston" is only expressible because
+                          the original owner survives every trade. */}
+                      {p.viaTrade && <span className="muted"> · via {p.originalTeamName}</span>}
+                    </span>
+                    {p.engaged && <span className="cts-row-cap muted">in a trade</span>}
+                  </label>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -219,6 +282,8 @@ export function CreateTradeSheet({
   const [theirLoading, setTheirLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  // "give" first: you start from what you are willing to part with.
+  const [openSide, setOpenSide] = useState<"give" | "get">("give");
 
   const counterpartyTeam = league.teams.find((t) => t.ownerUsername === counterparty);
 
@@ -391,7 +456,7 @@ export function CreateTradeSheet({
 
         {/* No title (2026-08-03, per Nick): the dialog's aria-label already
             carries it, and the height it was spending is what the recap needs. */}
-        <div className="pc-body">
+        <div className="pc-body cts-body">
           {otherTeams.length === 0 ? (
             <p className="empty-state">No other team to trade with.</p>
           ) : (
@@ -412,38 +477,29 @@ export function CreateTradeSheet({
               </label>
 
               <div className="cts-sides">
-                <div className="cts-side">
-                  <span className="section-title">You give ({myTeam.name})</span>
-                  <PlayerCheckList
-                    players={myPlayers}
-                    selected={mine}
-                    onToggle={(id) => toggle(mine, setMine, id)}
-                  />
-                  <PickCheckList
-                    picks={myPickList}
-                    selected={myPicks}
-                    onToggle={(id) => toggle(myPicks, setMyPicks, id)}
-                  />
-                </div>
-                <div className="cts-side">
-                  <span className="section-title">You get ({counterpartyTeam?.name ?? "—"})</span>
-                  {theirLoading ? (
-                    <p className="empty-state cts-empty">Loading roster…</p>
-                  ) : (
-                    <>
-                      <PlayerCheckList
-                        players={theirPlayers}
-                        selected={theirs}
-                        onToggle={(id) => toggle(theirs, setTheirs, id)}
-                      />
-                      <PickCheckList
-                        picks={theirPickList}
-                        selected={theirPicks}
-                        onToggle={(id) => toggle(theirPicks, setTheirPicks, id)}
-                      />
-                    </>
-                  )}
-                </div>
+                <SideCard
+                  title={`You give · ${myTeam.name}`}
+                  open={openSide === "give"}
+                  onOpen={() => setOpenSide("give")}
+                  players={myPlayers}
+                  picks={myPickList}
+                  selectedPlayers={mine}
+                  selectedPicks={myPicks}
+                  onTogglePlayer={(id) => toggle(mine, setMine, id)}
+                  onTogglePick={(id) => toggle(myPicks, setMyPicks, id)}
+                />
+                <SideCard
+                  title={`You get · ${counterpartyTeam?.name ?? "—"}`}
+                  open={openSide === "get"}
+                  onOpen={() => setOpenSide("get")}
+                  players={theirPlayers}
+                  picks={theirPickList}
+                  selectedPlayers={theirs}
+                  selectedPicks={theirPicks}
+                  onTogglePlayer={(id) => toggle(theirs, setTheirs, id)}
+                  onTogglePick={(id) => toggle(theirPicks, setTheirPicks, id)}
+                  loading={theirLoading}
+                />
               </div>
 
               {impacts.length === 2 && (
