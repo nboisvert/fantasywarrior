@@ -70,5 +70,6 @@ LeagueEndpoints.Map(app);
 LineupEndpoints.Map(app);
 TradeEndpoints.Map(app);
 PlayerEndpoints.Map(app);
+CockcoinEndpoints.Map(app);
 
 app.Run();

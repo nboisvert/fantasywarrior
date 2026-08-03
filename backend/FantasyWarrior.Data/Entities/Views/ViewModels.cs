@@ -146,3 +146,15 @@ public sealed class PoolerTradeRecordView
     /// </summary>
     public double? TraderRating { get; set; }
 }
+
+/// <summary>
+/// One user's cockcoin balance — SUM over <see cref="CockcoinAward"/>, same
+/// "derive it from the ledger" story as every other total in this schema. No
+/// row at all for a user who has never earned any; the API is what turns
+/// that into a displayed 0, same as a brand new Pooler's trade record.
+/// </summary>
+public sealed class CockcoinBalanceView
+{
+    public int UserId { get; set; }
+    public int Balance { get; set; }
+}

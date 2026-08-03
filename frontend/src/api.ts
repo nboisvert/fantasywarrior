@@ -365,10 +365,14 @@ export const api = {
       { method: "POST", body: JSON.stringify({ username, accept }) },
     ),
   voteTrade: (leagueId: string, tradeId: string, username: string, favoredUsername: string | null) =>
-    request<{ ok: boolean }>(
+    request<{ ok: boolean; cockcoinAwarded: number; cockcoinBalance: number }>(
       `/api/leagues/${encodeURIComponent(leagueId)}/trades/${encodeURIComponent(tradeId)}/vote`,
       { method: "POST", body: JSON.stringify({ username, favoredUsername }) },
     ),
+  /** Everyone starts at 0 — no row for a user who's never earned any, the
+   * server already turns that into 0 rather than an absent value. */
+  cockcoinBalance: (username: string) =>
+    request<{ balance: number }>(`/api/users/${encodeURIComponent(username)}/cockcoin`),
 };
 
 export const formatCap = (amount: number | null | undefined) =>

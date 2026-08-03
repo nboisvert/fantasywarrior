@@ -23,6 +23,7 @@
 import { useState } from "react";
 import { api } from "../api";
 import type { Trade } from "../api";
+import { CockcoinReward } from "./CockcoinReward";
 import "./TradeVoteWidget.css";
 
 interface VoteOption {
@@ -48,6 +49,9 @@ export function TradeVoteWidget({
   const [pendingVote, setPendingVote] = useState<{ favoredUsername: string | null } | null>(null);
   // The option awaiting a yes/no in the confirm popup — not yet sent.
   const [confirming, setConfirming] = useState<VoteOption | null>(null);
+  // The cockcoin reward pop, showing only for the moment it takes to play
+  // its animation (CockcoinReward.onDone clears it).
+  const [reward, setReward] = useState<number | null>(null);
 
   const options: VoteOption[] = [
     { key: "proposer", favoredUsername: trade.proposerUsername, label: trade.proposerTeamName },
@@ -70,7 +74,8 @@ export function TradeVoteWidget({
     setPendingVote({ favoredUsername: opt.favoredUsername });
     setVoting(true);
     try {
-      await api.voteTrade(leagueId, trade.id, username, opt.favoredUsername);
+      const res = await api.voteTrade(leagueId, trade.id, username, opt.favoredUsername);
+      if (res.cockcoinAwarded > 0) setReward(res.cockcoinAwarded);
       onVoted();
     } catch {
       setPendingVote(null); // failed — drop the optimistic highlight
@@ -150,6 +155,8 @@ export function TradeVoteWidget({
           </div>
         </div>
       )}
+
+      {reward != null && <CockcoinReward amount={reward} onDone={() => setReward(null)} />}
     </div>
   );
 }

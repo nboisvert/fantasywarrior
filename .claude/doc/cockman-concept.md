@@ -4,9 +4,9 @@
 > spec to build against blindly; check with Nick before turning a new idea
 > below into actual code, same as any other feature.
 >
-> Started 2026-07-27. Status: **UI mock skeleton built** (see
-> `project_status.md`'s 2026-07-27 "Garry Cockman" entry for what's actually
-> implemented) — no backend, no real AI, no real token system yet. Everything
+> Started 2026-07-27. Status: **cockcoin is now a real, persisted balance**
+> (2026-08-03) — the chat/mascot half is still UI mock only, no real AI. See
+> `project_status.md`'s entries for what's actually implemented. Everything
 > below the "Implemented so far" line is idea/concept only, not built.
 
 ## The pitch
@@ -70,12 +70,35 @@ the rest of the app's dark "Night Arena" look, so it reads as an embedded
   reward reply on the user's first response, generic deflection replies after
   that.
 
+## Cockcoin — now a real balance (2026-08-03)
+
+- **Model**: `CockcoinAward` (`backend\FantasyWarrior.Data\Entities\CockcoinAward.cs`)
+  is a ledger — one row per earning event (UserId, Amount, Reason, AwardedUtc),
+  never a mutable running total. `vCockcoinBalance`
+  (`backend\FantasyWarrior.Data\Migrations\20260803014914_CockcoinBalanceView.cs`)
+  is a `SUM(Amount) GROUP BY UserId` view, same "recompute on read" pattern as
+  `vStandings`/`vPoolerTradeRecord` — no row at all for a user who's never
+  earned any; `GET /api/users/{username}/cockcoin` is what turns that into a
+  displayed 0 ("everyone starts at 0").
+- **Reasons** live in `FantasyWarrior.Core.Cockcoin.CockcoinReasons` (a plain
+  set of constants, not a validated whitelist like `StatKeys` — nothing here
+  is ever user-supplied). First and only one so far: `TradeVote` = 2 cockcoin,
+  awarded server-side in the same transaction as the vote itself
+  (`TradeEndpoints.cs`'s vote handler), never a separate client-triggered call.
+- **Display**: the balance shows in `ProfileMenu`'s panel header (top-right,
+  fetched lazily on open) as "N cockcoin" next to the `CockcoinIcon`.
+- **The "wow" moment**: `CockcoinReward` (`frontend\src\components\CockcoinReward.tsx`)
+  is a generic floating "+N cockcoin" pop — scale-bounce in, drift up, fade
+  out, ~1.5s, mobile-game style. `TradeVoteWidget` is the first (only) caller;
+  meant to be reused by every future earning action below.
+
 ## Open / not yet decided
 
 - What "exclusive content" concretely is.
-- Whether cockcoin ever becomes a real, persisted, backend-tracked balance,
-  or stays a permanent in-joke with no real mechanic behind it.
-- Further bonus-entry prompt types beyond the first one.
+- Further bonus-entry prompt types beyond the first one, and whether/how each
+  one becomes a real `CockcoinReasons` entry with its own award amount.
+- No retroactive backfill: votes cast before this shipped earned nothing —
+  forward-looking only, per Nick.
 - Whether Cockman ever says anything league-specific/dynamic beyond the
   league name and a random pooler's name (e.g. reacting to standings, recent
   trades, etc.) — nothing like that exists yet, would need real data wiring

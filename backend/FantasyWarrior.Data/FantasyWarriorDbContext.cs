@@ -54,6 +54,7 @@ public sealed class FantasyWarriorDbContext(DbContextOptions<FantasyWarriorDbCon
     public DbSet<Trade> Trades => Set<Trade>();
     public DbSet<TradeAsset> TradeAssets => Set<TradeAsset>();
     public DbSet<TradeVote> TradeVotes => Set<TradeVote>();
+    public DbSet<CockcoinAward> CockcoinAwards => Set<CockcoinAward>();
 
     // --- views: everything above the assignment grain is derived, never stored.
     // See Team's remarks for why.
@@ -63,6 +64,7 @@ public sealed class FantasyWarriorDbContext(DbContextOptions<FantasyWarriorDbCon
     public DbSet<TeamPeriodScoreView> TeamPeriodScores => Set<TeamPeriodScoreView>();
     public DbSet<StandingsView> Standings => Set<StandingsView>();
     public DbSet<PoolerTradeRecordView> PoolerTradeRecords => Set<PoolerTradeRecordView>();
+    public DbSet<CockcoinBalanceView> CockcoinBalances => Set<CockcoinBalanceView>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -40,6 +40,12 @@ public sealed class PoolerTradeRecordViewConfiguration : IEntityTypeConfiguratio
         b.HasNoKey().ToView(ViewNames.PoolerTradeRecord);
 }
 
+public sealed class CockcoinBalanceViewConfiguration : IEntityTypeConfiguration<CockcoinBalanceView>
+{
+    public void Configure(EntityTypeBuilder<CockcoinBalanceView> b) =>
+        b.HasNoKey().ToView(ViewNames.CockcoinBalance);
+}
+
 public static class ViewNames
 {
     public const string PlayerSeasonStats = "vPlayerSeasonStats";
@@ -47,4 +53,5 @@ public static class ViewNames
     public const string TeamPeriodScores = "vTeamPeriodScores";
     public const string Standings = "vStandings";
     public const string PoolerTradeRecord = "vPoolerTradeRecord";
+    public const string CockcoinBalance = "vCockcoinBalance";
 }

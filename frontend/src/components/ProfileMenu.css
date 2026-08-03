@@ -140,12 +140,35 @@
 }
 
 .profile-panel-name {
+  /* Fills the row so .profile-cockcoin (the header's only other child, when
+     present) lands against the right edge instead of trailing right after
+     the name (2026-08-03, per Nick: "there's a space top-right" for the
+     balance). Harmless in the chat header too, where it's the last child. */
+  flex: 1;
   min-width: 0;
   font-family: var(--font-display);
   font-size: 1rem;
   letter-spacing: 0.02em;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The glossy coin icon is deliberately the one clash with this app's flat-
+   stroke icon set everywhere it appears — see CockcoinIcon's own comment. */
+.profile-cockcoin {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 99px;
+  background: rgba(245, 166, 35, 0.12);
+  border: 1px solid rgba(245, 166, 35, 0.35);
+  color: #ffd54f;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
   white-space: nowrap;
 }
 

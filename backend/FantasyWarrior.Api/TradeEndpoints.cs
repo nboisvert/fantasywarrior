@@ -1,3 +1,4 @@
+using FantasyWarrior.Core.Cockcoin;
 using FantasyWarrior.Data;
 using FantasyWarrior.Data.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -289,8 +290,30 @@ public static class TradeEndpoints
             {
                 TradeId = id, UserId = user.UserId, FavoredTeamId = favoredTeamId, VotedUtc = DateTime.UtcNow,
             });
+
+            // Casting a vote earns cockcoin — same save as the vote itself,
+            // not a separate round-trip, so the two can never disagree about
+            // whether the vote actually went through.
+            db.CockcoinAwards.Add(new CockcoinAward
+            {
+                UserId = user.UserId,
+                Amount = CockcoinReasons.TradeVoteAmount,
+                Reason = CockcoinReasons.TradeVote,
+                AwardedUtc = DateTime.UtcNow,
+            });
             await db.SaveChangesAsync();
-            return Results.Ok(new { ok = true });
+
+            var cockcoinBalance = await db.CockcoinBalances
+                .Where(b => b.UserId == user.UserId)
+                .Select(b => (int?)b.Balance)
+                .FirstOrDefaultAsync() ?? 0;
+
+            return Results.Ok(new
+            {
+                ok = true,
+                cockcoinAwarded = CockcoinReasons.TradeVoteAmount,
+                cockcoinBalance,
+            });
         });
     }
 }

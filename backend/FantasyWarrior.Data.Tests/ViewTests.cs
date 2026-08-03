@@ -360,4 +360,34 @@ public class ViewTests
         Assert.Equal(0, row.TradesFair);
         Assert.Null(row.TraderRating);
     }
+
+    [SqlFact]
+    public async Task CockcoinBalance_SumsEveryAward()
+    {
+        await using var db = SqlFixture.NewContext();
+        var world = await new TestWorld(db).CreateAsync();
+        var userId = world.Teams[0].OwnerUserId;
+
+        db.CockcoinAwards.AddRange(
+            new Entities.CockcoinAward { UserId = userId, Amount = 2, Reason = "trade-vote", AwardedUtc = DateTime.UtcNow },
+            new Entities.CockcoinAward { UserId = userId, Amount = 2, Reason = "trade-vote", AwardedUtc = DateTime.UtcNow });
+        await db.SaveChangesAsync();
+
+        var row = await db.CockcoinBalances.SingleAsync(b => b.UserId == userId);
+
+        Assert.Equal(4, row.Balance);
+    }
+
+    [SqlFact]
+    public async Task CockcoinBalance_HasNoRow_ForAUserWhoHasNeverEarnedAny()
+    {
+        await using var db = SqlFixture.NewContext();
+        var world = await new TestWorld(db).CreateAsync();
+
+        // Everyone starts at 0, but that's the API turning "no row" into 0 —
+        // the view itself just has nothing to report yet.
+        var row = await db.CockcoinBalances.SingleOrDefaultAsync(b => b.UserId == world.Teams[0].OwnerUserId);
+
+        Assert.Null(row);
+    }
 }

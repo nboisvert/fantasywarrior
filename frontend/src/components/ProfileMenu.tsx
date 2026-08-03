@@ -11,7 +11,8 @@
 // inside so keyboard users don't have to tab past a hidden panel.
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeftIcon, LogOutIcon, MessageSquareIcon, SendIcon, SettingsIcon, UsersIcon } from "./Icons";
+import { api } from "../api";
+import { ArrowLeftIcon, CockcoinIcon, LogOutIcon, MessageSquareIcon, SendIcon, SettingsIcon, UsersIcon } from "./Icons";
 import "./ProfileMenu.css";
 
 /* ---------- mock presence (placeholder until real presence tracking exists) ----------
@@ -144,6 +145,27 @@ export function ProfileMenu({
   const [chatWith, setChatWith] = useState<string | null>(null);
   const [threads, setThreads] = useState<Record<string, ChatMessage[]>>({});
   const [draft, setDraft] = useState("");
+  // Everyone starts at 0 (cockman-concept.md) — null just means "not fetched
+  // yet", shown as 0 rather than a flash of nothing while it loads.
+  const [cockcoin, setCockcoin] = useState<number | null>(null);
+
+  // Fetched on open, not eagerly — same lazy-per-open pattern as the rest of
+  // this menu's content (the mock chat threads).
+  useEffect(() => {
+    if (!open) return;
+    let ignore = false;
+    api
+      .cockcoinBalance(username)
+      .then((r) => {
+        if (!ignore) setCockcoin(r.balance);
+      })
+      .catch(() => {
+        if (!ignore) setCockcoin(0);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [open, username]);
 
   // Move focus into the panel when it opens, and again whenever the view
   // swaps between the GM list and a chat thread (firstItemRef re-attaches
@@ -262,6 +284,10 @@ export function ProfileMenu({
               {initials(username)}
             </span>
             <span className="profile-panel-name">{username}</span>
+            <span className="profile-cockcoin" aria-label={`${cockcoin ?? 0} cockcoin`}>
+              <CockcoinIcon size={16} />
+              {cockcoin ?? 0} cockcoin
+            </span>
           </div>
 
           <div className="profile-panel-actions">
