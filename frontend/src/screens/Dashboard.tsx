@@ -37,28 +37,32 @@ function tradeTimestamp(t: Trade): { label: string; iso: string } {
   return { label: "Proposed", iso: t.createdUtc };
 }
 
-/** One team's column: name on top, its headliners (by NHL points) below,
- * "+N more" for the rest — the collapsed view Trades.tsx's own trade cards
- * use, reused verbatim (same classes) so this reads as the same visual
- * language, not a smaller copy of it. No expand affordance here: this is a
- * glance at what happened, not the place to act on or rate a trade — that's
- * what the Trades tab already is. */
+/** One team's column: "To {team}" on top, the headliners (by NHL points) it
+ * *acquired* below, "+N more" for the rest — the collapsed view Trades.tsx's
+ * own trade cards use, reused verbatim (same classes) so this reads as the
+ * same visual language, not a smaller copy of it. No expand affordance
+ * here: this is a glance at what happened, not the place to act on or rate
+ * a trade — that's what the Trades tab already is.
+ *
+ * Callers pass the *other* side's assets here — see teamsSplit in
+ * Trades.tsx for why "To {team}" pairs with what it acquired, not what it
+ * gave (2026-08-03, per Nick). */
 function TradeSide({
-  teamName, players, pointsById, align, onOpenPlayer,
+  teamName, acquires, pointsById, align, onOpenPlayer,
 }: {
   teamName: string;
-  players: TradePlayer[];
+  acquires: TradePlayer[];
   pointsById: Map<number, number>;
   align: "left" | "right";
   onOpenPlayer: (playerId: number) => void;
 }) {
-  const top = topPlayersByNhlPoints(players, pointsById, 2);
+  const top = topPlayersByNhlPoints(acquires, pointsById, 2);
   const topIds = new Set(top.map((p) => p.id));
-  const rest = players.filter((p) => !topIds.has(p.id));
+  const rest = acquires.filter((p) => !topIds.has(p.id));
   return (
     <div className={`trade-side trade-side-${align}`}>
-      <span className="trade-side-name">{teamName}</span>
-      <div className="trade-side-given">
+      <span className="trade-side-name">To {teamName}</span>
+      <div className="trade-side-acquired">
         {top.length === 0 ? (
           <span className="muted">nothing</span>
         ) : (
@@ -233,7 +237,7 @@ export function Dashboard({ league, username }: { league: LeagueDetail; username
                   <div className="trade-teams-split">
                     <TradeSide
                       teamName={trade.proposerTeamName}
-                      players={trade.playersFromProposer}
+                      acquires={trade.playersFromCounterparty}
                       pointsById={pointsById}
                       align="left"
                       onOpenPlayer={setOpenPlayerId}
@@ -243,7 +247,7 @@ export function Dashboard({ league, username }: { league: LeagueDetail; username
                     </span>
                     <TradeSide
                       teamName={trade.counterpartyTeamName}
-                      players={trade.playersFromCounterparty}
+                      acquires={trade.playersFromProposer}
                       pointsById={pointsById}
                       align="right"
                       onOpenPlayer={setOpenPlayerId}

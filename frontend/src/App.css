@@ -2001,7 +2001,7 @@
   text-overflow: ellipsis;
 }
 
-.trade-side-given {
+.trade-side-acquired {
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
@@ -2009,7 +2009,7 @@
   color: var(--text-muted);
 }
 
-.trade-side-given .muted {
+.trade-side-acquired .muted {
   font-size: 0.75rem;
 }
 

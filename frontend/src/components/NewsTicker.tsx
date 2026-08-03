@@ -80,8 +80,12 @@ function tradeSideLabel(players: TradePlayer[], pointsById: Map<number, number>)
   return players.length > 1 ? `${top.name} (+${players.length - 1})` : top.name;
 }
 
+/** Team name paired with who it *acquired*, not who it gave up — same
+ * convention as Trades.tsx/Dashboard's "To {team}" columns (2026-08-03, per
+ * Nick), so the ticker doesn't read backwards next to every other trade
+ * display in the app. */
 function tradeLabel(trade: Trade, pointsById: Map<number, number>): string {
-  return `${trade.proposerTeamName}: ${tradeSideLabel(trade.playersFromProposer, pointsById)} ⇄ ${trade.counterpartyTeamName}: ${tradeSideLabel(trade.playersFromCounterparty, pointsById)}`;
+  return `${trade.proposerTeamName}: ${tradeSideLabel(trade.playersFromCounterparty, pointsById)} ⇄ ${trade.counterpartyTeamName}: ${tradeSideLabel(trade.playersFromProposer, pointsById)}`;
 }
 
 export function NewsTicker({

@@ -84,25 +84,32 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
     }
   };
 
-  /** One team's column: name on top, its 2 headliners (by NHL points) below.
-   * Collapsed: "+N more" for anyone beyond the top 2. Expanded: those extra
-   * players are listed right below the headliners instead — no "+N more",
-   * and the headliners are never repeated a second time anywhere else on
-   * the card (2026-07-27, per Nick — the old expanded view duplicated the
-   * top players by also dumping the full "X gave: ..." list underneath). */
+  /** One team's column: "To {team}" on top, the 2 headliners (by NHL points)
+   * it *acquired* below. Collapsed: "+N more" for anyone beyond the top 2.
+   * Expanded: those extra players are listed right below the headliners
+   * instead — no "+N more", and the headliners are never repeated a second
+   * time anywhere else on the card (2026-07-27, per Nick — the old expanded
+   * view duplicated the top players by also dumping the full list
+   * underneath).
+   *
+   * "To {team}" plus which players sit under it (2026-08-03, per Nick): a
+   * column used to be headed by the team's own name and list what *it* gave
+   * up — reading a card meant mentally swapping the two columns to see who
+   * actually got the better end of it. Heading each column with the team the
+   * players are headed *to* removes that step. */
   const tradeSide = (
     teamName: string,
-    gives: TradePlayer[],
+    acquires: TradePlayer[],
     expanded: boolean,
     align: "left" | "right" = "left",
   ) => {
-    const top = topPlayersByNhlPoints(gives, pointsById, 2);
+    const top = topPlayersByNhlPoints(acquires, pointsById, 2);
     const topIds = new Set(top.map((p) => p.id));
-    const rest = gives.filter((p) => !topIds.has(p.id));
+    const rest = acquires.filter((p) => !topIds.has(p.id));
     return (
       <div className={`trade-side trade-side-${align}`}>
-        <span className="trade-side-name">{teamName}</span>
-        <div className="trade-side-given">
+        <span className="trade-side-name">To {teamName}</span>
+        <div className="trade-side-acquired">
           {top.length === 0 ? (
             <span className="muted">nothing</span>
           ) : (
@@ -129,13 +136,15 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
     );
   };
 
-  /** The full-width visual shared by every trade card: two team-name-topped
-   * columns with each side's headliners underneath, split by the ⇄ icon. */
+  /** The full-width visual shared by every trade card: two "To {team}"
+   * columns with each side's *acquired* headliners underneath, split by the
+   * ⇄ icon. Each column takes the *other* side's assets — what proposer
+   * gave is what lands under "To {counterparty}", and vice versa. */
   const teamsSplit = (trade: Trade, expanded = false) => (
     <div className="trade-teams-split">
-      {tradeSide(trade.proposerTeamName, trade.playersFromProposer, expanded)}
+      {tradeSide(trade.proposerTeamName, trade.playersFromCounterparty, expanded)}
       <ArrowLeftRightIcon size={16} className="trade-row-arrow" />
-      {tradeSide(trade.counterpartyTeamName, trade.playersFromCounterparty, expanded, "right")}
+      {tradeSide(trade.counterpartyTeamName, trade.playersFromProposer, expanded, "right")}
     </div>
   );
 
