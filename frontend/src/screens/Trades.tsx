@@ -220,7 +220,7 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
                           <button className="btn" disabled={busyId === t.id} onClick={() => respond(t.id, true)}>
                             Accept
                           </button>
-                          <button className="btn-outline" disabled={busyId === t.id} onClick={() => respond(t.id, false)}>
+                          <button className="btn-outline danger" disabled={busyId === t.id} onClick={() => respond(t.id, false)}>
                             Decline
                           </button>
                         </div>
@@ -239,7 +239,7 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
                         {cardHead(t)}
                         {teamsSplitToggle(t)}
                         <div className="trade-actions">
-                          <button className="btn-outline" disabled={busyId === t.id} onClick={() => respond(t.id, false)}>
+                          <button className="btn-outline danger" disabled={busyId === t.id} onClick={() => respond(t.id, false)}>
                             Cancel offer
                           </button>
                         </div>

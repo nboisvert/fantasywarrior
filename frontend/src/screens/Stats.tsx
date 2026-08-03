@@ -196,7 +196,7 @@ function LineupPicker({
           <span className="lineup-picker-sub">Nobody on the bench plays {entry.positionGroup}.</span>
         )}
 
-        <button type="button" className="btn-ghost lineup-picker-cancel" onClick={onClose}>
+        <button type="button" className="btn-outline lineup-picker-cancel" onClick={onClose}>
           Cancel
         </button>
       </div>

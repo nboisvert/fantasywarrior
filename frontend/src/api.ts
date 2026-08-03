@@ -271,9 +271,13 @@ export interface Trade {
   processedUtc: string | null;
   /** Withheld by the server until the viewer has cast their own vote — a
    * blind ballot, so nobody's pick leans on the crowd's before they've
-   * formed their own. */
+   * formed their own — except a party to the trade, who is never made to
+   * wait since they can never vote at all. */
   votes: TradeVoteTally | null;
   myVote: TradeMyVote | null;
+  /** False for either party to the trade (self-interest) or a trade that
+   * isn't processed yet. */
+  canVote: boolean;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {

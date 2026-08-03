@@ -4,12 +4,19 @@
   gap: 0.4rem;
 }
 
+/* A pull toward the widget, not just a caption above it — same accent-glow
+   treatment as the app's other "look here" text (.pc-tile.accent,
+   .pc-tab.active), centered so it reads as an invitation rather than a
+   left-aligned label (2026-08-03, per Nick: the muted caps version "wasn't
+   stylish" and didn't draw the eye toward voting). */
 .tvw-label {
-  font-size: 0.72rem;
-  font-weight: 700;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
+  color: var(--ice-bright);
+  text-shadow: 0 0 10px var(--ice-glow);
 }
 
 .tvw-options {
@@ -176,6 +183,6 @@
 }
 
 .tvw-confirm-actions .btn,
-.tvw-confirm-actions .btn-ghost {
+.tvw-confirm-actions .btn-outline {
   flex: 1;
 }

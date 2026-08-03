@@ -194,6 +194,12 @@ public static class TradeEndpoints
             {
                 var votes = t.Status == TradeStatus.Processed ? t.Votes.ToList() : [];
                 var mine = votes.FirstOrDefault(v => v.User!.Username == viewer);
+                // Either party has a stake in the outcome, so they don't get a
+                // vote — but they still deserve to see how their own trade was
+                // judged rather than being permanently blind to it (the "vote to
+                // reveal" rule exists to protect voters from bias, and a party
+                // isn't voting at all).
+                var isParty = viewer == t.ProposerTeam!.Owner!.Username || viewer == t.CounterpartyTeam!.Owner!.Username;
                 return new
                 {
                     id = t.TradeId.ToString(),
@@ -210,8 +216,9 @@ public static class TradeEndpoints
                     // Withheld until the viewer has voted themselves — not just
                     // hidden in the UI, since the point is nobody's opinion gets
                     // to lean on the crowd's before they've formed their own
-                    // (2026-08-02, per Nick).
-                    votes = mine is null ? null : new
+                    // (2026-08-02, per Nick) — except a party, who can never
+                    // vote and so is never made to wait.
+                    votes = mine is null && !isParty ? null : new
                     {
                         proposer = votes.Count(v => v.FavoredTeamId == t.ProposerTeamId),
                         fair = votes.Count(v => v.FavoredTeamId is null),
@@ -224,6 +231,8 @@ public static class TradeEndpoints
                             : mine.FavoredTeamId == t.CounterpartyTeamId ? t.CounterpartyTeam.Owner.Username
                             : null,
                     },
+                    // A party to the trade can't vote on it — self-interest.
+                    canVote = t.Status == TradeStatus.Processed && !isParty,
                 };
             }));
         });
@@ -262,6 +271,12 @@ public static class TradeEndpoints
             var username = Queries.Normalize(req.Username);
             var user = await db.Users.FirstOrDefaultAsync(u => u.Username == username);
             if (user is null) return Results.NotFound(new { error = "User not found." });
+
+            // Either party has a stake in the outcome, so neither gets a vote —
+            // self-interest, same reasoning as a trade being invisible to
+            // outsiders while it's still pending.
+            if (username == trade.ProposerTeam!.Owner!.Username || username == trade.CounterpartyTeam!.Owner!.Username)
+                return Results.BadRequest(new { error = "You can't vote on your own trade." });
 
             // Votes are permanent (2026-08-03, per Nick) — the frontend confirms
             // before ever sending this, but the server is the one that actually

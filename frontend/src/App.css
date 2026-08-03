@@ -674,10 +674,18 @@
 }
 
 /* A true peer to .btn — same height, radius, type, letter-spacing and casing,
-   so an Accept/Decline pair reads as one control.
-   `.btn-ghost` is a *tertiary* style (the "New trade" link in a header): two
-   sizes and a weight away from .btn, which is exactly why it looked wrong
-   sitting beside it. */
+   so a paired-buttons row (Accept/Decline, Cancel/Confirm, ...) reads as one
+   control instead of a real button next to an afterthought.
+   `.btn-ghost` is a *tertiary* style (a standalone "New trade" header link,
+   never a peer button beside a `.btn`): two sizes and a weight away from
+   `.btn`, which is why it keeps looking wrong every time it ends up
+   stretched into that role instead (2026-08-03, per Nick — this has
+   happened more than once; reach for `.btn-outline` for any secondary
+   action that sits beside/pairs with a `.btn`, `.btn-ghost` only for a
+   standalone tertiary link). Neutral hover by default — `.danger` below is
+   the explicit opt-in for the one pairing (Decline) that's actually
+   destructive; nothing else should turn red just for being "the other
+   button". */
 .btn-outline {
   display: inline-flex;
   align-items: center;
@@ -695,17 +703,13 @@
   transition: color 0.2s, border-color 0.2s, background-color 0.2s;
 }
 
-/* Declining is the destructive half of the pair, so danger shows on intent
-   rather than at rest: a permanently red button beside a permanently glowing
-   one would fight for attention on a card that is mostly information, and
-   would read as a warning about the offer rather than a choice about it. */
 .btn-outline:hover:not(:disabled) {
-  color: var(--danger);
-  border-color: var(--danger);
-  background: rgba(244, 63, 94, 0.08);
+  color: var(--text);
+  border-color: var(--border-strong);
+  background: var(--surface-strong);
 }
 .btn-outline:focus-visible {
-  outline: 2px solid var(--danger);
+  outline: 2px solid var(--ice);
   outline-offset: 2px;
 }
 .btn-outline:disabled {
@@ -713,9 +717,30 @@
   cursor: default;
 }
 
+/* Declining is the destructive half of that one pair, so danger shows on
+   intent rather than at rest: a permanently red button beside a permanently
+   glowing one would fight for attention on a card that is mostly
+   information, and would read as a warning about the offer rather than a
+   choice about it. */
+.btn-outline.danger:hover:not(:disabled) {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: rgba(244, 63, 94, 0.08);
+}
+.btn-outline.danger:focus-visible {
+  outline: 2px solid var(--danger);
+  outline-offset: 2px;
+}
+
 .btn-ghost {
   display: inline-flex;
   align-items: center;
+  /* Content-hugging by design, but a flex-column sheet's default
+     align-items: stretch can still force this wider than its content —
+     centering keeps a stretched ghost button from reading as small
+     left-aligned text lost in a big empty button (2026-08-03, per Nick).
+     Use .btn-outline instead if it's meant to actually fill that width. */
+  justify-content: center;
   gap: 0.4rem;
   padding: 0.5rem 0.8rem;
   border-radius: 10px;

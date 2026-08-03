@@ -9,6 +9,11 @@
 // option reveals its vote count and a proportional fill, and the plurality
 // leader gets extra emphasis — independent of which one is "mine".
 //
+// Either party to the trade has a stake in the outcome, so `trade.canVote`
+// is false for them — the options render read-only (no confirm popup, no
+// hover), but they still see the tally the moment it exists, same as anyone
+// who has already voted.
+//
 // One vote per league member per trade, and it's permanent (2026-08-03, per
 // Nick) — a confirm step sits between tapping an option and it actually
 // being sent, and the server rejects a second vote regardless. Only
@@ -56,10 +61,11 @@ export function TradeVoteWidget({
   const selected = pendingVote ?? trade.myVote;
   const hasVoted = selected != null;
   const isMine = (opt: VoteOption) => selected != null && selected.favoredUsername === opt.favoredUsername;
+  const canInteract = trade.canVote && !hasVoted && !voting;
 
   const confirmVote = async () => {
     const opt = confirming;
-    if (opt == null || voting) return;
+    if (opt == null || !canInteract) return;
     setConfirming(null);
     setPendingVote({ favoredUsername: opt.favoredUsername });
     setVoting(true);
@@ -99,8 +105,8 @@ export function TradeVoteWidget({
               key={opt.key}
               type="button"
               className={`tvw-option tvw-option-${opt.key}${mine ? " mine" : ""}${isLeader ? " leading" : ""}`}
-              onClick={() => setConfirming(opt)}
-              disabled={voting || hasVoted}
+              onClick={() => canInteract && setConfirming(opt)}
+              disabled={!canInteract}
               aria-pressed={mine}
               aria-label={votes != null ? `${opt.label}: ${count} of ${votes.total} votes` : opt.label}
             >
@@ -120,9 +126,11 @@ export function TradeVoteWidget({
       <small className="muted tvw-hint">
         {voting
           ? "Saving your vote…"
-          : votes != null
-            ? `${votes.total} vote${votes.total === 1 ? "" : "s"} total`
-            : "Vote to see how everyone else voted."}
+          : !trade.canVote && !hasVoted
+            ? "You can't vote on your own trade."
+            : votes != null
+              ? `${votes.total} vote${votes.total === 1 ? "" : "s"} total`
+              : "Vote to see how everyone else voted."}
       </small>
 
       {confirming && (
@@ -132,7 +140,7 @@ export function TradeVoteWidget({
               Vote for <strong>{confirming.label}</strong>? This can't be changed once cast.
             </p>
             <div className="tvw-confirm-actions">
-              <button type="button" className="btn-ghost" onClick={() => setConfirming(null)}>
+              <button type="button" className="btn-outline" onClick={() => setConfirming(null)}>
                 Cancel
               </button>
               <button type="button" className="btn" onClick={() => void confirmVote()}>
