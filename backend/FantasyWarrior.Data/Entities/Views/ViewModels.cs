@@ -110,3 +110,39 @@ public sealed class StandingsView
     /// <summary>Summed cap hits of the current roster; 0 for players with no contract on file.</summary>
     public long CapTotal { get; set; }
 }
+
+/// <summary>
+/// One Pooler's (team's) whole trade-voting history, from either side of the
+/// table — a team's own trades as proposer and as counterparty both count
+/// toward the same row. No row at all for a team with no processed trades:
+/// there's nothing to report, not a zeroed one.
+/// </summary>
+public sealed class PoolerTradeRecordView
+{
+    public int TeamId { get; set; }
+    public int LeagueId { get; set; }
+
+    public int TradesTotal { get; set; }
+
+    /// <summary>Trades where this team's side got the plurality of votes.</summary>
+    public int TradesWon { get; set; }
+
+    public int TradesLost { get; set; }
+
+    public int TradesFair { get; set; }
+
+    /// <summary>Raw vote counts across every trade, not just the decided ones.</summary>
+    public int VotesFor { get; set; }
+
+    public int VotesAgainst { get; set; }
+
+    public int VotesFair { get; set; }
+
+    /// <summary>
+    /// 0-100, centered at 50. Only decided trades (<see cref="TradesWon"/>/
+    /// <see cref="TradesLost"/>) move it — fair trades and exact ties are
+    /// neutral, not zero. Null until this team has at least one decided
+    /// trade, so "no data" and "dead even" never look the same.
+    /// </summary>
+    public double? TraderRating { get; set; }
+}

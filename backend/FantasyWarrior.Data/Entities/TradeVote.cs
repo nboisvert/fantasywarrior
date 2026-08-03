@@ -18,9 +18,6 @@ public sealed class TradeVote
     /// <summary>The team judged to have won; null means "fair".</summary>
     public int? FavoredTeamId { get; set; }
 
-    /// <summary>0 when <see cref="FavoredTeamId"/> is null; 1 = leans, 2 = clearly won.</summary>
-    public byte Magnitude { get; set; }
-
     public DateTime VotedUtc { get; set; }
 
     public Trade? Trade { get; set; }

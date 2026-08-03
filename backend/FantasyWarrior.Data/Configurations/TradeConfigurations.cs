@@ -68,14 +68,7 @@ public sealed class TradeVoteConfiguration : IEntityTypeConfiguration<TradeVote>
 {
     public void Configure(EntityTypeBuilder<TradeVote> b)
     {
-        b.ToTable("TradeVotes", t =>
-            // "Fair" is the only verdict without a magnitude; a favored team
-            // always leans (1) or clearly won (2). Storing (null, 2) would
-            // render as a strong opinion about nobody.
-            t.HasCheckConstraint(
-                "CK_TradeVotes_MagnitudeMatchesVerdict",
-                "([FavoredTeamId] IS NULL AND [Magnitude] = 0)"
-                + " OR ([FavoredTeamId] IS NOT NULL AND [Magnitude] IN (1, 2))"));
+        b.ToTable("TradeVotes");
 
         // One vote per member per trade; re-voting is an update, not a second row.
         b.HasKey(x => new { x.TradeId, x.UserId });

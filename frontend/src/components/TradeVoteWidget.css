@@ -1,0 +1,118 @@
+.tvw {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.tvw-options {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.tvw-options.saving {
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.tvw-option {
+  position: relative;
+  flex: 1;
+  min-height: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font: 700 0.8rem var(--font-body);
+  text-align: center;
+  cursor: pointer;
+  padding: 0.5rem 0.4rem;
+  transition: color 0.2s, border-color 0.2s, background-color 0.2s, box-shadow 0.2s;
+}
+
+.tvw-option:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+/* The vote-share fill — absent entirely until the viewer has voted (the
+   blind-ballot rule, enforced server-side: trade.votes is null until then).
+   Once it appears, its width animates in rather than snapping, so casting a
+   vote reads as "revealing" the result rather than just re-rendering it. */
+.tvw-option-fill {
+  position: absolute;
+  inset: 0;
+  right: auto;
+  z-index: 0;
+  transition: width 0.5s ease;
+}
+
+.tvw-option-proposer .tvw-option-fill {
+  background: rgba(56, 189, 248, 0.18);
+}
+
+.tvw-option-fair .tvw-option-fill {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.tvw-option-counterparty .tvw-option-fill {
+  background: rgba(167, 139, 250, 0.18);
+}
+
+.tvw-option-label,
+.tvw-option-count {
+  position: relative;
+  z-index: 1;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tvw-option-count {
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+/* "This is my pick" — a colored border/glow per side, independent of
+   whether this option is currently leading the vote (two different facts,
+   both worth showing at once). */
+.tvw-option-proposer.mine {
+  color: var(--ice-bright);
+  border-color: rgba(56, 189, 248, 0.6);
+  box-shadow: 0 0 14px var(--ice-glow);
+}
+
+.tvw-option-fair.mine {
+  color: var(--text);
+  border-color: var(--border-strong);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.16);
+}
+
+.tvw-option-counterparty.mine {
+  color: var(--defense);
+  border-color: rgba(167, 139, 250, 0.6);
+  box-shadow: 0 0 14px rgba(167, 139, 250, 0.4);
+}
+
+/* "This is currently ahead" — heavier type plus a neutral glow, so it reads
+   distinctly from the colored "mine" treatment even when they're the same
+   option. */
+.tvw-option.leading {
+  font-weight: 800;
+}
+
+.tvw-option.leading:not(.mine) {
+  border-color: var(--border-strong);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.12);
+}
+
+.tvw-hint {
+  align-self: center;
+}

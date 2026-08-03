@@ -222,4 +222,142 @@ public class ViewTests
         Assert.Equal(0, row.PlayerCount);
         Assert.Equal(0, row.CapTotal);
     }
+
+    /// <summary>Records one vote; a trade needs several, each from a distinct user.</summary>
+    private static Entities.TradeVote Vote(int tradeId, int userId, int? favoredTeamId) => new()
+    {
+        TradeId = tradeId, UserId = userId, FavoredTeamId = favoredTeamId, VotedUtc = DateTime.UtcNow,
+    };
+
+    [SqlFact]
+    public async Task PoolerTradeRecord_CountsWonLostFair_AndComputesTraderRating()
+    {
+        await using var db = SqlFixture.NewContext();
+        // Team 0/1 are the trading parties; 2/3/4 exist only to cast votes,
+        // same as fellow league members voting on someone else's trade.
+        var world = await new TestWorld(db).CreateAsync(teams: 5);
+        var (t0, t1, voterA, voterB, voterC) =
+            (world.Teams[0], world.Teams[1], world.Teams[2].OwnerUserId, world.Teams[3].OwnerUserId, world.Teams[4].OwnerUserId);
+
+        async Task<int> AddTrade(int proposerId, int counterpartyId)
+        {
+            var trade = new Entities.Trade
+            {
+                LeagueId = world.League.LeagueId,
+                ProposerTeamId = proposerId,
+                CounterpartyTeamId = counterpartyId,
+                Status = Entities.TradeStatus.Processed,
+                CreatedUtc = DateTime.UtcNow,
+            };
+            db.Trades.Add(trade);
+            await db.SaveChangesAsync();
+            return trade.TradeId;
+        }
+
+        // Trade A: team0 proposes, wins 2-1.
+        var a = await AddTrade(t0.TeamId, t1.TeamId);
+        db.TradeVotes.AddRange(Vote(a, voterA, t0.TeamId), Vote(a, voterB, t0.TeamId), Vote(a, voterC, t1.TeamId));
+
+        // Trade B: team0 is the *counterparty* this time, wins 2-0 with 1 fair —
+        // exercises both sides of the UNION ALL in the same test.
+        var b = await AddTrade(t1.TeamId, t0.TeamId);
+        db.TradeVotes.AddRange(Vote(b, voterA, t0.TeamId), Vote(b, voterB, t0.TeamId), Vote(b, voterC, null));
+
+        // Trade C: team0 proposes, loses 1-2.
+        var c = await AddTrade(t0.TeamId, t1.TeamId);
+        db.TradeVotes.AddRange(Vote(c, voterA, t1.TeamId), Vote(c, voterB, t1.TeamId), Vote(c, voterC, t0.TeamId));
+
+        // Trade D: fair, 1-2 fair.
+        var d = await AddTrade(t0.TeamId, t1.TeamId);
+        db.TradeVotes.AddRange(Vote(d, voterA, null), Vote(d, voterB, null), Vote(d, voterC, t0.TeamId));
+
+        await db.SaveChangesAsync();
+
+        var row = await db.PoolerTradeRecords.SingleAsync(r => r.TeamId == t0.TeamId);
+
+        Assert.Equal(4, row.TradesTotal);
+        Assert.Equal(2, row.TradesWon);
+        Assert.Equal(1, row.TradesLost);
+        Assert.Equal(1, row.TradesFair);
+        // 50 + 50 * (2 - 1) / 3
+        Assert.NotNull(row.TraderRating);
+        Assert.Equal(66.67, row.TraderRating!.Value, precision: 2);
+    }
+
+    [SqlFact]
+    public async Task PoolerTradeRecord_RatingIsNull_WhenNoTradeHasEverBeenDecided()
+    {
+        await using var db = SqlFixture.NewContext();
+        var world = await new TestWorld(db).CreateAsync(teams: 4);
+        var (t0, t1) = (world.Teams[0], world.Teams[1]);
+
+        var trade = new Entities.Trade
+        {
+            LeagueId = world.League.LeagueId,
+            ProposerTeamId = t0.TeamId,
+            CounterpartyTeamId = t1.TeamId,
+            Status = Entities.TradeStatus.Processed,
+            CreatedUtc = DateTime.UtcNow,
+        };
+        db.Trades.Add(trade);
+        await db.SaveChangesAsync();
+        db.TradeVotes.AddRange(
+            Vote(trade.TradeId, world.Teams[2].OwnerUserId, null),
+            Vote(trade.TradeId, world.Teams[3].OwnerUserId, null));
+        await db.SaveChangesAsync();
+
+        var row = await db.PoolerTradeRecords.SingleAsync(r => r.TeamId == t0.TeamId);
+
+        Assert.Equal(1, row.TradesFair);
+        Assert.Equal(0, row.TradesWon);
+        Assert.Equal(0, row.TradesLost);
+        // A GM who only ever makes fair trades sits at "not enough data", not
+        // at a misleadingly neutral 50.
+        Assert.Null(row.TraderRating);
+    }
+
+    [SqlFact]
+    public async Task PoolerTradeRecord_HasNoRow_ForATeamWithNoProcessedTrades()
+    {
+        await using var db = SqlFixture.NewContext();
+        var world = await new TestWorld(db).CreateAsync();
+
+        var row = await db.PoolerTradeRecords.SingleOrDefaultAsync(r => r.TeamId == world.Teams[0].TeamId);
+
+        // Unlike vStandings (which zero-fills every team via a LEFT JOIN from
+        // Teams), a trade record with nothing to report has no row at all.
+        Assert.Null(row);
+    }
+
+    [SqlFact]
+    public async Task PoolerTradeRecord_AnExactTie_CountsTowardNeitherWonNorLostNorFair()
+    {
+        await using var db = SqlFixture.NewContext();
+        var world = await new TestWorld(db).CreateAsync(teams: 4);
+        var (t0, t1) = (world.Teams[0], world.Teams[1]);
+
+        var trade = new Entities.Trade
+        {
+            LeagueId = world.League.LeagueId,
+            ProposerTeamId = t0.TeamId,
+            CounterpartyTeamId = t1.TeamId,
+            Status = Entities.TradeStatus.Processed,
+            CreatedUtc = DateTime.UtcNow,
+        };
+        db.Trades.Add(trade);
+        await db.SaveChangesAsync();
+        // 1 vote each way, none fair — a genuine split decision.
+        db.TradeVotes.AddRange(
+            Vote(trade.TradeId, world.Teams[2].OwnerUserId, t0.TeamId),
+            Vote(trade.TradeId, world.Teams[3].OwnerUserId, t1.TeamId));
+        await db.SaveChangesAsync();
+
+        var row = await db.PoolerTradeRecords.SingleAsync(r => r.TeamId == t0.TeamId);
+
+        Assert.Equal(1, row.TradesTotal);
+        Assert.Equal(0, row.TradesWon);
+        Assert.Equal(0, row.TradesLost);
+        Assert.Equal(0, row.TradesFair);
+        Assert.Null(row.TraderRating);
+    }
 }

@@ -18,7 +18,7 @@ import { api, topPlayersByNhlPoints } from "../api";
 import type { LeagueDetail, Trade, TradePlayer } from "../api";
 import { ArrowLeftRightIcon } from "../components/Icons";
 import { CreateTradeSheet } from "../components/CreateTradeSheet";
-import { TradeRatingWidget } from "../components/TradeRatingWidget";
+import { TradeVoteWidget } from "../components/TradeVoteWidget";
 import { LoadingLogo } from "../components/LoadingLogo";
 
 const formatDateTime = (iso: string) =>
@@ -170,7 +170,7 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
         {isOpen && (
           <div className="trade-row-expanded">
             {trade.status === "processed" ? (
-              <TradeRatingWidget leagueId={league.id} trade={trade} username={username} onVoted={load} />
+              <TradeVoteWidget leagueId={league.id} trade={trade} username={username} onVoted={load} />
             ) : (
               <small className="muted">Accepted — the rosters swap with tonight's scoring update.</small>
             )}

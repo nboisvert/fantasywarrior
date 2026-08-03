@@ -4,6 +4,7 @@ using FantasyWarrior.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FantasyWarrior.Data.Migrations
 {
     [DbContext(typeof(FantasyWarriorDbContext))]
-    partial class FantasyWarriorDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260803004216_SimplifyTradeVotes")]
+    partial class SimplifyTradeVotes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1487,43 +1490,6 @@ namespace FantasyWarrior.Data.Migrations
                     b.ToTable((string)null);
 
                     b.ToView("vPlayerSeasonStats", (string)null);
-                });
-
-            modelBuilder.Entity("FantasyWarrior.Data.Entities.Views.PoolerTradeRecordView", b =>
-                {
-                    b.Property<int>("LeagueId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("TeamId")
-                        .HasColumnType("int");
-
-                    b.Property<double?>("TraderRating")
-                        .HasColumnType("float");
-
-                    b.Property<int>("TradesFair")
-                        .HasColumnType("int");
-
-                    b.Property<int>("TradesLost")
-                        .HasColumnType("int");
-
-                    b.Property<int>("TradesTotal")
-                        .HasColumnType("int");
-
-                    b.Property<int>("TradesWon")
-                        .HasColumnType("int");
-
-                    b.Property<int>("VotesAgainst")
-                        .HasColumnType("int");
-
-                    b.Property<int>("VotesFair")
-                        .HasColumnType("int");
-
-                    b.Property<int>("VotesFor")
-                        .HasColumnType("int");
-
-                    b.ToTable((string)null);
-
-                    b.ToView("vPoolerTradeRecord", (string)null);
                 });
 
             modelBuilder.Entity("FantasyWarrior.Data.Entities.Views.RosterSpotTotalsView", b =>

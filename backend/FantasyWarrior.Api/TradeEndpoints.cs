@@ -207,13 +207,15 @@ public static class TradeEndpoints
                     createdUtc = t.CreatedUtc,
                     respondedUtc = t.RespondedUtc,
                     processedUtc = t.ProcessedUtc,
-                    votes = new
+                    // Withheld until the viewer has voted themselves — not just
+                    // hidden in the UI, since the point is nobody's opinion gets
+                    // to lean on the crowd's before they've formed their own
+                    // (2026-08-02, per Nick).
+                    votes = mine is null ? null : new
                     {
-                        proposerClear = votes.Count(v => v.FavoredTeamId == t.ProposerTeamId && v.Magnitude == 2),
-                        proposerLean = votes.Count(v => v.FavoredTeamId == t.ProposerTeamId && v.Magnitude == 1),
+                        proposer = votes.Count(v => v.FavoredTeamId == t.ProposerTeamId),
                         fair = votes.Count(v => v.FavoredTeamId is null),
-                        counterpartyLean = votes.Count(v => v.FavoredTeamId == t.CounterpartyTeamId && v.Magnitude == 1),
-                        counterpartyClear = votes.Count(v => v.FavoredTeamId == t.CounterpartyTeamId && v.Magnitude == 2),
+                        counterparty = votes.Count(v => v.FavoredTeamId == t.CounterpartyTeamId),
                         total = votes.Count,
                     },
                     myVote = mine is null ? null : new
@@ -221,7 +223,6 @@ public static class TradeEndpoints
                         favoredUsername = mine.FavoredTeamId == t.ProposerTeamId ? t.ProposerTeam.Owner.Username
                             : mine.FavoredTeamId == t.CounterpartyTeamId ? t.CounterpartyTeam.Owner.Username
                             : null,
-                        magnitude = (int)mine.Magnitude,
                     },
                 };
             }));
@@ -252,13 +253,10 @@ public static class TradeEndpoints
                 : Queries.Normalize(req.FavoredUsername) == trade.CounterpartyTeam!.Owner!.Username ? trade.CounterpartyTeamId
                 : -1;
 
-            if (favoredTeamId == -1
-                || (favoredTeamId is null && req.Magnitude != 0)
-                || (favoredTeamId is not null && req.Magnitude is not (1 or 2)))
+            if (favoredTeamId == -1)
                 return Results.BadRequest(new
                 {
-                    error = "Invalid vote: favoredUsername must be null (fair) or one of the two teams, "
-                          + "with a matching magnitude (0 for fair, 1-2 otherwise).",
+                    error = "Invalid vote: favoredUsername must be null (fair) or one of the two teams.",
                 });
 
             var username = Queries.Normalize(req.Username);
@@ -269,13 +267,11 @@ public static class TradeEndpoints
             if (vote is null)
                 db.TradeVotes.Add(new TradeVote
                 {
-                    TradeId = id, UserId = user.UserId, FavoredTeamId = favoredTeamId,
-                    Magnitude = (byte)req.Magnitude, VotedUtc = DateTime.UtcNow,
+                    TradeId = id, UserId = user.UserId, FavoredTeamId = favoredTeamId, VotedUtc = DateTime.UtcNow,
                 });
             else
             {
                 vote.FavoredTeamId = favoredTeamId;
-                vote.Magnitude = (byte)req.Magnitude;
                 vote.VotedUtc = DateTime.UtcNow;
             }
             await db.SaveChangesAsync();
@@ -288,4 +284,4 @@ public record ProposeTradeRequest(
     string? Username, string? CounterpartyUsername,
     List<long>? PlayersFromProposer, List<long>? PlayersFromCounterparty);
 public record RespondTradeRequest(string? Username, bool Accept);
-public record VoteTradeRequest(string? Username, string? FavoredUsername, int Magnitude);
+public record VoteTradeRequest(string? Username, string? FavoredUsername);

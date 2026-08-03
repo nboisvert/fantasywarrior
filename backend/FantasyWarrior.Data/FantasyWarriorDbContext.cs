@@ -62,6 +62,7 @@ public sealed class FantasyWarriorDbContext(DbContextOptions<FantasyWarriorDbCon
     public DbSet<RosterSpotTotalsView> RosterSpotTotals => Set<RosterSpotTotalsView>();
     public DbSet<TeamPeriodScoreView> TeamPeriodScores => Set<TeamPeriodScoreView>();
     public DbSet<StandingsView> Standings => Set<StandingsView>();
+    public DbSet<PoolerTradeRecordView> PoolerTradeRecords => Set<PoolerTradeRecordView>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

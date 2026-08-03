@@ -247,17 +247,14 @@ export interface TradePlayer {
 export type TradeStatus = "pending" | "declined" | "cancelled" | "accepted" | "processed";
 
 export interface TradeVoteTally {
-  proposerClear: number;
-  proposerLean: number;
+  proposer: number;
   fair: number;
-  counterpartyLean: number;
-  counterpartyClear: number;
+  counterparty: number;
   total: number;
 }
 
 export interface TradeMyVote {
-  favoredUsername: string | null;
-  magnitude: number;
+  favoredUsername: string | null; // null = voted fair
 }
 
 export interface Trade {
@@ -272,7 +269,10 @@ export interface Trade {
   createdUtc: string;
   respondedUtc: string | null;
   processedUtc: string | null;
-  votes: TradeVoteTally;
+  /** Withheld by the server until the viewer has cast their own vote — a
+   * blind ballot, so nobody's pick leans on the crowd's before they've
+   * formed their own. */
+  votes: TradeVoteTally | null;
   myVote: TradeMyVote | null;
 }
 
@@ -360,10 +360,10 @@ export const api = {
       `/api/leagues/${encodeURIComponent(leagueId)}/trades/${encodeURIComponent(tradeId)}/respond`,
       { method: "POST", body: JSON.stringify({ username, accept }) },
     ),
-  voteTrade: (leagueId: string, tradeId: string, username: string, favoredUsername: string | null, magnitude: number) =>
+  voteTrade: (leagueId: string, tradeId: string, username: string, favoredUsername: string | null) =>
     request<{ ok: boolean }>(
       `/api/leagues/${encodeURIComponent(leagueId)}/trades/${encodeURIComponent(tradeId)}/vote`,
-      { method: "POST", body: JSON.stringify({ username, favoredUsername, magnitude }) },
+      { method: "POST", body: JSON.stringify({ username, favoredUsername }) },
     ),
 };
 

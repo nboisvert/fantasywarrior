@@ -154,55 +154,6 @@ public class SchemaConstraintTests
     }
 
     [SqlFact]
-    public async Task AVoteFor_Fair_CannotAlsoCarryAStrengthOfOpinion()
-    {
-        await using var db = SqlFixture.NewContext();
-        var world = await new TestWorld(db).CreateAsync(teams: 2);
-
-        var trade = new Trade
-        {
-            LeagueId = world.League.LeagueId,
-            ProposerTeamId = world.Teams[0].TeamId,
-            CounterpartyTeamId = world.Teams[1].TeamId,
-            Status = TradeStatus.Processed,
-            CreatedUtc = DateTime.UtcNow,
-        };
-        db.Trades.Add(trade);
-        await db.SaveChangesAsync();
-
-        var voter = world.Teams[0].OwnerUserId;
-
-        async Task<Exception?> TryVote(int? favoredTeamId, byte magnitude)
-        {
-            db.TradeVotes.Add(new TradeVote
-            {
-                TradeId = trade.TradeId,
-                UserId = voter,
-                FavoredTeamId = favoredTeamId,
-                Magnitude = magnitude,
-                VotedUtc = DateTime.UtcNow,
-            });
-            try
-            {
-                await db.SaveChangesAsync();
-                return null;
-            }
-            catch (DbUpdateException ex)
-            {
-                db.ChangeTracker.Clear();
-                return ex;
-            }
-        }
-
-        // "Nobody won, strongly" is not an opinion the UI can render.
-        Assert.NotNull(await TryVote(favoredTeamId: null, magnitude: 2));
-        // "This team won, not at all" is the same contradiction inverted.
-        Assert.NotNull(await TryVote(world.Teams[0].TeamId, magnitude: 0));
-
-        Assert.Null(await TryVote(world.Teams[0].TeamId, magnitude: 1));
-    }
-
-    [SqlFact]
     public async Task ThereCanOnlyEverBeOneSimulationCursor()
     {
         await using var db = SqlFixture.NewContext();
