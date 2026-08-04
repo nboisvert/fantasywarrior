@@ -179,10 +179,11 @@ was taken — not a record of what changed.
   knows from a box score — points for a skater, wins for a goalie — not the
   league's fantasy score. The fantasy score stays as the *ranking* key, because
   it is the only thing that can compare a goalie with a winger; it just no
-  longer has to be the number on the card. Windows widened with it: Top Reserve
-  sums the last **two** weeks (labelled "last 2 weeks" under the figure, so the
-  window is never guessed), and Top Free Agents covers the **whole season to
-  date** — a claim is a season-long bet, and a one-week window put a fourth-liner
+  longer has to be the number on the card. The unit stays welded to the figure
+  ("9 W"), with the window stacked underneath: a goalie's 9 sitting above a bare
+  "last 2 weeks" reads as nine points. Windows widened with it: Top Reserve sums
+  the last **two** weeks — named under every figure, since the section title
+  does not say it — and Top Free Agents covers the **whole season to date** — a claim is a season-long bet, and a one-week window put a fourth-liner
   who scored twice on Saturday ahead of a 60-point winger nobody had taken.
   `GET /free-agents` accordingly lost its `period` parameter and now aggregates
   the season in SQL (tens of thousands of game lines, none wanted individually),

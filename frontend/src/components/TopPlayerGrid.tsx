@@ -12,9 +12,14 @@ export interface TopPlayerCard {
   team: string | null;
   headshotUrl: string | null;
   position: string;
-  /** The headline number this leaderboard is ranked by. */
+  /** The headline number, and the unit it is counted in — "pts" for a skater,
+   * "W" for a goalie, so the figure is never ambiguous (2026-08-04, per Nick). */
   statValue: number;
-  statLabel: string;
+  statUnit: string;
+  /** The window the figure covers, under it. Omitted when the section's title
+   * already says — Top Free Agents is the season, and saying so on every card
+   * would be four cards repeating their own heading. */
+  statWindow?: string;
   /** One short line of supporting stats, already formatted by the caller —
    * the two sections show different stats here (bench/season points vs.
    * raw production), so this stays a plain string rather than a shape. */
@@ -62,8 +67,11 @@ export function TopPlayerGrid({
                 {c.team && <span className="top-card-team">{c.team}</span>}
               </span>
               <span className="top-card-stat">
-                <span className="top-card-stat-value">{c.statValue}</span>
-                <span className="top-card-stat-label">{c.statLabel}</span>
+                <span className="top-card-stat-line">
+                  <span className="top-card-stat-value">{c.statValue}</span>
+                  <span className="top-card-stat-unit">{c.statUnit}</span>
+                </span>
+                {c.statWindow && <span className="top-card-stat-window">{c.statWindow}</span>}
               </span>
               <span className="top-card-secondary muted">{c.secondaryLine}</span>
             </button>

@@ -197,19 +197,22 @@ function TopReserve({
         const ranked = [...totals.values()]
           .sort((a, b) => b.points - a.points)
           .slice(0, 4)
-          .map((e): TopPlayerCard => ({
-            playerId: e.playerId,
-            name: e.name,
-            team: e.team,
-            headshotUrl: e.headshotUrl,
-            position: e.position,
-            statValue: nhlHeadline(e.positionGroup, e).value,
-            // The window, not the unit: the position letter and the raw line
-            // below already say whether the number is points or wins, and
-            // "last 2 weeks" is the part a GM cannot infer from the card.
-            statLabel: "last 2 weeks",
-            secondaryLine: rawLine(e.positionGroup, e),
-          }));
+          .map((e): TopPlayerCard => {
+            const headline = nhlHeadline(e.positionGroup, e);
+            return {
+              playerId: e.playerId,
+              name: e.name,
+              team: e.team,
+              headshotUrl: e.headshotUrl,
+              position: e.position,
+              statValue: headline.value,
+              statUnit: headline.unit,
+              // The one thing a GM cannot infer from the card — the section's
+              // title says nothing about how far back it looks.
+              statWindow: "last 2 weeks",
+              secondaryLine: rawLine(e.positionGroup, e),
+            };
+          });
         setCards(ranked);
       })
       .catch(() => {
@@ -266,7 +269,7 @@ function TopFreeAgents({
               headshotUrl: r.headshotUrl,
               position: r.position,
               statValue: headline.value,
-              statLabel: headline.unit,
+              statUnit: headline.unit,
               secondaryLine: rawLine(r.positionGroup, r),
             };
           }),
