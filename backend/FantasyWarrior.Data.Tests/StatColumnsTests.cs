@@ -152,6 +152,65 @@ public class StatColumnsTests
     }
 
     [Fact]
+    public void SeasonTotalsScoreTheSameWayAGamePileDoes()
+    {
+        // The free-agent board sums a whole season in SQL rather than summing
+        // game lines in memory, so the two paths must agree stat for stat —
+        // otherwise the same player ranks differently depending on which one
+        // asked. Two goalie wins, scored through the same scale.
+        var scale = new Dictionary<string, double>
+        {
+            [StatKeys.Goals] = 1, [StatKeys.Assists] = 1,
+            [StatKeys.Wins] = 2, [StatKeys.Shutouts] = 3,
+        };
+
+        var summedGames = StatLine.Sum(Enumerable.Range(0, 2).Select(_ =>
+        {
+            var line = Line();
+            line.IsGoalie = true;
+            line.Decision = "W";
+            line.Saves = 25;
+            return StatColumns.ToStatLine(line);
+        }));
+
+        var totals = StatColumns.ToStatLine(new SeasonTotals(
+            PlayerId: 2, GamesPlayed: 2, Goals: 0, Assists: 0, PlusMinus: 0, Pim: 0,
+            Shots: 0, Hits: 0, BlockedShots: 0, Wins: 2, OtLosses: 0, Shutouts: 0,
+            GoalsAgainst: 0, Saves: 50, ShotsAgainst: 0));
+
+        Assert.Equal(summedGames[StatKeys.GamesPlayed], totals[StatKeys.GamesPlayed]);
+        Assert.Equal(summedGames[StatKeys.Wins], totals[StatKeys.Wins]);
+        Assert.Equal(summedGames[StatKeys.Saves], totals[StatKeys.Saves]);
+        Assert.Equal(summedGames.Score(scale), totals.Score(scale));
+    }
+
+    [Fact]
+    public void SeasonTotalsCarryEveryScorableStat()
+    {
+        // A stat this drops is not a crash: it is a free agent quietly ranked
+        // low forever, which is exactly the kind of bug the board would hide.
+        var totals = StatColumns.ToStatLine(new SeasonTotals(
+            PlayerId: 2, GamesPlayed: 60, Goals: 30, Assists: 40, PlusMinus: 12, Pim: 22,
+            Shots: 180, Hits: 90, BlockedShots: 45, Wins: 3, OtLosses: 2, Shutouts: 1,
+            GoalsAgainst: 5, Saves: 120, ShotsAgainst: 125));
+
+        Assert.Equal(60, totals[StatKeys.GamesPlayed]);
+        Assert.Equal(30, totals[StatKeys.Goals]);
+        Assert.Equal(40, totals[StatKeys.Assists]);
+        Assert.Equal(12, totals[StatKeys.PlusMinus]);
+        Assert.Equal(22, totals[StatKeys.Pim]);
+        Assert.Equal(180, totals[StatKeys.Shots]);
+        Assert.Equal(90, totals[StatKeys.Hits]);
+        Assert.Equal(45, totals[StatKeys.BlockedShots]);
+        Assert.Equal(3, totals[StatKeys.Wins]);
+        Assert.Equal(2, totals[StatKeys.OtLosses]);
+        Assert.Equal(1, totals[StatKeys.Shutouts]);
+        Assert.Equal(5, totals[StatKeys.GoalsAgainst]);
+        Assert.Equal(120, totals[StatKeys.Saves]);
+        Assert.Equal(125, totals[StatKeys.ShotsAgainst]);
+    }
+
+    [Fact]
     public void ApplyWritesZeroes_SoLastWeeksNumbersCannotSurvive()
     {
         // A rescore that only assigned non-zero stats would leave a player who

@@ -146,10 +146,14 @@
   color: var(--text-muted);
 }
 
+/* Number over label, not beside it (2026-08-04, per Nick). The labels now say
+   which window the number covers ("last 2 weeks") rather than just its unit,
+   and no card this narrow can carry that on the same line as the figure. */
 .top-card-stat {
   display: flex;
-  align-items: baseline;
-  gap: 0.22rem;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
   margin-top: 0.2rem;
   line-height: 1;
 }
@@ -161,17 +165,22 @@
   text-shadow: 0 0 14px var(--ice-glow);
 }
 
+/* Tracking is looser than the rest of the card's small caps would suggest, but
+   only just: "LAST 2 WEEKS" has to fit one line on a 320px phone. */
 .top-card-stat-label {
+  max-width: 100%;
   font-size: 0.58rem;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.09em;
+  letter-spacing: 0.04em;
   font-weight: 700;
+  text-align: center;
 }
 
-/* The raw line for the week. Allowed to wrap to a second line rather than be
-   clipped: on a narrow phone "3GP · 2G · 3A" is the widest thing on the card,
-   and losing the assists to an ellipsis would defeat the point of showing it. */
+/* The raw line for the window the card covers. Allowed to wrap to a second
+   line rather than be clipped: on a narrow phone "3GP · 2G · 3A" is the widest
+   thing on the card, and losing the assists to an ellipsis would defeat the
+   point of showing it. */
 .top-card-secondary {
   max-width: 100%;
   font-size: 0.62rem;

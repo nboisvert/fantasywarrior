@@ -4,6 +4,16 @@ using FantasyWarrior.Data.Entities;
 namespace FantasyWarrior.Data;
 
 /// <summary>
+/// One player's regular-season counting stats, already summed. A record rather
+/// than the <c>vPlayerSeasonStats</c> view type so the bounded (as of a
+/// simulated day) and unbounded paths return the same shape.
+/// </summary>
+public sealed record SeasonTotals(
+    long PlayerId, int GamesPlayed, int Goals, int Assists, int PlusMinus, int Pim,
+    int Shots, int Hits, int BlockedShots, int Wins, int OtLosses, int Shutouts,
+    int GoalsAgainst, int Saves, int ShotsAgainst);
+
+/// <summary>
 /// The one adapter between how stats are <b>stored</b> (typed columns, so they
 /// can be queried, indexed and summed by the database) and how they are
 /// <b>scored</b> (a <c>StatKeys</c>-keyed map, so a commissioner can put a value
@@ -36,6 +46,29 @@ public static class StatColumns
         [StatKeys.GoalsAgainst] = line.GoalsAgainst ?? 0,
         [StatKeys.Saves] = line.Saves ?? 0,
         [StatKeys.ShotsAgainst] = line.ShotsAgainst ?? 0,
+    });
+
+    /// <summary>
+    /// A whole season's totals as a scorable line, so a league's own scale can
+    /// be applied to a season the same way it is applied to one week — which is
+    /// what lets a goalie rank against a skater on the free-agent board.
+    /// </summary>
+    public static StatLine ToStatLine(SeasonTotals t) => new(new Dictionary<string, int>
+    {
+        [StatKeys.GamesPlayed] = t.GamesPlayed,
+        [StatKeys.Goals] = t.Goals,
+        [StatKeys.Assists] = t.Assists,
+        [StatKeys.PlusMinus] = t.PlusMinus,
+        [StatKeys.Pim] = t.Pim,
+        [StatKeys.Shots] = t.Shots,
+        [StatKeys.Hits] = t.Hits,
+        [StatKeys.BlockedShots] = t.BlockedShots,
+        [StatKeys.Wins] = t.Wins,
+        [StatKeys.OtLosses] = t.OtLosses,
+        [StatKeys.Shutouts] = t.Shutouts,
+        [StatKeys.GoalsAgainst] = t.GoalsAgainst,
+        [StatKeys.Saves] = t.Saves,
+        [StatKeys.ShotsAgainst] = t.ShotsAgainst,
     });
 
     /// <summary>Reads an assignment's stored columns back as a scorable line.</summary>

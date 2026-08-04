@@ -174,6 +174,19 @@ was taken — not a record of what changed.
   splitting them would hide whichever tab he did not think to open. Lazy-loaded
   on first open, same as Career: most players have no news at all.
 
+- **2026-08-04 — The two dashboard leaderboards show *NHL* numbers, over
+  longer windows.** The headline figure on a card is now the stat a GM already
+  knows from a box score — points for a skater, wins for a goalie — not the
+  league's fantasy score. The fantasy score stays as the *ranking* key, because
+  it is the only thing that can compare a goalie with a winger; it just no
+  longer has to be the number on the card. Windows widened with it: Top Reserve
+  sums the last **two** weeks (labelled "last 2 weeks" under the figure, so the
+  window is never guessed), and Top Free Agents covers the **whole season to
+  date** — a claim is a season-long bet, and a one-week window put a fourth-liner
+  who scored twice on Saturday ahead of a 60-point winger nobody had taken.
+  `GET /free-agents` accordingly lost its `period` parameter and now aggregates
+  the season in SQL (tens of thousands of game lines, none wanted individually),
+  bounded to the simulated day like every other season total.
 - **2026-08-02 — GM Office's dashboard replaced "League News" with "Top
   Reserve" and "Top Free Agents".** Two leaderboard card grids: the viewer's
   currently-benched players ranked by what they scored last week, and

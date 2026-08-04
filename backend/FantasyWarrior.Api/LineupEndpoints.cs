@@ -164,31 +164,56 @@ public static class LineupEndpoints
         // league's own scale rather than raw NHL points — the only way a
         // goalie's wins/saves can compete with a skater's goals/assists for a
         // spot on this list.
+        //
+        // The window is the whole season to date (2026-08-04, per Nick), not
+        // one week: a free agent worth claiming is one who has produced all
+        // year, and a one-week window put a fourth-liner who scored twice on
+        // Saturday ahead of a 60-point winger nobody had taken. Bounded to the
+        // simulated day when a replay is running, like every other season total.
         app.MapGet("/api/leagues/{leagueId}/free-agents", async (
-            string leagueId, int? period, int? limit, FantasyWarriorDbContext db, SimulationClockService clock) =>
+            string leagueId, int? limit, FantasyWarriorDbContext db, SimulationClockService clock) =>
         {
             var league = await Queries.LeagueByCodeAsync(db, leagueId);
             if (league is null) return Results.NotFound(new { error = "League not found." });
 
-            var now = await clock.NowAsync();
-            var (periodDoc, _) = await Queries.ResolvePeriodAsync(
-                db, league.Season, period, PoolClock.TodayEt(now));
-            if (periodDoc is null) return Results.NotFound(new { error = "No period calendar for this season." });
+            // No replay running means no bound, expressed as a date no game can
+            // fall after — one parameter, one query, rather than two copies of
+            // the projection below differing only in a WHERE clause.
+            var asOf = (await clock.StateAsync())?.AsOfDate ?? DateOnly.MaxValue;
 
             var rosteredIds = await db.RosterSpots
                 .Where(s => s.LeagueId == league.LeagueId && s.EndDate == null)
                 .Select(s => s.PlayerId)
                 .ToListAsync();
 
-            var lines = await db.PlayerGameStats
+            // Summed by the database, unlike the week-long version this
+            // replaced: a full season of game lines for every unrostered player
+            // is tens of thousands of rows, and not one of them is wanted
+            // individually.
+            var totals = await db.PlayerGameStats
                 .Where(l => l.Season == league.Season && l.GameType == GameType.RegularSeason
-                            && l.GameDate >= periodDoc.StartDate && l.GameDate <= periodDoc.EndDate
+                            && l.GameDate <= asOf
                             && !rosteredIds.Contains(l.PlayerId))
+                .GroupBy(l => l.PlayerId)
+                .Select(g => new SeasonTotals(
+                    g.Key,
+                    g.Count(),
+                    g.Sum(l => l.Goals ?? 0),
+                    g.Sum(l => l.Assists ?? 0),
+                    g.Sum(l => l.PlusMinus ?? 0),
+                    g.Sum(l => l.Pim),
+                    g.Sum(l => l.Shots ?? 0),
+                    g.Sum(l => l.Hits ?? 0),
+                    g.Sum(l => l.BlockedShots ?? 0),
+                    g.Count(l => l.Decision == "W"),
+                    g.Count(l => l.OtLoss == true),
+                    g.Count(l => l.Shutout == true),
+                    g.Sum(l => l.GoalsAgainst ?? 0),
+                    g.Sum(l => l.Saves ?? 0),
+                    g.Sum(l => l.ShotsAgainst ?? 0)))
                 .ToListAsync();
 
-            var perPlayer = lines
-                .GroupBy(l => l.PlayerId)
-                .Select(g => (g.Key, StatLine.Sum(g.Select(StatColumns.ToStatLine))));
+            var perPlayer = totals.Select(t => (t.PlayerId, StatColumns.ToStatLine(t)));
 
             var scale = await Queries.ScaleAsync(db, league.LeagueId);
             var ranked = FreeAgentRanking.Rank(perPlayer, scale, limit ?? 4);

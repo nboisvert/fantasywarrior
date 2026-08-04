@@ -8,24 +8,40 @@
 
 import { useEffect, useState } from "react";
 import { api, formatCapCompact } from "../api";
-import type { LeagueDetail } from "../api";
+import type { LeagueDetail, LineupEntry } from "../api";
 import { ActivityIcon, UsersIcon } from "../components/Icons";
 import { PlayerCard } from "../components/PlayerCard";
 import { TopPlayerGrid } from "../components/TopPlayerGrid";
 import type { TopPlayerCard } from "../components/TopPlayerGrid";
 
-/** Last week's raw line under a leaderboard card: "3GP · 2G · 3A".
+/** The raw line under a leaderboard card: "3GP · 2G · 3A", over whatever
+ * window the caller summed.
  *
  * Goalies get their own shape, because 0G 0A is technically true and entirely
  * useless — a goalie's week is wins and saves. Shared by both sections so the
- * two cannot drift into describing the same week differently. */
-function weekLine(
+ * two cannot drift into describing the same stats differently. */
+function rawLine(
   positionGroup: "F" | "D" | "G",
   s: { gamesPlayed: number; goals: number; assists: number; wins: number; otLosses: number; saves: number },
 ): string {
   if (positionGroup === "G")
     return `${s.gamesPlayed}GP · ${s.wins}-${s.otLosses} · ${s.saves}SV`;
   return `${s.gamesPlayed}GP · ${s.goals}G · ${s.assists}A`;
+}
+
+/** The headline number on a leaderboard card: NHL points for a skater, wins
+ * for a goalie (2026-08-04, per Nick).
+ *
+ * Deliberately *not* the fantasy score the list is ranked by: the ranking has
+ * to be able to compare a goalie with a winger, but the number a GM reads on
+ * the card should be the one he already knows from a box score. */
+function nhlHeadline(
+  positionGroup: "F" | "D" | "G",
+  s: { goals: number; assists: number; wins: number },
+): { value: number; unit: string } {
+  return positionGroup === "G"
+    ? { value: s.wins, unit: "W" }
+    : { value: s.goals + s.assists, unit: "pts" };
 }
 
 /* formatCapCompact moved to api.ts (2026-08-03) — the trade sheet's cap recap
@@ -117,12 +133,22 @@ export function Dashboard({ league, username }: { league: LeagueDetail; username
   );
 }
 
-/** Currently benched (as of *this* week's lineup), ranked by what they
- * scored *last* week — two different periods, so two lineup fetches joined
- * on `spotId` (stable across periods for the same held roster spot):
- * one for who's benched now, one for last week's points (2026-08-02, per
- * Nick — "top réserve" is who's on the bench today, not who was benched
- * last week). Both reuse the existing lineup endpoint; no new API needed. */
+/** The two completed weeks behind the one being played, most recent last.
+ * Week 2 has only one week behind it — show that one rather than nothing, and
+ * before week 2 there is nothing to show at all. */
+function lastTwoWeeks(previousIndex: number | null): number[] {
+  if (previousIndex == null) return [];
+  return [previousIndex - 1, previousIndex].filter((i) => i >= 1);
+}
+
+/** Currently benched (as of *this* week's lineup), ranked by what they scored
+ * over the *last two* weeks — different periods, so one lineup fetch each,
+ * joined on `spotId` (stable across periods for the same held roster spot):
+ * one for who's benched now, the others for the points and the raw line
+ * (2026-08-02, per Nick — "top réserve" is who's on the bench today, not who
+ * was benched last week; two-week window 2026-08-04, so one quiet week does
+ * not bury a player who has been producing). All reuse the existing lineup
+ * endpoint; no new API needed. */
 function TopReserve({
   league, username, onOpenPlayer,
 }: {
@@ -132,22 +158,43 @@ function TopReserve({
 }) {
   const [cards, setCards] = useState<TopPlayerCard[] | null>(null);
   const previousIndex = league.currentPeriod ? league.currentPeriod.index - 1 : null;
+  const hasHistory = lastTwoWeeks(previousIndex).length > 0;
 
   useEffect(() => {
-    if (previousIndex == null || previousIndex < 1) {
+    const weeks = lastTwoWeeks(previousIndex);
+    if (weeks.length === 0) {
       setCards([]);
       return;
     }
     let ignore = false;
     Promise.all([
       api.lineup(league.id, username, username),
-      api.lineup(league.id, username, username, previousIndex),
+      ...weeks.map((index) => api.lineup(league.id, username, username, index)),
     ])
-      .then(([current, previous]) => {
+      .then(([current, ...prior]) => {
         if (ignore) return;
         const benchedNow = new Set(current.entries.filter((e) => !e.active).map((e) => e.spotId));
-        const ranked = previous.entries
-          .filter((e) => benchedNow.has(e.spotId))
+
+        // Summed per roster spot, not per player: a spot holds one player for
+        // its whole life, and the spot id is what both weeks agree on.
+        const totals = new Map<string, LineupEntry>();
+        for (const week of prior)
+          for (const e of week.entries) {
+            if (!benchedNow.has(e.spotId)) continue;
+            const acc = totals.get(e.spotId);
+            totals.set(e.spotId, acc == null ? e : {
+              ...e,
+              points: acc.points + e.points,
+              gamesPlayed: acc.gamesPlayed + e.gamesPlayed,
+              goals: acc.goals + e.goals,
+              assists: acc.assists + e.assists,
+              wins: acc.wins + e.wins,
+              otLosses: acc.otLosses + e.otLosses,
+              saves: acc.saves + e.saves,
+            });
+          }
+
+        const ranked = [...totals.values()]
           .sort((a, b) => b.points - a.points)
           .slice(0, 4)
           .map((e): TopPlayerCard => ({
@@ -156,9 +203,12 @@ function TopReserve({
             team: e.team,
             headshotUrl: e.headshotUrl,
             position: e.position,
-            statValue: e.points,
-            statLabel: "pts",
-            secondaryLine: weekLine(e.positionGroup, e),
+            statValue: nhlHeadline(e.positionGroup, e).value,
+            // The window, not the unit: the position letter and the raw line
+            // below already say whether the number is points or wins, and
+            // "last 2 weeks" is the part a GM cannot infer from the card.
+            statLabel: "last 2 weeks",
+            secondaryLine: rawLine(e.positionGroup, e),
           }));
         setCards(ranked);
       })
@@ -177,20 +227,19 @@ function TopReserve({
       icon={<ActivityIcon size={16} />}
       cards={cards}
       emptyMessage={
-        previousIndex == null || previousIndex < 1
-          ? "No previous week yet."
-          : "No bench standouts last week."
+        hasHistory ? "No bench standouts in the last 2 weeks." : "No previous week yet."
       }
       onOpenPlayer={onOpenPlayer}
     />
   );
 }
 
-/** League-wide unrostered players, ranked by fantasy points from *last*
- * week under the league's own scoring scale — same "previous period" window
- * as Top Reserve, applied to the whole player pool instead of just the
- * viewer's own bench. Scoring through the league's scale (not raw NHL
- * points) is what puts goalies in the mix (2026-08-02, per Nick). */
+/** League-wide unrostered players over the **whole season to date**
+ * (2026-08-04, per Nick — a claim is a season-long bet, not a reaction to one
+ * good Saturday), applied to the entire player pool instead of just the
+ * viewer's own bench. Ranked server-side through the league's own scale (not
+ * raw NHL points), which is what puts goalies in the mix; the card itself
+ * shows the raw NHL line. */
 function TopFreeAgents({
   league, onOpenPlayer,
 }: {
@@ -198,31 +247,29 @@ function TopFreeAgents({
   onOpenPlayer: (playerId: number) => void;
 }) {
   const [cards, setCards] = useState<TopPlayerCard[] | null>(null);
-  const previousIndex = league.currentPeriod ? league.currentPeriod.index - 1 : null;
 
   useEffect(() => {
-    if (previousIndex == null || previousIndex < 1) {
-      setCards([]);
-      return;
-    }
     let ignore = false;
     api
       // Four is the most the grid ever shows (three on a phone, where CSS
       // drops the fourth) — asking for more would just be fetched and hidden.
-      .freeAgents(league.id, previousIndex, 4)
+      .freeAgents(league.id, 4)
       .then((rows) => {
         if (ignore) return;
         setCards(
-          rows.map((r): TopPlayerCard => ({
-            playerId: r.playerId,
-            name: r.name,
-            team: r.team,
-            headshotUrl: r.headshotUrl,
-            position: r.position,
-            statValue: r.points,
-            statLabel: "pts",
-            secondaryLine: weekLine(r.positionGroup, r),
-          })),
+          rows.map((r): TopPlayerCard => {
+            const headline = nhlHeadline(r.positionGroup, r);
+            return {
+              playerId: r.playerId,
+              name: r.name,
+              team: r.team,
+              headshotUrl: r.headshotUrl,
+              position: r.position,
+              statValue: headline.value,
+              statLabel: headline.unit,
+              secondaryLine: rawLine(r.positionGroup, r),
+            };
+          }),
         );
       })
       .catch(() => {
@@ -231,7 +278,7 @@ function TopFreeAgents({
     return () => {
       ignore = true;
     };
-  }, [league.id, previousIndex]);
+  }, [league.id]);
 
   if (cards === null) return null;
   return (
@@ -239,11 +286,7 @@ function TopFreeAgents({
       title="Top Free Agents"
       icon={<UsersIcon size={16} />}
       cards={cards}
-      emptyMessage={
-        previousIndex == null || previousIndex < 1
-          ? "No previous week yet."
-          : "No standout free agents last week."
-      }
+      emptyMessage="No free agents have played yet this season."
       onOpenPlayer={onOpenPlayer}
     />
   );

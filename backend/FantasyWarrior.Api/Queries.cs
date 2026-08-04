@@ -1,3 +1,4 @@
+using FantasyWarrior.Core.Scoring;
 using FantasyWarrior.Data;
 using FantasyWarrior.Data.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -162,11 +163,6 @@ public static class Queries
 public sealed record PlayerInjuryStatus(
     long PlayerId, string Status, string? InjuryType, DateTime ReportedUtc, string Source);
 
-/// <summary>
-/// One player's regular-season counting stats. A record rather than the view
-/// type so the bounded and unbounded paths return the same shape.
-/// </summary>
-public sealed record SeasonTotals(
-    long PlayerId, int GamesPlayed, int Goals, int Assists, int PlusMinus, int Pim,
-    int Shots, int Hits, int BlockedShots, int Wins, int OtLosses, int Shutouts,
-    int GoalsAgainst, int Saves, int ShotsAgainst);
+/* SeasonTotals moved to FantasyWarrior.Data (2026-08-04): it is a shape over
+   the stat columns, and it now needs a StatColumns translation, which is the
+   one place that translation is allowed to live. */
