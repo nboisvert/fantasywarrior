@@ -177,17 +177,14 @@ function SideCard({
   const chosenPlayers = players.filter((p) => selectedPlayers.has(p.id));
   const chosenPicks = picks.filter((p) => selectedPicks.has(p.id));
   const names = [...chosenPlayers.map((p) => formatShortName(p.name)), ...chosenPicks.map(pickLabel)];
-  // The salary this side is actually sending — not the team's cap total. It is
-  // the number a GM is weighing, so it gets the size.
-  const moving = chosenPlayers.reduce((t, p) => t + (p.capHit ?? 0), 0);
 
   return (
     <section className={`cts-card${open ? " open" : ""}`}>
+      {/* No money in the header (2026-08-03, per Nick). The board's cap
+          before/after already carries what this side costs, and two dollar
+          figures on one card invited the wrong comparison. */}
       <button type="button" className="cts-card-head" aria-expanded={open} onClick={onOpen}>
         <span className="cts-card-title">{title}</span>
-        <span className={`cts-card-total${moving > 0 ? " live" : ""}`}>
-          {formatCapCompact(moving)}
-        </span>
         <span className={`cts-card-chevron${open ? " up" : ""}`} aria-hidden="true">
           ▾
         </span>
@@ -207,8 +204,6 @@ function SideCard({
           ))
         )}
       </div>
-
-      {impact && <SideBoard impact={impact} />}
 
       {open && (
         <div className="cts-card-body">
@@ -268,6 +263,12 @@ function SideCard({
           )}
         </div>
       )}
+
+      {/* Always the card's last band, open or closed (2026-08-03, per Nick).
+          It used to sit between the tags and the list, so it moved depending on
+          the card's state; a number you have to look for is a number you stop
+          reading. */}
+      {impact && <SideBoard impact={impact} />}
     </section>
   );
 }

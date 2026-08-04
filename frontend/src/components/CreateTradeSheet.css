@@ -64,11 +64,10 @@
 
 .cts-card-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 0.5rem;
   width: 100%;
-  min-height: 40px;
-  padding: 0.5rem 0.7rem;
+  padding: 0.55rem 0.7rem 0.35rem;
   border: none;
   background: none;
   color: var(--text);
@@ -97,25 +96,9 @@
   color: var(--text);
 }
 
-/* The salary this side is sending. The largest thing on the card, because it
-   is the number a GM weighs (2026-08-03, per Nick) — and distinct from the
-   team's cap total, which lives in the board below. */
-.cts-card-total {
-  margin-left: auto;
-  flex-shrink: 0;
-  font-family: var(--font-display);
-  font-size: 1rem;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.cts-card-total.live {
-  color: var(--ice-bright);
-  text-shadow: 0 0 12px var(--ice-glow);
-}
-
 .cts-card-chevron {
   flex-shrink: 0;
+  margin-left: auto;
   color: var(--text-muted);
   font-size: 0.7rem;
 }
@@ -127,21 +110,25 @@
 }
 
 /* Every selected asset, always — a closed card exists to answer "what did I
-   put in" without reopening it, and a truncated answer sends you back in. */
+   put in" without reopening it, and a truncated answer sends you back in.
+   The header's own padding stops at its text, so the tags carry their own top
+   space rather than sitting against it. */
 .cts-card-assets {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.25rem;
-  padding: 0 0.7rem 0.5rem;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.7rem 0.55rem;
   font-size: 0.74rem;
 }
 
 .cts-asset-tag {
-  padding: 0.1rem 0.4rem;
+  padding: 0.15rem 0.5rem;
   border-radius: 999px;
   border: 1px solid rgba(56, 189, 248, 0.3);
   background: rgba(56, 189, 248, 0.1);
   color: var(--text);
+  line-height: 1.35;
   white-space: nowrap;
 }
 
@@ -150,14 +137,19 @@
    while the cards said "you give" and "you get", leaving the reader to join
    the two by hand. That is what made the screen hard to read. */
 
+/* The card's footer, in both states — it used to sit between the tags and the
+   list, so it moved when the card opened. A number you have to look for is a
+   number you stop reading. */
 .cts-board {
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
+  flex-shrink: 0;
   gap: 0.2rem 0.7rem;
-  padding: 0.4rem 0.7rem;
+  margin-top: auto;
+  padding: 0.45rem 0.7rem;
   border-top: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255, 255, 255, 0.025);
   font-size: 0.74rem;
 }
 
@@ -216,6 +208,8 @@
   display: flex;
   flex-direction: column;
   border-top: 1px solid var(--border);
+  /* The list scrolls under its own top edge; the board below keeps its own. */
+  overflow: hidden;
 }
 
 .cts-asset-list {
