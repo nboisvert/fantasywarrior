@@ -296,8 +296,13 @@ export function CreateTradeSheet({
   const [theirLoading, setTheirLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  // "give" first: you start from what you are willing to part with.
-  const [openSide, setOpenSide] = useState<"give" | "get">("give");
+  // "give" first: you start from what you are willing to part with. Null is a
+  // real state (2026-08-03, per Nick) — with both shut, the two summaries sit
+  // side by side and the whole offer reads at once, which is the one view
+  // neither open card can give you.
+  const [openSide, setOpenSide] = useState<"give" | "get" | null>("give");
+  const toggleSide = (side: "give" | "get") =>
+    setOpenSide((current) => (current === side ? null : side));
 
   const counterpartyTeam = league.teams.find((t) => t.ownerUsername === counterparty);
 
@@ -494,7 +499,7 @@ export function CreateTradeSheet({
                 <SideCard
                   title={`You give · ${myTeam.name}`}
                   open={openSide === "give"}
-                  onOpen={() => setOpenSide("give")}
+                  onOpen={() => toggleSide("give")}
                   players={myPlayers}
                   picks={myPickList}
                   selectedPlayers={mine}
@@ -506,7 +511,7 @@ export function CreateTradeSheet({
                 <SideCard
                   title={`You get · ${counterpartyTeam?.name ?? "—"}`}
                   open={openSide === "get"}
-                  onOpen={() => setOpenSide("get")}
+                  onOpen={() => toggleSide("get")}
                   players={theirPlayers}
                   picks={theirPickList}
                   selectedPlayers={theirs}
