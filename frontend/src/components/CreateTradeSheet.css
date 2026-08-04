@@ -100,7 +100,11 @@
   flex-shrink: 0;
   margin-left: auto;
   color: var(--text-muted);
-  font-size: 0.7rem;
+  transition: transform 0.15s, color 0.2s;
+}
+
+.cts-card.open .cts-card-chevron {
+  color: var(--text);
 }
 
 /* No height transition: the design system only animates colour and opacity,
@@ -173,8 +177,10 @@
 }
 
 .cts-board-arrow {
-  font-size: 0.62rem;
+  flex-shrink: 0;
   color: var(--text-muted);
+  /* Baseline-aligned flex row: nudge the glyph onto the text's baseline. */
+  transform: translateY(1px);
 }
 
 .cts-board-now {
@@ -193,9 +199,10 @@
 }
 
 .cts-board-verdict {
+  display: inline-flex;
   margin-left: auto;
   color: var(--success);
-  font-size: 0.78rem;
+  transform: translateY(3px);
 }
 
 .cts-board.bad .cts-board-verdict {

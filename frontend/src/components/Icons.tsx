@@ -228,6 +228,24 @@ export const CircleIcon = ({ size = 20, className }: IconProps) => (
   </Icon>
 );
 
+/** Lucide `circle-x` — the danger peer of CircleCheckIcon. */
+export const CircleXIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <circle cx="12" cy="12" r="10" />
+    <path d="m15 9-6 6" />
+    <path d="m9 9 6 6" />
+  </Icon>
+);
+
+/** Lucide `arrow-right` — "this becomes that". Used between a before and an
+ * after figure, where a bare chevron would read as navigation. */
+export const ArrowRightIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M5 12h14" />
+    <path d="m12 5 7 7-7 7" />
+  </Icon>
+);
+
 /** Lucide `lock` — the week's lineup is frozen. */
 export const LockIcon = ({ size = 20, className }: IconProps) => (
   <Icon size={size} className={className}>

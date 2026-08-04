@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import { api, formatCapCompact, formatShortName, posGroup, posGroupClass } from "../api";
 import type { DraftPickDto, LeagueDetail, TeamDto } from "../api";
-import { XIcon } from "./Icons";
+import { ArrowRightIcon, ChevronDownIcon, CircleCheckIcon, CircleXIcon, XIcon } from "./Icons";
 import "./PlayerCard.css";
 import "./CreateTradeSheet.css";
 
@@ -101,9 +101,8 @@ function SideBoard({ impact }: { impact: SideImpact }) {
         ) : (
           <>
             <span className="muted">{formatCapCompact(impact.spaceBefore)}</span>
-            <span className="cts-board-arrow" aria-hidden="true">
-              ▸
-            </span>
+            {/* An arrow, not a chevron: this is "becomes", not navigation. */}
+            <ArrowRightIcon size={11} className="cts-board-arrow" />
             <span className={capBust ? "cts-board-over" : "cts-board-now"}>
               {formatCapCompact(impact.spaceAfter)}
             </span>
@@ -114,9 +113,7 @@ function SideBoard({ impact }: { impact: SideImpact }) {
       <span className="cts-board-metric">
         <span className="cts-board-key">Roster</span>
         <span className="muted">{impact.countBefore}</span>
-        <span className="cts-board-arrow" aria-hidden="true">
-          ▸
-        </span>
+        <ArrowRightIcon size={11} className="cts-board-arrow" />
         <span className={rosterBust ? "cts-board-over" : "cts-board-now"}>{impact.countAfter}</span>
       </span>
 
@@ -126,8 +123,8 @@ function SideBoard({ impact }: { impact: SideImpact }) {
         <span className="cts-board-unknown muted">{impact.unknownContracts} with no contract</span>
       )}
 
-      <span className="cts-board-verdict" aria-hidden="true">
-        {bad ? "✕" : "✓"}
+      <span className="cts-board-verdict">
+        {bad ? <CircleXIcon size={15} /> : <CircleCheckIcon size={15} />}
       </span>
     </div>
   );
@@ -185,9 +182,7 @@ function SideCard({
           figures on one card invited the wrong comparison. */}
       <button type="button" className="cts-card-head" aria-expanded={open} onClick={onOpen}>
         <span className="cts-card-title">{title}</span>
-        <span className={`cts-card-chevron${open ? " up" : ""}`} aria-hidden="true">
-          ▾
-        </span>
+        <ChevronDownIcon size={15} className={`cts-card-chevron${open ? " up" : ""}`} />
       </button>
 
       {/* Every asset, never "+2" (2026-08-03, per Nick): the point of a closed
@@ -525,7 +520,14 @@ export function CreateTradeSheet({
 
               {error && <p className="error-banner">{error}</p>}
 
-              <button className="btn" disabled={!canSubmit} onClick={submit}>
+              {/* Blocked reads red, not merely dimmed: a greyed button says
+                  "not yet", a red one says "this cannot be sent" — and the
+                  reason is already in the card whose board turned red. */}
+              <button
+                className={`btn${illegal ? " btn-blocked" : ""}`}
+                disabled={!canSubmit}
+                onClick={submit}
+              >
                 {submitting ? "Sending…" : illegal ? "Over the limit" : "Send trade offer"}
               </button>
             </>

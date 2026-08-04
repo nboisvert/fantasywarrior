@@ -715,6 +715,13 @@
   border: 1px solid var(--border-strong);
   background: var(--surface);
   color: var(--text);
+  /* Form controls do not inherit the document font — the UA stylesheet gives
+     them the system one. Only the size was set here, so every input and select
+     in the app was rendering in a different face from every button, which sets
+     the family through the `font:` shorthand (2026-08-03, per Nick).
+     Note: a native <select>'s open list is drawn by the OS and keeps the system
+     font regardless; only the closed control follows this. */
+  font-family: var(--font-body);
   font-size: 1rem;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
@@ -756,6 +763,17 @@
   opacity: 0.45;
   cursor: default;
   box-shadow: none;
+}
+
+/* Disabled because a rule says no, not because a field is still empty. A
+   greyed button reads "not yet"; this one has to read "this cannot be sent".
+   The reason always lives somewhere the user can already see — the offending
+   card's board turns red at the same moment. */
+.btn-blocked:disabled {
+  opacity: 1;
+  background: rgba(244, 63, 94, 0.16);
+  border: 1px solid rgba(244, 63, 94, 0.45);
+  color: var(--danger);
 }
 
 /* A true peer to .btn — same height, radius, type, letter-spacing and casing,
