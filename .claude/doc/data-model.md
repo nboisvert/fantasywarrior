@@ -103,11 +103,29 @@ LeagueAbbrev, TeamName)
 > `StatLine.FromGameLine` reste l'adaptateur. Le stockage, lui, est typé : c'est
 > tout l'intérêt de SQL.
 
-**`NewsItems`** — Id, Source, Headline, Url, PlayerId (FK null), PlayerName,
-PublishedUtc, FetchedUtc, ExternalKey (unique, upsert idempotent)
+**`NewsItems`** — Id, Source, Headline, **Body**, Url, PlayerId (FK null),
+PlayerName, PublishedUtc, FetchedUtc, ExternalKey (unique, upsert idempotent)
+
+> `Body` est le paragraphe factuel sous le titre — ce qui rend l'onglet News de
+> la carte joueur utile plutôt que décoratif. **Jamais** le bloc « ANALYSIS » de
+> Rotowire, verrouillé par abonnement.
 
 **`PlayerInjuries`** — PlayerId (FK), Status, InjuryType, ReportedUtc,
-ExpectedReturn, Source *(modélisée, pas encore alimentée)*
+ExpectedReturn (jamais alimentée), Source, ResolvedUtc → index filtré sur
+PlayerId `WHERE ResolvedUtc IS NULL`
+
+> Une ligne ouverte par joueur **et par source** tant que cette source le liste.
+> Les deux pages scrapées sont des pages d'*état* : elles publient qui est
+> blessé aujourd'hui, donc un joueur qui en disparaît est guéri — c'est
+> `news-sync` qui ferme la ligne, personne n'annonce une guérison. Une source
+> qui ne renvoie rien est traitée comme cassée, jamais comme « plus personne
+> n'est blessé ».
+>
+> `Status` porte le **genre** d'indisponibilité (`Injured` / `Suspended`), pas
+> une sévérité : aucune des deux sources ne publie « Out / IR / Day-to-day »,
+> seulement une cause courte. `InjuryClassifier` est le seul auteur.
+> `ExpectedReturn` reste vide — le retour n'est dit qu'en prose (« out until at
+> least early November ») et le deviner serait pire que ne rien montrer.
 
 ## Calendrier
 

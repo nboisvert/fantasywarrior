@@ -1,12 +1,31 @@
 namespace FantasyWarrior.Data.Entities;
 
 /// <summary>
+/// The two ways a player can be unavailable, as far as this app can tell.
+///
+/// Neither source publishes a severity ("Out", "IR", "Day-to-day") — both give
+/// a short cause and nothing else — so <see cref="PlayerInjury.Status"/> carries
+/// the *kind* of unavailability instead, which is the distinction the UI
+/// actually draws. See <c>InjuryClassifier</c>, which is the only writer.
+/// </summary>
+public static class InjuryStatuses
+{
+    public const string Injured = "Injured";
+    public const string Suspended = "Suspended";
+}
+
+/// <summary>
 /// A player's current injury status, as reported by a news source.
 ///
-/// Modelled now, populated later: the news scrapers already parse team and
-/// injury type out of the injuries pages and currently throw both away into a
-/// headline string. Giving that a home means the roster and lineup screens can
-/// eventually warn "this player is out" without re-parsing prose.
+/// One open row (<see cref="ResolvedUtc"/> null) per player per source while
+/// the source lists him. The sources are *state* pages, not event streams:
+/// they publish who is hurt today, so a player disappearing from one is how
+/// that source says "cleared" — which is why news-sync closes the row rather
+/// than waiting for an announcement that never comes.
+///
+/// This is the durable half of the injury story. The matching NewsItem is
+/// deleted once a source stops listing the player (it is no longer true), but
+/// the row here keeps ReportedUtc/ResolvedUtc permanently.
 /// </summary>
 public sealed class PlayerInjury
 {
@@ -14,12 +33,17 @@ public sealed class PlayerInjury
 
     public long PlayerId { get; set; }
 
-    /// <summary>Out, IR, LTIR, Day-to-day, Questionable… as the source words it.</summary>
+    /// <summary>See <see cref="InjuryStatuses"/> — injured, or suspended.</summary>
     public required string Status { get; set; }
 
     /// <summary>Upper body, knee, illness… free text from the source.</summary>
     public string? InjuryType { get; set; }
 
+    /// <summary>
+    /// Never populated: neither source states a return date in a field, only
+    /// in prose ("out until at least early November"), and guessing a date out
+    /// of a sentence would be worse than showing none.
+    /// </summary>
     public DateOnly? ExpectedReturn { get; set; }
 
     /// <summary>See <see cref="NewsSourceName"/>.</summary>

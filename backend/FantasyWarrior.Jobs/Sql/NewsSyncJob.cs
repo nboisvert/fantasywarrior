@@ -9,11 +9,25 @@ using Microsoft.EntityFrameworkCore;
 namespace FantasyWarrior.Jobs.Sql;
 
 /// <summary>
-/// Pulls NHL news into <see cref="NewsItem"/> from every configured source.
+/// Pulls NHL news into <see cref="NewsItem"/> from every configured source,
+/// and keeps <see cref="PlayerInjury"/> in step with the two sources that are
+/// injury lists.
 ///
 /// Idempotent by <c>(Source, ExternalKey)</c>, which is a unique index — a
 /// re-fetch updates rather than duplicating, and that is enforced by the
 /// database rather than by this job remembering to check.
+///
+/// An injury list is handled differently from a feed, because it answers a
+/// different question: it publishes who is hurt *today*, so a player who is no
+/// longer on it has been cleared. That single fact drives both writes — his
+/// PlayerInjuries row is resolved, and his NewsItem is deleted, because the
+/// item said "out with a knee" and that is no longer true. The medical record
+/// survives in PlayerInjuries with its ReportedUtc and ResolvedUtc; the
+/// headline does not deserve to.
+///
+/// A source that returns nothing is treated as broken, never as "nobody is
+/// hurt" — a site rewrite would otherwise clear the whole league's injuries in
+/// one silent run.
 ///
 /// Personal/non-commercial use only per the source sites' terms; Rotowire's
 /// subscription-locked ANALYSIS block is never read. See
@@ -46,9 +60,13 @@ public sealed class NewsSyncJob(FantasyWarriorDbContext db)
             var items = await source.Fetch(ct);
             Console.WriteLine($"  {source.Name}: {items.Count} item(s)");
 
+            var seenKeys = new List<string>();
+            var listed = new List<ListedInjury>();
+
             foreach (var item in items)
             {
                 var key = ExternalKey(item);
+                seenKeys.Add(key);
                 var existing = await db.NewsItems
                     .FirstOrDefaultAsync(n => n.Source == source.Name && n.ExternalKey == key, ct);
 
@@ -57,14 +75,19 @@ public sealed class NewsSyncJob(FantasyWarriorDbContext db)
                     ? null
                     : byName.TryGetValue(NameNormalizer.Normalize(playerName), out var id) ? id : (long?)null;
 
+                if (source.IsInjuryList && playerId is not null)
+                    listed.Add(new ListedInjury(
+                        playerId.Value, InjuryClassifier.StatusFor(item.InjuryType), Truncate(item.InjuryType, 80)));
+
                 if (existing is null)
                 {
                     db.NewsItems.Add(new NewsItem
                     {
                         Source = source.Name,
                         ExternalKey = key,
-                        Headline = Truncate(item.Headline, 500),
+                        Headline = Truncate(item.Headline, 500)!,
                         Url = Truncate(item.Url, 500),
+                        Body = Truncate(item.Body, 1000),
                         PlayerId = playerId,
                         PlayerName = Truncate(playerName, 120),
                         PublishedUtc = item.PublishedUtc.UtcDateTime,
@@ -74,8 +97,9 @@ public sealed class NewsSyncJob(FantasyWarriorDbContext db)
                 }
                 else
                 {
-                    existing.Headline = Truncate(item.Headline, 500);
+                    existing.Headline = Truncate(item.Headline, 500)!;
                     existing.Url = Truncate(item.Url, 500);
+                    existing.Body = Truncate(item.Body, 1000);
                     existing.PlayerId = playerId;
                     existing.PlayerName = Truncate(playerName, 120);
                     // A scraped source carries no per-item date, so re-stamping
@@ -88,6 +112,11 @@ public sealed class NewsSyncJob(FantasyWarriorDbContext db)
                 }
             }
             await db.SaveChangesAsync(ct);
+
+            if (source.IsInjuryList && items.Count > 0)
+                await ReconcileInjuriesAsync(source.Name, seenKeys, listed, now, ct);
+            else if (source.IsInjuryList)
+                Console.WriteLine($"    ! {source.Name} returned nothing — leaving its injuries as they stand rather than clearing them");
         }
 
         var cutoff = now.AddDays(-RetentionDays);
@@ -95,6 +124,54 @@ public sealed class NewsSyncJob(FantasyWarriorDbContext db)
 
         Console.WriteLine($"\n{inserted} new, {updated} updated, {pruned} pruned past {RetentionDays} days.");
         return 0;
+    }
+
+    /// <summary>
+    /// Brings one source's open injuries — and its news items — in line with
+    /// what it lists today. Called only when the fetch actually returned
+    /// something; see the class remarks.
+    /// </summary>
+    private async Task ReconcileInjuriesAsync(
+        string source, List<string> seenKeys, List<ListedInjury> listed, DateTime now, CancellationToken ct)
+    {
+        var dropped = await db.NewsItems
+            .Where(n => n.Source == source && !seenKeys.Contains(n.ExternalKey))
+            .ExecuteDeleteAsync(ct);
+
+        var open = await db.PlayerInjuries
+            .Where(i => i.Source == source && i.ResolvedUtc == null)
+            .Select(i => new OpenInjury(i.PlayerInjuryId, i.PlayerId, i.Status, i.InjuryType))
+            .ToListAsync(ct);
+
+        var plan = InjuryReconciler.Plan(open, listed);
+
+        foreach (var l in plan.ToOpen)
+            db.PlayerInjuries.Add(new PlayerInjury
+            {
+                PlayerId = l.PlayerId,
+                Status = l.Status,
+                InjuryType = l.InjuryType,
+                Source = source,
+                ReportedUtc = now,
+            });
+
+        if (plan.ToRelabel.Count > 0 || plan.ToResolve.Count > 0)
+        {
+            var touchedIds = plan.ToRelabel.Select(r => r.PlayerInjuryId).Concat(plan.ToResolve).ToList();
+            var rows = await db.PlayerInjuries
+                .Where(i => touchedIds.Contains(i.PlayerInjuryId))
+                .ToDictionaryAsync(i => i.PlayerInjuryId, ct);
+
+            foreach (var (id, injuryType) in plan.ToRelabel)
+                if (rows.TryGetValue(id, out var row)) row.InjuryType = injuryType;
+            foreach (var id in plan.ToResolve)
+                if (rows.TryGetValue(id, out var row)) row.ResolvedUtc = now;
+        }
+
+        await db.SaveChangesAsync(ct);
+        Console.WriteLine(
+            $"    injuries: {plan.ToOpen.Count} new, {plan.ToRelabel.Count} relabelled, " +
+            $"{plan.ToResolve.Count} cleared, {dropped} stale item(s) dropped");
     }
 
     /// <summary>

@@ -200,7 +200,16 @@ export interface LeagueDetail {
   myRoster: RosterPlayer[];
 }
 
-export interface PlayerSeasonStatsRow extends Engageable {
+/** How a player is unavailable right now, per the news sources. Null on both
+ * fields means he is fit. `injuryType` is the source's own short label
+ * ("Achilles", "Suspension") and can be missing even when the status is not —
+ * a site sometimes lists a player with no cause given. */
+export interface InjuryFields {
+  injuryStatus: "Injured" | "Suspended" | null;
+  injuryType: string | null;
+}
+
+export interface PlayerSeasonStatsRow extends Engageable, InjuryFields {
   id: number;
   name: string;
   position: string;

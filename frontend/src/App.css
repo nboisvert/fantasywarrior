@@ -1762,6 +1762,31 @@
   transition: color 0.2s;
 }
 
+/* ---- unavailable player (2026-08-04, per Nick) ----
+
+   A player who is hurt or suspended is marked twice, and neither mark costs
+   the row a column: a rose edge on the sticky identity cell, and a badge that
+   sits right after the name — the name ellipsizes to make room, which is the
+   trade Nick asked for (the mark matters more than the last letters of a
+   surname). Colour is never the only signal: the glyph carries the meaning and
+   both the title and aria-label say it in words. */
+.stats-row-out .stats-col-player {
+  /* inset rather than border-left: the cell is sticky, and an inset shadow
+     rides along with it instead of scrolling out of view with the row. */
+  box-shadow: inset 2px 0 0 var(--danger);
+}
+
+.stats-injury {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Sits against the name, not centred in leftover space — it reads as an
+     annotation on that name rather than as another column. */
+  margin-left: -0.2rem;
+  color: var(--danger);
+}
+
 /* Plain-text position, at the far right of the identity cell — after the
    calendar button (2026-08-02, per Nick) — before the numeric columns start.
    No pill/badge chrome on this data-dense screen (compact convention; see

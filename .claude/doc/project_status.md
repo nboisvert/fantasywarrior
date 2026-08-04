@@ -29,7 +29,8 @@
 
 **Built and working**: player and stats services, leagues/teams/multi-tenancy,
 weekly-lineup scoring with banked points, trades (propose → accept/decline →
-nightly-processed → community rating), the five screens, the news ticker.
+nightly-processed → community rating), the five screens, the news ticker,
+per-player news and injury status.
 
 ## Roadmap
 
@@ -155,6 +156,24 @@ was taken — not a record of what changed.
 
 ### UI
 
+- **2026-08-04 — An unavailable player is marked twice on the Team grid, and
+  neither mark costs the row a column**: a rose edge on the sticky identity
+  cell, and a badge immediately after the name. The badge is in the flow rather
+  than absolutely positioned, so the name ellipsizes to make room — Nick's call,
+  the mark matters more than the last letters of a surname. The edge is an
+  `inset` box-shadow on the sticky cell rather than a border on the row, so it
+  stays on screen while the twenty numeric columns scroll under it.
+- **2026-08-04 — Injured and suspended share the colour, never the symbol.**
+  Both keep a player out of the lineup, which is the whole point of the marker,
+  so both rows are rose. But a gavel instead of a cross, because telling a GM
+  his defenceman is *injured* when he was suspended six games for slashing is a
+  false statement about a real person. `InjuryClassifier` decides which,
+  server-side, once, at the moment the source's label is read.
+- **2026-08-04 — The player card's News tab carries every source, not just
+  injuries.** A contract signing and a knee are both things a GM wants, and
+  splitting them would hide whichever tab he did not think to open. Lazy-loaded
+  on first open, same as Career: most players have no news at all.
+
 - **2026-08-02 — GM Office's dashboard replaced "League News" with "Top
   Reserve" and "Top Free Agents".** Two leaderboard card grids: the viewer's
   currently-benched players ranked by what they scored last week, and
@@ -234,6 +253,20 @@ was taken — not a record of what changed.
   chat is a UI mock with literal hex values, a light corporate palette and a
   system font stack, so it reads as a real embedded third-party helpdesk widget
   bolted onto the app. No backend. See [cockman-concept.md](cockman-concept.md).
+- **2026-08-04 — An injury list is not a news feed, and news-sync now treats
+  them differently.** The two scraped sources publish who is hurt *today*, so a
+  player disappearing from one is that source saying "cleared" — nobody ever
+  announces a recovery. That single fact drives both writes: his
+  `PlayerInjuries` row is resolved, and his `NewsItem` is deleted, because
+  "out with a knee" is no longer true. The medical record survives in
+  `PlayerInjuries` with its `ReportedUtc`/`ResolvedUtc`; the headline does not
+  deserve to. A source returning nothing is treated as broken, never as "nobody
+  is hurt" — a site rewrite would otherwise clear the league in one silent run.
+- **2026-08-04 — Injuries are reconciled per source, never across sources.**
+  Rotowire dropping a player says nothing about whether FantasySP still lists
+  him, and letting one site's silence resolve the other's report is how a flag
+  starts lying. Where two sources report the same man, the API shows the one
+  reported first — its "hurt since" date is the true one.
 - **2026-07-28 — News is not league-scoped.** The ticker's news half is a generic
   NHL feed; only trades are league-scoped. Roster-move items were removed from
   the ticker in the same change.
@@ -251,6 +284,12 @@ was taken — not a record of what changed.
   string like everything else, so anyone who knows a handle can read that
   person's private threads. For a pool of friends that is a tolerable trade,
   but it is the first place where the gap exposes content rather than actions.
+- **Injuries are real-world, the replay is not.** The scrapers read today's
+  pages, so during the 2025-26 replay the Team grid marks players who are hurt
+  in *August 2026* against a roster that believes it is January. Harmless in
+  prod next season, confusing while testing — and unfixable, since no source
+  publishes a historical injury list. Check `sim-clock` before treating an
+  odd-looking marker as a bug.
 - **Cap and roster size are displayed but not enforced** — no add/drop or trade
   is rejected for breaking them.
 - **The "Équipe" roster slot scores nothing** — rule never specified.

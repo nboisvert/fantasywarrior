@@ -212,6 +212,7 @@ public sealed class NewsItemConfiguration : IEntityTypeConfiguration<NewsItem>
         b.Property(x => x.Source).HasMaxLength(20).IsUnicode(false).IsRequired();
         b.Property(x => x.ExternalKey).HasMaxLength(200).IsUnicode(false).IsRequired();
         b.Property(x => x.Headline).HasMaxLength(500).IsRequired();
+        b.Property(x => x.Body).HasMaxLength(1000);
         b.Property(x => x.Url).HasMaxLength(500);
         b.Property(x => x.PlayerName).HasMaxLength(120);
 

@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { JSX, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import { posGroup, posGroupClass } from "../api";
-import { XIcon } from "./Icons";
+import { CrossIcon, ExternalLinkIcon, GavelIcon, XIcon } from "./Icons";
 import "./PlayerCard.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5099";
@@ -74,9 +74,31 @@ interface CareerRow {
   shutouts: number | null;
 }
 
+/** How this player is unavailable right now, or null when he is fit. Comes
+ * from the injury lists news-sync reads nightly, not from the NHL — so
+ * `injuryType` is the source's own short label and can be missing. */
+interface Injury {
+  status: "Injured" | "Suspended";
+  injuryType: string | null;
+  since: string;
+}
+
+/** One item from GET /api/players/{id}/news — every source, newest first.
+ * `body` is the factual paragraph; Rotowire's subscription-locked ANALYSIS
+ * block is never stored, so it can never appear here. */
+interface NewsRow {
+  id: string;
+  source: string;
+  headline: string;
+  body: string | null;
+  url: string | null;
+  publishedUtc: string;
+}
+
 interface PlayerDetail {
   id: number;
   name: string;
+  injury: Injury | null;
   position: string;
   team: string;
   status: string;
@@ -147,6 +169,22 @@ function formatDraft(p: PlayerDetail): { main: string; team: string | null } {
   if (p.draftYear == null || p.draftOverall == null) return { main: "Undrafted", team: null };
   return { main: `${ordinal(p.draftOverall)} ${p.draftYear}`, team: p.draftTeamAbbrev };
 }
+
+/** "Jul 19, 2026" — news carries a real date, and a headline with no date is
+ * worth very little when a standing injury sits on a page for months. */
+function formatNewsDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+/** "rotowire_html" -> "Rotowire". The stored value is a sync key, not a label,
+ * and three of them collapse to two sites. */
+const SOURCE_LABELS: Record<string, string> = {
+  rotowire_rss: "Rotowire",
+  rotowire_html: "Rotowire",
+  fantasysp: "FantasySP",
+};
 
 function formatGameDate(date: string): string {
   const d = new Date(`${date}T00:00:00`);
@@ -381,6 +419,58 @@ function CareerTable({ rows, isGoalie }: { rows: CareerRow[]; isGoalie: boolean 
   );
 }
 
+/* ---------- injury banner ---------- */
+
+/** Why this player's name is marked on the Team grid, said in words.
+ *
+ * A full-width strip rather than a badge in the header meta: that row is
+ * nowrap and already carries position, team and number, so a fourth item
+ * would push the team name out. This is also the only place the *date* fits,
+ * and "out since Jul 19" is most of what a GM wants — the label alone does
+ * not say whether he is about to come back. */
+function InjuryBanner({ injury }: { injury: Injury }) {
+  const suspended = injury.status === "Suspended";
+  return (
+    <div className="pc-injury">
+      {suspended ? <GavelIcon size={15} /> : <CrossIcon size={13} />}
+      <span className="pc-injury-label">
+        {suspended ? "Suspended" : "Injured"}
+        {injury.injuryType != null && <span className="pc-injury-type">{injury.injuryType}</span>}
+      </span>
+      <span className="pc-injury-since">since {formatNewsDate(injury.since)}</span>
+    </div>
+  );
+}
+
+/* ---------- news list ---------- */
+
+/** Every item we hold about this player, newest first — a contract signing and
+ * a knee sit in the same list, because a GM wants both and would only open one
+ * tab. The source is named on each item: two sites word the same event
+ * differently, and there is no point pretending they are one voice. */
+function NewsList({ rows }: { rows: NewsRow[] }) {
+  return (
+    <ul className="pc-news">
+      {rows.map((n) => (
+        <li key={n.id} className="pc-news-item">
+          <div className="pc-news-head">
+            <span className="pc-news-date">{formatNewsDate(n.publishedUtc)}</span>
+            <span className="pc-news-source">{SOURCE_LABELS[n.source] ?? n.source}</span>
+          </div>
+          <p className="pc-news-headline">{n.headline}</p>
+          {n.body != null && <p className="pc-news-body">{n.body}</p>}
+          {n.url != null && (
+            <a className="pc-news-link" href={n.url} target="_blank" rel="noopener noreferrer">
+              Read at the source
+              <ExternalLinkIcon size={12} />
+            </a>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /* ---------- skeleton (loading state, no spinner) ---------- */
 
 function Skeleton() {
@@ -418,13 +508,19 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
   const [player, setPlayer] = useState<PlayerDetail | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"stats" | "last10" | "career">("stats");
+  const [activeTab, setActiveTab] = useState<"stats" | "last10" | "career" | "news">("stats");
   // Fetched lazily on first Career tab open, not bundled into the main
   // player fetch — career history is a few dozen rows nobody reads on every
   // card open. null means "not fetched yet", not "fetched, empty".
   const [careerRows, setCareerRows] = useState<CareerRow[] | null>(null);
   const [careerLoading, setCareerLoading] = useState(false);
   const [careerError, setCareerError] = useState("");
+  // Same lazy pattern as Career. Most players have no news at all, so paying
+  // for it on every card open would be a request that returns [] nine times
+  // in ten.
+  const [newsRows, setNewsRows] = useState<NewsRow[] | null>(null);
+  const [newsLoading, setNewsLoading] = useState(false);
+  const [newsError, setNewsError] = useState("");
   const sheetRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
 
@@ -437,6 +533,8 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
     setActiveTab("stats");
     setCareerRows(null);
     setCareerError("");
+    setNewsRows(null);
+    setNewsError("");
     fetch(`${API_BASE}/api/players/${playerId}`, { signal: ctrl.signal })
       .then(async (res) => {
         const body: unknown = await res.json().catch(() => ({}));
@@ -474,6 +572,24 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
       setCareerError("Could not load career stats.");
     } finally {
       setCareerLoading(false);
+    }
+  }
+
+  /** Opens the News tab, fetching on first open and caching after — same
+   * reasoning as openCareerTab. */
+  async function openNewsTab() {
+    setActiveTab("news");
+    if (newsRows !== null || newsLoading) return;
+    setNewsLoading(true);
+    setNewsError("");
+    try {
+      const res = await fetch(`${API_BASE}/api/players/${playerId}/news`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setNewsRows((await res.json()) as NewsRow[]);
+    } catch {
+      setNewsError("Could not load news.");
+    } finally {
+      setNewsLoading(false);
     }
   }
 
@@ -577,6 +693,8 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
                 </div>
               </div>
 
+              {player.injury != null && <InjuryBanner injury={player.injury} />}
+
               {/* bio */}
               <div className="pc-bio-grid">
                 <div className="pc-bio-item">
@@ -640,6 +758,17 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
                 >
                   Career
                 </button>
+                <button
+                  id="pc-tab-news"
+                  role="tab"
+                  type="button"
+                  aria-selected={activeTab === "news"}
+                  aria-controls="pc-panel-news"
+                  className={`pc-tab${activeTab === "news" ? " active" : ""}`}
+                  onClick={() => void openNewsTab()}
+                >
+                  News
+                </button>
               </div>
 
               <div
@@ -701,6 +830,24 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
                     <div className="pc-career-wrap">
                       <CareerTable rows={careerRows} isGoalie={player.isGoalie} />
                     </div>
+                  )
+                )}
+              </div>
+
+              <div
+                id="pc-panel-news"
+                role="tabpanel"
+                aria-labelledby="pc-tab-news"
+                hidden={activeTab !== "news"}
+                className="pc-tabpanel"
+              >
+                {newsLoading && <p className="pc-empty muted">Loading…</p>}
+                {!newsLoading && newsError && <p className="error-banner">{newsError}</p>}
+                {!newsLoading && !newsError && newsRows != null && (
+                  newsRows.length === 0 ? (
+                    <p className="pc-empty muted">No news about this player.</p>
+                  ) : (
+                    <NewsList rows={newsRows} />
                   )
                 )}
               </div>

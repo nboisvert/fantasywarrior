@@ -132,7 +132,35 @@ public static class Queries
             .Where(c => c.Season == season && playerIds.Contains(c.PlayerId))
             .ToDictionaryAsync(c => c.PlayerId, c => c.CapHit, ct);
     }
+
+    /// <summary>
+    /// Who, among these players, is unavailable right now — one entry per
+    /// player, absent when he is fit.
+    ///
+    /// Two sources can both report the same man, so this takes the one
+    /// reported first: it is the one whose "hurt since" date is true, and a
+    /// screen showing "Knee" where the other site says "Lower Body" is not a
+    /// discrepancy worth a second row on a grid line.
+    /// </summary>
+    public static async Task<Dictionary<long, PlayerInjuryStatus>> InjuriesAsync(
+        FantasyWarriorDbContext db, IReadOnlyCollection<long> playerIds, CancellationToken ct = default)
+    {
+        if (playerIds.Count == 0) return [];
+        var rows = await db.PlayerInjuries
+            .AsNoTracking()
+            .Where(i => i.ResolvedUtc == null && playerIds.Contains(i.PlayerId))
+            .OrderBy(i => i.ReportedUtc)
+            .Select(i => new PlayerInjuryStatus(i.PlayerId, i.Status, i.InjuryType, i.ReportedUtc, i.Source))
+            .ToListAsync(ct);
+        return rows
+            .GroupBy(i => i.PlayerId)
+            .ToDictionary(g => g.Key, g => g.First());
+    }
 }
+
+/// <summary>A player's current unavailability, flattened for the API.</summary>
+public sealed record PlayerInjuryStatus(
+    long PlayerId, string Status, string? InjuryType, DateTime ReportedUtc, string Source);
 
 /// <summary>
 /// One player's regular-season counting stats. A record rather than the view

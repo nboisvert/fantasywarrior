@@ -19,6 +19,39 @@
 > guess matched live DOM on the first try; Rotowire's (`div.news-item`) did
 > not (confirmed via a live `news-sync` run, 0 items), so `RotowireInjuryScraper`
 > has extra diagnostic logging to reveal the real structure from the next run.
+>
+> **v3 (2026-08-04) — both pages re-captured, and both scrapers were wrong.**
+> The captures now live as test fixtures
+> (`backend/FantasyWarrior.Core.Tests/Fixtures/{fantasysp,rotowire}-injuries.html`)
+> and every claim below about page structure is asserted against them, so the
+> day a site restructures, a test fails instead of a screen quietly emptying.
+> What the re-capture corrected, and what the guide above still gets wrong:
+>
+> - **FantasySP columns are `#, Player, Team, Pos, Injury, News` — six, not
+>   five.** The scraper read indices 3 and 4, so every player's *position* was
+>   stored as his injury and the injury as the news, shipping headlines like
+>   `"Troy Terry (RW): Hip"` to production. Nothing threw. The parser now
+>   requires six cells and a player link before it will read a row.
+> - **The team header is an `<h6>`, not the `<h5>` the guide guessed** — which
+>   is why `currentTeam` was always null. It is no longer read at all: players
+>   are identified by name, and the team we already hold beats the one a news
+>   page prints.
+> - **Rotowire's injury blocks are `div.news-update.is-injured`**, and the
+>   `is-injured` class is the site's own answer to "is this man hurt". It
+>   matters: Connor Bedard's block is headlined *"Signs five-year contract"*
+>   with an injury field of *"Shoulder"*. Reading the headline would have
+>   called him healthy.
+> - **`news-update__inj` carries the injury type**, `news-update__news` the
+>   factual paragraph, and **`news-update__timestamp` a real per-item date**
+>   ("August 1, 2026") — contrary to the earlier note that this source has
+>   none. All three were being thrown away. `HasReliablePublishedDate` is now
+>   `true` for it.
+> - **`news-update__analysis` is still never touched.** On this page it holds
+>   nothing but a "subscribe now" teaser anyway, and it is the one thing the
+>   terms actually forbid storing.
+>
+> Both scraped sources are now declared `IsInjuryList: true`, which is what
+> lets `news-sync` keep `PlayerInjuries` in step — see data-model.md.
 
 ---
 

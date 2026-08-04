@@ -86,10 +86,21 @@ public static class PlayerEndpoints
                     .OrderBy(c => c.Season)
                     .FirstOrDefaultAsync();
 
+            // Unavailable right now, per the news sources. Same lookup the Team
+            // grid uses, so the card and the row it was opened from cannot
+            // disagree about the same player.
+            var injury = (await Queries.InjuriesAsync(db, [playerId])).GetValueOrDefault(playerId);
+
             return Results.Ok(new
             {
                 id = player.PlayerId,
                 name = player.FullName,
+                injury = injury is null ? null : new
+                {
+                    status = injury.Status,
+                    injuryType = injury.InjuryType,
+                    since = injury.ReportedUtc,
+                },
                 position = player.Position,
                 team = player.TeamAbbrev,
                 status = player.Status,
@@ -182,6 +193,33 @@ public static class PlayerEndpoints
                 })
                 .ToListAsync();
 
+            return Results.Ok(rows);
+        });
+
+        // News tab: everything we hold about one player, whatever the source —
+        // a contract signing and a knee are both things his GM wants to know,
+        // and splitting them into two tabs would hide whichever he did not
+        // think to open. Newest first; the body is the factual paragraph, never
+        // Rotowire's subscription-locked ANALYSIS.
+        app.MapGet("/api/players/{playerId:long}/news", async (
+            long playerId, int? limit, FantasyWarriorDbContext db) =>
+        {
+            var take = Math.Clamp(limit ?? 20, 1, 50);
+            var rows = await db.NewsItems
+                .AsNoTracking()
+                .Where(n => n.PlayerId == playerId)
+                .OrderByDescending(n => n.PublishedUtc)
+                .Take(take)
+                .Select(n => new
+                {
+                    id = n.NewsItemId.ToString(),
+                    source = n.Source,
+                    headline = n.Headline,
+                    body = n.Body,
+                    url = n.Url,
+                    publishedUtc = n.PublishedUtc,
+                })
+                .ToListAsync();
             return Results.Ok(rows);
         });
 

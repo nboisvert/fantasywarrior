@@ -253,3 +253,33 @@ export const LockIcon = ({ size = 20, className }: IconProps) => (
     <path d="M7 11V7a5 5 0 0 1 10 0v4" />
   </Icon>
 );
+
+/** Lucide `cross` — the infirmary sign. Marks a player who is hurt, on the
+ * Team grid and on his card. Filled rather than stroked at badge sizes, so it
+ * still reads as a cross at 10px where a 2px outline turns to mush. */
+export const CrossIcon = ({ size = 20, className }: IconProps) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    className={className}
+    aria-hidden="true"
+  >
+    <path d="M11 2a2 2 0 0 0-2 2v5H4a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h5v5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2v-5h5a2 2 0 0 0 2-2v-2a2 2 0 0 0-2-2h-5V4a2 2 0 0 0-2-2z" />
+  </svg>
+);
+
+/** Lucide `gavel` — a player banned from playing rather than hurt. Same rose
+ * as the cross (he is out either way), different symbol, because telling a GM
+ * his defenceman is injured when he was suspended for slashing is simply
+ * wrong. See InjuryClassifier on the backend, which decides which one. */
+export const GavelIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="m14.5 12.5-8 8a2.119 2.119 0 1 1-3-3l8-8" />
+    <path d="m16 16 6-6" />
+    <path d="m8 8 6-6" />
+    <path d="m9 7 8 8" />
+    <path d="m21 11-8-8" />
+  </Icon>
+);

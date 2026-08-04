@@ -20,13 +20,16 @@
 import { Fragment, useEffect, useState } from "react";
 import { api, formatCap, formatShortName, posGroup, posGroupClass } from "../api";
 import type {
-  LeagueDetail, LineupDto, LineupEntry, PlayerPeriods as PlayerPeriodsDto, PlayerSeasonStatsRow,
+  InjuryFields, LeagueDetail, LineupDto, LineupEntry, PlayerPeriods as PlayerPeriodsDto,
+  PlayerSeasonStatsRow,
 } from "../api";
+
+type InjuryStatus = NonNullable<InjuryFields["injuryStatus"]>;
 import { LoadingLogo } from "../components/LoadingLogo";
 import { PlayerCard } from "../components/PlayerCard";
 import {
   ArrowDownIcon, ArrowLeftIcon, ArrowUpIcon, ChevronDownIcon, CircleCheckIcon, CircleIcon, InfoIcon,
-  CalendarIcon,
+  CalendarIcon, CrossIcon, GavelIcon,
 } from "../components/Icons";
 
 /** Slots used per position group, for the "9/9 F · 4/4 D · 1/1 G" counter. */
@@ -204,6 +207,24 @@ function LineupPicker({
   );
 }
 
+/** The infirmary mark, sitting immediately after the name — which is what
+ * squeezes the name into an ellipsis when the column runs short (2026-08-04,
+ * per Nick: the mark matters more than the last letters of a surname).
+ *
+ * Two symbols, one colour: hurt and suspended both keep a player out of the
+ * lineup, so both rows carry the same rose bar, but a gavel never claims a
+ * suspended man is injured. The kind is decided server-side — see
+ * InjuryClassifier — so this only picks a glyph. */
+function InjuryMark({ status, type }: { status: InjuryStatus; type: string | null }) {
+  const kind = status === "Suspended" ? "Suspended" : "Injured";
+  const label = type ? `${kind} — ${type}` : kind;
+  return (
+    <span className="stats-injury" role="img" aria-label={label} title={label}>
+      {status === "Suspended" ? <GavelIcon size={11} /> : <CrossIcon size={10} />}
+    </span>
+  );
+}
+
 /** "Nov 10" */
 const shortDate = (iso: string) =>
   new Date(`${iso}T12:00:00Z`).toLocaleDateString(undefined, {
@@ -306,6 +327,10 @@ interface PlayerRow {
   shotsAgainst: number;
   gaa: number | null;
   svPct: number | null;
+  // Out right now, per the news sources — null when he is fit. Not a stat, so
+  // it sorts nowhere and totals nothing; it only marks the row.
+  injuryStatus: InjuryStatus | null;
+  injuryType: string | null;
   // Cap hit — the contract figure for the *league's* season, never a later
   // year's. Contracts run years ahead (Eichel is $10M in 2025-26 and $13.5M
   // from 2026-27), so taking the newest one on file made this disagree with
@@ -528,7 +553,10 @@ function RosterGrid({
               const lineupEntry = lineupByPlayer?.get(r.id);
               return (
               <Fragment key={r.id}>
-              <tr>
+              {/* The rose edge rides the sticky identity cell, so it stays on
+                  screen while the twenty numeric columns scroll under it —
+                  a border on the row itself would scroll away with them. */}
+              <tr className={r.injuryStatus ? "stats-row-out" : undefined}>
                 <td className="stats-col-player">
                   {/* Departed players have no lineup entry, so this whole
                       control is absent for them rather than shown inert. */}
@@ -545,6 +573,7 @@ function RosterGrid({
                   )}
                   <button type="button" className="stats-player-btn" onClick={() => onOpenPlayer(r.id)}>
                     <span className="stats-player-name">{formatShortName(r.name)}</span>
+                    {r.injuryStatus && <InjuryMark status={r.injuryStatus} type={r.injuryType} />}
                   </button>
                   <button
                     type="button"
@@ -838,6 +867,11 @@ export function Stats({
       shotsAgainst: p.shotsAgainst,
       gaa: isGoalie ? formatGaa(p.goalsAgainst, p.gamesPlayed) : null,
       svPct: isGoalie ? formatSvPct(p.saves, p.shotsAgainst) : null,
+      // `?? null` rather than trusting the field: same deploy-skew guard as
+      // the pool columns above — an API that predates these sends undefined,
+      // and `undefined` would make the mark render for everybody.
+      injuryStatus: p.injuryStatus ?? null,
+      injuryType: p.injuryType ?? null,
       capHit: p.capHit,
       costPerPoint: p.capHit != null && nhlPoints > 0 ? p.capHit / nhlPoints : null,
     };

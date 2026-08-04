@@ -447,6 +447,7 @@ public static class LineupEndpoints
                 .Where(v => v.TeamId == team.TeamId)
                 .ToDictionaryAsync(v => v.RosterSpotId);
             var engagedPlayers = (await TradeValidation.EngagedAssetsAsync(db, league.LeagueId)).PlayerIds;
+            var injuries = await Queries.InjuriesAsync(db, playerIds);
 
             // One row shape, two lists — the grids are identical by design, so
             // the projection has to be too.
@@ -455,6 +456,7 @@ public static class LineupEndpoints
                 players.TryGetValue(spot.PlayerId, out var p);
                 season.TryGetValue(spot.PlayerId, out var t);
                 spotTotals.TryGetValue(spot.RosterSpotId, out var st);
+                injuries.TryGetValue(spot.PlayerId, out var inj);
                 return new
                 {
                     id = spot.PlayerId,
@@ -467,6 +469,14 @@ public static class LineupEndpoints
                     // greys these out instead of letting a GM build an offer
                     // the server will refuse.
                     engaged = engagedPlayers.Contains(spot.PlayerId),
+                    // Injured or suspended right now, per the news sources. The
+                    // grid marks the row; the type is what the tooltip says.
+                    // Deliberately carried on the row rather than fetched
+                    // separately: it is one dictionary lookup, and a second
+                    // round trip would let the marker arrive after the number
+                    // it belongs to.
+                    injuryStatus = inj?.Status,
+                    injuryType = inj?.InjuryType,
                     isGoalie = spot.PositionGroup == "G",
                     gamesPlayed = t?.GamesPlayed ?? 0,
                     goals = t?.Goals ?? 0,

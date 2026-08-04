@@ -167,8 +167,11 @@ switch (job)
         return await new NewsSyncJob(db).RunAsync(
         [
             new NewsSource("rotowire_rss", ct => rss.GetItemsAsync(rotoRss, ct), HasReliablePublishedDate: true),
-            new NewsSource("rotowire_html", ct => rotowire.GetInjuryItemsAsync(rotoInj, ct), HasReliablePublishedDate: false),
-            new NewsSource("fantasysp", ct => fantasySp.GetInjuryItemsAsync(fspUrl, ct), HasReliablePublishedDate: false),
+            // Rotowire's injuries page does print a per-item date
+            // (news-update__timestamp) — the first version of the scraper
+            // simply did not read it.
+            new NewsSource("rotowire_html", ct => rotowire.GetInjuryItemsAsync(rotoInj, ct), HasReliablePublishedDate: true, IsInjuryList: true),
+            new NewsSource("fantasysp", ct => fantasySp.GetInjuryItemsAsync(fspUrl, ct), HasReliablePublishedDate: false, IsInjuryList: true),
         ]);
     }
 

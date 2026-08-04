@@ -30,6 +30,16 @@ public sealed class NewsItem
 
     public required string Headline { get; set; }
 
+    /// <summary>
+    /// The factual paragraph under the headline — what makes a player's news
+    /// tab worth opening rather than a list of five-word titles. Null for a
+    /// source that publishes none (plain RSS).
+    ///
+    /// Never Rotowire's "ANALYSIS" block: that is subscription-locked opinion,
+    /// and storing it would be the one thing their terms actually forbid.
+    /// </summary>
+    public string? Body { get; set; }
+
     public string? Url { get; set; }
 
     /// <summary>Best-effort name match against our player table; null when unmatched.</summary>
