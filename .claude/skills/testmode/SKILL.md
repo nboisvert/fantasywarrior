@@ -32,16 +32,23 @@ l'API NHL : les 51 264 lignes de la saison sont déjà en base.
 
 ## Environnement
 
-Toutes les commandes se lancent depuis `C:\Nick\fw` avec :
+Toutes les commandes se lancent depuis `C:\Nick\fw`. Il faut une chaîne de
+connexion, prise de `backend/FantasyWarrior.Api/appsettings.Local.json` :
 
-```bash
-export GOOGLE_APPLICATION_CREDENTIALS="C:\\Nick\\secrets\\fantasywarriordb-sa.json"
-export FIRESTORE_PROJECT_ID=fantasywarriordb
+```powershell
+$conn = (Get-Content backend\FantasyWarrior.Api\appsettings.Local.json -Raw |
+         ConvertFrom-Json).ConnectionStrings.FantasyWarrior
+$env:AZURE_SQL_CONNECTION = $conn
 ```
 
-La date simulée vit dans le document Firestore `simulation/clock`. **C'est la
-seule source de vérité** — jobs, API locale et API déployée la lisent tous. Ce
-fichier ne la contient pas et ne doit jamais prétendre la connaître.
+La date simulée vit dans la table **`SimulationState`**, une seule ligne.
+**C'est la seule source de vérité** — jobs, API locale et API déployée la lisent
+toutes. Ce fichier ne la contient pas et ne doit jamais prétendre la connaître.
+
+> Ce skill décrivait Firestore jusqu'au 2026-08-04. La migration vers Azure SQL
+> (2026-08-02) a supprimé les variables `GOOGLE_APPLICATION_CREDENTIALS` et
+> `FIRESTORE_PROJECT_ID`, le document `simulation/clock`, **et les quotas de
+> lecture** qui justifiaient de compter les semaines à l'avance.
 
 ---
 
@@ -85,9 +92,14 @@ Le job s'arrête **à chaque fin de semaine** traversée : c'est ce qui fait que
 échanges d'une semaine s'exécutent à sa frontière et pas à la fin du saut.
 
 **Avant d'avancer de plus d'une semaine**, préviens Nick :
-- une semaine coûte ~2 000 lectures Firestore, un mois ~15 000, une saison
-  complète dépasse le quota gratuit journalier de 50 000 ;
-- s'il y a des échanges acceptés, ils partiront à la **première** frontière.
+- s'il y a des **échanges acceptés**, ils partiront à la **première** frontière
+  traversée, pas à la fin du saut. Vérifie-les d'abord et dis lesquels — un
+  échange accepté avant que le plafond soit appliqué peut mettre une équipe
+  hors limites, et l'exécution n'est pas un point de contrôle ;
+- **la simulation n'avance que.** Revenir en arrière exige un `init` complet.
+
+Le coût, lui, n'est plus un argument : depuis Azure SQL il n'y a plus de quota
+de lectures à ménager.
 
 **Après l'avance**, rapporte : la nouvelle date, les semaines banquées, les
 échanges exécutés, et le classement mis à jour. Puis ajoute une ligne au journal
@@ -151,7 +163,10 @@ en base, donc les rejouer serait du gaspillage.
 - **Le jour de grâce.** Une semaine n'est banquée qu'un jour après sa fin, pour
   laisser passer les corrections tardives de feuilles de match NHL. Avancer
   jusqu'au dimanche score la semaine sans la banquer; il faut aller au lundi.
-- **L'API déployée** doit être à jour (déploiement Cloud Run) pour que l'app
+- **L'API déployée** (Azure Container Apps) doit être à jour pour que l'app
   mobile respecte la date simulée. Sinon elle croit être au temps réel.
+- **La base serverless se met en pause** après une heure d'inactivité : la
+  première commande échoue à la connexion, et la reprise prend de dix secondes
+  à deux minutes. Réessayer suffit — les jobs ont `EnableRetryOnFailure`.
 - **La simulation est globale.** Elle s'applique aux deux ligues et à tous les
   utilisateurs, pas seulement à celle qu'on teste.

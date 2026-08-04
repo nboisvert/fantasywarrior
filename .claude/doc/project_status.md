@@ -23,9 +23,9 @@
 - **Les Mordus** is the live league — join code `Q7ZJ4G`, season `20252026`,
   14 GMs, 9F/4D/1G active, 23-35 roster, $115M cap, scoring 1/1/2/1/0
   (goal/assist/goalie win/OT loss/shutout). See [mordus-pool.md](mordus-pool.md).
-- **A season replay is running.** The simulated date is 2025-12-15. Everything in
-  the app believes it is that day — check `sim-clock` before treating any
-  date-related behaviour as a bug. See [testmode.md](testmode.md).
+- **A season replay is running.** The simulated date is 2026-01-19 (week 16).
+  Everything in the app believes it is that day — check `sim-clock` before
+  treating any date-related behaviour as a bug. See [testmode.md](testmode.md).
 
 **Built and working**: player and stats services, leagues/teams/multi-tenancy,
 weekly-lineup scoring with banked points, trades (propose → accept/decline →
