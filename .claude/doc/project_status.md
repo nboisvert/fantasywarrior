@@ -262,6 +262,22 @@ was taken — not a record of what changed.
   `PlayerInjuries` with its `ReportedUtc`/`ResolvedUtc`; the headline does not
   deserve to. A source returning nothing is treated as broken, never as "nobody
   is hurt" — a site rewrite would otherwise clear the league in one silent run.
+- **2026-08-04 — Age retires a headline, never a condition.** The 30-day
+  retention prune now skips injury-list sources entirely. Once the Rotowire
+  timestamp was read properly, Troy Terry's hip — reported 18 June, still out —
+  fell past the cutoff and was deleted every night and re-inserted on the next
+  run, taking the one item that explained the mark on his row with it. An
+  injury list already has a truer deletion rule: the source stopped listing him.
+- **2026-08-04 — A news source's name is matched through `PlayerNameIndex`,
+  which falls back to first-initial-plus-surname.** player-sync stores a player
+  as the NHL currently publishes him, and a veteran between contracts is
+  published as "R. Gudas" — so seven real NHL players (Gudas, Arvidsson,
+  Jensen, Schwartz, Bogosian, MacEwen, Pitlick) matched nothing and could never
+  be marked injured, silently, because an unmatched name is stored with a null
+  PlayerId rather than failing. The fallback only uses keys that are unique:
+  the league has two Sebastian Ahos, so "s aho" is not a key. A wrong match
+  puts another man's injury on a GM's roster, which is worse than no match.
+  news-sync now names every unmatched player in its output.
 - **2026-08-04 — Injuries are reconciled per source, never across sources.**
   Rotowire dropping a player says nothing about whether FantasySP still lists
   him, and letting one site's silence resolve the other's report is how a flag
@@ -284,6 +300,17 @@ was taken — not a record of what changed.
   string like everything else, so anyone who knows a handle can read that
   person's private threads. For a pool of friends that is a tolerable trade,
   but it is the first place where the gap exposes content rather than actions.
+- **FantasySP started answering the job's HttpClient with 403** (2026-08-04),
+  from an IP and User-Agent that curl got 200 on seconds later; Accept headers
+  and HTTP/2 changed nothing, so it is the client fingerprint. Deliberately not
+  chased — dressing the client up as a browser would circumvent an access
+  control the site chose to put up. Cost is bounded: news-sync treats a failed
+  fetch as "unknown", so FantasySP's injuries stop updating rather than
+  vanishing, and Rotowire covers the same ground. Worth re-checking whether it
+  also 403s from a GitHub runner, which is a different IP; it worked from there
+  on 2026-08-02. **One consequence today: Charlie McAvoy's suspension is the
+  only Mordus case of the gavel icon, and it comes from FantasySP alone — so
+  nothing in the league currently exercises that path.**
 - **Injuries are real-world, the replay is not.** The scrapers read today's
   pages, so during the 2025-26 replay the Team grid marks players who are hurt
   in *August 2026* against a roster that believes it is January. Harmless in

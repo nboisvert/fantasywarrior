@@ -94,6 +94,13 @@ public sealed class RotowireInjuryScraper(HttpClient http)
     {
         var blocks = doc.DocumentNode.SelectNodes(ClassXPath(ItemClass, relative: false));
         var items = new List<NewsFeedItem>();
+        // The page carries several notes about one player — Connor Bedard's
+        // shoulder and his contract extension are two blocks with the same
+        // injury field. An item is identified by the player here, so only the
+        // first survives, and the page is newest-first, so that is his current
+        // situation. Emitting both would be two rows claiming to be the same
+        // one, which the unique index refuses outright.
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var block in blocks ?? Enumerable.Empty<HtmlNode>())
         {
             if (!HasClass(block, InjuredClass))
@@ -109,6 +116,9 @@ public sealed class RotowireInjuryScraper(HttpClient http)
                 continue;
 
             var href = playerLink.GetAttributeValue("href", null);
+            if (!seen.Add(href ?? player))
+                continue;
+
             var url = href is null ? pageUrl : new Uri(new Uri(pageUrl), href).ToString();
             var headlineText = TextOf(block, HeadlineClass);
             var injury = TextOf(block, InjuryClass);

@@ -92,6 +92,17 @@ static string CurrentSeason()
     return $"{start}{start + 1}";
 }
 
+// An identifiable User-Agent, per the vendor guide — never a browser's, since
+// the point is that these sites can see who is calling.
+//
+// FantasySP began answering this client with 403 on 2026-08-04, from an IP and
+// a User-Agent that curl got 200 on seconds later; adding Accept headers and
+// HTTP/2 changed nothing, so it is the client fingerprint, not the request.
+// Deliberately not chased further — dressing this up as a browser would be
+// circumventing an access control the site chose to put up. The scraper
+// already treats a failed fetch as "unknown" rather than "nobody is hurt", so
+// the cost of being turned away is that FantasySP's injuries stop updating,
+// not that they vanish.
 static HttpClient NewHttp()
 {
     var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };

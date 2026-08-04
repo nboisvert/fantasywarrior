@@ -68,6 +68,11 @@ public sealed class FantasySpScraper(HttpClient http)
 
         var items = new List<NewsFeedItem>();
         var fetchedNow = DateTimeOffset.UtcNow;
+        // One item per player: a man traded mid-injury can appear under both
+        // his old team's table and his new one, and an item is identified by
+        // the player here, so two would be two rows claiming to be the same
+        // one — which the unique index refuses outright.
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var row in doc.DocumentNode.SelectNodes("//table//tr") ?? Enumerable.Empty<HtmlNode>())
         {
@@ -91,6 +96,9 @@ public sealed class FantasySpScraper(HttpClient http)
                 continue;
 
             var href = playerLink.GetAttributeValue("href", "");
+            if (!seen.Add(href))
+                continue;
+
             var url = new Uri(new Uri(pageUrl), href).ToString();
             var injury = Text(cells[4]);
             var news = Text(cells[5]);

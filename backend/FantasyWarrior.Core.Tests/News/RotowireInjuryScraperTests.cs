@@ -133,6 +133,37 @@ public class RotowireInjuryScraperTests
         Assert.Equal(Fallback, Assert.Single(RotowireInjuryScraper.Parse(html, PageUrl, Fallback)).PublishedUtc);
     }
 
+    /// <summary>
+    /// The live page really does carry two blocks for Connor Bedard — his
+    /// shoulder and his contract extension — and an item is identified by the
+    /// player, so two would be two rows claiming to be the same one. The
+    /// unique index refuses that outright, which is how it was found: the
+    /// first sync after the re-key died on a duplicate key.
+    /// </summary>
+    [Fact]
+    public void Parse_KeepsOnlyTheNewestBlockPerPlayer()
+    {
+        const string html = """
+            <html><body>
+              <div class="news-update is-injured">
+                <a class="news-update__player-link" href="/hockey/player/connor-bedard-6916">Connor Bedard</a>
+                <div class="news-update__headline">Signs five-year contract</div>
+                <div class="news-update__inj">Shoulder</div>
+                <div class="news-update__timestamp">July 18, 2026</div>
+              </div>
+              <div class="news-update is-injured">
+                <a class="news-update__player-link" href="/hockey/player/connor-bedard-6916">Connor Bedard</a>
+                <div class="news-update__headline">Set for four-month absence</div>
+                <div class="news-update__inj">Shoulder</div>
+                <div class="news-update__timestamp">July 8, 2026</div>
+              </div>
+            </body></html>
+            """;
+        var item = Assert.Single(RotowireInjuryScraper.Parse(html, PageUrl, Fallback));
+        // Newest-first on the page, so the first block is his current situation.
+        Assert.Equal("Connor Bedard: Signs five-year contract", item.Headline);
+    }
+
     [Fact]
     public void Parse_ReturnsNothingForAPageItDoesNotRecognise()
     {

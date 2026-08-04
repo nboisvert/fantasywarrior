@@ -101,6 +101,22 @@ public class FantasySpScraperTests
         Assert.Empty(FantasySpScraper.Parse(html, PageUrl));
     }
 
+    /// <summary>A man traded mid-injury can sit under both his old team's
+    /// table and his new one. Same player, same key, one row.</summary>
+    [Fact]
+    public void Parse_KeepsOnlyOneRowPerPlayer()
+    {
+        const string html = """
+            <html><body><table>
+              <tr><td>1</td><td><a href="/nhl_player_news/Troy_Terry/">Troy Terry</a></td>
+                  <td>ANA</td><td>RW</td><td>Hip</td><td>Out for the opener.</td></tr>
+              <tr><td>1</td><td><a href="/nhl_player_news/Troy_Terry/">Troy Terry</a></td>
+                  <td>VAN</td><td>RW</td><td>Hip</td><td>Out for the opener.</td></tr>
+            </table></body></html>
+            """;
+        Assert.Single(FantasySpScraper.Parse(html, PageUrl));
+    }
+
     [Fact]
     public void Parse_ReturnsNothingForAPageItDoesNotRecognise()
     {

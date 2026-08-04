@@ -43,17 +43,22 @@ public sealed class NewsSyncJob(FantasyWarriorDbContext db)
 
         // Name matching is done in memory against the whole player list: it is
         // ~1,500 rows and every headline needs it, so one read beats a query
-        // per item.
+        // per item. PlayerNameIndex owns the rules — including the initial
+        // fallback that a veteran between contracts needs, since we store him
+        // as "R. Gudas" while every news site writes "Radko Gudas".
         var players = await db.Players
             .Select(p => new { p.PlayerId, p.FirstName, p.LastName })
             .ToListAsync(ct);
-        var byName = players
-            .GroupBy(p => NameNormalizer.Normalize($"{p.FirstName} {p.LastName}"))
-            .Where(g => g.Count() == 1)
-            .ToDictionary(g => g.Key, g => g.First().PlayerId);
+        var names = new PlayerNameIndex(players.Select(p => (p.PlayerId, p.FirstName, p.LastName)));
 
         var now = DateTime.UtcNow;
         int inserted = 0, updated = 0;
+        // Named at the end rather than counted. An unmatched name is the one
+        // failure this job has that nothing else reveals: the item is stored
+        // with a null PlayerId, no screen shows it, and an injured player
+        // simply never gets marked. Printing who was missed is what makes that
+        // reviewable from a job log.
+        var unmatched = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var source in sources)
         {
@@ -71,9 +76,9 @@ public sealed class NewsSyncJob(FantasyWarriorDbContext db)
                     .FirstOrDefaultAsync(n => n.Source == source.Name && n.ExternalKey == key, ct);
 
                 var playerName = item.PlayerNameHint ?? PlayerNameFromHeadline(item.Headline);
-                var playerId = playerName is null
-                    ? null
-                    : byName.TryGetValue(NameNormalizer.Normalize(playerName), out var id) ? id : (long?)null;
+                var playerId = names.Resolve(playerName);
+                if (playerName is not null && playerId is null)
+                    unmatched.Add(playerName);
 
                 if (source.IsInjuryList && playerId is not null)
                     listed.Add(new ListedInjury(
@@ -119,10 +124,24 @@ public sealed class NewsSyncJob(FantasyWarriorDbContext db)
                 Console.WriteLine($"    ! {source.Name} returned nothing — leaving its injuries as they stand rather than clearing them");
         }
 
+        // Age retires a *headline*, which stops being interesting once it is a
+        // month old. It says nothing about a *condition*: Troy Terry's hip was
+        // reported on 18 June and he is still out, so pruning by date deleted
+        // him every night and re-inserted him on the next run — churn, and his
+        // card lost the one item explaining the mark on his row. An injury
+        // list has its own deletion rule, and it is the true one: the source
+        // stopped listing him. See ReconcileInjuriesAsync.
+        var injurySources = sources.Where(s => s.IsInjuryList).Select(s => s.Name).ToList();
         var cutoff = now.AddDays(-RetentionDays);
-        var pruned = await db.NewsItems.Where(n => n.PublishedUtc < cutoff).ExecuteDeleteAsync(ct);
+        var pruned = await db.NewsItems
+            .Where(n => n.PublishedUtc < cutoff && !injurySources.Contains(n.Source))
+            .ExecuteDeleteAsync(ct);
 
         Console.WriteLine($"\n{inserted} new, {updated} updated, {pruned} pruned past {RetentionDays} days.");
+        if (unmatched.Count > 0)
+            Console.WriteLine(
+                $"{unmatched.Count} name(s) matched no player, so nothing about them can be shown: " +
+                string.Join(", ", unmatched));
         return 0;
     }
 
