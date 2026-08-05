@@ -27,8 +27,8 @@
   (win/loss/OT loss). See [mordus-pool.md](mordus-pool.md). Rebuilt 2026-08-05
   once the import's 44 unmatched entries were resolved, so the rosters now match
   reality.
-- **A season replay is running.** The simulated date is 2025-10-20 (week 3
-  starting; weeks 1 and 2 banked), restarted from scratch on 2026-08-05 so the
+- **A season replay is running.** The simulated date is 2025-11-17 (week 7
+  under way; weeks 1-6 banked), restarted from scratch on 2026-08-05 so the
   Équipe slot scores from week 1. **Join code `TKW6UR`** — the wipe-and-reseed
   issues a new one, and the old `P7R9CT` no longer resolves.
   Everything in the app believes it is that day — check `sim-clock` before
