@@ -14,7 +14,7 @@
 // this screen receives is safe to render.
 
 import { useEffect, useMemo, useState } from "react";
-import { api, topPlayersByNhlPoints } from "../api";
+import { api, topPlayersByNhlPoints, tradeRating } from "../api";
 import type { LeagueDetail, Trade, TradePlayer } from "../api";
 import { ArrowLeftRightIcon } from "../components/Icons";
 import { CreateTradeSheet } from "../components/CreateTradeSheet";
@@ -180,11 +180,15 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
 
   /** The collapsed card's own pitch — expanding is no longer required to see
    * where a trade's vote stands (2026-08-03, per Nick). Three states: a
-   * flashy nudge when the viewer can vote and hasn't; the plurality leader
-   * once there's a real vote to report; a quiet "no votes yet" when a party
-   * to the trade (who can never vote themselves) is looking at one nobody
-   * has weighed in on yet. Tapping any of them expands the card, same as
-   * tapping the teams themselves. */
+   * flashy nudge when the viewer can vote and hasn't; the QB-rating-style
+   * winner call once there's a real vote to report; a quiet "no votes yet"
+   * when a party to the trade (who can never vote themselves) is looking at
+   * one nobody has weighed in on yet. Tapping any of them expands the card,
+   * same as tapping the teams themselves.
+   *
+   * A small pill, not a full-width strip (2026-08-05, per Nick: this is a
+   * redundant shortcut — tapping the teams-split above already expands the
+   * card — so it shouldn't cost more than a glance). */
   const voteTeaser = (trade: Trade) => {
     if (trade.status !== "processed") return null;
     const votes = trade.votes;
@@ -206,15 +210,17 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
       );
     }
 
-    const entries = [
-      { label: trade.proposerTeamName, count: votes.proposer },
-      { label: "Fair trade", count: votes.fair },
-      { label: trade.counterpartyTeamName, count: votes.counterparty },
-    ];
-    const leader = entries.reduce((best, e) => (e.count > best.count ? e : best));
+    const { winner, rating } = tradeRating(votes);
+    const winnerName = winner === "proposer" ? trade.proposerTeamName : winner === "counterparty" ? trade.counterpartyTeamName : null;
     return (
       <button type="button" className="trade-vote-teaser result" onClick={() => toggleExpanded(trade.id)}>
-        <strong>{leader.label}</strong> won · {leader.count} of {votes.total} vote{votes.total === 1 ? "" : "s"}
+        {winnerName ? (
+          <>
+            <strong>{winnerName}</strong> won ({rating}) out of {votes.total} vote{votes.total === 1 ? "" : "s"}
+          </>
+        ) : (
+          <>Fair trade (50) out of {votes.total} vote{votes.total === 1 ? "" : "s"}</>
+        )}
       </button>
     );
   };
@@ -225,11 +231,12 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
    * (accepted) once open. */
   const historyCard = (trade: Trade) => {
     const isOpen = expanded.has(trade.id);
+    const teaser = !isOpen ? voteTeaser(trade) : null;
     return (
       <li key={trade.id} className="card trade-row">
         {cardHead(trade)}
         {teamsSplitToggle(trade)}
-        {!isOpen && voteTeaser(trade)}
+        {teaser && <div className="trade-vote-teaser-wrap">{teaser}</div>}
         {isOpen && (
           <div className="trade-row-expanded">
             {trade.status === "processed" ? (

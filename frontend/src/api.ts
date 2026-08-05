@@ -623,3 +623,29 @@ export function topPlayersByNhlPoints(
     .sort((a, b) => (pointsById.get(b.id) ?? 0) - (pointsById.get(a.id) ?? 0))
     .slice(0, n);
 }
+
+export interface TradeRating {
+  /** null only for a dead-even split (rating exactly 50) — nobody "won". */
+  winner: "proposer" | "counterparty" | null;
+  /** 50–100, always scoped to the winner: how convincingly the crowd sided
+   * with them, never how badly the other side "lost". A QB-rating-style
+   * single number rather than three buckets to compare by eye. */
+  rating: number;
+}
+
+/** Collapses the proposer/fair/counterparty vote buckets into one QB-rating-
+ * style number. A "fair" vote is a vote that both sides did equally well, so
+ * it's split half a point to each side rather than sitting in its own
+ * bucket — the same weighting either team's raw vote count already gets,
+ * just extended to the option that isn't really a third side. Whichever
+ * side ends up with more weight "won"; their share of the total is the
+ * rating. An exact tie (including an all-fair vote) is 50 with no winner. */
+export function tradeRating(votes: TradeVoteTally): TradeRating {
+  if (votes.total === 0) return { winner: null, rating: 50 };
+  const proposerScore = votes.proposer + votes.fair / 2;
+  const counterpartyScore = votes.counterparty + votes.fair / 2;
+  if (proposerScore === counterpartyScore) return { winner: null, rating: 50 };
+  const winner = counterpartyScore > proposerScore ? "counterparty" : "proposer";
+  const rating = Math.round((Math.max(proposerScore, counterpartyScore) / votes.total) * 100);
+  return { winner, rating };
+}

@@ -21,7 +21,7 @@
 // past-trades list).
 
 import { useState } from "react";
-import { api } from "../api";
+import { api, tradeRating } from "../api";
 import type { Trade } from "../api";
 import { CockcoinReward } from "./CockcoinReward";
 import "./TradeVoteWidget.css";
@@ -96,8 +96,23 @@ export function TradeVoteWidget({
       ? null
       : options.reduce((best, o) => (countFor(o) > countFor(best) ? o : best)).key;
 
+  const rating = votes != null && votes.total > 0 ? tradeRating(votes) : null;
+  const ratingWinnerName =
+    rating?.winner === "proposer" ? trade.proposerTeamName : rating?.winner === "counterparty" ? trade.counterpartyTeamName : null;
+
   return (
     <div className="tvw">
+      {rating && votes && (
+        <div className="tvw-rating">
+          <span className="tvw-rating-value">{rating.rating}</span>
+          <div className="tvw-rating-meta">
+            <span className="tvw-rating-caption">{ratingWinnerName ? `${ratingWinnerName} won` : "Fair trade"}</span>
+            <span className="tvw-rating-sub">
+              {votes.total} vote{votes.total === 1 ? "" : "s"}
+            </span>
+          </div>
+        </div>
+      )}
       <span className="tvw-label">Who won the trade?</span>
       <div className={`tvw-options${voting ? " saving" : ""}`}>
         {options.map((opt) => {

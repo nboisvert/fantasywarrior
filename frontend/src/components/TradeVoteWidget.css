@@ -5,6 +5,53 @@
   gap: 0.4rem;
 }
 
+/* ---------- trade rating badge ----------
+   Reads like an NFL QB rating: one number the crowd's votes converge to
+   (a "fair" vote splits half a point to each side — see `tradeRating` in
+   api.ts), not three buckets to compare by eye. 50 is dead-even; the
+   winning team's name sits beside it (2026-08-05, per Nick). */
+.tvw-rating {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.55rem 0.9rem;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.tvw-rating-value {
+  font-family: var(--font-display);
+  font-size: 2.1rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--ice-bright);
+  text-shadow: 0 0 14px var(--ice-glow);
+}
+
+.tvw-rating-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.tvw-rating-caption {
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tvw-rating-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
 /* A pull toward the widget, not just a caption above it — same accent-glow
    treatment as the app's other "look here" text (.pc-tile.accent,
    .pc-tab.active), centered so it reads as an invitation rather than a
