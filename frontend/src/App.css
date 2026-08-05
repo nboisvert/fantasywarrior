@@ -2149,14 +2149,15 @@
   border-top: 1px solid var(--border);
 }
 
-/* ---------- collapsed vote teaser ----------
+/* ---------- collapsed vote teaser (no rating yet) ----------
    A small pill under the collapsed teams-split so a trade's vote status is
    readable without opening the card (2026-08-03, per Nick) — shrunk to a
    glance-sized badge rather than a full-width 44px strip (2026-08-05, per
    Nick: it's a redundant shortcut, tapping the teams-split above already
    expands the card, so it shouldn't cost more than the awaiting-processing
-   pill does). Three states, one shared shape so they don't jump around as a
-   trade moves between them. */
+   pill does). Only the two states with no rating to show (cast/empty) use
+   this — once a trade has a rating it gets the full-width recap row below
+   instead. */
 .trade-vote-teaser-wrap {
   display: flex;
   justify-content: center;
@@ -2192,22 +2193,80 @@
   box-shadow: 0 2px 16px rgba(56, 189, 248, 0.5);
 }
 
-/* The other two are informational, not a nudge — quiet by comparison. */
-.trade-vote-teaser.result,
+/* Informational, not a nudge — quiet by comparison. */
 .trade-vote-teaser.empty {
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text-muted);
 }
 
-.trade-vote-teaser.result:hover,
 .trade-vote-teaser.empty:hover {
   border-color: var(--border-strong);
   color: var(--text);
 }
 
-.trade-vote-teaser.result strong {
+/* ---------- collapsed vote recap (has a rating) ----------
+   Center: who the crowd sided with, vote count muted. Right: the trade
+   rating itself, parked in its own fixed-width slot with an info trigger —
+   that's the number people actually look for, so it gets a stable home
+   instead of living mid-sentence (2026-08-05, per Nick). */
+.trade-vote-recap {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.trade-vote-recap-text {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
   color: var(--text);
+  font: 700 0.78rem var(--font-body);
+  text-align: center;
+  cursor: pointer;
+}
+
+.trade-vote-recap-text strong {
+  color: var(--ice-bright);
+}
+
+.trade-vote-recap-text .muted {
+  font-weight: 500;
+}
+
+.trade-vote-recap-rating {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.05rem;
+}
+
+.trade-vote-recap-rating-row {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.trade-vote-recap-rating-value {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--ice-bright);
+  text-shadow: 0 0 8px var(--ice-glow);
+}
+
+.trade-vote-recap-rating-label {
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
 }
 
 /* ---------- Weekly lineup (Team screen) ---------- */

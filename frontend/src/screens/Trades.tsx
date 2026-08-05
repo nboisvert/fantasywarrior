@@ -19,6 +19,7 @@ import type { LeagueDetail, Trade, TradePlayer } from "../api";
 import { ArrowLeftRightIcon } from "../components/Icons";
 import { CreateTradeSheet } from "../components/CreateTradeSheet";
 import { TradeVoteWidget } from "../components/TradeVoteWidget";
+import { TradeRatingInfo } from "../components/TradeRatingInfo";
 import { LoadingLogo } from "../components/LoadingLogo";
 
 const formatDateTime = (iso: string) =>
@@ -186,9 +187,13 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
    * one nobody has weighed in on yet. Tapping any of them expands the card,
    * same as tapping the teams themselves.
    *
-   * A small pill, not a full-width strip (2026-08-05, per Nick: this is a
-   * redundant shortcut — tapping the teams-split above already expands the
-   * card — so it shouldn't cost more than a glance). */
+   * A small pill, not a full-width strip, for the two states with no rating
+   * to show (2026-08-05, per Nick: this is a redundant shortcut — tapping
+   * the teams-split above already expands the card — so it shouldn't cost
+   * more than a glance). Once there's a rating to report, it gets its own
+   * full-width row: winner sentence centered, the rating itself parked on
+   * the right with an info trigger, since that's the number people will
+   * actually look for. */
   const voteTeaser = (trade: Trade) => {
     if (trade.status !== "processed") return null;
     const votes = trade.votes;
@@ -196,32 +201,50 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
     if (votes == null) {
       if (!trade.canVote) return null;
       return (
-        <button type="button" className="trade-vote-teaser cast" onClick={() => toggleExpanded(trade.id)}>
-          Cast your vote
-        </button>
+        <div className="trade-vote-teaser-wrap">
+          <button type="button" className="trade-vote-teaser cast" onClick={() => toggleExpanded(trade.id)}>
+            Cast your vote
+          </button>
+        </div>
       );
     }
 
     if (votes.total === 0) {
       return (
-        <button type="button" className="trade-vote-teaser empty" onClick={() => toggleExpanded(trade.id)}>
-          No votes yet
-        </button>
+        <div className="trade-vote-teaser-wrap">
+          <button type="button" className="trade-vote-teaser empty" onClick={() => toggleExpanded(trade.id)}>
+            No votes yet
+          </button>
+        </div>
       );
     }
 
     const { winner, rating } = tradeRating(votes);
     const winnerName = winner === "proposer" ? trade.proposerTeamName : winner === "counterparty" ? trade.counterpartyTeamName : null;
     return (
-      <button type="button" className="trade-vote-teaser result" onClick={() => toggleExpanded(trade.id)}>
-        {winnerName ? (
-          <>
-            <strong>{winnerName}</strong> won ({rating}) out of {votes.total} vote{votes.total === 1 ? "" : "s"}
-          </>
-        ) : (
-          <>Fair trade (50) out of {votes.total} vote{votes.total === 1 ? "" : "s"}</>
-        )}
-      </button>
+      <div className="trade-vote-recap">
+        <button type="button" className="trade-vote-recap-text" onClick={() => toggleExpanded(trade.id)}>
+          {winnerName ? (
+            <>
+              <strong>{winnerName}</strong> won the trade{" "}
+            </>
+          ) : (
+            <>
+              <strong>Fair trade</strong>{" "}
+            </>
+          )}
+          <span className="muted">
+            out of {votes.total} vote{votes.total === 1 ? "" : "s"}
+          </span>
+        </button>
+        <div className="trade-vote-recap-rating">
+          <div className="trade-vote-recap-rating-row">
+            <span className="trade-vote-recap-rating-value">{rating}</span>
+            <TradeRatingInfo />
+          </div>
+          <span className="trade-vote-recap-rating-label">Trade rating</span>
+        </div>
+      </div>
     );
   };
 
@@ -231,12 +254,11 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
    * (accepted) once open. */
   const historyCard = (trade: Trade) => {
     const isOpen = expanded.has(trade.id);
-    const teaser = !isOpen ? voteTeaser(trade) : null;
     return (
       <li key={trade.id} className="card trade-row">
         {cardHead(trade)}
         {teamsSplitToggle(trade)}
-        {teaser && <div className="trade-vote-teaser-wrap">{teaser}</div>}
+        {!isOpen && voteTeaser(trade)}
         {isOpen && (
           <div className="trade-row-expanded">
             {trade.status === "processed" ? (
