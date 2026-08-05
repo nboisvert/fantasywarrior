@@ -1,0 +1,60 @@
+# Players the Mordus import could not match, from .claude/doc/mordus-pool.md §2.
+#
+# 39 rows in that table, 44 names: the PDF extraction ran some pairs together
+# ("Michael Brandsegg-Nygard · Cole Reschny"), and they are split back out here.
+#
+# Both categories are invisible to player-sync by construction, not by accident:
+# it reads only /v1/roster/{team}/{season} and /v1/prospects/{team}.
+#
+# Spellings are the PDF's, deliberately — leaving them as the source wrote them
+# is what exercises the matching. The NHL publishes several of these
+# differently (Zachary for Zack, Samuel for Sam, Dmitri for Dmitriy,
+# Brandsegg-Nygård with the diacritic, Sandin-Pellikka with a hyphen).
+
+# --- unsigned free agents: on no team's roster ---
+John Klingberg
+Philipp Kurashev
+Eeli Tolvanen
+Connor Ingram
+Nick Blankenburg
+Marcus Johansson
+Reilly Smith
+Sam Montembeault
+Jonathan Drouin
+Fabian Lysell
+Zack Bolduc
+Isaac Howard
+
+# --- 2023-2025 draftees not yet on a prospect list ---
+Igor Chernyshov
+Michael Brandsegg-Nygard
+Cole Reschny
+Ethan Wyttenbach
+Tij Iginla
+Jackson Smith
+Ilya Nabokov
+Easton Cowan
+Caleb Desnoyers
+Kashawn Aitcheson
+Henry Mews
+Carter Bear
+Max Plante
+Cole Eiserman
+Jack Nesbitt
+Trey Augustine
+Calum Ritchie
+Brennan Othmann
+Alfons Freij
+Jonathan Lekkerimaki
+Brady Martin
+Braeden Cootes
+Brayden Yager
+Benjamin Kindel
+William Horcoff
+Sebastian Cossa
+Nate Danielson
+Victor Eklund
+Cayden Lindstrom
+Nikita Artamonov
+Dmitriy Simashev
+Axel Sandin Pellikka

@@ -54,6 +54,13 @@ using FantasyWarrior.Jobs.Sql;
 //     after the current one. Picks exist one year ahead and only one, which is
 //     what makes "tradable a year in advance" true without a rule saying so.
 //
+//   player-resolve [--file data/unresolved-players.txt] [--dry-run]
+//     Adds players player-sync cannot see, from a list of names. An unsigned
+//     free agent is on no roster and a fresh draftee on no prospect list, so
+//     neither endpoint the roster sync reads will ever return them. Resolves
+//     each name against the NHL search endpoint and writes only what is
+//     unambiguous — the rest is reported, never guessed.
+//
 // --- league setup ---
 //   seed-mordus [--file data/mordus-rosters.json] [--season] [--commissioner]
 //               [--cap] [--dry-run] [--no-opening-lineup]
@@ -146,6 +153,14 @@ switch (job)
             .RunAsync(int.TryParse(GetOption(args, "--limit"), out var limit) ? limit : null);
     }
 
+    case "player-resolve":
+    {
+        using var http = NewHttp();
+        await using var db = DataServiceCollectionExtensions.CreateContext();
+        return await new PlayerResolveJob(new NhlApiClient(http), db)
+            .RunAsync(GetOption(args, "--file") ?? "data/unresolved-players.txt", dryRun);
+    }
+
     case "career-sync":
     {
         using var http = NewHttp();
@@ -228,7 +243,10 @@ switch (job)
             file: GetOption(args, "--file") ?? "data/mordus-rosters.json",
             season: GetOption(args, "--season") ?? "20252026",
             commissioner: GetOption(args, "--commissioner") ?? "nick",
-            capAmount: long.TryParse(GetOption(args, "--cap"), out var cap) ? cap : 115_000_000,
+            // The league's real cap (Nick, 2026-08-05). It was seeded at
+            // $115M — the NHL's own number — which is not the rule the Mordus
+            // play by, and which put two teams over budget on paper.
+            capAmount: long.TryParse(GetOption(args, "--cap"), out var cap) ? cap : 134_000_000,
             dryRun: dryRun,
             openingLineup: !args.Contains("--no-opening-lineup"));
     }

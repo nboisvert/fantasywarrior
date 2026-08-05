@@ -1,5 +1,5 @@
 {
-  "source": "Classement Mordus pool a vie saison 3 (PoolExpert.com), imported 2026-07-31",
+  "source": "Classement Mordus pool a vie saison 3 (PoolExpert.com), imported 2026-07-31, 44 unmatched entries resolved 2026-08-05",
   "activeSlots": {
     "forwards": 9,
     "defense": 4,
@@ -163,6 +163,18 @@
           "name": "Seamus Casey",
           "pos": "D",
           "team": "NJD"
+        },
+        {
+          "playerId": 8485362,
+          "name": "Carter Bear",
+          "pos": "L",
+          "team": "DET"
+        },
+        {
+          "playerId": 8484870,
+          "name": "Max Plante",
+          "pos": "L",
+          "team": "DET"
         }
       ]
     },
@@ -323,6 +335,12 @@
           "name": "Jeremy Swayman",
           "pos": "G",
           "team": "BOS"
+        },
+        {
+          "playerId": 8484807,
+          "name": "Cole Eiserman",
+          "pos": "L",
+          "team": "NYI"
         }
       ]
     },
@@ -483,6 +501,24 @@
           "name": "Anthony Stolarz",
           "pos": "G",
           "team": "TOR"
+        },
+        {
+          "playerId": 8485409,
+          "name": "Jack Nesbitt",
+          "pos": "C",
+          "team": "PHI"
+        },
+        {
+          "playerId": 8483565,
+          "name": "Nick Blankenburg",
+          "pos": "D",
+          "team": "NSH"
+        },
+        {
+          "playerId": 8484141,
+          "name": "Trey Augustine",
+          "pos": "G",
+          "team": "DET"
         }
       ]
     },
@@ -619,6 +655,24 @@
           "name": "Devon Levi",
           "pos": "G",
           "team": "EDM"
+        },
+        {
+          "playerId": 8484221,
+          "name": "Calum Ritchie",
+          "pos": "C",
+          "team": "NYI"
+        },
+        {
+          "playerId": 8482747,
+          "name": "Brennan Othmann",
+          "pos": "L",
+          "team": "NYR"
+        },
+        {
+          "playerId": 8484854,
+          "name": "Alfons Freij",
+          "pos": "D",
+          "team": "WPG"
         }
       ]
     },
@@ -803,6 +857,18 @@
           "name": "Spencer Knight",
           "pos": "G",
           "team": "CHI"
+        },
+        {
+          "playerId": 8480009,
+          "name": "Eeli Tolvanen",
+          "pos": "R",
+          "team": "SEA"
+        },
+        {
+          "playerId": 8480798,
+          "name": "Philipp Kurashev",
+          "pos": "C",
+          "team": "SJS"
         }
       ]
     },
@@ -889,6 +955,12 @@
           "name": "Filip Gustavsson",
           "pos": "G",
           "team": "MIN"
+        },
+        {
+          "playerId": 8484994,
+          "name": "Igor Chernyshov",
+          "pos": "L",
+          "team": "SJS"
         }
       ],
       "reserve": [
@@ -981,6 +1053,30 @@
           "name": "Jacob Fowler",
           "pos": "G",
           "team": "MTL"
+        },
+        {
+          "playerId": 8483476,
+          "name": "Jonathan Lekkerimaki",
+          "pos": "R",
+          "team": "VAN"
+        },
+        {
+          "playerId": 8485405,
+          "name": "Brady Martin",
+          "pos": "C",
+          "team": "NSH"
+        },
+        {
+          "playerId": 8485385,
+          "name": "Braeden Cootes",
+          "pos": "C",
+          "team": "VAN"
+        },
+        {
+          "playerId": 8484242,
+          "name": "Brayden Yager",
+          "pos": "C",
+          "team": "WPG"
         }
       ]
     },
@@ -1135,6 +1231,30 @@
           "name": "Jordan Binnington",
           "pos": "G",
           "team": "STL"
+        },
+        {
+          "playerId": 8485414,
+          "name": "Benjamin Kindel",
+          "pos": "C",
+          "team": "PIT"
+        },
+        {
+          "playerId": 8485415,
+          "name": "William Horcoff",
+          "pos": "C",
+          "team": "PIT"
+        },
+        {
+          "playerId": 8478971,
+          "name": "Connor Ingram",
+          "pos": "G",
+          "team": "EDM"
+        },
+        {
+          "playerId": 8482657,
+          "name": "Sebastian Cossa",
+          "pos": "G",
+          "team": "UTA"
         }
       ]
     },
@@ -1221,15 +1341,15 @@
           "name": "Jake Oettinger",
           "pos": "G",
           "team": "DAL"
-        }
-      ],
-      "reserve": [
+        },
         {
           "playerId": 8479337,
           "name": "Alex DeBrincat",
           "pos": "R",
           "team": "DET"
-        },
+        }
+      ],
+      "reserve": [
         {
           "playerId": 8481656,
           "name": "Aliaksei Protas",
@@ -1295,6 +1415,18 @@
           "name": "Akira Schmid",
           "pos": "G",
           "team": "FLA"
+        },
+        {
+          "playerId": 8484160,
+          "name": "Nate Danielson",
+          "pos": "C",
+          "team": "DET"
+        },
+        {
+          "playerId": 8482763,
+          "name": "Fabian Lysell",
+          "pos": "R",
+          "team": "COL"
         }
       ]
     },
@@ -1381,6 +1513,12 @@
           "name": "Stuart Skinner",
           "pos": "G",
           "team": "WPG"
+        },
+        {
+          "playerId": 8475906,
+          "name": "John Klingberg",
+          "pos": "D",
+          "team": "SJS"
         }
       ],
       "reserve": [
@@ -1436,6 +1574,12 @@
           "playerId": 8480981,
           "name": "Joel Hofer",
           "pos": "G",
+          "team": "STL"
+        },
+        {
+          "playerId": 8477494,
+          "name": "Jonathan Drouin",
+          "pos": "L",
           "team": "STL"
         }
       ]
@@ -1591,6 +1735,36 @@
           "name": "Scott Wedgewood",
           "pos": "G",
           "team": "COL"
+        },
+        {
+          "playerId": 8475149,
+          "name": "Marcus Johansson",
+          "pos": "L",
+          "team": "MIN"
+        },
+        {
+          "playerId": 8482737,
+          "name": "Zack Bolduc",
+          "pos": "R",
+          "team": "MTL"
+        },
+        {
+          "playerId": 8485388,
+          "name": "Victor Eklund",
+          "pos": "R",
+          "team": "NYI"
+        },
+        {
+          "playerId": 8484780,
+          "name": "Cayden Lindstrom",
+          "pos": "C",
+          "team": "CBJ"
+        },
+        {
+          "playerId": 8484995,
+          "name": "Nikita Artamonov",
+          "pos": "L",
+          "team": "CAR"
         }
       ]
     },
@@ -1787,6 +1961,18 @@
           "name": "Yaroslav Askarov",
           "pos": "G",
           "team": "SJS"
+        },
+        {
+          "playerId": 8483455,
+          "name": "Isaac Howard",
+          "pos": "L",
+          "team": "EDM"
+        },
+        {
+          "playerId": 8484386,
+          "name": "Dmitriy Simashev",
+          "pos": "D",
+          "team": "UTA"
         }
       ]
     },
@@ -1959,6 +2145,12 @@
           "name": "Karel Vejmelka",
           "pos": "G",
           "team": "UTA"
+        },
+        {
+          "playerId": 8478470,
+          "name": "Sam Montembeault",
+          "pos": "G",
+          "team": "MTL"
         }
       ]
     },
@@ -2015,6 +2207,42 @@
           "name": "Seth Jones",
           "pos": "D",
           "team": "FLA"
+        },
+        {
+          "playerId": 8484794,
+          "name": "Michael Brandsegg-Nygard",
+          "pos": "R",
+          "team": "DET"
+        },
+        {
+          "playerId": 8485371,
+          "name": "Cole Reschny",
+          "pos": "C",
+          "team": "CGY"
+        },
+        {
+          "playerId": 8485614,
+          "name": "Ethan Wyttenbach",
+          "pos": "L",
+          "team": "CGY"
+        },
+        {
+          "playerId": 8484795,
+          "name": "Tij Iginla",
+          "pos": "C",
+          "team": "UTA"
+        },
+        {
+          "playerId": 8485361,
+          "name": "Jackson Smith",
+          "pos": "D",
+          "team": "CBJ"
+        },
+        {
+          "playerId": 8484996,
+          "name": "Ilya Nabokov",
+          "pos": "G",
+          "team": "COL"
         }
       ],
       "reserve": [
@@ -2113,6 +2341,12 @@
           "name": "Justus Annunen",
           "pos": "G",
           "team": "NSH"
+        },
+        {
+          "playerId": 8484223,
+          "name": "Axel Sandin Pellikka",
+          "pos": "D",
+          "team": "DET"
         }
       ]
     },
@@ -2181,6 +2415,30 @@
           "name": "Jesper Wallstedt",
           "pos": "G",
           "team": "MIN"
+        },
+        {
+          "playerId": 8484158,
+          "name": "Easton Cowan",
+          "pos": "R",
+          "team": "TOR"
+        },
+        {
+          "playerId": 8485387,
+          "name": "Caleb Desnoyers",
+          "pos": "C",
+          "team": "UTA"
+        },
+        {
+          "playerId": 8485352,
+          "name": "Kashawn Aitcheson",
+          "pos": "D",
+          "team": "NYI"
+        },
+        {
+          "playerId": 8484774,
+          "name": "Henry Mews",
+          "pos": "D",
+          "team": "CGY"
         }
       ],
       "reserve": [
@@ -2303,6 +2561,12 @@
           "name": "Sergei Bobrovsky",
           "pos": "G",
           "team": "TOR"
+        },
+        {
+          "playerId": 8475191,
+          "name": "Reilly Smith",
+          "pos": "R",
+          "team": "VGK"
         }
       ]
     }
