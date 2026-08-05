@@ -56,16 +56,16 @@ export function TradeRatingInfo() {
               </p>
               <ul>
                 <li>
-                  <strong>50</strong> — dead even, a genuine coin flip.
+                  <strong className="rating-tier-even">50</strong> — dead even, a genuine coin flip.
                 </li>
                 <li>
-                  <strong>50–65</strong> — a mild lean, still close.
+                  <strong className="rating-tier-lean">50–65</strong> — a mild lean, still close.
                 </li>
                 <li>
-                  <strong>65–85</strong> — most voters agree.
+                  <strong className="rating-tier-clear">65–85</strong> — most voters agree.
                 </li>
                 <li>
-                  <strong>85–100</strong> — near or total consensus.
+                  <strong className="rating-tier-consensus">85–100</strong> — near or total consensus.
                 </li>
               </ul>
               <p className="muted">

@@ -2230,7 +2230,6 @@
   font-family: var(--font-display);
   font-size: 0.9rem;
   font-weight: 800;
-  color: var(--ice-bright);
   margin-right: 0.2rem;
 }
 
@@ -2276,8 +2275,6 @@
   font-size: 1.1rem;
   font-weight: 800;
   line-height: 1;
-  color: var(--ice-bright);
-  text-shadow: 0 0 8px var(--ice-glow);
 }
 
 .trade-vote-recap-rating-label {
@@ -2286,6 +2283,29 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-muted);
+}
+
+/* ---------- rating color/glow tiers ----------
+   The same four bands the explanation popup teaches (TradeRatingInfo),
+   applied to every rendered rating number: flat and quiet at a genuine
+   coin flip, escalating to a gold glow at a landslide — so the color reads
+   before the digits do. */
+.rating-tier-even {
+  color: var(--text-muted);
+}
+
+.rating-tier-lean {
+  color: var(--ice);
+}
+
+.rating-tier-clear {
+  color: var(--ice-bright);
+  text-shadow: 0 0 8px var(--ice-glow);
+}
+
+.rating-tier-consensus {
+  color: var(--gold);
+  text-shadow: 0 0 12px rgba(251, 191, 36, 0.55);
 }
 
 /* ---------- Weekly lineup (Team screen) ---------- */

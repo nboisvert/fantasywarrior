@@ -116,7 +116,7 @@ export function TradeVoteWidget({
           </span>
           <div className="trade-vote-recap-rating">
             <div className="trade-vote-recap-rating-row">
-              <span className="trade-vote-recap-rating-value">{rating.rating}</span>
+              <span className={`trade-vote-recap-rating-value rating-tier-${rating.tier}`}>{rating.rating}</span>
               <TradeRatingInfo />
             </div>
             <span className="trade-vote-recap-rating-label">Trade rating</span>

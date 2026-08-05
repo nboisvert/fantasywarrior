@@ -68,9 +68,9 @@
   color: var(--text);
 }
 
-.trade-rating-info li strong {
-  color: var(--ice-bright);
-}
+/* Color/glow comes from the shared rating-tier-* classes (App.css) instead
+   of a flat color here — each row wears the same treatment its own numbers
+   get elsewhere in the app. */
 
 .trade-rating-info .muted {
   font-size: 0.76rem;

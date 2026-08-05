@@ -217,11 +217,11 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
       );
     }
 
-    const { rating } = tradeRating(votes);
+    const { rating, tier } = tradeRating(votes);
     return (
       <div className="trade-vote-rating-mini-wrap">
         <button type="button" className="trade-vote-rating-mini" onClick={() => toggleExpanded(trade.id)}>
-          <strong>{rating}</strong> Rating
+          <strong className={`rating-tier-${tier}`}>{rating}</strong> Rating
         </button>
       </div>
     );

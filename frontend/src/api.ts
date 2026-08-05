@@ -624,6 +624,20 @@ export function topPlayersByNhlPoints(
     .slice(0, n);
 }
 
+/** The four bands from the rating explainer (see TradeRatingInfo), flat at
+ * 50 and escalating toward a landslide — drives the color/glow class
+ * (`rating-tier-*` in App.css) wherever a rating renders, so the color
+ * itself carries the "how decisive was this" signal before anyone reads
+ * the number. */
+export type TradeRatingTier = "even" | "lean" | "clear" | "consensus";
+
+function tradeRatingTier(rating: number): TradeRatingTier {
+  if (rating <= 50) return "even";
+  if (rating <= 65) return "lean";
+  if (rating <= 85) return "clear";
+  return "consensus";
+}
+
 export interface TradeRating {
   /** null only for a dead-even split (rating exactly 50) — nobody "won". */
   winner: "proposer" | "counterparty" | null;
@@ -631,6 +645,7 @@ export interface TradeRating {
    * with them, never how badly the other side "lost". A QB-rating-style
    * single number rather than three buckets to compare by eye. */
   rating: number;
+  tier: TradeRatingTier;
 }
 
 /** Collapses the proposer/fair/counterparty vote buckets into one QB-rating-
@@ -641,11 +656,11 @@ export interface TradeRating {
  * side ends up with more weight "won"; their share of the total is the
  * rating. An exact tie (including an all-fair vote) is 50 with no winner. */
 export function tradeRating(votes: TradeVoteTally): TradeRating {
-  if (votes.total === 0) return { winner: null, rating: 50 };
+  if (votes.total === 0) return { winner: null, rating: 50, tier: "even" };
   const proposerScore = votes.proposer + votes.fair / 2;
   const counterpartyScore = votes.counterparty + votes.fair / 2;
-  if (proposerScore === counterpartyScore) return { winner: null, rating: 50 };
+  if (proposerScore === counterpartyScore) return { winner: null, rating: 50, tier: "even" };
   const winner = counterpartyScore > proposerScore ? "counterparty" : "proposer";
   const rating = Math.round((Math.max(proposerScore, counterpartyScore) / votes.total) * 100);
-  return { winner, rating };
+  return { winner, rating, tier: tradeRatingTier(rating) };
 }
