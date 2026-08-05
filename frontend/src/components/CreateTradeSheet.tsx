@@ -276,15 +276,20 @@ function SideCard({
                     Franchise
                   </li>
                   <li>
-                    <label className="cts-row">
+                    <label className={`cts-row${franchise.engaged ? " engaged" : ""}`}>
                       <input
                         type="checkbox"
                         checked={franchiseSelected}
+                        disabled={franchise.engaged}
                         onChange={onToggleFranchise}
                       />
                       <span className="cts-row-name">{franchise.name}</span>
                       <span className="cts-row-pos pos-compact-t">T</span>
-                      <span className="cts-row-cap muted">no cap</span>
+                      {/* Shown rather than hidden, same as a player: a
+                          franchise that simply vanished would read as a bug. */}
+                      <span className="cts-row-cap muted">
+                        {franchise.engaged ? "in a trade" : "no cap"}
+                      </span>
                     </label>
                   </li>
                 </>

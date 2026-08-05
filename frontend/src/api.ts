@@ -74,7 +74,14 @@ export interface TeamDto {
    * trade can move. Starts equal to `franchiseAbbrev` and is meant to be able
    * to diverge from it: the club you are is not the club you own (Nick,
    * 2026-08-05). Null in a league that does not use the slot. */
-  franchise: { abbrev: string; name: string; logoUrl: string | null } | null;
+  franchise: {
+    abbrev: string;
+    name: string;
+    logoUrl: string | null;
+    /** Already promised away by an accepted trade — the sheet greys it out,
+     * same as a player or a pick. */
+    engaged: boolean;
+  } | null;
   /** Points from this week's active players. */
   periodPoints: number;
   /** What this week's benched players scored — "left on the bench". */

@@ -230,7 +230,8 @@ public static class LeagueEndpoints
             // Teams.FranchiseAbbrev. The two start equal and are meant to be
             // able to diverge: the club you are is not the club you own (Nick,
             // 2026-08-05). The trade sheet needs the one that can move.
-            var franchises = await db.RosterSpots
+            var engagedAssets = await TradeValidation.EngagedAssetsAsync(db, league.LeagueId);
+            var franchises = (await db.RosterSpots
                 .Where(s => s.LeagueId == league.LeagueId && s.EndDate == null && s.FranchiseAbbrev != null)
                 .Select(s => new
                 {
@@ -239,7 +240,20 @@ public static class LeagueEndpoints
                     name = s.Franchise!.Name,
                     logoUrl = s.Franchise.LogoUrl,
                 })
-                .ToDictionaryAsync(s => s.TeamId);
+                .ToListAsync())
+                .Select(s => new
+                {
+                    s.TeamId,
+                    s.abbrev,
+                    s.name,
+                    s.logoUrl,
+                    // Already promised away by an accepted trade. Players and
+                    // picks have carried this since trades were built; the
+                    // franchise arrived tradable without it, so the sheet let a
+                    // GM build an offer the server would then refuse.
+                    engaged = engagedAssets.FranchiseAbbrevs.Contains(s.abbrev),
+                })
+                .ToDictionary(s => s.TeamId);
 
             var normalized = username is null ? null : Queries.Normalize(username);
             var myTeam = normalized is null ? null : teams.FirstOrDefault(t => t.Owner == normalized);
@@ -249,7 +263,7 @@ public static class LeagueEndpoints
                 .ToDictionaryAsync(c => c.TeamId);
             // Players already moving in an accepted trade: the sheet greys them
             // out rather than letting a GM build an offer the server will refuse.
-            var engagedPlayers = (await TradeValidation.EngagedAssetsAsync(db, league.LeagueId)).PlayerIds;
+            var engagedPlayers = engagedAssets.PlayerIds;
 
             object[] myRoster = [];
             if (myTeam is not null)
