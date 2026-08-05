@@ -2256,6 +2256,10 @@
   color: var(--ice-bright);
 }
 
+.trade-vote-recap-text .muted {
+  font-weight: 500;
+}
+
 .trade-vote-recap-rating {
   flex-shrink: 0;
   display: flex;

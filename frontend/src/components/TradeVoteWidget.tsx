@@ -103,7 +103,7 @@ export function TradeVoteWidget({
 
   return (
     <div className="tvw">
-      {rating ? (
+      {rating && votes ? (
         <div className="trade-vote-recap">
           <span className="trade-vote-recap-text">
             {ratingWinnerName ? (
@@ -112,7 +112,10 @@ export function TradeVoteWidget({
               </>
             ) : (
               <strong>Fair trade</strong>
-            )}
+            )}{" "}
+            <span className="muted">
+              out of {votes.total} vote{votes.total === 1 ? "" : "s"}
+            </span>
           </span>
           <div className="trade-vote-recap-rating">
             <div className="trade-vote-recap-rating-row">
