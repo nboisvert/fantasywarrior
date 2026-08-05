@@ -189,9 +189,11 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
    * A small pill for the two states with no rating to show (2026-08-05, per
    * Nick: this is a redundant shortcut — tapping the teams-split above
    * already expands the card — so it shouldn't cost more than a glance).
-   * Once there's a rating, it's an even smaller right-aligned line — just
-   * the number — since the full breakdown (who won, the info trigger) now
-   * lives in the expanded widget instead of being duplicated here. */
+   * Once there's a rating: the winner sentence centered, vote count muted,
+   * and the same small rating readout the expanded widget uses parked on
+   * the right (2026-08-05, per Nick — the sentence was missing again once
+   * it moved into the expanded widget; the mini rating itself is unchanged,
+   * just given a sibling instead of standing alone). */
   const voteTeaser = (trade: Trade) => {
     if (trade.status !== "processed") return null;
     const votes = trade.votes;
@@ -217,9 +219,22 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
       );
     }
 
-    const { rating, tier } = tradeRating(votes);
+    const { winner, rating, tier } = tradeRating(votes);
+    const winnerName = winner === "proposer" ? trade.proposerTeamName : winner === "counterparty" ? trade.counterpartyTeamName : null;
     return (
-      <div className="trade-vote-rating-mini-wrap">
+      <div className="trade-vote-collapsed">
+        <button type="button" className="trade-vote-collapsed-text" onClick={() => toggleExpanded(trade.id)}>
+          {winnerName ? (
+            <>
+              <strong>{winnerName}</strong> won the trade
+            </>
+          ) : (
+            <strong>Fair trade</strong>
+          )}{" "}
+          <span className="muted">
+            out of {votes.total} vote{votes.total === 1 ? "" : "s"}
+          </span>
+        </button>
         <button type="button" className="trade-vote-rating-mini" onClick={() => toggleExpanded(trade.id)}>
           <strong className={`rating-tier-${tier}`}>{rating}</strong> Rating
         </button>

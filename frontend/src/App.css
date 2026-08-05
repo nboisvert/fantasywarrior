@@ -2205,17 +2205,43 @@
   color: var(--text);
 }
 
-/* ---------- collapsed vote rating (has a rating) ----------
-   Just the number, right-aligned — the full breakdown (who won, the info
-   trigger) lives in the expanded widget below now, not duplicated here
-   (2026-08-05, per Nick: the two-part recap row was heavy again). */
-.trade-vote-rating-mini-wrap {
+/* ---------- collapsed vote recap (has a rating) ----------
+   Winner sentence centered (in its own flex slot, not the whole row — the
+   rating sitting beside it shifts true-center slightly left, same as the
+   expanded widget's left-aligned version), vote count muted, the compact
+   rating readout parked on the right (2026-08-05, per Nick: the sentence
+   was missing again after the rating moved into the expanded widget). The
+   rating readout itself is shared as-is with that expanded widget — same
+   classes, same size, nothing bigger here. */
+.trade-vote-collapsed {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  gap: 0.4rem;
   margin-top: 0.35rem;
 }
 
+.trade-vote-collapsed-text {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  color: var(--text);
+  font: 700 0.72rem var(--font-body);
+  text-align: center;
+  cursor: pointer;
+  padding: 0.15rem 0.2rem;
+}
+
+.trade-vote-collapsed-text strong {
+  color: var(--ice-bright);
+}
+
+.trade-vote-collapsed-text .muted {
+  font-weight: 500;
+}
+
 .trade-vote-rating-mini {
+  flex-shrink: 0;
   border: none;
   background: none;
   cursor: pointer;
