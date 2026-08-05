@@ -48,7 +48,12 @@ public sealed class RosterSpotTotalsView
     public int RosterSpotId { get; set; }
     public int LeagueId { get; set; }
     public int TeamId { get; set; }
-    public long PlayerId { get; set; }
+
+    /// <summary>Null on an Équipe spot, which holds a franchise instead.</summary>
+    public long? PlayerId { get; set; }
+
+    /// <summary>Set on an Équipe spot only.</summary>
+    public string? FranchiseAbbrev { get; set; }
 
     /// <summary>Points earned while in the active lineup — the only ones that count.</summary>
     public double ActivePoints { get; set; }
@@ -60,6 +65,14 @@ public sealed class RosterSpotTotalsView
 
     public int ActiveGoals { get; set; }
     public int ActiveAssists { get; set; }
+
+    // The Équipe slot's season record. Always "active" — a franchise is never
+    // benched — but summed the same way as everything else here so one query
+    // answers the whole grid rather than the franchise row needing its own.
+
+    public int ActiveTeamWins { get; set; }
+    public int ActiveTeamLosses { get; set; }
+    public int ActiveTeamOtLosses { get; set; }
 
     /// <summary>Banked: from weeks that are already finalized and can never move.</summary>
     public double FinalizedActivePoints { get; set; }

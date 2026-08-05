@@ -16,8 +16,8 @@ public enum RosterSpotEndReason : byte
 }
 
 /// <summary>
-/// One stint of a player belonging to a team: from the day he was acquired to
-/// the day he left, or open-ended if he is still held.
+/// One stint of an asset belonging to a team: from the day it was acquired to
+/// the day it left, or open-ended if it is still held.
 ///
 /// **Spots are never deleted, only closed.** A team keeps the points a player
 /// banked for it even after he is traded away, so a closed spot stays part of
@@ -27,6 +27,19 @@ public enum RosterSpotEndReason : byte
 /// The start and end references are real foreign keys rather than the
 /// stringly-typed <c>refId</c> the Firestore model carried, so "which trade
 /// brought him here" is a join, and a dangling reference is impossible.
+///
+/// <b>The asset is a player or an NHL franchise</b> — the Équipe slot, which
+/// scores its own team's record. That polymorphism was rejected on 2026-08-05
+/// on the grounds that it "would contaminate the whole roster, lineup and
+/// transaction model"; Nick reversed it the same day, and the reversal is what
+/// the shape here is worth. A franchise behaves like a player in every way the
+/// system cares about: it opens a spot, it produces one
+/// <see cref="RosterAssignment"/> per week, its points bank, it can be traded.
+/// Giving it a parallel model would have meant a second scoring engine, a
+/// second trade path and a second grid; giving it a nullable column and a CHECK
+/// constraint costs what you see. The one thing it does not share with a player
+/// is where its stats come from — <c>Games</c> rather than the game log — and
+/// that lives in <c>FranchiseResults</c>.
 /// </summary>
 public sealed class RosterSpot
 {
@@ -42,14 +55,34 @@ public sealed class RosterSpot
 
     public int TeamId { get; set; }
 
-    public long PlayerId { get; set; }
+    /// <summary>
+    /// Null on an Équipe spot, which holds <see cref="FranchiseAbbrev"/>
+    /// instead. Exactly one of the two is set, and it agrees with
+    /// <see cref="PositionGroup"/> — a CHECK constraint, not a convention.
+    /// </summary>
+    public long? PlayerId { get; set; }
 
     /// <summary>
-    /// F, D or G, frozen when the spot opens. Intentionally a copy rather than
-    /// a lookup: a player's slot eligibility stays stable for the life of the
-    /// spot even if the NHL relists his position mid-season.
+    /// The NHL franchise this spot holds, on an Équipe spot only. Null for a
+    /// player.
+    ///
+    /// Distinct from <see cref="Entities.Team.FranchiseAbbrev"/>, which is the
+    /// pool team's own identity and never moves (Nick, 2026-08-05). These two
+    /// start out equal in Les Mordus and are meant to be able to diverge: the
+    /// club you are is not the club you own.
+    /// </summary>
+    public string? FranchiseAbbrev { get; set; }
+
+    /// <summary>
+    /// F, D, G — or T for the Équipe slot — frozen when the spot opens.
+    /// Intentionally a copy rather than a lookup: a player's slot eligibility
+    /// stays stable for the life of the spot even if the NHL relists his
+    /// position mid-season.
     /// </summary>
     public required string PositionGroup { get; set; }
+
+    /// <summary>The Équipe slot: this spot holds a franchise, not a player.</summary>
+    public bool IsFranchise => PositionGroup == "T";
 
     /// <summary>Inclusive ET date the stint began.</summary>
     public DateOnly StartDate { get; set; }
@@ -78,6 +111,8 @@ public sealed class RosterSpot
     public Team? Team { get; set; }
 
     public Player? Player { get; set; }
+
+    public NhlTeam? Franchise { get; set; }
 
     public Trade? StartTrade { get; set; }
 

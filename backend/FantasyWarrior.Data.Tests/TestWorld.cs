@@ -215,4 +215,66 @@ public sealed class TestWorld(FantasyWarriorDbContext db)
         });
         await db.SaveChangesAsync();
     }
+
+    /// <summary>
+    /// An NHL franchise, created once per abbrev. <c>RosterSpots</c> and
+    /// <c>TradeAssets</c> both have a real foreign key to it, so an Équipe spot
+    /// cannot be written for a franchise that does not exist.
+    /// </summary>
+    public async Task<NhlTeam> AddFranchiseAsync(string abbrev)
+    {
+        var existing = await db.NhlTeams.FindAsync(abbrev);
+        if (existing is not null) return existing;
+
+        var franchise = new NhlTeam { Abbrev = abbrev, Name = $"{abbrev} Franchise" };
+        db.NhlTeams.Add(franchise);
+        await db.SaveChangesAsync();
+        return franchise;
+    }
+
+    /// <summary>The Équipe slot: a roster spot holding a franchise, not a player.</summary>
+    public async Task<RosterSpot> AddFranchiseSpotAsync(
+        Team team, string abbrev, DateOnly? start = null, DateOnly? end = null)
+    {
+        await AddFranchiseAsync(abbrev);
+        var spot = new RosterSpot
+        {
+            LeagueId = League.LeagueId,
+            TeamId = team.TeamId,
+            FranchiseAbbrev = abbrev,
+            PositionGroup = "T",
+            StartDate = start ?? Periods[0].StartDate,
+            EndDate = end,
+            StartReason = RosterSpotStartReason.Draft,
+            EndReason = end is null ? null : RosterSpotEndReason.Trade,
+            OpenedUtc = DateTime.UtcNow,
+            ClosedUtc = end is null ? null : DateTime.UtcNow,
+        };
+        db.RosterSpots.Add(spot);
+        await db.SaveChangesAsync();
+        return spot;
+    }
+
+    /// <summary>A week's record for an Équipe spot — always active, by rule.</summary>
+    public async Task<RosterAssignment> AddFranchiseAssignmentAsync(
+        RosterSpot spot, Period period, double points,
+        int teamWins = 0, int teamLosses = 0, int teamOtLosses = 0)
+    {
+        var assignment = new RosterAssignment
+        {
+            RosterSpotId = spot.RosterSpotId,
+            PeriodId = period.PeriodId,
+            IsActive = true,
+            EffectiveFrom = period.StartDate,
+            EffectiveTo = period.EndDate,
+            TeamWins = teamWins,
+            TeamLosses = teamLosses,
+            TeamOtLosses = teamOtLosses,
+            FantasyPoints = points,
+            ScoredUtc = DateTime.UtcNow,
+        };
+        db.RosterAssignments.Add(assignment);
+        await db.SaveChangesAsync();
+        return assignment;
+    }
 }

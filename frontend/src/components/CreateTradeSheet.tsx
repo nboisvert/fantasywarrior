@@ -151,6 +151,9 @@ function SideCard({
   onOpen,
   players,
   picks,
+  franchise,
+  franchiseSelected,
+  onToggleFranchise,
   selectedPlayers,
   selectedPicks,
   onTogglePlayer,
@@ -163,6 +166,10 @@ function SideCard({
   onOpen: () => void;
   players: PickPlayer[];
   picks: DraftPickDto[];
+  /** The Équipe slot this team holds. Null in a league that has none. */
+  franchise: TeamDto["franchise"];
+  franchiseSelected: boolean;
+  onToggleFranchise: () => void;
   selectedPlayers: Set<number>;
   selectedPicks: Set<number>;
   onTogglePlayer: (id: number) => void;
@@ -173,7 +180,11 @@ function SideCard({
 }) {
   const chosenPlayers = players.filter((p) => selectedPlayers.has(p.id));
   const chosenPicks = picks.filter((p) => selectedPicks.has(p.id));
-  const names = [...chosenPlayers.map((p) => formatShortName(p.name)), ...chosenPicks.map(pickLabel)];
+  const names = [
+    ...chosenPlayers.map((p) => formatShortName(p.name)),
+    ...chosenPicks.map(pickLabel),
+    ...(franchiseSelected && franchise ? [franchise.name] : []),
+  ];
 
   return (
     <section className={`cts-card${open ? " open" : ""}`}>
@@ -204,7 +215,7 @@ function SideCard({
         <div className="cts-card-body">
           {loading ? (
             <p className="empty-state cts-empty">Loading roster…</p>
-          ) : players.length === 0 && picks.length === 0 ? (
+          ) : players.length === 0 && picks.length === 0 && franchise == null ? (
             <p className="empty-state cts-empty">Nothing on this roster.</p>
           ) : (
             <ul className="cts-asset-list">
@@ -254,6 +265,30 @@ function SideCard({
                   </label>
                 </li>
               ))}
+
+              {/* Last, and under its own divider: it is not a player and not a
+                  pick, it costs no cap, and it only ever moves against the
+                  other side's — which the send button enforces rather than
+                  this checkbox, so the reason is stated in words. */}
+              {franchise && (
+                <>
+                  <li className="cts-row-divider" aria-hidden="true">
+                    Franchise
+                  </li>
+                  <li>
+                    <label className="cts-row">
+                      <input
+                        type="checkbox"
+                        checked={franchiseSelected}
+                        onChange={onToggleFranchise}
+                      />
+                      <span className="cts-row-name">{franchise.name}</span>
+                      <span className="cts-row-pos pos-compact-t">T</span>
+                      <span className="cts-row-cap muted">no cap</span>
+                    </label>
+                  </li>
+                </>
+              )}
             </ul>
           )}
         </div>
@@ -290,6 +325,8 @@ export function CreateTradeSheet({
   const [theirs, setTheirs] = useState<Set<number>>(new Set());
   const [myPicks, setMyPicks] = useState<Set<number>>(new Set());
   const [theirPicks, setTheirPicks] = useState<Set<number>>(new Set());
+  const [myFranchise, setMyFranchise] = useState(false);
+  const [theirFranchise, setTheirFranchise] = useState(false);
   const [theirPlayers, setTheirPlayers] = useState<PickPlayer[]>([]);
   const [myPickList, setMyPickList] = useState<DraftPickDto[]>([]);
   const [theirPickList, setTheirPickList] = useState<DraftPickDto[]>([]);
@@ -336,6 +373,7 @@ export function CreateTradeSheet({
   useEffect(() => {
     setTheirs(new Set());
     setTheirPicks(new Set());
+    setTheirFranchise(false);
     setTheirPlayers([]);
     setTheirPickList([]);
     if (!counterparty) return;
@@ -429,8 +467,17 @@ export function CreateTradeSheet({
   // whether either side breaks, which is what gates the send button.
   const illegal = [myImpact, theirImpact].some((i) => i != null && i.violations.length > 0);
 
-  const anySelected = mine.size > 0 || theirs.size > 0 || myPicks.size > 0 || theirPicks.size > 0;
-  const canSubmit = !submitting && counterparty !== "" && anySelected && !illegal;
+  const anySelected =
+    mine.size > 0 || theirs.size > 0 || myPicks.size > 0 || theirPicks.size > 0
+    || myFranchise || theirFranchise;
+
+  // Every team holds exactly one franchise, so a one-sided swap would leave
+  // one with two and the other with none — impossible, not merely unwise. Said
+  // here in words rather than by disabling a checkbox, because "why can't I
+  // tick this" is the question a disabled control never answers.
+  const franchiseUnbalanced = myFranchise !== theirFranchise;
+  const canSubmit =
+    !submitting && counterparty !== "" && anySelected && !illegal && !franchiseUnbalanced;
 
   const submit = async () => {
     if (!canSubmit) return;
@@ -445,6 +492,8 @@ export function CreateTradeSheet({
         [...theirs],
         [...myPicks],
         [...theirPicks],
+        myFranchise ? (myTeam?.franchise?.abbrev ?? null) : null,
+        theirFranchise ? (counterpartyTeam?.franchise?.abbrev ?? null) : null,
       );
       onCreated();
       onClose();
@@ -502,6 +551,9 @@ export function CreateTradeSheet({
                   onOpen={() => toggleSide("give")}
                   players={myPlayers}
                   picks={myPickList}
+                  franchise={myTeam.franchise}
+                  franchiseSelected={myFranchise}
+                  onToggleFranchise={() => setMyFranchise((v) => !v)}
                   selectedPlayers={mine}
                   selectedPicks={myPicks}
                   onTogglePlayer={(id) => toggle(mine, setMine, id)}
@@ -514,6 +566,9 @@ export function CreateTradeSheet({
                   onOpen={() => toggleSide("get")}
                   players={theirPlayers}
                   picks={theirPickList}
+                  franchise={counterpartyTeam?.franchise ?? null}
+                  franchiseSelected={theirFranchise}
+                  onToggleFranchise={() => setTheirFranchise((v) => !v)}
                   selectedPlayers={theirs}
                   selectedPicks={theirPicks}
                   onTogglePlayer={(id) => toggle(theirs, setTheirs, id)}
@@ -523,6 +578,9 @@ export function CreateTradeSheet({
                 />
               </div>
 
+              {franchiseUnbalanced && (
+                <p className="error-banner">A franchise can only be traded for another franchise.</p>
+              )}
               {error && <p className="error-banner">{error}</p>}
 
               {/* Blocked reads red, not merely dimmed: a greyed button says

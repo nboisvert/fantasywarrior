@@ -32,10 +32,24 @@ public static class StatKeys
     public const string Saves = "saves";
     public const string ShotsAgainst = "shotsAgainst";
 
+    // --- the Équipe slot ---
+    //
+    // A franchise's own record, deliberately *not* the goalie keys above. The
+    // two answer different questions — "my goalie won" and "my franchise won"
+    // are different events on the same night — and a league that wants them
+    // worth different amounts has no way to say so if they share a key. Les
+    // Mordus happens to price both at 2/1 today; that is a coincidence, not a
+    // reason to fuse them.
+
+    public const string TeamWins = "teamWins";
+    public const string TeamLosses = "teamLosses";
+    public const string TeamOtLosses = "teamOtLosses";
+
     public static readonly IReadOnlyList<string> All =
     [
         GamesPlayed, Goals, Assists, PlusMinus, Pim, Shots, Hits, BlockedShots,
         Wins, OtLosses, Shutouts, GoalsAgainst, Saves, ShotsAgainst,
+        TeamWins, TeamLosses, TeamOtLosses,
     ];
 
     public static bool IsKnown(string key) => All.Contains(key);

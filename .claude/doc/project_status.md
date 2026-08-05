@@ -1,7 +1,7 @@
 # Fantasy Warrior — Project Status
 
 > **Read at the start of every session, and keep updated along the way.**
-> Last updated: 2026-08-03.
+> Last updated: 2026-08-05.
 >
 > This file holds the **current state and the decisions behind it**. It is not a
 > changelog — `git log` is, and the commit messages in this repo are detailed.
@@ -21,11 +21,16 @@
 - **Reference data**: 1 586 players, the full 2025-26 regular season (1 342 games,
   ~51 k player-game lines, 2025-10-07 → 2026-04-16), contracts scraped from CapWages.
 - **Les Mordus** is the live league — join code `P7R9CT`, season `20252026`,
-  14 GMs, **404 players**, 9F/4D/1G active, 23-35 roster, **$134M cap**, scoring
-  1/1/2/1/0 (goal/assist/goalie win/OT loss/shutout). See
-  [mordus-pool.md](mordus-pool.md). Rebuilt 2026-08-05 once the import's 44
-  unmatched entries were resolved, so the rosters now match reality.
-- **A season replay is running.** The simulated date is 2026-01-19 (week 16).
+  14 GMs, **404 players plus one NHL franchise each**, 9F/4D/1G active plus the
+  Équipe slot, 23-35 roster, **$134M cap**, scoring 1/1/2/1/0
+  (goal/assist/goalie win/OT loss/shutout) and 2/0/1 for the franchise
+  (win/loss/OT loss). See [mordus-pool.md](mordus-pool.md). Rebuilt 2026-08-05
+  once the import's 44 unmatched entries were resolved, so the rosters now match
+  reality.
+- **A season replay is running.** The simulated date is 2025-10-20 (week 3
+  starting; weeks 1 and 2 banked), restarted from scratch on 2026-08-05 so the
+  Équipe slot scores from week 1. **Join code `TKW6UR`** — the wipe-and-reseed
+  issues a new one, and the old `P7R9CT` no longer resolves.
   Everything in the app believes it is that day — check `sim-clock` before
   treating any date-related behaviour as a bug. See [testmode.md](testmode.md).
 
@@ -153,8 +158,25 @@ was taken — not a record of what changed.
   newest contract on file. Contracts run years ahead (Jack Eichel is $10M in
   2025-26 and $13.5M from 2026-27), so taking the latest made the player card
   disagree with the Team grid about the same player — and the grid was right.
-- **The "Équipe" roster slot scores nothing yet** — the rule has never been
-  specified.
+- **2026-08-05 — The "Équipe" slot is a roster spot, not a column.** Every GM in
+  Les Mordus owns one NHL franchise for life; it now banks its own record — 2
+  per win, 1 per overtime loss here, priced per league through
+  `extraPointValues` like any other stat. **This reverses the modelling decision
+  taken that morning** (mordus-pool.md §3), which kept the franchise off
+  `RosterSpots` to stop a polymorphic spot "contaminating the whole roster,
+  lineup and transaction model". The reversal is what that shape is worth: a
+  franchise opens a spot, produces one assignment a week, banks points and can
+  be traded — it *is* a roster spot, and the alternative was a second scoring
+  engine, a second trade path and a second grid. The cost came to one nullable
+  column and one CHECK constraint.
+  Three unique indexes carry the rules: one owner per franchise per league, one
+  Équipe slot per team — which is exactly why the slot has no active/bench
+  control — and the existing one-owner-per-player index re-filtered on
+  `PlayerId IS NOT NULL`, without which the second team in a league to open a
+  franchise spot would collide with the first.
+  `Teams.FranchiseAbbrev` stays: it is the team's identity and never moves,
+  while the spot is the asset a trade can carry. The two start equal and are
+  meant to be able to diverge.
 
 ### UI
 
@@ -367,9 +389,12 @@ was taken — not a record of what changed.
   prod next season, confusing while testing — and unfixable, since no source
   publishes a historical injury list. Check `sim-clock` before treating an
   odd-looking marker as a bug.
-- **Cap and roster size are displayed but not enforced** — no add/drop or trade
-  is rejected for breaking them.
-- **The "Équipe" roster slot scores nothing** — rule never specified.
+- ~~Cap and roster size are displayed but not enforced~~ — **enforced on trades
+  since 2026-08-03**, against the *engaged* figures. No other path can change a
+  roster, so there is nothing left unguarded; free agency will need its own
+  check when it arrives.
+- ~~The "Équipe" roster slot scores nothing~~ — **done 2026-08-05**. See the
+  decisions log and [scoring-model.md](scoring-model.md) §1.
 - ~~Unmatched Les Mordus players~~ — **done 2026-08-05**, all 44 resolved. See
   [mordus-pool.md](mordus-pool.md) §2.
 - **Rotate the deploy service principal secret.** It was passed through a chat

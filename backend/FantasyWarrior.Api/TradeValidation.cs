@@ -10,7 +10,10 @@ namespace FantasyWarrior.Api;
 public sealed record EngagedState(int TeamId, string TeamName, long CapTotal, int PlayerCount);
 
 /// <summary>Assets already promised away by an accepted trade.</summary>
-public sealed record EngagedAssets(IReadOnlySet<long> PlayerIds, IReadOnlySet<int> DraftPickIds);
+public sealed record EngagedAssets(
+    IReadOnlySet<long> PlayerIds,
+    IReadOnlySet<int> DraftPickIds,
+    IReadOnlySet<string> FranchiseAbbrevs);
 
 /// <summary>
 /// The cap and roster checks a trade has to pass, run identically when it is
@@ -77,14 +80,16 @@ public static class TradeValidation
     {
         var assets = await db.TradeAssets
             .Where(a => a.Trade!.LeagueId == leagueId && a.Trade.Status == TradeStatus.Accepted)
-            .Select(a => new { a.AssetType, a.PlayerId, a.DraftPickId })
+            .Select(a => new { a.AssetType, a.PlayerId, a.DraftPickId, a.FranchiseAbbrev })
             .ToListAsync(ct);
 
         return new EngagedAssets(
             assets.Where(a => a.AssetType == TradeAssetType.Player && a.PlayerId != null)
                 .Select(a => a.PlayerId!.Value).ToHashSet(),
             assets.Where(a => a.AssetType == TradeAssetType.DraftPick && a.DraftPickId != null)
-                .Select(a => a.DraftPickId!.Value).ToHashSet());
+                .Select(a => a.DraftPickId!.Value).ToHashSet(),
+            assets.Where(a => a.AssetType == TradeAssetType.Franchise && a.FranchiseAbbrev != null)
+                .Select(a => a.FranchiseAbbrev!).ToHashSet());
     }
 
     /// <summary>

@@ -156,32 +156,69 @@ réassemble la même forme JSON qu'avant, donc `RulesPanel.tsx` n'a pas bougé.
 **`Teams`** — `TeamId`, LeagueId (FK), OwnerUserId (FK), Name, FranchiseAbbrev
 (FK NhlTeams, null), CreatedUtc → unique (LeagueId, OwnerUserId)
 
+> `Teams.FranchiseAbbrev` est l'**identité** de l'équipe dans le pool et ne
+> bouge jamais. La franchise qu'elle **possède** est un `RosterSpot` de groupe
+> `T`, et c'est celle-là qu'un échange déplace. Les deux partent égales chez Les
+> Mordus et doivent pouvoir diverger — le club qu'on est n'est pas le club qu'on
+> possède (Nick, 2026-08-05).
+
 > **`Teams` ne porte aucune colonne de score.** Douze dénormalisations Firestore
 > ont disparu ici : `playerIds`, `playerPoints`, `playerNhlPoints`,
 > `rosterGamesPlayed`, `capTotal`, `score`, `finalizedScore`, `periodPoints`,
 > `benchScore`, `currentPeriodIndex`, `periodScores`,
 > `finalizedThroughPeriodIndex`. C'est le plus gros nettoyage du chantier.
 
-**`RosterSpots`** — `RosterSpotId`, LeagueId, TeamId (FK), PlayerId (FK),
-PositionGroup (gelé à l'ouverture), StartDate, StartReason (tinyint), StartTradeId
-(FK null), StartDraftPickId (FK null), EndDate (null), EndReason (tinyint null),
+**`RosterSpots`** — `RosterSpotId`, LeagueId, TeamId (FK), **PlayerId (FK null)**,
+**FranchiseAbbrev (FK NhlTeams, null)**, PositionGroup (`F`/`D`/`G`/`T`, gelé à
+l'ouverture), StartDate, StartReason (tinyint), StartTradeId (FK null),
+StartDraftPickId (FK null), EndDate (null), EndReason (tinyint null),
 EndTradeId (FK null), OpenedUtc, ClosedUtc
 
-→ index unique **filtré** `(LeagueId, PlayerId) WHERE EndDate IS NULL`
+→ CHECK `CK_RosterSpots_PlayerOrFranchise` : exactement un des deux, en accord
+avec PositionGroup
+→ index unique **filtré** `(LeagueId, PlayerId) WHERE EndDate IS NULL AND PlayerId IS NOT NULL`
+→ index unique **filtré** `(LeagueId, FranchiseAbbrev) WHERE EndDate IS NULL AND FranchiseAbbrev IS NOT NULL`
+→ index unique **filtré** `(TeamId) WHERE EndDate IS NULL AND PositionGroup = 'T'`
 → index (TeamId) WHERE EndDate IS NULL ; (LeagueId, StartDate, EndDate)
 
-> Cet index filtré fait de « un joueur, un seul propriétaire par ligue » une
-> **contrainte de base de données**, là où Firestore exigeait un scan applicatif
-> de toutes les équipes. Le contrôle applicatif subsiste, mais seulement pour
-> produire un message lisible — ce n'est plus lui qui garantit quoi que ce soit.
+> Le premier index filtré fait de « un joueur, un seul propriétaire par ligue »
+> une **contrainte de base de données**, là où Firestore exigeait un scan
+> applicatif de toutes les équipes. Le contrôle applicatif subsiste, mais
+> seulement pour produire un message lisible — ce n'est plus lui qui garantit
+> quoi que ce soit.
 >
 > Un spot est **fermé, jamais supprimé** : l'équipe garde définitivement ce que
 > ce joueur lui a banqué.
+>
+> **Un spot tient un joueur *ou* une franchise NHL** (le slot Équipe, groupe de
+> position `T`) depuis le 2026-08-05 — voir [mordus-pool.md](mordus-pool.md) §3
+> pour le renversement de décision que ça représente. Trois détails qui ne sont
+> pas des détails :
+>
+> - `PlayerId IS NOT NULL` dans le filtre du premier index est **obligatoire** :
+>   SQL Server considère deux NULL comme égaux dans un index unique, donc sans
+>   lui la deuxième équipe d'une ligue à ouvrir un spot Équipe entrerait en
+>   collision avec la première.
+> - L'index unique `(TeamId) WHERE PositionGroup = 'T'` est la raison pour
+>   laquelle le slot Équipe n'a **pas** de bouton actif/banc : une franchise, un
+>   siège, donc aucune décision à prendre. Il rend aussi un échange
+>   franchise-contre-joueur impossible plutôt que simplement refusé.
+> - Il se déclare par la surcharge nommée `HasIndex([...], "nom")`. Deux appels
+>   `HasIndex(x => x.TeamId)` ne créent pas deux index, ils en redéfinissent un —
+>   le second avait silencieusement transformé « le roster courant d'une équipe »
+>   en « une équipe ne peut tenir qu'un seul spot ouvert ».
 
 **`RosterAssignments`** — `RosterAssignmentId`, RosterSpotId (FK), PeriodId (FK),
 IsActive, EffectiveFrom, EffectiveTo (la fenêtre réellement possédée, issue de
-`StatWindow.Intersect`), les 14 statistiques agrégées de la période,
+`StatWindow.Intersect`), les 14 statistiques agrégées de la période, **plus
+TeamWins / TeamLosses / TeamOtLosses** pour le slot Équipe,
 **FantasyPoints**, GamesPlayed, IsFinalized, ScoredUtc → unique (RosterSpotId, PeriodId)
+
+> Les trois colonnes d'équipe sont **distinctes** de Wins/OtLosses du gardien.
+> « Mon gardien a gagné » et « ma franchise a gagné » sont deux événements
+> différents le même soir, et une ligue qui les paie différemment n'a aucun
+> moyen de le dire s'ils partagent une colonne. Chez Les Mordus les deux valent
+> 2 et 1 : c'est une coïncidence.
 
 > **C'est ici que vit le banquage** : `IsFinalized` + `Period.FinalizedUtc`. Une
 > ligne finalisée n'est jamais recalculée — un changement de barème ne réécrit
@@ -354,6 +391,10 @@ Cinq bugs silencieux, tous corrigés, tous instructifs :
 
 ## Hors périmètre, mais déjà au schéma
 
-Repêchage, agence libre, application réelle du plafond et des tailles de roster,
-authentification, points du slot « Équipe », échanges à trois équipes. Les
+Repêchage, agence libre, authentification, échanges à trois équipes. Les
 construire ne demandera **aucune migration**.
+
+Le plafond et les tailles de roster sont appliqués sur les échanges depuis le
+2026-08-03 ; les points du slot Équipe existent depuis le 2026-08-05 et ont
+demandé une migration, contrairement à ce que cette section annonçait — un spot
+polymorphe n'était pas prévu au schéma.

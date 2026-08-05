@@ -113,7 +113,7 @@ public sealed class PeriodRollupJob(FantasyWarriorDbContext db)
         // is lastStatDate because scoring a day whose boxscores are not in yet
         // would bank a zero for it and never come back.
         var to = period.EndDate <= lastStatDate ? period.EndDate : lastStatDate;
-        var playerIds = spots.Select(s => s.PlayerId).Distinct().ToList();
+        var playerIds = spots.Where(s => s.PlayerId != null).Select(s => s.PlayerId!.Value).Distinct().ToList();
         var lines = await db.PlayerGameStats
             .Where(l => l.GameDate >= period.StartDate && l.GameDate <= to
                         && l.Season == league.Season
@@ -121,7 +121,38 @@ public sealed class PeriodRollupJob(FantasyWarriorDbContext db)
                         && playerIds.Contains(l.PlayerId))
             .ToListAsync(ct);
         var byPlayer = lines.ToLookup(l => l.PlayerId);
-        Console.WriteLine($"    {spots.Count} spots, {lines.Count} game lines in {period.StartDate:MM-dd}..{to:MM-dd}");
+
+        // Its counterpart for the Équipe slots: the week's *games*, not game
+        // lines. One query for the whole league-week whatever the franchise —
+        // the same property §7 of the scoring model protects, and the reason
+        // FranchiseResults ignores games a given franchise did not play rather
+        // than making the caller filter per team.
+        //
+        // Skipped entirely by a league that uses no franchise, which is every
+        // league but Les Mordus today.
+        // The date rides alongside rather than inside GameResult: a spot that
+        // opened or closed mid-week owns only part of the range, exactly as a
+        // player's game lines are filtered by StatWindow below, and the pure
+        // record has no business knowing about scoring windows.
+        var franchiseSpots = spots.Count(s => s.IsFranchise);
+        var games = franchiseSpots == 0
+            ? []
+            : (await db.Games
+                .Where(g => g.GameDate >= period.StartDate && g.GameDate <= to
+                            && g.Season == league.Season
+                            && g.GameType == GameType.RegularSeason)
+                .Select(g => new
+                {
+                    g.GameDate,
+                    Result = new GameResult(
+                        g.HomeTeamAbbrev, g.AwayTeamAbbrev, g.HomeScore, g.AwayScore, g.LastPeriodType),
+                })
+                .ToListAsync(ct))
+                .Select(g => (g.GameDate, g.Result))
+                .ToList();
+
+        Console.WriteLine($"    {spots.Count} spots, {lines.Count} game lines in {period.StartDate:MM-dd}..{to:MM-dd}"
+            + (franchiseSpots == 0 ? "" : $", {franchiseSpots} franchises over {games.Count} games"));
 
         var existing = await db.RosterAssignments
             .Where(a => a.PeriodId == period.PeriodId
@@ -154,7 +185,9 @@ public sealed class PeriodRollupJob(FantasyWarriorDbContext db)
             var candidates = teamSpots
                 .Select(s => new LineupCandidate(
                     SpotId: s.RosterSpotId.ToString(),
-                    PlayerId: s.PlayerId,
+                    // Zero for a franchise: only ever a tiebreak, and a team
+                    // holds at most one.
+                    PlayerId: s.PlayerId ?? 0,
                     PositionGroup: s.PositionGroup,
                     SeasonPointsToDate: pointsToDate.GetValueOrDefault(s.RosterSpotId),
                     ActivatedUtc: s.OpenedUtc))
@@ -184,12 +217,23 @@ public sealed class PeriodRollupJob(FantasyWarriorDbContext db)
                 var window = StatWindow.Intersect(
                     period.StartDate, period.EndDate, spot.StartDate, spot.EndDate, lastStatDate);
 
-                var isActive = active.Contains(spot.RosterSpotId.ToString());
-                var stats = window is null
-                    ? StatLine.Empty
-                    : StatLine.Sum(byPlayer[spot.PlayerId]
+                // A franchise is never benched — one per team, one seat, so
+                // there is no choice to make. LineupRules already guarantees
+                // it; saying so here too means a hand-edited assignment row
+                // cannot quietly bench one either.
+                var isActive = spot.IsFranchise || active.Contains(spot.RosterSpotId.ToString());
+
+                var stats = window switch
+                {
+                    null => StatLine.Empty,
+                    _ when spot.IsFranchise => FranchiseResults.For(
+                        spot.FranchiseAbbrev!,
+                        games.Where(g => g.GameDate >= window.Value.From && g.GameDate <= window.Value.To)
+                             .Select(g => g.Result)),
+                    _ => StatLine.Sum(byPlayer[spot.PlayerId!.Value]
                         .Where(l => l.GameDate >= window.Value.From && l.GameDate <= window.Value.To)
-                        .Select(StatColumns.ToStatLine));
+                        .Select(StatColumns.ToStatLine)),
+                };
                 var points = stats.Score(scale);
 
                 if (isActive) activePoints += points; else benchPoints += points;
@@ -222,8 +266,11 @@ public sealed class PeriodRollupJob(FantasyWarriorDbContext db)
                     SubmittedUtc = DateTime.UtcNow,
                 });
 
+            // Slots counted without the franchise, so a league that uses none
+            // does not read as one seat short of full every week.
+            var activePlayers = active.Count(id => candidates.First(c => c.SpotId == id).PositionGroup != "T");
             Console.WriteLine($"      team {team,-4} active {activePoints,7:0.#}  bench {benchPoints,6:0.#}"
-                + $"   ({active.Count} of {slots.Total} slots)");
+                + $"   ({activePlayers} of {slots.Total} slots)");
         }
 
         if (!dryRun) await db.SaveChangesAsync(ct);

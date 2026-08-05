@@ -1,4 +1,5 @@
 using FantasyWarrior.Core.Cockcoin;
+using FantasyWarrior.Core.Trades;
 using FantasyWarrior.Data;
 using FantasyWarrior.Data.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -57,11 +58,25 @@ public static class TradeEndpoints
 
             var fromProposer = req.PlayersFromProposer ?? [];
             var fromCounterparty = req.PlayersFromCounterparty ?? [];
+            var franchiseFromProposer = Blank(req.FranchiseFromProposer);
+            var franchiseFromCounterparty = Blank(req.FranchiseFromCounterparty);
             if (fromProposer.Count == 0 && fromCounterparty.Count == 0
-                && (req.PicksFromProposer ?? []).Count == 0 && (req.PicksFromCounterparty ?? []).Count == 0)
-                return Results.BadRequest(new { error = "Trade must include at least one player or pick." });
+                && (req.PicksFromProposer ?? []).Count == 0 && (req.PicksFromCounterparty ?? []).Count == 0
+                && franchiseFromProposer is null && franchiseFromCounterparty is null)
+                return Results.BadRequest(new { error = "Trade must include at least one player, pick or franchise." });
             if (fromProposer.Intersect(fromCounterparty).Any())
                 return Results.BadRequest(new { error = "A player can't appear on both sides of a trade." });
+
+            // A franchise only ever moves against another franchise: every team
+            // holds exactly one, so a one-sided swap would leave one team with
+            // two and the other with none — refused by the database in the
+            // middle of the nightly job rather than here, where the GM can
+            // still be told.
+            var balanceErrors = TradeRules.ValidateFranchiseBalance(
+                franchiseFromProposer is null ? 0 : 1,
+                franchiseFromCounterparty is null ? 0 : 1);
+            if (balanceErrors.Count > 0)
+                return Results.BadRequest(new { error = string.Join(" ", balanceErrors), errors = balanceErrors });
 
             var league = await Queries.LeagueByCodeAsync(db, leagueId);
             if (league is null) return Results.NotFound(new { error = "League not found." });
@@ -76,15 +91,29 @@ public static class TradeEndpoints
             // fall out of step with it any more.
             var held = await db.RosterSpots
                 .Where(s => s.LeagueId == league.LeagueId && s.EndDate == null)
-                .Select(s => new { s.TeamId, s.PlayerId })
+                .Select(s => new { s.TeamId, s.PlayerId, s.FranchiseAbbrev })
                 .ToListAsync();
-            var proposerHas = held.Where(h => h.TeamId == proposerTeam.TeamId).Select(h => h.PlayerId).ToHashSet();
-            var counterpartyHas = held.Where(h => h.TeamId == counterpartyTeam.TeamId).Select(h => h.PlayerId).ToHashSet();
+            var proposerHas = held.Where(h => h.TeamId == proposerTeam.TeamId && h.PlayerId != null)
+                .Select(h => h.PlayerId!.Value).ToHashSet();
+            var counterpartyHas = held.Where(h => h.TeamId == counterpartyTeam.TeamId && h.PlayerId != null)
+                .Select(h => h.PlayerId!.Value).ToHashSet();
 
             if (fromProposer.Any(id => !proposerHas.Contains(id)))
                 return Results.BadRequest(new { error = "You can only offer players on your own roster." });
             if (fromCounterparty.Any(id => !counterpartyHas.Contains(id)))
                 return Results.BadRequest(new { error = "Requested players aren't on that team's roster." });
+
+            // The franchise offered has to be the one actually held, not the
+            // one a stale screen still shows — the Équipe slot moves, and the
+            // team's own name (Teams.FranchiseAbbrev) does not follow it.
+            string? FranchiseOf(int teamId) =>
+                held.FirstOrDefault(h => h.TeamId == teamId && h.FranchiseAbbrev != null)?.FranchiseAbbrev;
+
+            if (franchiseFromProposer is not null && FranchiseOf(proposerTeam.TeamId) != franchiseFromProposer)
+                return Results.BadRequest(new { error = "You can only offer the franchise you hold." });
+            if (franchiseFromCounterparty is not null
+                && FranchiseOf(counterpartyTeam.TeamId) != franchiseFromCounterparty)
+                return Results.BadRequest(new { error = "That team doesn't hold the franchise you asked for." });
 
             // Draft picks. Held, unused, and of the one tradable year — picks
             // only ever exist one season ahead, so anything else is a stale id.
@@ -121,6 +150,10 @@ public static class TradeEndpoints
             if (pickIds.Any(engagedAssets.DraftPickIds.Contains))
                 return Results.BadRequest(
                     new { error = "A pick in this offer is already committed in an accepted trade." });
+            if (new[] { franchiseFromProposer, franchiseFromCounterparty }
+                    .Any(a => a is not null && engagedAssets.FranchiseAbbrevs.Contains(a)))
+                return Results.BadRequest(
+                    new { error = "A franchise in this offer is already committed in an accepted trade." });
 
             var capErrors = await ValidateAgainstEngagedAsync(
                 db, league, proposerTeam.TeamId, counterpartyTeam.TeamId, fromProposer, fromCounterparty);
@@ -161,6 +194,18 @@ public static class TradeEndpoints
                 {
                     TradeId = trade.TradeId, FromTeamId = counterpartyTeam.TeamId, ToTeamId = proposerTeam.TeamId,
                     AssetType = TradeAssetType.DraftPick, DraftPickId = pickId,
+                });
+            if (franchiseFromProposer is not null)
+                db.TradeAssets.Add(new TradeAsset
+                {
+                    TradeId = trade.TradeId, FromTeamId = proposerTeam.TeamId, ToTeamId = counterpartyTeam.TeamId,
+                    AssetType = TradeAssetType.Franchise, FranchiseAbbrev = franchiseFromProposer,
+                });
+            if (franchiseFromCounterparty is not null)
+                db.TradeAssets.Add(new TradeAsset
+                {
+                    TradeId = trade.TradeId, FromTeamId = counterpartyTeam.TeamId, ToTeamId = proposerTeam.TeamId,
+                    AssetType = TradeAssetType.Franchise, FranchiseAbbrev = franchiseFromCounterparty,
                 });
             await db.SaveChangesAsync();
 
@@ -259,6 +304,12 @@ public static class TradeEndpoints
                     {
                         error = "A pick in this offer has since been committed in another accepted trade.",
                     });
+                if (assets.Where(a => a.AssetType == TradeAssetType.Franchise)
+                        .Any(a => engagedAssets.FranchiseAbbrevs.Contains(a.FranchiseAbbrev!)))
+                    return Results.BadRequest(new
+                    {
+                        error = "A franchise in this offer has since been committed in another accepted trade.",
+                    });
 
                 var errors = await ValidateAgainstEngagedAsync(
                     db, league, trade.ProposerTeamId, trade.CounterpartyTeamId, offered, requested);
@@ -326,6 +377,16 @@ public static class TradeEndpoints
             var players = await db.Players.Where(p => allPlayerIds.Contains(p.PlayerId))
                 .ToDictionaryAsync(p => p.PlayerId);
 
+            var allAbbrevs = trades.SelectMany(t => t.Assets)
+                .Where(a => a.FranchiseAbbrev is not null).Select(a => a.FranchiseAbbrev!).Distinct().ToList();
+            var franchises = await db.NhlTeams.Where(t => allAbbrevs.Contains(t.Abbrev))
+                .ToDictionaryAsync(t => t.Abbrev);
+
+            // Players and franchises in one list, because a trade recap has to
+            // read as one sentence: "Crosby and the Canadiens for Makar and the
+            // Avalanche". A franchise carries position "T", which is what every
+            // screen already keys its position indicator off, and a negative id
+            // so it cannot collide with a player's in a row key.
             object[] Side(Trade t, int fromTeamId) =>
             [
                 .. t.Assets
@@ -339,7 +400,15 @@ public static class TradeEndpoints
                             name = p?.FullName ?? "Unknown player",
                             position = p?.Position,
                         };
-                    })
+                    }),
+                .. t.Assets
+                    .Where(a => a.FromTeamId == fromTeamId && a.AssetType == TradeAssetType.Franchise)
+                    .Select(a => (object)new
+                    {
+                        id = -(long)a.TradeAssetId,
+                        name = franchises.GetValueOrDefault(a.FranchiseAbbrev!)?.Name ?? a.FranchiseAbbrev!,
+                        position = "T",
+                    }),
             ];
 
             return Results.Ok(trades.Select(t =>
@@ -467,11 +536,22 @@ public static class TradeEndpoints
             });
         });
     }
+
+    /// <summary>
+    /// Whitespace and the empty string both mean "no franchise in this offer" —
+    /// a client builds the field from a picker that may hand back either.
+    /// </summary>
+    private static string? Blank(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToUpperInvariant();
 }
 
 public record ProposeTradeRequest(
     string? Username, string? CounterpartyUsername,
     List<long>? PlayersFromProposer, List<long>? PlayersFromCounterparty,
-    List<int>? PicksFromProposer = null, List<int>? PicksFromCounterparty = null);
+    List<int>? PicksFromProposer = null, List<int>? PicksFromCounterparty = null,
+    // The Équipe slot. An abbrev rather than a flag so the server can refuse an
+    // offer built on a stale screen — the franchise a team holds moves, and its
+    // own name does not follow it.
+    string? FranchiseFromProposer = null, string? FranchiseFromCounterparty = null);
 public record RespondTradeRequest(string? Username, bool Accept);
 public record VoteTradeRequest(string? Username, string? FavoredUsername);

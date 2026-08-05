@@ -258,4 +258,49 @@ public class TradeRulesTests
         var impact = Impact("Mine", Cap, Max, [], Hits(5_000_000));
         Assert.Equal(2, TradeRules.Validate(impact, Cap, Min, Max).Count);
     }
+
+    // --- franchises (the Équipe slot) ---
+
+    [Fact]
+    public void ValidateFranchiseBalance_AllowsATradeWithNoFranchiseAtAll()
+    {
+        // Every trade in the app until now, and most of them after.
+        Assert.Empty(TradeRules.ValidateFranchiseBalance(0, 0));
+    }
+
+    [Fact]
+    public void ValidateFranchiseBalance_AllowsAFranchiseForAFranchise()
+    {
+        Assert.Empty(TradeRules.ValidateFranchiseBalance(1, 1));
+    }
+
+    [Fact]
+    public void ValidateFranchiseBalance_RefusesAFranchiseForPlayers()
+    {
+        var errors = TradeRules.ValidateFranchiseBalance(1, 0);
+
+        Assert.Single(errors);
+        Assert.Contains("franchise", errors[0]);
+    }
+
+    [Fact]
+    public void ValidateFranchiseBalance_RefusesItFromEitherSide()
+    {
+        // The rule is about the pair, so which GM tried it changes nothing.
+        Assert.Single(TradeRules.ValidateFranchiseBalance(0, 1));
+    }
+
+    [Fact]
+    public void AFranchise_MovesNeitherTheCapNorTheRosterCount()
+    {
+        // It is simply absent from both collections, exactly like a draft pick:
+        // an Équipe slot is not a player and costs no cap, and vStandings
+        // excludes it for the same reason. A franchise-for-franchise swap is
+        // therefore a no-op here, whatever else moves with it.
+        var impact = Impact("Mine", capBefore: 100_000_000, countBefore: 25, outgoing: [], incoming: []);
+
+        Assert.Equal(100_000_000, impact.CapAfter);
+        Assert.Equal(25, impact.CountAfter);
+        Assert.Empty(TradeRules.Validate(impact, Cap, Min, Max));
+    }
 }

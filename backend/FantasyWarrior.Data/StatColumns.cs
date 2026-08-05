@@ -88,6 +88,9 @@ public static class StatColumns
         [StatKeys.GoalsAgainst] = a.GoalsAgainst,
         [StatKeys.Saves] = a.Saves,
         [StatKeys.ShotsAgainst] = a.ShotsAgainst,
+        [StatKeys.TeamWins] = a.TeamWins,
+        [StatKeys.TeamLosses] = a.TeamLosses,
+        [StatKeys.TeamOtLosses] = a.TeamOtLosses,
     });
 
     /// <summary>
@@ -111,5 +114,8 @@ public static class StatColumns
         a.GoalsAgainst = stats[StatKeys.GoalsAgainst];
         a.Saves = stats[StatKeys.Saves];
         a.ShotsAgainst = stats[StatKeys.ShotsAgainst];
+        a.TeamWins = stats[StatKeys.TeamWins];
+        a.TeamLosses = stats[StatKeys.TeamLosses];
+        a.TeamOtLosses = stats[StatKeys.TeamOtLosses];
     }
 }

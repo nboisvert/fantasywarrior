@@ -5,13 +5,28 @@ namespace FantasyWarrior.Core.Lineups;
 /// <summary>How many players may be active at each position.</summary>
 public sealed record LineupSlots(int Forwards, int Defense, int Goalies)
 {
+    /// <summary>
+    /// The Équipe slot, always exactly one and never configurable — a team owns
+    /// one franchise or none, which is enforced by a unique index rather than
+    /// by a rule anyone can set. That is the whole reason the slot has no
+    /// active/bench control: with a single occupant and a single seat, there is
+    /// no decision to make.
+    /// </summary>
+    public const int TeamSlot = 1;
+
     public int For(string positionGroup) => positionGroup switch
     {
         "D" => Defense,
         "G" => Goalies,
+        "T" => TeamSlot,
         _ => Forwards,
     };
 
+    /// <summary>
+    /// The **player** slots. The Équipe slot is deliberately outside it: a
+    /// league that uses no franchise would otherwise be reported as one seat
+    /// short of full every week.
+    /// </summary>
     public int Total => Forwards + Defense + Goalies;
 }
 
@@ -20,6 +35,11 @@ public sealed record LineupSlots(int Forwards, int Defense, int Goalies)
 /// entity: keeping this a plain record is what lets every rule below be pure
 /// and tested without mocking.
 /// </summary>
+/// <param name="PlayerId">
+/// Zero for an Équipe spot, which holds a franchise rather than a player. It is
+/// only ever a tiebreak here, and a team has at most one franchise, so the tie
+/// it would break cannot occur.
+/// </param>
 public sealed record LineupCandidate(
     string SpotId,
     long PlayerId,
@@ -70,6 +90,10 @@ public static class LineupRules
     /// <summary>
     /// How many active slots are used per position group — what the UI shows
     /// as "4/4 F · 2/3 D · 1/1 G".
+    ///
+    /// The Équipe slot is left out: this counter exists to tell a GM how much
+    /// of his lineup he has still to fill, and the franchise is never a choice
+    /// he makes.
     /// </summary>
     public static IReadOnlyDictionary<string, int> Used(
         IReadOnlyCollection<LineupCandidate> roster, IReadOnlyCollection<string> activeSpotIds)
@@ -77,7 +101,11 @@ public static class LineupRules
         var bySpot = roster.ToDictionary(c => c.SpotId);
         var used = new Dictionary<string, int> { ["F"] = 0, ["D"] = 0, ["G"] = 0 };
         foreach (var id in activeSpotIds.Distinct().Where(bySpot.ContainsKey))
-            used[bySpot[id].PositionGroup] = used.GetValueOrDefault(bySpot[id].PositionGroup) + 1;
+        {
+            var group = bySpot[id].PositionGroup;
+            if (group == "T") continue;
+            used[group] = used.GetValueOrDefault(group) + 1;
+        }
         return used;
     }
 
@@ -96,10 +124,18 @@ public static class LineupRules
         LineupSlots slots)
     {
         var bySpot = roster.ToDictionary(c => c.SpotId);
-        var kept = new HashSet<string>();
+
+        // The franchise is in the lineup whether or not the caller asked for
+        // it. Making that a property of the rule rather than of every caller is
+        // what stops "benched" from being reachable at all — an omission in a
+        // submitted set, a carried-forward week that predates the slot, or a
+        // client that simply does not know about it all end up in the same
+        // legal place.
+        var kept = roster.Where(c => c.PositionGroup == "T").Select(c => c.SpotId).ToHashSet();
 
         foreach (var group in activeSpotIds.Distinct()
                      .Where(bySpot.ContainsKey)
+                     .Where(id => bySpot[id].PositionGroup != "T")
                      .GroupBy(id => bySpot[id].PositionGroup))
         {
             var ordered = group

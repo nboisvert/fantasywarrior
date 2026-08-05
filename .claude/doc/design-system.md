@@ -26,6 +26,15 @@ Tokens : `frontend/src/index.css` (variables CSS) · composants :
 · gardien = or. Le violet a remplacé l'argent le 2026-07-23 : l'argent était trop
 peu contrasté pour la défense.
 
+**Slot Équipe** (`T`, la franchise NHL que possède un DG) = le neutre de la
+palette, `#c7d2e0` (`--franchise`), depuis le 2026-08-05. Volontairement **pas**
+une quatrième teinte saturée : F/D/G sont des positions et partagent un code de
+couleur, une franchise n'en est pas une. Et toutes les teintes restantes veulent
+déjà dire autre chose — le vert est « en ligne », le rose est « danger »,
+l'orange se confond avec l'or — donc une quatrième se lirait comme un statut
+plutôt que comme une nature. Les deux patrons obligatoires existent :
+`.roster-pos-pill-t` et `.pos-compact-t`.
+
 Contraste AA au minimum, partout.
 
 ## Typographie

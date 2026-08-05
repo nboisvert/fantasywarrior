@@ -14,6 +14,13 @@ import { PlayerCard } from "../components/PlayerCard";
 import { TopPlayerGrid } from "../components/TopPlayerGrid";
 import type { TopPlayerCard } from "../components/TopPlayerGrid";
 
+/** A lineup entry that holds a player, as against the Équipe slot's, which
+ * holds a franchise and has no player id or position group to rank by. */
+type PlayerLineupEntry = LineupEntry & { playerId: number; positionGroup: "F" | "D" | "G" };
+
+const isPlayerEntry = (e: LineupEntry): e is PlayerLineupEntry =>
+  e.playerId != null && e.positionGroup !== "T";
+
 /** The raw line under a leaderboard card: "3GP · 2G · 3A", over whatever
  * window the caller summed.
  *
@@ -177,10 +184,14 @@ function TopReserve({
 
         // Summed per roster spot, not per player: a spot holds one player for
         // its whole life, and the spot id is what both weeks agree on.
-        const totals = new Map<string, LineupEntry>();
+        // Players only. A franchise is never benched, so it could not reach
+        // this list anyway — but "Top Reserve" is a question about players, and
+        // the Équipe slot has no headshot, no position group and no player id
+        // to answer it with.
+        const totals = new Map<string, PlayerLineupEntry>();
         for (const week of prior)
           for (const e of week.entries) {
-            if (!benchedNow.has(e.spotId)) continue;
+            if (!benchedNow.has(e.spotId) || !isPlayerEntry(e)) continue;
             const acc = totals.get(e.spotId);
             totals.set(e.spotId, acc == null ? e : {
               ...e,

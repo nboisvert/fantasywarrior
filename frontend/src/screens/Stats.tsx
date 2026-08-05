@@ -329,6 +329,16 @@ interface PlayerRow {
   name: string;
   position: string;
   isGoalie: boolean;
+  // The Équipe slot: one row per team, holding an NHL franchise instead of a
+  // player. Only the three Record columns and the Fantasy point PTS carry a
+  // number (Nick, 2026-08-05) — a franchise has no goals, no cap hit and no
+  // injury, and the row shows a dash for each rather than a zero that would
+  // read as "played and produced nothing".
+  isFranchise: boolean;
+  logoUrl: string | null;
+  teamWins: number;
+  teamLosses: number;
+  teamOtLosses: number;
   // Fantasy point group — scoped to this player's *current roster stint*.
   poolGamesPlayed: number;
   poolGoals: number;
@@ -552,7 +562,11 @@ function RosterGrid({
                 </button>
               </th>
               <GroupHead label="Fantasy point" span={5} accent />
-              <GroupHead label="Goalie" span={3} />
+              {/* "Record", not "Goalie", since 2026-08-05: the Équipe slot
+                  reports W/L/OTL in the same three columns, and a goalie's
+                  W/OTL/SO was always a record anyway. L is filled for the
+                  franchise alone — no goalie loss total is stored. */}
+              <GroupHead label="Record" span={4} />
               <GroupHead label="NHL" span={5} />
               <GroupHead label="Extra" span={5} />
               <GroupHead label="Cap hit" span={2} />
@@ -564,6 +578,7 @@ function RosterGrid({
               <SortableHead label="PT" colKey="poolPoints" active={sort.key === "poolPoints"} dir={sort.dir} onSort={sort.toggle} accent spotlight />
               <SortableHead label="PT/G" colKey="poolPtsPerGame" active={sort.key === "poolPtsPerGame"} dir={sort.dir} onSort={sort.toggle} accent />
               <SortableHead label="W" colKey="wins" active={sort.key === "wins"} dir={sort.dir} onSort={sort.toggle} groupStart />
+              <SortableHead label="L" colKey="teamLosses" active={sort.key === "teamLosses"} dir={sort.dir} onSort={sort.toggle} />
               <SortableHead label="OTL" colKey="otLosses" active={sort.key === "otLosses"} dir={sort.dir} onSort={sort.toggle} />
               <SortableHead label="SO" colKey="shutouts" active={sort.key === "shutouts"} dir={sort.dir} onSort={sort.toggle} />
               <SortableHead label="GP" colKey="gamesPlayed" active={sort.key === "gamesPlayed"} dir={sort.dir} onSort={sort.toggle} groupStart />
@@ -602,54 +617,78 @@ function RosterGrid({
                 }
               >
                 <td className="stats-col-player">
-                  {/* Departed players have no lineup entry, so this whole
-                      control is absent for them rather than shown inert. */}
-                  {lineupEntry && (
-                    <LineupToggle
-                      entry={lineupEntry}
-                      // Editable whenever *next* week is: this week's own
-                      // lock is irrelevant, since a tap never touches it.
-                      editable={!!lineupEditable}
-                      busy={saving}
-                      pending={pendingFor?.(lineupEntry) ?? null}
-                      onToggle={(spotId) => onToggleLineup?.(spotId)}
-                    />
+                  {/* The franchise's logo sits where a player's active/bench
+                      control does — not a button, because there is nothing to
+                      decide: one franchise, one seat, always in the lineup. */}
+                  {r.isFranchise ? (
+                    <img className="stats-franchise-logo" src={r.logoUrl ?? ""} alt={r.name} />
+                  ) : (
+                    /* Departed players have no lineup entry, so this whole
+                       control is absent for them rather than shown inert. */
+                    lineupEntry && (
+                      <LineupToggle
+                        entry={lineupEntry}
+                        // Editable whenever *next* week is: this week's own
+                        // lock is irrelevant, since a tap never touches it.
+                        editable={!!lineupEditable}
+                        busy={saving}
+                        pending={pendingFor?.(lineupEntry) ?? null}
+                        onToggle={(spotId) => onToggleLineup?.(spotId)}
+                      />
+                    )
                   )}
-                  <button type="button" className="stats-player-btn" onClick={() => onOpenPlayer(r.id)}>
-                    <span className="stats-player-name">{formatShortName(r.name)}</span>
-                    {r.injuryStatus && <InjuryMark status={r.injuryStatus} type={r.injuryType} />}
-                    {r.tradeMark && <TradeMarkIcon direction={r.tradeMark} />}
-                  </button>
-                  <button
-                    type="button"
-                    className={`stats-periods-btn${openPeriodsFor === r.id ? " open" : ""}`}
-                    onClick={() => onTogglePeriods(r.id)}
-                    aria-expanded={openPeriodsFor === r.id}
-                    aria-label={`${r.name} — week by week`}
-                    title="Week by week"
-                  >
-                    <CalendarIcon size={13} />
-                  </button>
+                  {r.isFranchise ? (
+                    /* Full name, not "M. Canadiens" (Nick, 2026-08-05): there
+                       is one of these per team, so it can afford the width —
+                       and a franchise's name does not split into initial and
+                       surname the way formatShortName assumes. Plain text: it
+                       opens no player card. */
+                    <span className="stats-player-btn stats-player-name">{r.name}</span>
+                  ) : (
+                    <button type="button" className="stats-player-btn" onClick={() => onOpenPlayer(r.id)}>
+                      <span className="stats-player-name">{formatShortName(r.name)}</span>
+                      {r.injuryStatus && <InjuryMark status={r.injuryStatus} type={r.injuryType} />}
+                      {r.tradeMark && <TradeMarkIcon direction={r.tradeMark} />}
+                    </button>
+                  )}
+                  {/* No week-by-week for a franchise: the breakdown is served
+                      per player id, and a franchise has none. */}
+                  {!r.isFranchise && (
+                    <button
+                      type="button"
+                      className={`stats-periods-btn${openPeriodsFor === r.id ? " open" : ""}`}
+                      onClick={() => onTogglePeriods(r.id)}
+                      aria-expanded={openPeriodsFor === r.id}
+                      aria-label={`${r.name} — week by week`}
+                      title="Week by week"
+                    >
+                      <CalendarIcon size={13} />
+                    </button>
+                  )}
                   <span className={`stats-player-pos pos-compact-${posGroupClass(r.position)}`}>
                     {posGroup(r.position)}
                   </span>
                 </td>
-                <td className="accent stats-group-start">{r.poolGamesPlayed}</td>
-                <td className="accent">{r.poolGoals}</td>
-                <td className="accent">{r.poolAssists}</td>
+                {/* A franchise has none of these. It scored, so PTS is real;
+                    everything else is a dash rather than a zero, which would
+                    read as "took the ice and produced nothing". */}
+                <td className="accent stats-group-start">{r.isFranchise ? "—" : r.poolGamesPlayed}</td>
+                <td className="accent">{r.isFranchise ? "—" : r.poolGoals}</td>
+                <td className="accent">{r.isFranchise ? "—" : r.poolAssists}</td>
                 <td className="accent stats-col-spotlight">{r.poolPoints}</td>
-                <td className="accent">{displayRate(r.poolPtsPerGame, 2)}</td>
-                <td className="stats-group-start">{r.isGoalie ? r.wins : "—"}</td>
-                <td>{r.isGoalie ? r.otLosses : "—"}</td>
+                <td className="accent">{r.isFranchise ? "—" : displayRate(r.poolPtsPerGame, 2)}</td>
+                <td className="stats-group-start">{r.isFranchise ? r.teamWins : r.isGoalie ? r.wins : "—"}</td>
+                <td>{r.isFranchise ? r.teamLosses : "—"}</td>
+                <td>{r.isFranchise ? r.teamOtLosses : r.isGoalie ? r.otLosses : "—"}</td>
                 <td>{r.isGoalie ? r.shutouts : "—"}</td>
-                <td className="stats-group-start">{r.gamesPlayed}</td>
-                <td>{r.goals}</td>
-                <td>{r.assists}</td>
-                <td className="stats-col-spotlight">{r.nhlPoints}</td>
-                <td>{displayRate(r.nhlPtsPerGame, 2)}</td>
-                <td className="stats-group-start">{signed(r.plusMinus)}</td>
-                <td>{r.pim}</td>
-                <td>{r.shots}</td>
+                <td className="stats-group-start">{r.isFranchise ? "—" : r.gamesPlayed}</td>
+                <td>{r.isFranchise ? "—" : r.goals}</td>
+                <td>{r.isFranchise ? "—" : r.assists}</td>
+                <td className="stats-col-spotlight">{r.isFranchise ? "—" : r.nhlPoints}</td>
+                <td>{r.isFranchise ? "—" : displayRate(r.nhlPtsPerGame, 2)}</td>
+                <td className="stats-group-start">{r.isFranchise ? "—" : signed(r.plusMinus)}</td>
+                <td>{r.isFranchise ? "—" : r.pim}</td>
+                <td>{r.isFranchise ? "—" : r.shots}</td>
                 <td>{displayRate(r.gaa, 2)}</td>
                 <td>{displayRate(r.svPct, 3, true)}</td>
                 <td className="stats-group-start">{r.capHit != null ? formatMoneyCompact(r.capHit) : "—"}</td>
@@ -660,7 +699,7 @@ function RosterGrid({
                    table, and lining its columns up with the season
                    grid's twenty-one would make both unreadable. */
                 <tr className="player-periods-row">
-                  <td colSpan={22}>
+                  <td colSpan={23}>
                     {periodsByPlayer[r.id] ? (
                       <PlayerPeriods data={periodsByPlayer[r.id]} isGoalie={r.isGoalie} />
                     ) : (
@@ -684,6 +723,9 @@ function RosterGrid({
               <td className="accent stats-col-spotlight">{poolPtsTotal}</td>
               <td className="accent">{displayRate(poolGp > 0 ? poolPtsTotal / poolGp : null, 2)}</td>
               <td className="stats-group-start">{winsTotal}</td>
+              {/* Only the franchise fills this column, and one row's number is
+                  not a total. */}
+              <td>—</td>
               <td>{otLossesTotal}</td>
               <td>{shutoutsTotal}</td>
               <td className="stats-group-start">{nhlGp}</td>
@@ -888,12 +930,21 @@ export function Stats({
   // or "arriving".
   const toRow = (p: PlayerSeasonStatsRow, tradeMark: PlayerRow["tradeMark"]): PlayerRow => {
     const isGoalie = p.isGoalie;
+    const isFranchise = posGroup(p.position) === "T";
     const nhlPoints = p.goals + p.assists;
     return {
       id: p.id,
       name: p.name,
       position: p.position,
       isGoalie,
+      isFranchise,
+      logoUrl: p.logoUrl ?? null,
+      // Left out of the W/OTL columns' own fields on purpose: those totals are
+      // the team's *goalies'* record, and a franchise's is not additive with
+      // it. The cells below read these three directly.
+      teamWins: p.teamWins ?? 0,
+      teamLosses: p.teamLosses ?? 0,
+      teamOtLosses: p.teamOtLosses ?? 0,
       // `?? 0` guards the window where the deployed API predates these fields:
       // Pages deploys on push, Cloud Run is manual, so the two are briefly out
       // of step and undefined here would render NaN across the grid.
@@ -937,8 +988,12 @@ export function Stats({
 
   // The grid is keyed by playerId; the lineup by roster-spot id. One open spot
   // per player per team, so this mapping is unambiguous.
+  // Player entries only: the Équipe entry has no player id, and no lineup
+  // control for this map to feed.
   const lineupBySpotPlayer = new Map<number, LineupEntry>(
-    (lineup?.hidden ? [] : (lineup?.entries ?? [])).map((e) => [e.playerId, e]),
+    (lineup?.hidden ? [] : (lineup?.entries ?? []))
+      .filter((e): e is LineupEntry & { playerId: number } => e.playerId != null)
+      .map((e) => [e.playerId, e]),
   );
 
   /** Next week's status per spot, for the arrow. Keyed by spot rather than by

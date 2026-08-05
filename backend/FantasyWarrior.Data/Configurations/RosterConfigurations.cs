@@ -8,9 +8,21 @@ public sealed class RosterSpotConfiguration : IEntityTypeConfiguration<RosterSpo
 {
     public void Configure(EntityTypeBuilder<RosterSpot> b)
     {
-        b.ToTable("RosterSpots");
+        b.ToTable("RosterSpots", t =>
+            // A spot holds a player or a franchise, never both and never
+            // neither, and the column that is set agrees with PositionGroup.
+            // Without this the polymorphism is a naming convention, and a spot
+            // with neither would be an owner of nothing that still produces a
+            // scoring row every week. Same shape as
+            // CK_TradeAssets_ExactlyOneAsset, deliberately.
+            t.HasCheckConstraint(
+                "CK_RosterSpots_PlayerOrFranchise",
+                "([PositionGroup] = 'T' AND [FranchiseAbbrev] IS NOT NULL AND [PlayerId] IS NULL)"
+                + " OR ([PositionGroup] <> 'T' AND [PlayerId] IS NOT NULL AND [FranchiseAbbrev] IS NULL)"));
+
         b.HasKey(x => x.RosterSpotId);
         b.Property(x => x.PositionGroup).HasMaxLength(1).IsFixedLength().IsUnicode(false).IsRequired();
+        b.Property(x => x.FranchiseAbbrev).HasMaxLength(3).IsFixedLength().IsUnicode(false);
         b.Property(x => x.StartReason).HasConversion<byte>();
         b.Property(x => x.EndReason).HasConversion<byte>();
 
@@ -19,13 +31,39 @@ public sealed class RosterSpotConfiguration : IEntityTypeConfiguration<RosterSpo
         // league and scanning its playerIds array on each add — a race between
         // two simultaneous adds could still produce two owners. A filtered
         // unique index makes the second insert fail, full stop.
+        //
+        // The PlayerId IS NOT NULL half of the filter is what lets the Équipe
+        // slot exist at all: SQL Server treats two NULLs as equal in a unique
+        // index, so without it the *second* team in a league to open a
+        // franchise spot would collide with the first.
         b.HasIndex(x => new { x.LeagueId, x.PlayerId })
             .IsUnique()
-            .HasFilter("[EndDate] IS NULL")
+            .HasFilter("[EndDate] IS NULL AND [PlayerId] IS NOT NULL")
             .HasDatabaseName("UX_RosterSpots_OneOpenSpotPerPlayerPerLeague");
 
+        // The same guarantee for franchises: two GMs cannot both own the
+        // Canadiens.
+        b.HasIndex(x => new { x.LeagueId, x.FranchiseAbbrev })
+            .IsUnique()
+            .HasFilter("[EndDate] IS NULL AND [FranchiseAbbrev] IS NOT NULL")
+            .HasDatabaseName("UX_RosterSpots_OneOpenFranchisePerLeague");
+
+        // **One Équipe slot per team.** This is the constraint the whole
+        // feature leans on: one franchise and one seat means there is no
+        // active/bench decision to make, which is why that control does not
+        // exist on the Team screen. It is also what makes a one-sided franchise
+        // trade impossible rather than merely refused.
+        //
+        // Declared through the named overload because the index below is on the
+        // same column: `HasIndex(x => x.TeamId)` twice does not make two
+        // indexes, it redefines one, and the second call silently turned "a
+        // team's current roster" into "a team may hold one open spot".
+        b.HasIndex([nameof(RosterSpot.TeamId)], "UX_RosterSpots_OneOpenFranchisePerTeam")
+            .IsUnique()
+            .HasFilter("[EndDate] IS NULL AND [PositionGroup] = 'T'");
+
         // A team's current roster.
-        b.HasIndex(x => x.TeamId).HasFilter("[EndDate] IS NULL");
+        b.HasIndex([nameof(RosterSpot.TeamId)], "IX_RosterSpots_TeamId").HasFilter("[EndDate] IS NULL");
 
         // Every spot owning any part of a period. Under Firestore this needed a
         // union of two queries and a dedupe, because there is no OR across
@@ -50,6 +88,11 @@ public sealed class RosterSpotConfiguration : IEntityTypeConfiguration<RosterSpo
         b.HasOne(x => x.Player)
             .WithMany()
             .HasForeignKey(x => x.PlayerId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        b.HasOne(x => x.Franchise)
+            .WithMany()
+            .HasForeignKey(x => x.FranchiseAbbrev)
             .OnDelete(DeleteBehavior.NoAction);
 
         b.HasOne(x => x.StartTrade)

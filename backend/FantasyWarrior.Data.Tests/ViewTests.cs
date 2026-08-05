@@ -433,4 +433,78 @@ public class ViewTests
 
         Assert.Null(row);
     }
+
+    // --- the Équipe slot ---
+
+    [SqlFact]
+    public async Task Standings_DoNotChargeTheFranchiseAgainstTheCap()
+    {
+        await using var db = SqlFixture.NewContext();
+        var world = await new TestWorld(db).CreateAsync();
+
+        await world.AddSpotAsync(world.Teams[0], await world.AddPlayerAsync("C", capHit: 9_000_000));
+        await world.AddFranchiseSpotAsync(world.Teams[0], "MTL");
+
+        var row = await db.Standings.SingleAsync(s => s.TeamId == world.Teams[0].TeamId);
+
+        // **The regression the whole view change exists to prevent.** A
+        // franchise has no contract, so without the exclusion it would be
+        // billed the league's $1M default, counted as an unsigned player, and
+        // pushed the roster one over its own maximum — every one of the three
+        // wrong, and only the first visible.
+        Assert.Equal(9_000_000, row.CapTotal);
+        Assert.Equal(0, row.UnknownContracts);
+        Assert.Equal(1, row.PlayerCount);
+    }
+
+    [SqlFact]
+    public async Task Standings_CountTheFranchisesPoints()
+    {
+        await using var db = SqlFixture.NewContext();
+        var world = await new TestWorld(db).CreateAsync();
+        var period = world.Periods[0];
+
+        var player = await world.AddPlayerAsync("C");
+        var playerSpot = await world.AddSpotAsync(world.Teams[0], player);
+        await world.AddAssignmentAsync(playerSpot, period, active: true, points: 4);
+
+        var franchiseSpot = await world.AddFranchiseSpotAsync(world.Teams[0], "MTL");
+        // Les Mordus: 2 per win, 1 per overtime loss. Two wins and an OT loss.
+        await world.AddFranchiseAssignmentAsync(
+            franchiseSpot, period, points: 5, teamWins: 2, teamLosses: 1, teamOtLosses: 1);
+
+        var row = await db.Standings.SingleAsync(s => s.TeamId == world.Teams[0].TeamId);
+
+        // Excluded from the cap, included in the score: those are different
+        // questions, and the franchise answers them differently.
+        Assert.Equal(9, row.Score);
+        // The franchise reports a record, not a workload — so the denominator
+        // behind points-per-game stays about players.
+        Assert.Equal(1, row.RosterGamesPlayed);
+    }
+
+    [SqlFact]
+    public async Task RosterSpotTotals_CarryTheFranchisesSeasonRecord()
+    {
+        await using var db = SqlFixture.NewContext();
+        var world = await new TestWorld(db).CreateAsync(periods: 2);
+
+        var spot = await world.AddFranchiseSpotAsync(world.Teams[0], "COL");
+        await world.AddFranchiseAssignmentAsync(
+            spot, world.Periods[0], points: 5, teamWins: 2, teamLosses: 1, teamOtLosses: 1);
+        await world.AddFranchiseAssignmentAsync(
+            spot, world.Periods[1], points: 6, teamWins: 3, teamLosses: 0, teamOtLosses: 0);
+
+        var row = await db.RosterSpotTotals.SingleAsync(v => v.RosterSpotId == spot.RosterSpotId);
+
+        Assert.Equal("COL", row.FranchiseAbbrev);
+        Assert.Null(row.PlayerId);
+        Assert.Equal(5, row.ActiveTeamWins);
+        Assert.Equal(1, row.ActiveTeamLosses);
+        Assert.Equal(1, row.ActiveTeamOtLosses);
+        Assert.Equal(11, row.ActivePoints);
+        // Never benched, so this half of the view is always empty for a
+        // franchise — the Team grid shows a dash rather than a zero.
+        Assert.Equal(0, row.BenchPoints);
+    }
 }

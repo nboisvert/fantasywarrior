@@ -215,13 +215,31 @@ public static class LeagueEndpoints
                     .Where(v => v.PeriodId == currentPeriod.PeriodId)
                     .ToDictionaryAsync(v => v.TeamId, v => new { v.ActivePoints, v.BenchPoints });
 
+            // Player spots only: everything below is NHL points and cap hits,
+            // neither of which an Équipe spot has. The franchises come back on
+            // their own a few lines down.
             var openSpots = await db.RosterSpots
-                .Where(s => s.LeagueId == league.LeagueId && s.EndDate == null)
-                .Select(s => new { s.TeamId, s.PlayerId })
+                .Where(s => s.LeagueId == league.LeagueId && s.EndDate == null && s.PlayerId != null)
+                .Select(s => new { s.TeamId, PlayerId = s.PlayerId!.Value })
                 .ToListAsync();
             var nhlPoints = await Queries.NhlPointsAsync(
                 db, league.Season, openSpots.Select(s => s.PlayerId).Distinct().ToList(),
                 (await clock.StateAsync())?.AsOfDate);
+
+            // Who owns which franchise *right now* — the Équipe spot, not
+            // Teams.FranchiseAbbrev. The two start equal and are meant to be
+            // able to diverge: the club you are is not the club you own (Nick,
+            // 2026-08-05). The trade sheet needs the one that can move.
+            var franchises = await db.RosterSpots
+                .Where(s => s.LeagueId == league.LeagueId && s.EndDate == null && s.FranchiseAbbrev != null)
+                .Select(s => new
+                {
+                    s.TeamId,
+                    abbrev = s.FranchiseAbbrev!,
+                    name = s.Franchise!.Name,
+                    logoUrl = s.Franchise.LogoUrl,
+                })
+                .ToDictionaryAsync(s => s.TeamId);
 
             var normalized = username is null ? null : Queries.Normalize(username);
             var myTeam = normalized is null ? null : teams.FirstOrDefault(t => t.Owner == normalized);
@@ -243,7 +261,8 @@ public static class LeagueEndpoints
                     .Where(v => v.TeamId == myTeam.TeamId)
                     .ToListAsync();
                 var pointsByPlayer = spotPoints
-                    .GroupBy(v => v.PlayerId)
+                    .Where(v => v.PlayerId != null)
+                    .GroupBy(v => v.PlayerId!.Value)
                     .ToDictionary(g => g.Key, g => g.Sum(v => v.ActivePoints));
 
                 myRoster = [.. players
@@ -306,7 +325,12 @@ public static class LeagueEndpoints
                             playerNhlPoints = teamPlayers
                                 .Where(id => nhlPoints.ContainsKey(id.ToString()))
                                 .ToDictionary(id => id.ToString(), id => nhlPoints[id.ToString()]),
+                            // The team's own identity, which never moves.
                             franchiseAbbrev = t.FranchiseAbbrev,
+                            // The franchise it *holds* — the Équipe roster
+                            // spot, which is what a trade can move. Null for a
+                            // league that does not use the slot.
+                            franchise = franchises.GetValueOrDefault(t.TeamId),
                             periodPoints = week?.ActivePoints ?? 0,
                             benchScore = week?.BenchPoints ?? 0,
                             finalizedScore = s?.FinalizedScore ?? 0,

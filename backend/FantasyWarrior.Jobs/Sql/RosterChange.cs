@@ -6,9 +6,14 @@ using Microsoft.EntityFrameworkCore;
 namespace FantasyWarrior.Jobs.Sql;
 
 /// <summary>
-/// Applies a roster change to one team: closes the outgoing players' spots and
+/// Applies a roster change to one team: closes the outgoing assets' spots and
 /// opens spots for the incoming ones. Generalised to N-out/M-in so a two-sided
 /// trade calls it once per team.
+///
+/// Players and franchises take the same path because they are the same thing
+/// here — a roster spot opening and closing on a date. The only asymmetry is
+/// upstream: a franchise may only move against another franchise, since every
+/// team holds exactly one.
 ///
 /// **One transaction.** The Firestore version issued a query per outgoing
 /// player, an add per incoming one, and a final team update — any of which
@@ -35,14 +40,20 @@ public static class RosterChange
         DateOnly effectiveDate,
         int? tradeId = null,
         int? draftPickId = null,
+        IReadOnlyCollection<string>? franchisesOut = null,
+        IReadOnlyCollection<string>? franchisesIn = null,
         CancellationToken ct = default)
     {
         var now = DateTime.UtcNow;
+        franchisesOut ??= [];
+        franchisesIn ??= [];
 
-        if (playersOut.Count > 0)
+        if (playersOut.Count > 0 || franchisesOut.Count > 0)
         {
             var closing = await db.RosterSpots
-                .Where(s => s.TeamId == teamId && s.EndDate == null && playersOut.Contains(s.PlayerId))
+                .Where(s => s.TeamId == teamId && s.EndDate == null
+                            && ((s.PlayerId != null && playersOut.Contains(s.PlayerId.Value))
+                                || (s.FranchiseAbbrev != null && franchisesOut.Contains(s.FranchiseAbbrev))))
                 .ToListAsync(ct);
             foreach (var spot in closing)
             {
@@ -78,5 +89,18 @@ public static class RosterChange
                     OpenedUtc = now,
                 });
         }
+
+        foreach (var abbrev in franchisesIn)
+            db.RosterSpots.Add(new RosterSpot
+            {
+                LeagueId = leagueId,
+                TeamId = teamId,
+                FranchiseAbbrev = abbrev,
+                PositionGroup = "T",
+                StartDate = effectiveDate,
+                StartReason = startReason,
+                StartTradeId = startReason == RosterSpotStartReason.Trade ? tradeId : null,
+                OpenedUtc = now,
+            });
     }
 }

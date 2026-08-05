@@ -23,6 +23,12 @@
   --silver: #c7d2e0;
   --bronze: #d0885a;
   --defense: #a78bfa;
+  /* The Équipe slot. Deliberately the palette's neutral rather than a fourth
+     hue: F/D/G are positions and share a colour code, and a franchise is not
+     one of them. Every saturated colour left also already means something —
+     green is "online", rose is "danger", orange sits on top of gold — so a
+     fourth would read as a status instead of a kind. */
+  --franchise: #c7d2e0;
   --online: #4ade80;
   --online-glow: rgba(74, 222, 128, 0.4);
 

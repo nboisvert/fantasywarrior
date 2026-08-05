@@ -48,7 +48,9 @@ Deux défauts de l'app diffèrent de cette ligue et ont été écrasés : la vic
 
 **Le plafond a été à 115 M jusqu'au 2026-08-05** — le chiffre de la LNH, pas celui de la ligue. Il mettait Montréal (128,1 M) et Detroit (116,1 M) hors limites sur papier, et après l'ajout des 44 joueurs du §2 il en aurait mis **9 sur 14**. À 134 M, les 14 équipes sont conformes. `seed-mordus` prend maintenant 134 M par défaut.
 
-**Encore inconnu** : la règle de pointage du slot Équipe (§3).
+**Le slot Équipe** vaut 2 par victoire et 1 par défaite en prolongation depuis
+le 2026-08-05 (§3). C'était la dernière règle manquante ; le barème de la ligue
+est complet.
 
 ### Validation croisée par la taille de roster
 
@@ -154,18 +156,28 @@ Nick a tranché (2026-08-05) : **Alex DeBrincat** (8479337, DET), que l'extracti
 
 ---
 
-## 3. Le slot « Équipe » (`E`)
+## 3. Le slot « Équipe » (`T`)
 
-Le PDF donne à chaque participant une ligne `E` contenant **sa propre franchise NHL** (Lachance → Canadiens Montreal, Boisvert → Avalanche Colorado). Elle apparaît exactement 14 fois, à 0 $ de salaire, et n'est jamais échangée.
+Le PDF donne à chaque participant une ligne `E` contenant **sa propre franchise NHL** (Lachance → Canadiens Montreal, Boisvert → Avalanche Colorado). Elle apparaît exactement 14 fois et à 0 $ de salaire.
 
-**Décision de modélisation : une colonne `FranchiseAbbrev` sur `Teams`, et non un `RosterSpot`.** Un spot polymorphe — contenant tantôt un joueur, tantôt une équipe — contaminerait tout le modèle de roster, de lineup et de transaction pour un cas unique, permanent et non échangeable. Ses points se calculeront depuis la table `Games`, déjà présente.
+**La franchise rapporte des points** (Nick, 2026-08-05) : **2 par victoire, 1 par défaite en prolongation**, 0 par défaite en temps réglementaire. Trois clés de barème à elle (`teamWins`, `teamLosses`, `teamOtLosses`), volontairement distinctes de celles du gardien — les deux valent 2 et 1 ici, mais « mon gardien a gagné » et « ma franchise a gagné » restent deux événements différents, et une ligue doit pouvoir les payer séparément. Le calcul lit la table `Games`, jamais le journal de match des joueurs : `FranchiseResults.For`, pur et testé.
 
-Nick a confirmé que ce slot **rapporte des points** en plus de porter l'identité. **La règle exacte reste à obtenir** avant de pouvoir la coder.
+### Le renversement de décision du 2026-08-05
+
+Ce document a d'abord tranché l'inverse, le matin même :
+
+> **Décision de modélisation : une colonne `FranchiseAbbrev` sur `Teams`, et non un `RosterSpot`.** Un spot polymorphe — contenant tantôt un joueur, tantôt une équipe — contaminerait tout le modèle de roster, de lineup et de transaction pour un cas unique, permanent et non échangeable.
+
+Nick l'a renversée le jour même, et le raisonnement d'origine s'est révélé faux sur ses trois termes. Le cas n'est ni **unique** — une franchise ouvre un spot, produit une ligne `RosterAssignment` par semaine, banque ses points, exactement comme un joueur — ni **non échangeable**, puisqu'il l'est, contre une autre franchise. Et la « contamination » redoutée s'est chiffrée : **une colonne nullable et une contrainte CHECK**. Le prix de l'alternative était plus élevé — un deuxième moteur de pointage, un deuxième chemin d'échange et une deuxième grille, pour un actif qui se comporte en tout point comme un joueur.
+
+Ce qui reste vrai de la crainte initiale : la nullabilité de `PlayerId` s'est propagée à une quinzaine d'appels, et l'un d'eux était un vrai piège — `rosteredIds` alimentait un `NOT IN` que le premier NULL aurait rendu NULL pour toutes les lignes, vidant le tableau des joueurs autonomes sans un mot dans les logs.
+
+**Deux vérités distinctes, assumées** : `Teams.FranchiseAbbrev` est l'identité de l'équipe dans le pool et ne bouge jamais ; le spot `T` est l'actif échangeable. Ils partent égaux et peuvent diverger — le club qu'on est n'est pas le club qu'on possède.
 
 ---
 
 ## 4. Reste à obtenir de Nick
 
-1. **La règle de pointage du slot Équipe** (§3) — la seule règle encore manquante pour que le calcul soit complet.
+*(Plus rien de bloquant : la dernière règle manquante, le pointage du slot Équipe, a été tranchée le 2026-08-05 — voir §3.)*
 
 Les salaires actuels de `players` sont estimés (`capHitSource: "estimated"`), pas réels. Le PDF contient la vraie colonne `PSal` par joueur; l'importer donnerait des masses salariales exactes et rendrait le plafond de 115 M significatif. Non fait — les valeurs sont dans les colonnes numériques du PDF, que l'extraction n'apparie pas de façon fiable aux noms (c'est justement le problème d'entremêlement des colonnes qui a rendu nécessaire le découpage par dictionnaire). Faisable si Nick veut un export CSV de PoolExpert.

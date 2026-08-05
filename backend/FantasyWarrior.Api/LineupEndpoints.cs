@@ -50,10 +50,14 @@ public static class LineupEndpoints
             var spots = await db.RosterSpots
                 .Where(s => s.TeamId == team.TeamId && s.EndDate == null)
                 .ToListAsync();
-            var playerIds = spots.Select(s => s.PlayerId).ToList();
+            var playerIds = spots.Where(s => s.PlayerId != null).Select(s => s.PlayerId!.Value).ToList();
             var players = await db.Players.Where(p => playerIds.Contains(p.PlayerId))
                 .ToDictionaryAsync(p => p.PlayerId);
             var caps = await Queries.CapHitsAsync(db, league.Season, playerIds);
+            var franchiseAbbrevs = spots.Where(s => s.FranchiseAbbrev != null)
+                .Select(s => s.FranchiseAbbrev!).ToList();
+            var franchises = await db.NhlTeams.Where(t => franchiseAbbrevs.Contains(t.Abbrev))
+                .ToDictionaryAsync(t => t.Abbrev);
 
             var results = await db.RosterAssignments
                 .Where(a => a.PeriodId == periodDoc.PeriodId && spots.Select(s => s.RosterSpotId).Contains(a.RosterSpotId))
@@ -97,7 +101,7 @@ public static class LineupEndpoints
                     .ToDictionaryAsync(v => v.RosterSpotId, v => v.ActivePoints);
                 var candidates = spots
                     .Select(s => new LineupCandidate(
-                        s.RosterSpotId.ToString(), s.PlayerId, s.PositionGroup,
+                        s.RosterSpotId.ToString(), s.PlayerId ?? 0, s.PositionGroup,
                         seasonSoFar.GetValueOrDefault(s.RosterSpotId), s.OpenedUtc))
                     .ToList();
 
@@ -118,20 +122,27 @@ public static class LineupEndpoints
 
             var entries = spots.Select(s =>
             {
-                players.TryGetValue(s.PlayerId, out var p);
+                var franchise = s.FranchiseAbbrev is null ? null : franchises.GetValueOrDefault(s.FranchiseAbbrev);
+                var p = s.PlayerId is { } id && players.TryGetValue(id, out var found) ? found : null;
                 results.TryGetValue(s.RosterSpotId, out var r);
                 return new
                 {
                     spotId = s.RosterSpotId.ToString(),
                     playerId = s.PlayerId,
-                    name = p?.FullName ?? "Unknown player",
+                    // The franchise's own name, and the logo the Team screen
+                    // shows where a player's lineup toggle would be — one
+                    // franchise, one seat, so there is nothing to toggle.
+                    name = franchise?.Name ?? p?.FullName ?? "Unknown player",
                     position = p?.Position ?? s.PositionGroup,
                     positionGroup = s.PositionGroup,
-                    team = p?.TeamAbbrev,
+                    team = franchise?.Abbrev ?? p?.TeamAbbrev,
                     headshotUrl = p?.HeadshotUrl,
-                    capHit = caps.TryGetValue(s.PlayerId, out var c) ? c : (long?)null,
-                    engaged = engagedPlayers.Contains(s.PlayerId),
-                    active = r?.IsActive ?? previewed.Contains(s.RosterSpotId),
+                    logoUrl = franchise?.LogoUrl,
+                    // A franchise costs no cap and is nobody's contract, which
+                    // is the same rule vStandings applies.
+                    capHit = s.PlayerId is { } cid && caps.TryGetValue(cid, out var c) ? c : (long?)null,
+                    engaged = s.PlayerId is { } eid && engagedPlayers.Contains(eid),
+                    active = s.IsFranchise || (r?.IsActive ?? previewed.Contains(s.RosterSpotId)),
                     points = r?.FantasyPoints ?? 0,
                     gamesPlayed = r?.GamesPlayed ?? 0,
                     // The week's raw line, so a card can say what actually
@@ -142,18 +153,24 @@ public static class LineupEndpoints
                     wins = r?.Wins ?? 0,
                     otLosses = r?.OtLosses ?? 0,
                     saves = r?.Saves ?? 0,
+                    teamWins = r?.TeamWins ?? 0,
+                    teamLosses = r?.TeamLosses ?? 0,
+                    teamOtLosses = r?.TeamOtLosses ?? 0,
                     fromDate = (DateOnly?)r?.EffectiveFrom,
                     toDate = (DateOnly?)r?.EffectiveTo,
                     seasonPoints = seasonPoints.GetValueOrDefault(s.RosterSpotId),
                 };
             })
-            .OrderBy(e => e.positionGroup == "F" ? 0 : e.positionGroup == "D" ? 1 : 2)
+            .OrderBy(e => e.positionGroup switch { "F" => 0, "D" => 1, "G" => 2, _ => 3 })
             .ThenByDescending(e => e.active)
             .ThenByDescending(e => e.seasonPoints)
             .ToList();
 
+            // The Équipe slot is left out on purpose: this counter says how much
+            // of his lineup a GM still has to fill, and the franchise is never
+            // something he fills.
             var used = new Dictionary<string, int> { ["F"] = 0, ["D"] = 0, ["G"] = 0 };
-            foreach (var e in entries.Where(e => e.active))
+            foreach (var e in entries.Where(e => e.active && e.positionGroup != "T"))
                 used[e.positionGroup] = used.GetValueOrDefault(e.positionGroup) + 1;
 
             return Results.Ok(new
@@ -190,9 +207,13 @@ public static class LineupEndpoints
             // the projection below differing only in a WHERE clause.
             var asOf = (await clock.StateAsync())?.AsOfDate ?? DateOnly.MaxValue;
 
+            // Player spots only. A franchise spot's null PlayerId would land in
+            // this list and turn the NOT IN below into `NOT IN (…, NULL)`,
+            // which is NULL for every row — an empty free-agent board, with
+            // nothing in the logs to say why.
             var rosteredIds = await db.RosterSpots
-                .Where(s => s.LeagueId == league.LeagueId && s.EndDate == null)
-                .Select(s => s.PlayerId)
+                .Where(s => s.LeagueId == league.LeagueId && s.EndDate == null && s.PlayerId != null)
+                .Select(s => s.PlayerId!.Value)
                 .ToListAsync();
 
             // Summed by the database, unlike the week-long version this
@@ -293,7 +314,7 @@ public static class LineupEndpoints
                 .ToListAsync();
             var candidates = spots
                 .Select(s => new LineupCandidate(
-                    s.RosterSpotId.ToString(), s.PlayerId, s.PositionGroup, 0, s.OpenedUtc))
+                    s.RosterSpotId.ToString(), s.PlayerId ?? 0, s.PositionGroup, 0, s.OpenedUtc))
                 .ToList();
             var requested = (req.ActiveSpotIds ?? []).Distinct().ToList();
 
@@ -322,7 +343,11 @@ public static class LineupEndpoints
 
                 foreach (var spot in spots)
                 {
-                    var shouldBeActive = activeIds.Contains(spot.RosterSpotId);
+                    // The Équipe slot is active whatever the request said. One
+                    // franchise, one seat, so there is no decision to make —
+                    // and a client that omits it (or predates it) must not be
+                    // able to bench one by accident.
+                    var shouldBeActive = spot.IsFranchise || activeIds.Contains(spot.RosterSpotId);
                     if (existing.TryGetValue(spot.RosterSpotId, out var row))
                     {
                         // A banked week is immutable; the lock above normally
@@ -470,11 +495,21 @@ public static class LineupEndpoints
             // read off a spot.
             var incomingPlayerIds = await TradeValidation.IncomingPlayerIdsAsync(db, league.LeagueId, team.TeamId);
 
-            var playerIds = spots.Concat(departedSpots).Select(s => s.PlayerId)
+            var playerIds = spots.Concat(departedSpots)
+                .Where(s => s.PlayerId != null).Select(s => s.PlayerId!.Value)
                 .Concat(incomingPlayerIds).Distinct().ToList();
             var players = await db.Players.Where(p => playerIds.Contains(p.PlayerId))
                 .ToDictionaryAsync(p => p.PlayerId);
             var caps = await Queries.CapHitsAsync(db, league.Season, playerIds);
+
+            // The Équipe slots this team has held, open or closed — a franchise
+            // traded away belongs in the departed list for the same reason a
+            // player does: its banked points are still part of this team's
+            // score.
+            var franchiseAbbrevs = spots.Concat(departedSpots)
+                .Where(s => s.FranchiseAbbrev != null).Select(s => s.FranchiseAbbrev!).Distinct().ToList();
+            var franchises = await db.NhlTeams.Where(t => franchiseAbbrevs.Contains(t.Abbrev))
+                .ToDictionaryAsync(t => t.Abbrev);
 
             // Season totals, bounded to the simulated day when a replay is
             // running — the same bound the player card uses, so the two cannot
@@ -490,26 +525,75 @@ public static class LineupEndpoints
             var engagedPlayers = (await TradeValidation.EngagedAssetsAsync(db, league.LeagueId)).PlayerIds;
             var injuries = await Queries.InjuriesAsync(db, playerIds);
 
+            // The Équipe slot, as one row of the same grid.
+            //
+            // Only the three team columns carry a number (Nick, 2026-08-05): a
+            // franchise has no goals, no cap hit and no injury, and the screen
+            // shows a dash rather than a zero for each. The player-stat fields
+            // are still present and still zero — they are the row shape, and
+            // the T branch on the grid never reads them.
+            object FranchiseRow(RosterSpot spot)
+            {
+                var f = franchises.GetValueOrDefault(spot.FranchiseAbbrev!);
+                spotTotals.TryGetValue(spot.RosterSpotId, out var st);
+                return new
+                {
+                    // Negative, so a franchise row can never collide with an NHL
+                    // player id in the grid's row keys. It is a key, not an
+                    // identifier anything can be looked up by — clicking a
+                    // franchise opens nothing.
+                    id = -spot.RosterSpotId,
+                    name = f?.Name ?? spot.FranchiseAbbrev!,
+                    position = "T",
+                    team = spot.FranchiseAbbrev,
+                    capHit = (long?)null,
+                    headshotUrl = (string?)null,
+                    logoUrl = f?.LogoUrl,
+                    engaged = false,
+                    injuryStatus = (string?)null,
+                    injuryType = (string?)null,
+                    isGoalie = false,
+                    gamesPlayed = 0, goals = 0, assists = 0, points = 0, plusMinus = 0,
+                    pim = 0, shots = 0, hits = 0, blockedShots = 0,
+                    wins = 0, otLosses = 0, shutouts = 0,
+                    goalsAgainst = 0, saves = 0, shotsAgainst = 0,
+                    teamWins = st?.ActiveTeamWins ?? 0,
+                    teamLosses = st?.ActiveTeamLosses ?? 0,
+                    teamOtLosses = st?.ActiveTeamOtLosses ?? 0,
+                    spotStartDate = (DateOnly?)spot.StartDate,
+                    spotActiveGamesPlayed = 0,
+                    spotActiveGoals = 0,
+                    spotActiveAssists = 0,
+                    spotActivePoints = st?.ActivePoints ?? 0,
+                    spotBenchPoints = 0d,
+                    spotEndDate = (DateOnly?)spot.EndDate,
+                };
+            }
+
             // One row shape, two lists — the grids are identical by design, so
             // the projection has to be too.
             object Row(RosterSpot spot)
             {
-                players.TryGetValue(spot.PlayerId, out var p);
-                season.TryGetValue(spot.PlayerId, out var t);
+                if (spot.IsFranchise) return FranchiseRow(spot);
+
+                var playerId = spot.PlayerId!.Value;
+                players.TryGetValue(playerId, out var p);
+                season.TryGetValue(playerId, out var t);
                 spotTotals.TryGetValue(spot.RosterSpotId, out var st);
-                injuries.TryGetValue(spot.PlayerId, out var inj);
+                injuries.TryGetValue(playerId, out var inj);
                 return new
                 {
-                    id = spot.PlayerId,
+                    id = playerId,
                     name = p?.FullName ?? "Unknown player",
                     position = p?.Position ?? spot.PositionGroup,
                     team = p?.TeamAbbrev,
-                    capHit = caps.TryGetValue(spot.PlayerId, out var c) ? c : (long?)null,
+                    capHit = caps.TryGetValue(playerId, out var c) ? c : (long?)null,
                     headshotUrl = p?.HeadshotUrl,
+                    logoUrl = (string?)null,
                     // Already moving in an accepted trade — the trade sheet
                     // greys these out instead of letting a GM build an offer
                     // the server will refuse.
-                    engaged = engagedPlayers.Contains(spot.PlayerId),
+                    engaged = engagedPlayers.Contains(playerId),
                     // Injured or suspended right now, per the news sources. The
                     // grid marks the row; the type is what the tooltip says.
                     // Deliberately carried on the row rather than fetched
@@ -534,6 +618,7 @@ public static class LineupEndpoints
                     goalsAgainst = t?.GoalsAgainst ?? 0,
                     saves = t?.Saves ?? 0,
                     shotsAgainst = t?.ShotsAgainst ?? 0,
+                    teamWins = 0, teamLosses = 0, teamOtLosses = 0,
                     spotStartDate = (DateOnly?)spot.StartDate,
                     spotActiveGamesPlayed = st?.ActiveGamesPlayed ?? 0,
                     spotActiveGoals = st?.ActiveGoals ?? 0,
@@ -563,6 +648,7 @@ public static class LineupEndpoints
                     team = p?.TeamAbbrev,
                     capHit = caps.TryGetValue(playerId, out var c) ? c : (long?)null,
                     headshotUrl = p?.HeadshotUrl,
+                    logoUrl = (string?)null,
                     engaged = true,
                     injuryStatus = inj?.Status,
                     injuryType = inj?.InjuryType,
@@ -582,6 +668,7 @@ public static class LineupEndpoints
                     goalsAgainst = t?.GoalsAgainst ?? 0,
                     saves = t?.Saves ?? 0,
                     shotsAgainst = t?.ShotsAgainst ?? 0,
+                    teamWins = 0, teamLosses = 0, teamOtLosses = 0,
                     spotStartDate = (DateOnly?)null,
                     spotActiveGamesPlayed = 0,
                     spotActiveGoals = 0,

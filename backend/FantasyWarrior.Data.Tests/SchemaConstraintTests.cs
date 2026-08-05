@@ -182,4 +182,116 @@ public class SchemaConstraintTests
         // Utah is the one that changes; it is "Mammoth" from 2025-26.
         Assert.Equal("Utah Mammoth", (await db.NhlTeams.FindAsync("UTA"))!.Name);
     }
+
+    // --- the Équipe slot ---
+
+    [SqlFact]
+    public async Task TwoTeamsCannotOwnTheSameFranchise()
+    {
+        await using var db = SqlFixture.NewContext();
+        var world = await new TestWorld(db).CreateAsync(teams: 2);
+
+        await world.AddFranchiseSpotAsync(world.Teams[0], "MTL");
+
+        // Exactly the guarantee players already had, for the other kind of
+        // asset. Without it a franchise could be held twice and score twice.
+        await Assert.ThrowsAsync<DbUpdateException>(
+            () => world.AddFranchiseSpotAsync(world.Teams[1], "MTL"));
+    }
+
+    [SqlFact]
+    public async Task ATeamCannotHoldTwoFranchisesAtOnce()
+    {
+        await using var db = SqlFixture.NewContext();
+        var world = await new TestWorld(db).CreateAsync();
+
+        await world.AddFranchiseSpotAsync(world.Teams[0], "MTL");
+
+        // **This is the constraint the whole feature leans on.** One franchise
+        // and one seat is why the Équipe slot has no active/bench control, and
+        // why a one-sided franchise trade cannot be executed at all.
+        await Assert.ThrowsAsync<DbUpdateException>(
+            () => world.AddFranchiseSpotAsync(world.Teams[0], "TOR"));
+    }
+
+    [SqlFact]
+    public async Task ATeamCanReclaimAFranchiseItPreviouslyTradedAway()
+    {
+        await using var db = SqlFixture.NewContext();
+        var world = await new TestWorld(db).CreateAsync();
+        var period = world.Periods[0];
+
+        await world.AddFranchiseSpotAsync(
+            world.Teams[0], "MTL", start: period.StartDate, end: period.EndDate);
+
+        // Both unique indexes are filtered on open spots, so history never
+        // blocks the present — the same rule that lets a player be re-acquired.
+        var reopened = await world.AddFranchiseSpotAsync(
+            world.Teams[0], "MTL", start: period.EndDate.AddDays(1));
+
+        Assert.Null(reopened.EndDate);
+    }
+
+    [SqlFact]
+    public async Task ARosterSpotHoldsAPlayerOrAFranchise_NeverBothAndNeverNeither()
+    {
+        await using var db = SqlFixture.NewContext();
+        var world = await new TestWorld(db).CreateAsync();
+        var player = await world.AddPlayerAsync();
+        await world.AddFranchiseAsync("MTL");
+
+        async Task<DbUpdateException?> TryAdd(string positionGroup, long? playerId, string? abbrev)
+        {
+            db.RosterSpots.Add(new RosterSpot
+            {
+                LeagueId = world.League.LeagueId,
+                TeamId = world.Teams[0].TeamId,
+                PlayerId = playerId,
+                FranchiseAbbrev = abbrev,
+                PositionGroup = positionGroup,
+                StartDate = world.Periods[0].StartDate,
+                StartReason = RosterSpotStartReason.Draft,
+                OpenedUtc = DateTime.UtcNow,
+            });
+            try
+            {
+                await db.SaveChangesAsync();
+                return null;
+            }
+            catch (DbUpdateException ex)
+            {
+                db.ChangeTracker.Clear();
+                return ex;
+            }
+        }
+
+        // A spot owning nothing would still produce a scoring row every week.
+        Assert.NotNull(await TryAdd("F", null, null));
+        // Both at once is two assets in one seat.
+        Assert.NotNull(await TryAdd("T", player.PlayerId, "MTL"));
+        // A position group that disagrees with the column that is set is the
+        // same bug one step later: this is what every "is it a franchise?"
+        // check in the app reads.
+        Assert.NotNull(await TryAdd("F", null, "MTL"));
+        Assert.NotNull(await TryAdd("T", player.PlayerId, null));
+
+        Assert.Null(await TryAdd("T", null, "MTL"));
+    }
+
+    [SqlFact]
+    public async Task ATeamsCurrentRosterIsStillIndexed_NotReplacedByTheFranchiseIndex()
+    {
+        await using var db = SqlFixture.NewContext();
+
+        // Both indexes are on TeamId. Declaring the second through the
+        // property-lambda overload silently *redefined* the first, turning "a
+        // team's current roster" into "a team may hold one open spot" — caught
+        // in the generated migration, and this is what stops it coming back.
+        var indexes = await db.Database
+            .SqlQuery<string>($"SELECT name AS Value FROM sys.indexes WHERE object_id = OBJECT_ID('RosterSpots')")
+            .ToListAsync();
+
+        Assert.Contains("IX_RosterSpots_TeamId", indexes);
+        Assert.Contains("UX_RosterSpots_OneOpenFranchisePerTeam", indexes);
+    }
 }

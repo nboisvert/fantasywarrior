@@ -232,4 +232,103 @@ public class LineupRulesTests
 
         Assert.Empty(LineupRules.Validate(Roster, [.. filled], Mordus));
     }
+
+    // --- the Équipe slot ---
+    //
+    // A franchise is a roster spot like any other, with one difference that
+    // every rule below has to respect: **it is never benched**. One per team,
+    // one seat, so there is no decision to make and no way to make it wrong.
+
+    /// <summary>A franchise holds no player, so its tiebreak id is 0.</summary>
+    private static LineupCandidate T(string id = "t1") =>
+        new(id, PlayerId: 0, "T", 0, new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+
+    private static readonly LineupCandidate[] RosterWithFranchise = [.. Roster, T()];
+
+    [Fact]
+    public void Validate_AcceptsTheFranchiseAlongsideAFullLineup()
+    {
+        Assert.Empty(LineupRules.Validate(RosterWithFranchise, ["f1", "f2", "d1", "g1", "t1"], Small));
+    }
+
+    [Fact]
+    public void Validate_DoesNotLetTheFranchiseEatAForwardSlot()
+    {
+        // The Équipe slot is its own group, so fielding it costs nothing
+        // elsewhere -- 2F + 1D + 1G + the franchise is still a legal Small.
+        Assert.Empty(LineupRules.Validate(RosterWithFranchise, ["f1", "f2", "d1", "g1", "t1"], Small));
+        Assert.Equal(2, LineupRules.Used(RosterWithFranchise, ["f1", "f2", "d1", "g1", "t1"])["F"]);
+    }
+
+    [Fact]
+    public void Validate_RejectsTwoFranchises()
+    {
+        // Unreachable through the schema -- a unique index allows one open
+        // Équipe spot per team -- but the rule says so in its own right.
+        var two = new[] { T("t1"), T("t2") };
+
+        var errors = LineupRules.Validate(two, ["t1", "t2"], Small);
+
+        Assert.Single(errors);
+        Assert.Contains("Too many active at T: 2 of 1", errors[0]);
+    }
+
+    [Fact]
+    public void Used_IgnoresTheFranchise()
+    {
+        // The counter tells a GM what he still has to fill. The franchise is
+        // not something he fills.
+        var used = LineupRules.Used(RosterWithFranchise, ["f1", "t1"]);
+
+        Assert.Equal(1, used["F"]);
+        Assert.False(used.ContainsKey("T"));
+    }
+
+    [Fact]
+    public void LegalActiveSet_KeepsTheFranchiseEvenWhenNobodyAskedForIt()
+    {
+        // A submitted lineup that omits it, a client that predates the slot, a
+        // week carried forward from before the franchise existed: all three end
+        // up here, and none of them may bench it.
+        var kept = LineupRules.LegalActiveSet(RosterWithFranchise, ["f1", "f2", "d1", "g1"], Small);
+
+        Assert.Contains("t1", kept);
+    }
+
+    [Fact]
+    public void LegalActiveSet_KeepsTheFranchiseWhenTheLineupIsOtherwiseIllegal()
+    {
+        // Trimming an over-full forward group must not take the franchise with
+        // it -- it was never part of the problem.
+        var kept = LineupRules.LegalActiveSet(RosterWithFranchise, ["f1", "f2", "f3", "t1"], Small);
+
+        Assert.Contains("t1", kept);
+        Assert.Equal(2, kept.Count(id => id.StartsWith('f')));
+    }
+
+    [Fact]
+    public void CarryForward_FieldsTheFranchiseFromNothing()
+    {
+        var carried = LineupRules.CarryForward(RosterWithFranchise, [], Small);
+
+        Assert.Contains("t1", carried);
+        Assert.Equal(Small.Total + LineupSlots.TeamSlot, carried.Count);
+    }
+
+    [Fact]
+    public void AutoFill_FieldsTheFranchise()
+    {
+        var filled = LineupRules.AutoFill(RosterWithFranchise, new HashSet<string>(), Small);
+
+        Assert.Contains("t1", filled);
+    }
+
+    [Fact]
+    public void TheFranchiseIsOutsideTheSlotTotal()
+    {
+        // A league that uses no franchise would otherwise read as one seat
+        // short of full every week.
+        Assert.Equal(4, Small.Total);
+        Assert.Equal(1, Small.For("T"));
+    }
 }

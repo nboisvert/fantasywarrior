@@ -71,6 +71,19 @@ public sealed class RosterAssignment
 
     public int ShotsAgainst { get; set; }
 
+    // --- the Équipe slot: a franchise's own record ---
+    //
+    // Deliberately not the goalie's Wins/OtLosses above. "My goalie won" and
+    // "my franchise won" are different events on the same night, and a league
+    // that prices them differently has no way to say so if they share a column.
+    // Les Mordus pays 2 and 1 for both today; that is a coincidence.
+
+    public int TeamWins { get; set; }
+
+    public int TeamLosses { get; set; }
+
+    public int TeamOtLosses { get; set; }
+
     /// <summary>
     /// The stats above scored under the league's scale, at the time this row was
     /// last computed.

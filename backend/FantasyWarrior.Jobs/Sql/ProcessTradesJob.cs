@@ -51,7 +51,14 @@ public sealed class ProcessTradesJob(FantasyWarriorDbContext db)
                 {
                     var players = side.Where(a => a.AssetType == TradeAssetType.Player)
                         .Select(a => a.PlayerId!.Value).ToList();
-                    if (players.Count == 0) continue;
+                    // A franchise moves through the same door: it is a roster
+                    // spot closing on one team and opening on the other, and
+                    // nothing else. The balance rule upstream guarantees the
+                    // other side is sending one back, so neither team is ever
+                    // left with two or none.
+                    var franchises = side.Where(a => a.AssetType == TradeAssetType.Franchise)
+                        .Select(a => a.FranchiseAbbrev!).ToList();
+                    if (players.Count == 0 && franchises.Count == 0) continue;
 
                     var receivingTeam = side.First().ToTeamId;
                     await RosterChange.ApplyAsync(
@@ -59,13 +66,15 @@ public sealed class ProcessTradesJob(FantasyWarriorDbContext db)
                         playersOut: players, playersIn: [],
                         startReason: RosterSpotStartReason.Trade,
                         endReason: RosterSpotEndReason.Trade,
-                        effectiveDate: effectiveDate, tradeId: trade.TradeId, ct: ct);
+                        effectiveDate: effectiveDate, tradeId: trade.TradeId,
+                        franchisesOut: franchises, ct: ct);
                     await RosterChange.ApplyAsync(
                         db, trade.LeagueId, teamId: receivingTeam,
                         playersOut: [], playersIn: players,
                         startReason: RosterSpotStartReason.Trade,
                         endReason: RosterSpotEndReason.Trade,
-                        effectiveDate: effectiveDate, tradeId: trade.TradeId, ct: ct);
+                        effectiveDate: effectiveDate, tradeId: trade.TradeId,
+                        franchisesIn: franchises, ct: ct);
                 }
 
                 // Picks change hands by pointing at their new owner. The
@@ -86,7 +95,9 @@ public sealed class ProcessTradesJob(FantasyWarriorDbContext db)
 
                 var playerCount = trade.Assets.Count(a => a.AssetType == TradeAssetType.Player);
                 var pickCount = trade.Assets.Count(a => a.AssetType == TradeAssetType.DraftPick);
-                Console.WriteLine($"    trade {trade.TradeId}: {playerCount} player(s), {pickCount} pick(s) — processed");
+                var franchiseCount = trade.Assets.Count(a => a.AssetType == TradeAssetType.Franchise);
+                Console.WriteLine($"    trade {trade.TradeId}: {playerCount} player(s), {pickCount} pick(s)"
+                    + (franchiseCount == 0 ? "" : $", {franchiseCount} franchise(s)") + " — processed");
             }
             catch (Exception ex)
             {

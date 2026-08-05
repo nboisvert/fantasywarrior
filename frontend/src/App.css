@@ -1344,6 +1344,13 @@
   border-color: rgba(251, 191, 36, 0.35);
 }
 
+/* The Équipe slot — see --franchise for why it is the neutral. */
+.roster-pos-pill-t {
+  background: rgba(199, 210, 224, 0.12);
+  color: var(--franchise);
+  border-color: rgba(199, 210, 224, 0.35);
+}
+
 /* ---------- position indicator: "compact" pattern (bare letter) ----------
    Same color code as the pill above, applied to font color only — no
    background/border. For data-dense grids/lists (Stats' tables, a
@@ -1361,6 +1368,10 @@
 
 .pos-compact-g {
   color: var(--gold);
+}
+
+.pos-compact-t {
+  color: var(--franchise);
 }
 
 /* Roster row, line 2: team code + (optional) compact salary, laid out with
@@ -2434,6 +2445,18 @@
 
 .lineup-toggle.on {
   color: var(--ice-bright);
+}
+
+/* The Équipe slot's crest, in the seat the active/bench control occupies on a
+   player row. Same box so the column of names below it stays aligned, but not
+   a button and not focusable: one franchise, one seat, nothing to decide. */
+.stats-franchise-logo {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 1.55rem;
+  height: 1.55rem;
+  margin: -0.6rem 0;
+  object-fit: contain;
 }
 
 .lineup-toggle:not(.static):hover,

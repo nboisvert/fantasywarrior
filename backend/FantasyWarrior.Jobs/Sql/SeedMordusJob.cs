@@ -157,6 +157,10 @@ public sealed class SeedMordusJob(FantasyWarriorDbContext db)
                  {
                      (StatKeys.Goals, 1), (StatKeys.Assists, 1),
                      (StatKeys.Wins, 2), (StatKeys.OtLosses, 1), (StatKeys.Shutouts, 0),
+                     // The Équipe slot (Nick, 2026-08-05). Its own keys, not the
+                     // goalie's: they happen to be priced the same here, which
+                     // is a coincidence, not a shared rule.
+                     (StatKeys.TeamWins, 2), (StatKeys.TeamOtLosses, 1), (StatKeys.TeamLosses, 0),
                  })
             db.LeagueScoringRules.Add(new LeagueScoringRule
             {
@@ -181,6 +185,22 @@ public sealed class SeedMordusJob(FantasyWarriorDbContext db)
                 LeagueId = league.LeagueId, UserId = user.UserId, JoinedUtc = now,
             });
             await db.SaveChangesAsync(ct);
+
+            // The Équipe slot: the PDF's `E` line, one franchise per GM, held
+            // for life. A roster spot like any other since 2026-08-05 — it
+            // scores its franchise's record and can be traded, both of which a
+            // column on Teams could not express.
+            if (entry.FranchiseAbbrev is { } franchise)
+                db.RosterSpots.Add(new RosterSpot
+                {
+                    LeagueId = league.LeagueId,
+                    TeamId = team.TeamId,
+                    FranchiseAbbrev = franchise,
+                    PositionGroup = "T",
+                    StartDate = firstPeriod.StartDate,
+                    StartReason = RosterSpotStartReason.Draft,
+                    OpenedUtc = now,
+                });
 
             var spotsByPlayer = new Dictionary<long, RosterSpot>();
             foreach (var player in entry.Active.Concat(entry.Reserve))

@@ -68,8 +68,13 @@ export interface TeamDto {
   engagedCapTotal: number;
   engagedPlayerCount: number;
   playerNhlPoints: Record<string, number>;
-  /** The NHL franchise this GM owns for life, when the league uses them. */
+  /** The team's own identity in the pool. Never moves. */
   franchiseAbbrev: string | null;
+  /** The franchise this team *holds* — the Équipe roster spot, which is what a
+   * trade can move. Starts equal to `franchiseAbbrev` and is meant to be able
+   * to diverge from it: the club you are is not the club you own (Nick,
+   * 2026-08-05). Null in a league that does not use the slot. */
+  franchise: { abbrev: string; name: string; logoUrl: string | null } | null;
   /** Points from this week's active players. */
   periodPoints: number;
   /** What this week's benched players scored — "left on the bench". */
@@ -127,13 +132,18 @@ export interface PeriodDto {
 /** One roster spot's row in the weekly lineup. */
 export interface LineupEntry extends Engageable {
   spotId: string;
-  playerId: number;
+  /** Null on an Équipe entry, which holds a franchise rather than a player. */
+  playerId: number | null;
   name: string;
   position: string;
-  positionGroup: 'F' | 'D' | 'G';
+  positionGroup: PosGroup;
   team: string | null;
   headshotUrl: string | null;
+  /** The franchise's crest, on an Équipe entry only. */
+  logoUrl: string | null;
   capHit: number | null;
+  /** Always true on an Équipe entry — one franchise, one seat, nothing to
+   * toggle. */
   active: boolean;
   points: number;
   gamesPlayed: number;
@@ -144,6 +154,9 @@ export interface LineupEntry extends Engageable {
   wins: number;
   otLosses: number;
   saves: number;
+  teamWins: number;
+  teamLosses: number;
+  teamOtLosses: number;
   /** The days of the week this spot owned — set when a player was acquired mid-week. */
   fromDate: string | null;
   toDate: string | null;
@@ -241,6 +254,13 @@ export interface PlayerSeasonStatsRow extends Engageable, InjuryFields {
   goalsAgainst: number;
   saves: number;
   shotsAgainst: number;
+  /** The Équipe slot's own record — filled only when `position` is "T", where
+   * every player stat above is zero and the grid shows a dash for it. The
+   * franchise's crest, shown where a player's lineup toggle sits. */
+  logoUrl: string | null;
+  teamWins: number;
+  teamLosses: number;
+  teamOtLosses: number;
   /** Weekly-lineup scoring: totals for this player's stint with this team,
    * counting only the weeks he was in the active lineup. */
   spotStartDate: string | null;
@@ -492,6 +512,11 @@ export const api = {
     playersFromCounterparty: number[],
     picksFromProposer: number[] = [],
     picksFromCounterparty: number[] = [],
+    // The Équipe slot. Abbrevs rather than flags so the server can refuse an
+    // offer built on a stale screen. Only ever both or neither: a franchise is
+    // tradable only against another franchise.
+    franchiseFromProposer: string | null = null,
+    franchiseFromCounterparty: string | null = null,
   ) =>
     request<{ id: string }>(`/api/leagues/${encodeURIComponent(leagueId)}/trades`, {
       method: "POST",
@@ -502,6 +527,8 @@ export const api = {
         playersFromCounterparty,
         picksFromProposer,
         picksFromCounterparty,
+        franchiseFromProposer,
+        franchiseFromCounterparty,
       }),
     }),
   respondTrade: (leagueId: string, tradeId: string, username: string, accept: boolean) =>
@@ -596,21 +623,25 @@ export function initials(username: string): string {
   return username.slice(0, 2).toUpperCase();
 }
 
-export type PosGroup = "F" | "D" | "G";
+/** F/D/G are player positions; "T" is the Équipe slot, which holds an NHL
+ * franchise rather than a player. It rides in the same indicator because every
+ * screen already has one, and a fourth one-off would be exactly the kind of
+ * exception CLAUDE.md forbids. */
+export type PosGroup = "F" | "D" | "G" | "T";
 
-/** Collapses a raw NHL position code to the three roster groups everywhere
- * the app displays a position — C/L/R always read as "F", at all times, no
- * per-screen exceptions (the raw code is still what's stored/returned by the
- * API; this is a display-only rule). Single source of truth: every screen
- * (Roster, Stats, Dashboard, PlayerCard) imports this instead of keeping its
- * own copy. */
+/** Collapses a raw NHL position code to the roster groups everywhere the app
+ * displays a position — C/L/R always read as "F", at all times, no per-screen
+ * exceptions (the raw code is still what's stored/returned by the API; this is
+ * a display-only rule). Single source of truth: every screen (Roster, Stats,
+ * Dashboard, PlayerCard) imports this instead of keeping its own copy. */
 export function posGroup(position: string): PosGroup {
   if (position === "D") return "D";
   if (position === "G") return "G";
+  if (position === "T") return "T";
   return "F";
 }
 
-/** Lowercase class suffix ("f"/"d"/"g") for the app-wide position-indicator
+/** Lowercase class suffix ("f"/"d"/"g"/"t") for the app-wide position-indicator
  * color convention (see CLAUDE.md's "Position indicator pattern") — combine
  * with `.roster-pos-pill-` (pill) or `.pos-compact-` (bare letter) depending
  * on the screen's data density. Never hardcode `.toLowerCase()` inline. */

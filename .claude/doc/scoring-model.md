@@ -1,7 +1,7 @@
 # Modèle de pointage — référence
 
 > La référence pour toute règle de pointage. Si le code et ce document divergent, l'un des deux est un bug.
-> Dernière mise à jour : 2026-08-02 (migration Azure SQL).
+> Dernière mise à jour : 2026-08-05 (slot Équipe).
 
 ## En une phrase
 
@@ -14,11 +14,21 @@ Chaque semaine, un GM active un sous-ensemble de son roster. Seuls les points de
 | Entité | Table | Ce que c'est |
 |---|---|---|
 | **Period** | table `Periods` (globale) | Une semaine de pointage. Lundi→dimanche sur la date de match NHL (Est). ~28 par saison. |
-| **RosterSpot** | table `RosterSpots` | L'appartenance d'un joueur à une équipe, du jour X au jour Y. Jamais supprimé, seulement fermé. |
+| **RosterSpot** | table `RosterSpots` | L'appartenance d'un **joueur ou d'une franchise** à une équipe, du jour X au jour Y. Jamais supprimé, seulement fermé. |
 | **RosterAssignment** | table `RosterAssignments` | Ce qu'un spot a produit une semaine, et s'il était actif. **Une ligne par (spot, semaine)** — le seul grain stocké. |
 | **Team** | table `Teams` | Ne porte **aucun cumul**. Tous les totaux sont des vues (`vStandings`, `vTeamPeriodScores`, `vRosterSpotTotals`). |
 
 **Invariant central** : score = finalizedScore + livePoints. Il tient désormais **par construction** — les deux côtés sortent de la même requête sur les mêmes lignes, au lieu d'être trois champs tenus à la main.
+
+### Le slot Équipe (`T`)
+
+Depuis le 2026-08-05, un `RosterSpot` tient **un joueur ou une franchise NHL** — groupe de position `T`, une seule par équipe, garantie par index unique filtré. C'est un spot ordinaire à tous les égards : il produit une ligne `RosterAssignment` par semaine, ses points se banquent, il s'échange. Trois différences, toutes conséquences de « une seule par équipe » :
+
+- **Jamais au banc.** Une franchise, un siège, donc aucune décision à prendre : pas de bouton actif/banc, et `LineupRules.LegalActiveSet` la garde active quoi qu'on lui soumette.
+- **Ses statistiques viennent de `Games`**, pas du journal de match des joueurs. `FranchiseResults.For` est la seule chose que le slot ne partage pas avec un joueur.
+- **Ne coûte rien au plafond et n'est pas un joueur** : `vStandings` l'exclut de `CapTotal`, `PlayerCount` et `UnknownContracts`, et un échange ne la déplace que **contre une autre franchise**.
+
+Elle ne rapporte **aucun `gamesPlayed`** : le slot annonce une fiche, pas une charge de travail. Effet de bord voulu — `RosterGamesPlayed`, dénominateur de tous les points-par-match de l'app, reste une affaire de joueurs.
 
 ---
 
@@ -97,7 +107,9 @@ points d'un joueur pour une semaine = Σ (stat × valeur du barème)
 
 Le barème est une **map clé→valeur** sur des noms de stats (`StatKeys`), pas une liste fixe. Un commissaire peut donc scorer les tirs bloqués, les mises en échec ou même les matchs joués **sans changement de schéma**.
 
-**Les Mordus** : but 1, passe 1, **victoire de gardien 2**, défaite en prolongation 1, blanchissage 0.
+**Les Mordus** : but 1, passe 1, **victoire de gardien 2**, défaite en prolongation 1, blanchissage 0. Slot Équipe : **victoire 2, défaite en prolongation 1**, défaite 0.
+
+Les trois clés d'équipe (`teamWins`, `teamLosses`, `teamOtLosses`) sont **distinctes** de celles du gardien. Elles valent la même chose ici, et c'est une coïncidence : « mon gardien a gagné » et « ma franchise a gagné » sont deux événements différents le même soir, et une ligue qui veut les payer différemment n'a aucun moyen de le dire s'ils partagent une clé. Elles passent par `extraPointValues` comme n'importe quelle stat — aucun code spécial, c'est précisément le mécanisme décrit ci-dessus.
 
 Les cinq valeurs historiques vivent dans `pointValues`; toute autre stat va dans `extraPointValues`. `RuleConfig.ScoringScale()` fusionne les deux — c'est la seule forme que le moteur consomme.
 
@@ -145,6 +157,7 @@ Des calendriers par ligue ramèneraient une requête par ligue — c'est la rais
 | Taille de roster min/max | `ruleConfig.rosterSize` | **oui, sur les échanges** (proposition et acceptation) |
 | Plafond salarial | `league.capAmount` | **oui, sur les échanges** (proposition et acceptation) |
 | Coût d'un joueur sans contrat | `ruleConfig.defaultCapHit` | **oui**, dans `vStandings`, `vTeamCommitments` et la validation d'échange |
+| Valeur du slot Équipe | `ruleConfig.extraPointValues` (`teamWins`/`teamLosses`/`teamOtLosses`) | oui, au calcul |
 | Choix au repêchage par équipe par année | `ruleConfig.draftRounds` | un par ronde, généré par `draft-picks-init` |
 
 **Un joueur sans contrat coûte 1 M$ par défaut** (Nick, 2026-08-05), réglable par
@@ -202,7 +215,7 @@ Un backfill de saison complète est redevenu une opération ordinaire depuis le 
 ## 11. Ce qui n'est pas fait
 
 - **Aucune authentification.** L'API fait confiance au `username` envoyé. Avec les lineups c'est nettement plus grave qu'avant : on peut discrètement mettre le meilleur joueur d'un rival au banc chaque dimanche soir, et ça ressemble à son propre oubli. **À régler avant que de vrais utilisateurs y touchent.**
-- Le slot **Équipe** (`team.franchiseAbbrev`) porte l'identité mais ne rapporte encore aucun point — règle à obtenir de Nick.
+- ~~Le slot **Équipe** ne rapporte aucun point~~ — **fait le 2026-08-05**. C'est un `RosterSpot` de groupe `T` (§1), il vaut 2 par victoire et 1 par défaite en prolongation chez Les Mordus, et il s'échange contre une autre franchise. La saison a été rejouée depuis la semaine 1 pour que le classement soit homogène.
 - Les salaires sont **réels** depuis 2026-08-02 (CapWages, table `PlayerContracts`).
   Ceux qui n'en ont pas comptent **1 M$** depuis 2026-08-05 (§9), et non plus 0 $.
   Leur nombre voyage avec le total (`UnknownContracts`) : on ne peut toujours pas

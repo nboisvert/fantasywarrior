@@ -53,8 +53,12 @@ public static class TradeRules
     /// <c>vStandings</c> uses, or <c>CapBefore</c> and the delta would be
     /// computed on two different scales and their sum would mean nothing.
     ///
-    /// Draft picks are simply absent from both collections: they carry no
-    /// salary and occupy no roster spot, so they move neither number.
+    /// Draft picks and franchises are simply absent from both collections:
+    /// neither carries a salary nor occupies a player's roster spot, so they
+    /// move neither number. For the franchise that is the same rule
+    /// <c>vStandings</c> applies — an Équipe slot is not a player and costs no
+    /// cap — and the two have to agree or <c>CapBefore</c> and the delta would
+    /// be on different scales.
     /// </summary>
     public static TradeImpact Impact(
         string teamName,
@@ -74,6 +78,29 @@ public static class TradeRules
             CountBefore: countBefore,
             CountAfter: countBefore - outgoing.Count + incoming.Count,
             UnknownContracts: outgoing.Count(c => c is null) + incoming.Count(c => c is null));
+    }
+
+    /// <summary>
+    /// Why a trade of franchises is illegal; empty means it is fine.
+    ///
+    /// **A franchise only ever moves against another franchise.** Not a
+    /// balance-of-value judgement — those are the pool's business, not the
+    /// app's — but a structural one: every team holds exactly one Équipe slot,
+    /// enforced by a unique index, so a one-sided franchise trade would leave
+    /// one team with two and the other with none. The trade would be refused by
+    /// the database in the middle of the nightly job rather than here, where
+    /// the GM proposing it can still be told.
+    ///
+    /// Unlike the cap and roster checks this takes both sides at once: the rule
+    /// is about the pair, and running it per team would report the same single
+    /// problem twice.
+    /// </summary>
+    public static IReadOnlyList<string> ValidateFranchiseBalance(
+        int franchisesFromProposer, int franchisesFromCounterparty)
+    {
+        if (franchisesFromProposer == franchisesFromCounterparty) return [];
+
+        return ["A franchise can only be traded for another franchise."];
     }
 
     /// <summary>

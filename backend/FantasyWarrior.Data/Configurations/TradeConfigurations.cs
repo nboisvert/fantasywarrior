@@ -39,16 +39,19 @@ public sealed class TradeAssetConfiguration : IEntityTypeConfiguration<TradeAsse
     public void Configure(EntityTypeBuilder<TradeAsset> b)
     {
         b.ToTable("TradeAssets", t =>
-            // A trade asset is a player or a pick, never both and never neither.
-            // Without this the polymorphism is a naming convention and a null
-            // pair would silently mean "an empty thing changed hands".
+            // A trade asset is a player, a pick or a franchise — never two of
+            // them and never none. Without this the polymorphism is a naming
+            // convention and an all-null row would silently mean "an empty
+            // thing changed hands".
             t.HasCheckConstraint(
                 "CK_TradeAssets_ExactlyOneAsset",
-                "([AssetType] = 0 AND [PlayerId] IS NOT NULL AND [DraftPickId] IS NULL)"
-                + " OR ([AssetType] = 1 AND [DraftPickId] IS NOT NULL AND [PlayerId] IS NULL)"));
+                "([AssetType] = 0 AND [PlayerId] IS NOT NULL AND [DraftPickId] IS NULL AND [FranchiseAbbrev] IS NULL)"
+                + " OR ([AssetType] = 1 AND [DraftPickId] IS NOT NULL AND [PlayerId] IS NULL AND [FranchiseAbbrev] IS NULL)"
+                + " OR ([AssetType] = 2 AND [FranchiseAbbrev] IS NOT NULL AND [PlayerId] IS NULL AND [DraftPickId] IS NULL)"));
 
         b.HasKey(x => x.TradeAssetId);
         b.Property(x => x.AssetType).HasConversion<byte>();
+        b.Property(x => x.FranchiseAbbrev).HasMaxLength(3).IsFixedLength().IsUnicode(false);
 
         b.HasIndex(x => x.TradeId);
 
@@ -61,6 +64,7 @@ public sealed class TradeAssetConfiguration : IEntityTypeConfiguration<TradeAsse
         b.HasOne(x => x.ToTeam).WithMany().HasForeignKey(x => x.ToTeamId).OnDelete(DeleteBehavior.NoAction);
         b.HasOne(x => x.Player).WithMany().HasForeignKey(x => x.PlayerId).OnDelete(DeleteBehavior.NoAction);
         b.HasOne(x => x.DraftPick).WithMany().HasForeignKey(x => x.DraftPickId).OnDelete(DeleteBehavior.NoAction);
+        b.HasOne(x => x.Franchise).WithMany().HasForeignKey(x => x.FranchiseAbbrev).OnDelete(DeleteBehavior.NoAction);
     }
 }
 
