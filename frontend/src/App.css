@@ -2156,8 +2156,8 @@
    Nick: it's a redundant shortcut, tapping the teams-split above already
    expands the card, so it shouldn't cost more than the awaiting-processing
    pill does). Only the two states with no rating to show (cast/empty) use
-   this — once a trade has a rating it gets the full-width recap row below
-   instead. */
+   this — once a trade has a rating it gets the tiny right-aligned line
+   below instead. */
 .trade-vote-teaser-wrap {
   display: flex;
   justify-content: center;
@@ -2205,37 +2205,56 @@
   color: var(--text);
 }
 
-/* ---------- collapsed vote recap (has a rating) ----------
-   Center: who the crowd sided with, vote count muted. Right: the trade
-   rating itself, parked in its own fixed-width slot with an info trigger —
-   that's the number people actually look for, so it gets a stable home
-   instead of living mid-sentence (2026-08-05, per Nick). */
+/* ---------- collapsed vote rating (has a rating) ----------
+   Just the number, right-aligned — the full breakdown (who won, the info
+   trigger) lives in the expanded widget below now, not duplicated here
+   (2026-08-05, per Nick: the two-part recap row was heavy again). */
+.trade-vote-rating-mini-wrap {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.35rem;
+}
+
+.trade-vote-rating-mini {
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0.15rem 0.2rem;
+  color: var(--text-muted);
+  font: 700 0.66rem var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.trade-vote-rating-mini strong {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--ice-bright);
+  margin-right: 0.2rem;
+}
+
+/* ---------- trade recap (expanded widget) ----------
+   "{Team} won the trade" left-aligned, the rating parked on the right with
+   an info trigger — moved here from the collapsed row (2026-08-05, per
+   Nick), which now shows only the bare number. Replaces the "Who won the
+   trade?" prompt once there's an actual result to report. */
 .trade-vote-recap {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  margin-top: 0.5rem;
-  padding-top: 0.5rem;
-  border-top: 1px solid var(--border);
 }
 
 .trade-vote-recap-text {
   flex: 1;
   min-width: 0;
-  border: none;
-  background: none;
   color: var(--text);
-  font: 700 0.78rem var(--font-body);
-  text-align: center;
-  cursor: pointer;
+  font: 700 0.85rem var(--font-body);
+  text-align: left;
 }
 
 .trade-vote-recap-text strong {
   color: var(--ice-bright);
-}
-
-.trade-vote-recap-text .muted {
-  font-weight: 500;
 }
 
 .trade-vote-recap-rating {

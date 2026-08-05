@@ -24,6 +24,7 @@ import { useState } from "react";
 import { api, tradeRating } from "../api";
 import type { Trade } from "../api";
 import { CockcoinReward } from "./CockcoinReward";
+import { TradeRatingInfo } from "./TradeRatingInfo";
 import "./TradeVoteWidget.css";
 
 interface VoteOption {
@@ -102,18 +103,28 @@ export function TradeVoteWidget({
 
   return (
     <div className="tvw">
-      {rating && votes && (
-        <div className="tvw-rating">
-          <span className="tvw-rating-value">{rating.rating}</span>
-          <div className="tvw-rating-meta">
-            <span className="tvw-rating-caption">{ratingWinnerName ? `${ratingWinnerName} won` : "Fair trade"}</span>
-            <span className="tvw-rating-sub">
-              {votes.total} vote{votes.total === 1 ? "" : "s"}
-            </span>
+      {rating ? (
+        <div className="trade-vote-recap">
+          <span className="trade-vote-recap-text">
+            {ratingWinnerName ? (
+              <>
+                <strong>{ratingWinnerName}</strong> won the trade
+              </>
+            ) : (
+              <strong>Fair trade</strong>
+            )}
+          </span>
+          <div className="trade-vote-recap-rating">
+            <div className="trade-vote-recap-rating-row">
+              <span className="trade-vote-recap-rating-value">{rating.rating}</span>
+              <TradeRatingInfo />
+            </div>
+            <span className="trade-vote-recap-rating-label">Trade rating</span>
           </div>
         </div>
+      ) : (
+        <span className="tvw-label">Who won the trade?</span>
       )}
-      <span className="tvw-label">Who won the trade?</span>
       <div className={`tvw-options${voting ? " saving" : ""}`}>
         {options.map((opt) => {
           const mine = isMine(opt);

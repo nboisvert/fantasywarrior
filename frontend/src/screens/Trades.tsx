@@ -19,7 +19,6 @@ import type { LeagueDetail, Trade, TradePlayer } from "../api";
 import { ArrowLeftRightIcon } from "../components/Icons";
 import { CreateTradeSheet } from "../components/CreateTradeSheet";
 import { TradeVoteWidget } from "../components/TradeVoteWidget";
-import { TradeRatingInfo } from "../components/TradeRatingInfo";
 import { LoadingLogo } from "../components/LoadingLogo";
 
 const formatDateTime = (iso: string) =>
@@ -187,13 +186,12 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
    * one nobody has weighed in on yet. Tapping any of them expands the card,
    * same as tapping the teams themselves.
    *
-   * A small pill, not a full-width strip, for the two states with no rating
-   * to show (2026-08-05, per Nick: this is a redundant shortcut — tapping
-   * the teams-split above already expands the card — so it shouldn't cost
-   * more than a glance). Once there's a rating to report, it gets its own
-   * full-width row: winner sentence centered, the rating itself parked on
-   * the right with an info trigger, since that's the number people will
-   * actually look for. */
+   * A small pill for the two states with no rating to show (2026-08-05, per
+   * Nick: this is a redundant shortcut — tapping the teams-split above
+   * already expands the card — so it shouldn't cost more than a glance).
+   * Once there's a rating, it's an even smaller right-aligned line — just
+   * the number — since the full breakdown (who won, the info trigger) now
+   * lives in the expanded widget instead of being duplicated here. */
   const voteTeaser = (trade: Trade) => {
     if (trade.status !== "processed") return null;
     const votes = trade.votes;
@@ -219,31 +217,12 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
       );
     }
 
-    const { winner, rating } = tradeRating(votes);
-    const winnerName = winner === "proposer" ? trade.proposerTeamName : winner === "counterparty" ? trade.counterpartyTeamName : null;
+    const { rating } = tradeRating(votes);
     return (
-      <div className="trade-vote-recap">
-        <button type="button" className="trade-vote-recap-text" onClick={() => toggleExpanded(trade.id)}>
-          {winnerName ? (
-            <>
-              <strong>{winnerName}</strong> won the trade{" "}
-            </>
-          ) : (
-            <>
-              <strong>Fair trade</strong>{" "}
-            </>
-          )}
-          <span className="muted">
-            out of {votes.total} vote{votes.total === 1 ? "" : "s"}
-          </span>
+      <div className="trade-vote-rating-mini-wrap">
+        <button type="button" className="trade-vote-rating-mini" onClick={() => toggleExpanded(trade.id)}>
+          <strong>{rating}</strong> Rating
         </button>
-        <div className="trade-vote-recap-rating">
-          <div className="trade-vote-recap-rating-row">
-            <span className="trade-vote-recap-rating-value">{rating}</span>
-            <TradeRatingInfo />
-          </div>
-          <span className="trade-vote-recap-rating-label">Trade rating</span>
-        </div>
       </div>
     );
   };
