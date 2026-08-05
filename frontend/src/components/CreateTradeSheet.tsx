@@ -386,13 +386,18 @@ export function CreateTradeSheet({
       .then(([res, picks]) => {
         if (ignore) return;
         setTheirPlayers(
-          res.players.map((p) => ({
-            id: p.id,
-            name: p.name,
-            position: p.position,
-            capHit: p.capHit,
-            engaged: p.engaged ?? false,
-          })),
+          // Players only. `season-stats` returns the Équipe slot in the same
+          // list — the Team grid wants it there, as one row among the rest —
+          // but here it has its own section, and it was showing up twice.
+          res.players
+            .filter((p) => posGroup(p.position) !== "T")
+            .map((p) => ({
+              id: p.id,
+              name: p.name,
+              position: p.position,
+              capHit: p.capHit,
+              engaged: p.engaged ?? false,
+            })),
         );
         setTheirPickList(picks);
       })
