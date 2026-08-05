@@ -117,7 +117,7 @@ export interface PeriodDto {
 }
 
 /** One roster spot's row in the weekly lineup. */
-export interface LineupEntry {
+export interface LineupEntry extends Engageable {
   spotId: string;
   playerId: number;
   name: string;
@@ -252,6 +252,11 @@ export interface TeamSeasonStats {
    * trade cannot move history. Only those who were in the lineup at least once;
    * empty for a team that has traded nobody away. */
   departed: PlayerSeasonStatsRow[];
+  /** Arriving via an accepted trade not yet executed by the nightly job — no
+   * roster spot exists for them here yet, so their "Fantasy point" columns
+   * read zero; NHL season stats and cap hit are real. Empty for a team with no
+   * pending incoming trade. */
+  incoming: PlayerSeasonStatsRow[];
 }
 
 /** One week of a player's season with this team. */

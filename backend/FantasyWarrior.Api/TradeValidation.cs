@@ -88,6 +88,21 @@ public static class TradeValidation
     }
 
     /// <summary>
+    /// Player ids arriving at one team via an accepted trade not yet executed —
+    /// the mirror-image query to <see cref="EngagedAssetsAsync"/>, scoped to a
+    /// single team's receiving side. No <c>RosterSpot</c> exists for these
+    /// players yet; it is created only when the nightly job executes the trade.
+    /// </summary>
+    public static async Task<IReadOnlyList<long>> IncomingPlayerIdsAsync(
+        FantasyWarriorDbContext db, int leagueId, int teamId, CancellationToken ct = default) =>
+        await db.TradeAssets
+            .Where(a => a.Trade!.LeagueId == leagueId && a.Trade.Status == TradeStatus.Accepted
+                        && a.AssetType == TradeAssetType.Player && a.ToTeamId == teamId && a.PlayerId != null)
+            .Select(a => a.PlayerId!.Value)
+            .Distinct()
+            .ToListAsync(ct);
+
+    /// <summary>
     /// Every reason this trade would be illegal, for both teams at once; empty
     /// means it is fine.
     ///

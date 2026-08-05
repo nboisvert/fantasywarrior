@@ -29,7 +29,7 @@ import { LoadingLogo } from "../components/LoadingLogo";
 import { PlayerCard } from "../components/PlayerCard";
 import {
   ArrowDownIcon, ArrowLeftIcon, ArrowUpIcon, ChevronDownIcon, CircleCheckIcon, CircleIcon, InfoIcon,
-  CalendarIcon, CrossIcon, GavelIcon,
+  CalendarIcon, CrossIcon, GavelIcon, LogInIcon, LogOutIcon,
 } from "../components/Icons";
 
 /** Slots used per position group, for the "9/9 F · 4/4 D · 1/1 G" counter. */
@@ -141,18 +141,24 @@ function replacementsFor(entry: LineupEntry, entries: LineupEntry[]): LineupEntr
  * interesting question is not "is this player in" but "who plays instead" —
  * and answering it in one step avoids ever writing a lineup with a hole in it. */
 function LineupPicker({
-  entry, entries, slotIsFree, busy, onSwap, onBench, onClose,
+  entry, entries, slotIsFree, busy, periodIndex, onSwap, onBench, onClose,
 }: {
   entry: LineupEntry;
   entries: LineupEntry[];
   slotIsFree: boolean;
   busy: boolean;
+  /** The week this picker actually writes to — always "next week", never the
+   * one on screen. Named in the title so it's unambiguous which week is being
+   * set. */
+  periodIndex: number;
   onSwap: (inSpotId: string) => void;
   onBench: () => void;
   onClose: () => void;
 }) {
   const options = replacementsFor(entry, entries);
-  const title = entry.active ? `Replace ${formatShortName(entry.name)}` : `Bring in ${formatShortName(entry.name)}`;
+  const title = entry.active
+    ? `Replace ${formatShortName(entry.name)} for week ${periodIndex}`
+    : `Bring in ${formatShortName(entry.name)} for week ${periodIndex}`;
 
   return (
     <div className="lineup-picker-overlay" role="dialog" aria-modal="true" aria-label={title} onClick={onClose}>
@@ -189,7 +195,12 @@ function LineupPicker({
             disabled={busy}
             onClick={() => onSwap(o.spotId)}
           >
-            <span className="lineup-picker-name">{formatShortName(o.name)}</span>
+            <span className="lineup-picker-name-wrap">
+              <span className="lineup-picker-name">{formatShortName(o.name)}</span>
+              {/* Informational, never a reason to grey the option out — he
+                  still legitimately plays this week before he leaves. */}
+              {o.engaged && <span className="lineup-picker-note">leaving via trade</span>}
+            </span>
             <span className="muted">{o.team ?? "—"}</span>
             <span className="lineup-picker-pts">{o.seasonPoints} pts</span>
           </button>
@@ -221,6 +232,22 @@ function InjuryMark({ status, type }: { status: InjuryStatus; type: string | nul
   return (
     <span className="stats-injury" role="img" aria-label={label} title={label}>
       {status === "Suspended" ? <GavelIcon size={11} /> : <CrossIcon size={10} />}
+    </span>
+  );
+}
+
+/** The trade mark, sitting after the name (and after the injury mark, if both
+ * apply — a player can be hurt and already promised away at once).
+ *
+ * Rose/log-out for leaving, green/log-in for arriving — the same pairing this
+ * screen already uses for next week's lineup arrow (`.lineup-pending-in/-out`),
+ * so it reads as a continuation of an existing convention rather than a new
+ * one. Icon + aria-label always accompany the colour. */
+function TradeMarkIcon({ direction }: { direction: "out" | "in" }) {
+  const label = direction === "out" ? "Leaving via trade" : "Arriving via trade";
+  return (
+    <span className={`stats-trade stats-trade-${direction}`} role="img" aria-label={label} title={label}>
+      {direction === "out" ? <LogOutIcon size={11} /> : <LogInIcon size={11} />}
     </span>
   );
 }
@@ -331,6 +358,11 @@ interface PlayerRow {
   // it sorts nowhere and totals nothing; it only marks the row.
   injuryStatus: InjuryStatus | null;
   injuryType: string | null;
+  // Moving via an accepted trade not yet executed by the nightly job. "out" on
+  // the current roster (leaving), "in" on the Incoming grid (arriving). Never
+  // derived from `engaged` alone — that flag is symmetric across both sides of
+  // a trade, so the caller building the row says which grid it's for.
+  tradeMark: "out" | "in" | null;
   // Cap hit — the contract figure for the *league's* season, never a later
   // year's. Contracts run years ahead (Eichel is $10M in 2025-26 and $13.5M
   // from 2026-27), so taking the newest one on file made this disagree with
@@ -553,10 +585,22 @@ function RosterGrid({
               const lineupEntry = lineupByPlayer?.get(r.id);
               return (
               <Fragment key={r.id}>
-              {/* The rose edge rides the sticky identity cell, so it stays on
-                  screen while the twenty numeric columns scroll under it —
-                  a border on the row itself would scroll away with them. */}
-              <tr className={r.injuryStatus ? "stats-row-out" : undefined}>
+              {/* The coloured edge rides the sticky identity cell, so it stays
+                  on screen while the twenty numeric columns scroll under it —
+                  a border on the row itself would scroll away with them. A row
+                  that is both injured and leaving via trade carries both
+                  classes; they share the same rose tone, so nothing collides. */}
+              <tr
+                className={
+                  [
+                    r.injuryStatus && "stats-row-out",
+                    r.tradeMark === "out" && "stats-row-trade-out",
+                    r.tradeMark === "in" && "stats-row-trade-in",
+                  ]
+                    .filter(Boolean)
+                    .join(" ") || undefined
+                }
+              >
                 <td className="stats-col-player">
                   {/* Departed players have no lineup entry, so this whole
                       control is absent for them rather than shown inert. */}
@@ -574,6 +618,7 @@ function RosterGrid({
                   <button type="button" className="stats-player-btn" onClick={() => onOpenPlayer(r.id)}>
                     <span className="stats-player-name">{formatShortName(r.name)}</span>
                     {r.injuryStatus && <InjuryMark status={r.injuryStatus} type={r.injuryType} />}
+                    {r.tradeMark && <TradeMarkIcon direction={r.tradeMark} />}
                   </button>
                   <button
                     type="button"
@@ -677,6 +722,7 @@ export function Stats({
 }) {
   const [players, setPlayers] = useState<PlayerSeasonStatsRow[] | null>(null);
   const [departed, setDeparted] = useState<PlayerSeasonStatsRow[] | null>(null);
+  const [incoming, setIncoming] = useState<PlayerSeasonStatsRow[] | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [capExpanded, setCapExpanded] = useState(false);
@@ -703,6 +749,7 @@ export function Stats({
         if (ignore) return;
         setPlayers(res.players);
         setDeparted(res.departed ?? []);
+        setIncoming(res.incoming ?? []);
         setLoading(false);
       })
       .catch((e: unknown) => {
@@ -835,7 +882,11 @@ export function Stats({
   // league's actual rule config, never recomputed client-side — so its own
   // GP/G/A/W/PTS/PTS-per-G can (and, after a trade, will) differ from the NHL
   // columns next to it.
-  const toRow = (p: PlayerSeasonStatsRow): PlayerRow => {
+  // `tradeMark` is a parameter, never derived from `p.engaged` here: that flag
+  // is symmetric (true on both sides of an accepted trade), so only the caller
+  // — which grid this row is being built for — knows whether it means "leaving"
+  // or "arriving".
+  const toRow = (p: PlayerSeasonStatsRow, tradeMark: PlayerRow["tradeMark"]): PlayerRow => {
     const isGoalie = p.isGoalie;
     const nhlPoints = p.goals + p.assists;
     return {
@@ -872,13 +923,17 @@ export function Stats({
       // and `undefined` would make the mark render for everybody.
       injuryStatus: p.injuryStatus ?? null,
       injuryType: p.injuryType ?? null,
+      tradeMark,
       capHit: p.capHit,
       costPerPoint: p.capHit != null && nhlPoints > 0 ? p.capHit / nhlPoints : null,
     };
   };
 
-  const rows = (players ?? []).map(toRow);
-  const departedRows = (departed ?? []).map(toRow);
+  const rows = (players ?? []).map((p) => toRow(p, p.engaged ? "out" : null));
+  // Never marked — he's already gone, and "departed but was also engaged at
+  // the moment he left" isn't a state worth surfacing on a row about history.
+  const departedRows = (departed ?? []).map((p) => toRow(p, null));
+  const incomingRows = (incoming ?? []).map((p) => toRow(p, "in"));
 
   // The grid is keyed by playerId; the lineup by roster-spot id. One open spot
   // per player per team, so this mapping is unambiguous.
@@ -1015,9 +1070,26 @@ export function Stats({
               onTogglePeriods={togglePeriods}
             />
           )}
+
+          {/* Arriving via an accepted trade not yet executed — no roster spot
+              exists for them here yet, so no lineup toggle. Hidden entirely
+              when there are none, same as Departed. */}
+          {incomingRows.length > 0 && (
+            <RosterGrid
+              rows={incomingRows}
+              title="Incoming"
+              subtitle={`${incomingRows.length} player, arriving on trade execution`}
+              emptyLabel="Nobody arriving."
+              saving={saving}
+              onOpenPlayer={setOpenPlayerId}
+              openPeriodsFor={openPeriodsFor}
+              periodsByPlayer={periodsByPlayer}
+              onTogglePeriods={togglePeriods}
+            />
+          )}
         </>
       )}
-      {pickerSpotId && lineup && (() => {
+      {pickerSpotId && lineup && nextLineup && (() => {
         const entry = lineup.entries.find((e) => e.spotId === pickerSpotId);
         if (!entry) return null;
         const max =
@@ -1031,6 +1103,7 @@ export function Stats({
             entries={lineup.entries}
             slotIsFree={(lineup.used[entry.positionGroup] ?? 0) < max}
             busy={saving}
+            periodIndex={nextLineup.periodIndex}
             onSwap={(inSpotId) => {
               close();
               // Activating a benched player into a free slot is the one case

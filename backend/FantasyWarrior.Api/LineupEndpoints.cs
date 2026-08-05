@@ -108,6 +108,14 @@ public static class LineupEndpoints
                     previewed.Add(int.Parse(id));
             }
 
+            // Already promised away by an accepted trade — the picker's
+            // replacement list uses this to show a passive "leaving via trade"
+            // note. Informational only: per the trade-execution timing (a
+            // pending trade always skips the week immediately after
+            // acceptance), a candidate flagged here still legitimately plays
+            // out whichever week is being set, so this never disables him.
+            var engagedPlayers = (await TradeValidation.EngagedAssetsAsync(db, league.LeagueId)).PlayerIds;
+
             var entries = spots.Select(s =>
             {
                 players.TryGetValue(s.PlayerId, out var p);
@@ -122,6 +130,7 @@ public static class LineupEndpoints
                     team = p?.TeamAbbrev,
                     headshotUrl = p?.HeadshotUrl,
                     capHit = caps.TryGetValue(s.PlayerId, out var c) ? c : (long?)null,
+                    engaged = engagedPlayers.Contains(s.PlayerId),
                     active = r?.IsActive ?? previewed.Contains(s.RosterSpotId),
                     points = r?.FantasyPoints ?? 0,
                     gamesPlayed = r?.GamesPlayed ?? 0,
@@ -455,7 +464,14 @@ public static class LineupEndpoints
                 .OrderByDescending(s => s.EndDate)
                 .ToList();
 
-            var playerIds = spots.Concat(departedSpots).Select(s => s.PlayerId).Distinct().ToList();
+            // Players arriving via an accepted trade not yet executed by the
+            // nightly job — no RosterSpot exists for them on this team yet, so
+            // they are folded into the same lookups by player id rather than
+            // read off a spot.
+            var incomingPlayerIds = await TradeValidation.IncomingPlayerIdsAsync(db, league.LeagueId, team.TeamId);
+
+            var playerIds = spots.Concat(departedSpots).Select(s => s.PlayerId)
+                .Concat(incomingPlayerIds).Distinct().ToList();
             var players = await db.Players.Where(p => playerIds.Contains(p.PlayerId))
                 .ToDictionaryAsync(p => p.PlayerId);
             var caps = await Queries.CapHitsAsync(db, league.Season, playerIds);
@@ -530,6 +546,52 @@ public static class LineupEndpoints
                 };
             }
 
+            // Same row shape as Row(), for a player with no RosterSpot on this
+            // team at all — the "Fantasy point" group (RosterSpotTotals-backed)
+            // has nothing to read yet, so it zeroes out; the NHL/cap-hit groups
+            // are keyed by player id and already known regardless of team.
+            object IncomingRow(long playerId)
+            {
+                players.TryGetValue(playerId, out var p);
+                season.TryGetValue(playerId, out var t);
+                injuries.TryGetValue(playerId, out var inj);
+                return new
+                {
+                    id = playerId,
+                    name = p?.FullName ?? "Unknown player",
+                    position = p?.Position ?? "F",
+                    team = p?.TeamAbbrev,
+                    capHit = caps.TryGetValue(playerId, out var c) ? c : (long?)null,
+                    headshotUrl = p?.HeadshotUrl,
+                    engaged = true,
+                    injuryStatus = inj?.Status,
+                    injuryType = inj?.InjuryType,
+                    isGoalie = (p?.PositionGroup ?? "F") == "G",
+                    gamesPlayed = t?.GamesPlayed ?? 0,
+                    goals = t?.Goals ?? 0,
+                    assists = t?.Assists ?? 0,
+                    points = (t?.Goals ?? 0) + (t?.Assists ?? 0),
+                    plusMinus = t?.PlusMinus ?? 0,
+                    pim = t?.Pim ?? 0,
+                    shots = t?.Shots ?? 0,
+                    hits = t?.Hits ?? 0,
+                    blockedShots = t?.BlockedShots ?? 0,
+                    wins = t?.Wins ?? 0,
+                    otLosses = t?.OtLosses ?? 0,
+                    shutouts = t?.Shutouts ?? 0,
+                    goalsAgainst = t?.GoalsAgainst ?? 0,
+                    saves = t?.Saves ?? 0,
+                    shotsAgainst = t?.ShotsAgainst ?? 0,
+                    spotStartDate = (DateOnly?)null,
+                    spotActiveGamesPlayed = 0,
+                    spotActiveGoals = 0,
+                    spotActiveAssists = 0,
+                    spotActivePoints = 0,
+                    spotBenchPoints = 0,
+                    spotEndDate = (DateOnly?)null,
+                };
+            }
+
             return Results.Ok(new
             {
                 season = league.Season,
@@ -538,6 +600,10 @@ public static class LineupEndpoints
                 // answer a different question — where did the score come from —
                 // and the screen shows them apart.
                 departed = departedSpots.Select(Row).ToList(),
+                // Arriving via an accepted trade not yet executed. Hidden by the
+                // frontend when empty, like Departed — every team is here until
+                // its first pending incoming trade.
+                incoming = incomingPlayerIds.Select(IncomingRow).ToList(),
             });
         });
     }
