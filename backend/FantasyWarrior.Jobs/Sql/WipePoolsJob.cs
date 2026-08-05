@@ -24,6 +24,8 @@ public sealed class WipePoolsJob(FantasyWarriorDbContext db)
 
         var counts = new (string Name, int Count)[]
         {
+            ("Messages", await db.Messages.CountAsync(ct)),
+            ("CockcoinAwards", await db.CockcoinAwards.CountAsync(ct)),
             ("TradeVotes", await db.TradeVotes.CountAsync(ct)),
             ("TradeAssets", await db.TradeAssets.CountAsync(ct)),
             ("Trades", await db.Trades.CountAsync(ct)),
@@ -54,16 +56,31 @@ public sealed class WipePoolsJob(FantasyWarriorDbContext db)
         await db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
         {
             await using var tx = await db.Database.BeginTransactionAsync(ct);
-            await db.TradeVotes.ExecuteDeleteAsync(ct);
-            await db.TradeAssets.ExecuteDeleteAsync(ct);
-            await db.Trades.ExecuteDeleteAsync(ct);
+
+            // A topological order over the pool tables' foreign keys, not a
+            // guess at one. Two things had drifted out of it and both failed
+            // here rather than anywhere quieter:
+            //
+            //   - Messages and CockcoinAwards arrived after this job was
+            //     written and were never added to it at all;
+            //   - RosterSpots.EndTradeId means a spot outlives the trade that
+            //     closed it, so spots have to go before trades — the old order
+            //     had it the other way round.
+            //
+            // Deleting Trades before RosterSpots is the kind of mistake that
+            // only shows up on a real wipe, and the last one was in July.
             await db.RosterAssignments.ExecuteDeleteAsync(ct);
-            await db.TeamPeriodLineups.ExecuteDeleteAsync(ct);
-            await db.DraftPicks.ExecuteDeleteAsync(ct);
             await db.RosterSpots.ExecuteDeleteAsync(ct);
-            await db.Teams.ExecuteDeleteAsync(ct);
+            await db.TradeAssets.ExecuteDeleteAsync(ct);
+            await db.TradeVotes.ExecuteDeleteAsync(ct);
+            await db.Messages.ExecuteDeleteAsync(ct);
+            await db.CockcoinAwards.ExecuteDeleteAsync(ct);
+            await db.TeamPeriodLineups.ExecuteDeleteAsync(ct);
+            await db.Trades.ExecuteDeleteAsync(ct);
+            await db.DraftPicks.ExecuteDeleteAsync(ct);
             await db.LeagueScoringRules.ExecuteDeleteAsync(ct);
             await db.LeagueMembers.ExecuteDeleteAsync(ct);
+            await db.Teams.ExecuteDeleteAsync(ct);
             await db.Leagues.ExecuteDeleteAsync(ct);
             await db.Users.ExecuteDeleteAsync(ct);
             // The simulation cursor belongs to a pool run, not to the NHL data.
