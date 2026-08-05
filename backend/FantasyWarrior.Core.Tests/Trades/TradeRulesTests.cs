@@ -4,19 +4,34 @@ namespace FantasyWarrior.Core.Tests.Trades;
 
 public class TradeRulesTests
 {
-    // Les Mordus: $115M cap, 23-35 roster.
-    private const long Cap = 115_000_000;
+    // Les Mordus: $134M cap, 23-35 roster.
+    private const long Cap = 134_000_000;
     private const int Min = 23;
     private const int Max = 35;
 
     private static long?[] Hits(params long[] amounts) => [.. amounts.Select(a => (long?)a)];
+
+    /// <summary>
+    /// The production signature also takes the league's default cap hit. Most
+    /// cases below move only players who have a contract, where the default
+    /// never applies and $0 keeps their arithmetic readable; the cases that are
+    /// about the default pass it.
+    /// </summary>
+    private static TradeImpact Impact(
+        string teamName,
+        long capBefore,
+        int countBefore,
+        IReadOnlyCollection<long?> outgoing,
+        IReadOnlyCollection<long?> incoming,
+        long defaultCapHit = 0) =>
+        TradeRules.Impact(teamName, capBefore, countBefore, outgoing, incoming, defaultCapHit);
 
     // --- Impact ---
 
     [Fact]
     public void Impact_SubtractsWhatLeavesAndAddsWhatArrives()
     {
-        var impact = TradeRules.Impact(
+        var impact = Impact(
             "Mine", capBefore: 100_000_000, countBefore: 25,
             outgoing: Hits(9_000_000), incoming: Hits(4_000_000));
 
@@ -29,7 +44,7 @@ public class TradeRulesTests
     public void Impact_MovesTheRosterCount_ByTheDifferenceInBodies()
     {
         // A 2-for-1: this side gives two and takes one, so it shrinks.
-        var impact = TradeRules.Impact(
+        var impact = Impact(
             "Mine", capBefore: 100_000_000, countBefore: 25,
             outgoing: Hits(5_000_000, 3_000_000), incoming: Hits(4_000_000));
 
@@ -38,24 +53,75 @@ public class TradeRulesTests
     }
 
     [Fact]
-    public void Impact_TreatsAnUnknownContractAsZero_ButCountsIt()
+    public void Impact_ChargesTheLeagueDefault_ForAContractNobodyHasOnFile()
     {
-        // Counting it as zero matches vStandings, which is what CapBefore came
-        // from — the two have to agree or adding them is meaningless. Counting
-        // it separately is what stops the total from lying silently.
-        var impact = TradeRules.Impact(
+        // An unsigned free agent and an unsigned draftee are permanent states,
+        // not gaps waiting to be filled, and a keeper pool holds plenty of
+        // both. They used to arrive free.
+        var impact = Impact(
             "Mine", capBefore: 100_000_000, countBefore: 25,
-            outgoing: [], incoming: [null, 4_000_000]);
+            outgoing: [], incoming: [null, 4_000_000], defaultCapHit: 1_000_000);
 
-        Assert.Equal(104_000_000, impact.CapAfter);
+        Assert.Equal(105_000_000, impact.CapAfter);
         Assert.Equal(27, impact.CountAfter);
         Assert.Equal(1, impact.UnknownContracts);
     }
 
     [Fact]
+    public void Impact_ChargesTheDefaultOnTheWayOutToo()
+    {
+        // Otherwise a GM could shed an unsigned player and keep paying for him,
+        // or the reverse — the two directions have to use one number.
+        var impact = Impact(
+            "Mine", capBefore: 100_000_000, countBefore: 25,
+            outgoing: [null], incoming: [], defaultCapHit: 1_000_000);
+
+        Assert.Equal(99_000_000, impact.CapAfter);
+    }
+
+    [Fact]
+    public void Impact_StillCountsUnknowns_WhenTheDefaultIsCharged()
+    {
+        // The count is the only thing left that distinguishes an assumed
+        // salary from a real one, once it is folded into the total.
+        var impact = Impact(
+            "Mine", capBefore: 0, countBefore: 25,
+            outgoing: [], incoming: [null], defaultCapHit: 1_000_000);
+
+        Assert.Equal(1_000_000, impact.CapAfter);
+        Assert.Equal(1, impact.UnknownContracts);
+    }
+
+    [Fact]
+    public void Impact_CarriesUnsignedPlayersFree_WhenTheLeagueSetsTheDefaultToZero()
+    {
+        // The old behaviour is still reachable, as a rule rather than as a
+        // hard-coded assumption.
+        var impact = Impact(
+            "Mine", capBefore: 100_000_000, countBefore: 25,
+            outgoing: [], incoming: [null, 4_000_000], defaultCapHit: 0);
+
+        Assert.Equal(104_000_000, impact.CapAfter);
+        Assert.Equal(1, impact.UnknownContracts);
+    }
+
+    [Fact]
+    public void Validate_CanBustTheCapOnUnsignedPlayersAlone()
+    {
+        // Ten prospects at the default is $10M of real cap room. Under the old
+        // $0 rule this trade was free and always legal.
+        var impact = Impact(
+            "Mine", capBefore: Cap - 5_000_000, countBefore: 20,
+            outgoing: [], incoming: [null, null, null, null, null, null, null, null, null, null],
+            defaultCapHit: 1_000_000);
+
+        Assert.Contains(TradeRules.Validate(impact, Cap, Min, Max), e => e.Contains("over the"));
+    }
+
+    [Fact]
     public void Impact_CountsUnknownsOnBothSides()
     {
-        var impact = TradeRules.Impact(
+        var impact = Impact(
             "Mine", capBefore: 0, countBefore: 25, outgoing: [null], incoming: [null, null]);
 
         Assert.Equal(3, impact.UnknownContracts);
@@ -65,7 +131,7 @@ public class TradeRulesTests
     public void Impact_ChangesNothing_ForAPicksOnlyTrade()
     {
         // Picks are simply absent from both collections: no salary, no spot.
-        var impact = TradeRules.Impact(
+        var impact = Impact(
             "Mine", capBefore: 100_000_000, countBefore: 25, outgoing: [], incoming: []);
 
         Assert.Equal(100_000_000, impact.CapAfter);
@@ -78,14 +144,14 @@ public class TradeRulesTests
     [Fact]
     public void Validate_AcceptsATradeThatStaysUnderTheCap()
     {
-        var impact = TradeRules.Impact("Mine", 100_000_000, 25, Hits(9_000_000), Hits(4_000_000));
+        var impact = Impact("Mine", 100_000_000, 25, Hits(9_000_000), Hits(4_000_000));
         Assert.Empty(TradeRules.Validate(impact, Cap, Min, Max));
     }
 
     [Fact]
     public void Validate_AcceptsLandingExactlyOnTheCap()
     {
-        var impact = TradeRules.Impact("Mine", Cap - 1_000_000, 25, [], Hits(1_000_000));
+        var impact = Impact("Mine", Cap - 1_000_000, 25, [], Hits(1_000_000));
 
         Assert.Equal(Cap, impact.CapAfter);
         Assert.Empty(TradeRules.Validate(impact, Cap, Min, Max));
@@ -94,7 +160,7 @@ public class TradeRulesTests
     [Fact]
     public void Validate_RejectsOneDollarOverTheCap()
     {
-        var impact = TradeRules.Impact("Mine", Cap, 25, [], Hits(1));
+        var impact = Impact("Mine", Cap, 25, [], Hits(1));
         var errors = TradeRules.Validate(impact, Cap, Min, Max);
 
         Assert.Single(errors);
@@ -106,7 +172,7 @@ public class TradeRulesTests
     {
         // The offending side is very often the *other* one, and "over the cap"
         // without a name is unactionable.
-        var impact = TradeRules.Impact("Martin", Cap, 25, [], Hits(2_000_000));
+        var impact = Impact("Martin", Cap, 25, [], Hits(2_000_000));
         Assert.All(TradeRules.Validate(impact, Cap, Min, Max), e => Assert.StartsWith("Martin", e));
     }
 
@@ -115,7 +181,7 @@ public class TradeRulesTests
     [Fact]
     public void Validate_RejectsGoingOverTheRosterMaximum()
     {
-        var impact = TradeRules.Impact("Mine", 0, Max, [], Hits(1_000_000));
+        var impact = Impact("Mine", 0, Max, [], Hits(1_000_000));
         var errors = TradeRules.Validate(impact, capAmount: null, Min, Max);
 
         Assert.Single(errors);
@@ -125,7 +191,7 @@ public class TradeRulesTests
     [Fact]
     public void Validate_RejectsDroppingUnderTheRosterMinimum()
     {
-        var impact = TradeRules.Impact("Mine", 0, Min, Hits(1_000_000), []);
+        var impact = Impact("Mine", 0, Min, Hits(1_000_000), []);
         var errors = TradeRules.Validate(impact, capAmount: null, Min, Max);
 
         Assert.Single(errors);
@@ -135,8 +201,8 @@ public class TradeRulesTests
     [Fact]
     public void Validate_AcceptsLandingExactlyOnEitherBound()
     {
-        var atMax = TradeRules.Impact("Mine", 0, Max - 1, [], Hits(1_000_000));
-        var atMin = TradeRules.Impact("Mine", 0, Min + 1, Hits(1_000_000), []);
+        var atMax = Impact("Mine", 0, Max - 1, [], Hits(1_000_000));
+        var atMin = Impact("Mine", 0, Min + 1, Hits(1_000_000), []);
 
         Assert.Empty(TradeRules.Validate(atMax, null, Min, Max));
         Assert.Empty(TradeRules.Validate(atMin, null, Min, Max));
@@ -150,9 +216,9 @@ public class TradeRulesTests
         // One trade, opposite directions. The team receiving two goes over the
         // maximum; the team sending two falls under the minimum. Neither side
         // can be checked alone.
-        var receiving = TradeRules.Impact(
+        var receiving = Impact(
             "Martin", 0, countBefore: Max, outgoing: Hits(1_000_000), incoming: Hits(2_000_000, 3_000_000));
-        var sending = TradeRules.Impact(
+        var sending = Impact(
             "Mine", 0, countBefore: Min, outgoing: Hits(2_000_000, 3_000_000), incoming: Hits(1_000_000));
 
         var errors = TradeRules.Validate(receiving, null, Min, Max)
@@ -168,8 +234,8 @@ public class TradeRulesTests
     public void Validate_CatchesTheOtherTeamBusting_WhenMineIsFine()
     {
         // The case a naive one-sided check would wave through.
-        var mine = TradeRules.Impact("Mine", 90_000_000, 25, Hits(10_000_000), Hits(1_000_000));
-        var theirs = TradeRules.Impact("Martin", Cap - 2_000_000, 25, Hits(1_000_000), Hits(10_000_000));
+        var mine = Impact("Mine", 90_000_000, 25, Hits(10_000_000), Hits(1_000_000));
+        var theirs = Impact("Martin", Cap - 2_000_000, 25, Hits(1_000_000), Hits(10_000_000));
 
         Assert.Empty(TradeRules.Validate(mine, Cap, Min, Max));
         Assert.Single(TradeRules.Validate(theirs, Cap, Min, Max));
@@ -181,7 +247,7 @@ public class TradeRulesTests
     public void Validate_AppliesNoCapRule_WhenTheLeagueHasNoCap()
     {
         // Null is "no such rule", not "a limit of zero".
-        var impact = TradeRules.Impact("Mine", 0, 25, [], Hits(500_000_000));
+        var impact = Impact("Mine", 0, 25, [], Hits(500_000_000));
         Assert.Empty(TradeRules.Validate(impact, capAmount: null, rosterMin: null, rosterMax: null));
     }
 
@@ -189,7 +255,7 @@ public class TradeRulesTests
     public void Validate_ReturnsEveryViolation_NotOnlyTheFirst()
     {
         // Over the cap and over the roster max at once — the UI shows both.
-        var impact = TradeRules.Impact("Mine", Cap, Max, [], Hits(5_000_000));
+        var impact = Impact("Mine", Cap, Max, [], Hits(5_000_000));
         Assert.Equal(2, TradeRules.Validate(impact, Cap, Min, Max).Count);
     }
 }

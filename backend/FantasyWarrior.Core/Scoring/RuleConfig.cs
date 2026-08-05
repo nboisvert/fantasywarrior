@@ -30,6 +30,13 @@ public sealed class RuleConfig
     public int? DraftRounds { get; set; }
 
     /// <summary>
+    /// What a player with no contract on file counts against the cap, in whole
+    /// dollars. $1M by default (Nick, 2026-08-05); 0 restores the old behaviour
+    /// of carrying such players for free.
+    /// </summary>
+    public long DefaultCapHit { get; set; } = 1_000_000;
+
+    /// <summary>
     /// The whole scale as one <see cref="StatKeys"/>-keyed map — the only form
     /// the scoring engine consumes, so callers never have to know which half a
     /// value came from.
@@ -75,6 +82,12 @@ public static class RuleConfigValidation
 
         if (config.RosterSize.Min is { } min && config.RosterSize.Max is { } max && min > max)
             errors.Add($"Roster minimum ({min}) cannot exceed the maximum ({max}).");
+
+        // A negative default would pay a team to hold unsigned players, and
+        // every cap total in the league would drift further from the truth the
+        // more of them it carried.
+        if (config.DefaultCapHit < 0)
+            errors.Add("The default cap hit cannot be negative.");
 
         return errors;
     }

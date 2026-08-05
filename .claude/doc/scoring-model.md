@@ -144,7 +144,21 @@ Des calendriers par ligue ramèneraient une requête par ligue — c'est la rais
 | Slots actifs par position | `ruleConfig.topCount` | **oui, à la soumission du lineup** |
 | Taille de roster min/max | `ruleConfig.rosterSize` | **oui, sur les échanges** (proposition et acceptation) |
 | Plafond salarial | `league.capAmount` | **oui, sur les échanges** (proposition et acceptation) |
+| Coût d'un joueur sans contrat | `ruleConfig.defaultCapHit` | **oui**, dans `vStandings`, `vTeamCommitments` et la validation d'échange |
 | Choix au repêchage par équipe par année | `ruleConfig.draftRounds` | un par ronde, généré par `draft-picks-init` |
+
+**Un joueur sans contrat coûte 1 M$ par défaut** (Nick, 2026-08-05), réglable par
+ligue — 0 rétablit l'ancien comportement. « Sans contrat » n'est pas un trou de
+données à combler : c'est l'état permanent et ordinaire d'un autonome non signé
+et d'un espoir repêché qui n'a pas encore signé, et un pool keeper en compte
+beaucoup. Les compter à 0 $ laissait un DG en accumuler gratuitement et
+sous-estimait chaque total.
+
+Les deux vues doivent bouger ensemble : `vStandings` est la base et
+`vTeamCommitments` le delta, et l'appelant les additionne. `vStandings` expose
+aussi `UnknownContracts` — une fois le salaire supposé fondu dans le total, plus
+rien ne le distingue d'un vrai, et un chiffre mi-mesuré mi-conventionnel doit le
+dire.
 
 **Le plafond est appliqué contre les chiffres *engagés*, pas contre le
 classement** (2026-08-03). Un échange accepté est irréversible : il s'exécute à
@@ -159,7 +173,13 @@ Ce qui n'est toujours **pas** appliqué : rien n'empêche un roster d'être hors
 limites par un autre chemin — il n'existe simplement aucun autre chemin
 aujourd'hui (pas d'ajout/retrait de joueur libre).
 
-En ligne de commande : `set-league-rules --league <id> [--goal N] [--assist N] [--goalie-win N] [--goalie-otl N] [--shutout N] [--forwards N] [--defense N] [--goalies N] [--roster-min N] [--roster-max N] [--cap N]`.
+Tout cela se règle par l'API — `PATCH /api/leagues/{code}/rules`, réservé au
+commissaire — et par le panneau **League rules** de l'app.
+
+> Il n'existe **pas** de job `set-league-rules`. Cette ligne en décrivait un
+> jusqu'au 2026-08-05; il n'a jamais existé sous Azure SQL. Le plafond lui-même
+> (`capAmount`) n'est d'ailleurs pas encore éditable par ce PATCH : il se fixe à
+> la création de la ligue ou par `seed-mordus --cap`.
 
 ---
 
@@ -183,9 +203,10 @@ Un backfill de saison complète est redevenu une opération ordinaire depuis le 
 
 - **Aucune authentification.** L'API fait confiance au `username` envoyé. Avec les lineups c'est nettement plus grave qu'avant : on peut discrètement mettre le meilleur joueur d'un rival au banc chaque dimanche soir, et ça ressemble à son propre oubli. **À régler avant que de vrais utilisateurs y touchent.**
 - Le slot **Équipe** (`team.franchiseAbbrev`) porte l'identité mais ne rapporte encore aucun point — règle à obtenir de Nick.
-- Les salaires sont **réels** depuis 2026-08-02 (CapWages, table `PlayerContracts`) — 685 des 701 joueurs NHL actifs.
-  Les **16 restants comptent 0 $**, dans `vStandings` comme dans la validation
-  d'échange. C'est signalé à l'écran plutôt qu'avalé : on ne peut pas valider un
-  salaire que personne n'a au dossier.
+- Les salaires sont **réels** depuis 2026-08-02 (CapWages, table `PlayerContracts`).
+  Ceux qui n'en ont pas comptent **1 M$** depuis 2026-08-05 (§9), et non plus 0 $.
+  Leur nombre voyage avec le total (`UnknownContracts`) : on ne peut toujours pas
+  valider un salaire que personne n'a au dossier, on refuse simplement de faire
+  comme s'il était nul. Chez Les Mordus, 30 joueurs sont dans ce cas.
 - Le repêchage lui-même n'existe pas. Les choix se créent et s'échangent ; rien
   ne les convertit encore en joueurs (`DraftPick.UsedUtc` n'est jamais écrit).

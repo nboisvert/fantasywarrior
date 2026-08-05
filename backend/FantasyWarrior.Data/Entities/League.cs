@@ -31,6 +31,23 @@ public sealed class League
     /// <summary>Salary cap per team in whole dollars; null = no cap rule.</summary>
     public long? CapAmount { get; set; }
 
+    /// <summary>
+    /// What a player with no contract on file costs against the cap, in whole
+    /// dollars. Defaults to $1M (Nick, 2026-08-05).
+    ///
+    /// "No contract" is not a data gap to wait out — it is a real and permanent
+    /// state for an unsigned free agent and for a drafted prospect who has yet
+    /// to sign, and a keeper pool holds plenty of both. Counting them at $0, as
+    /// this did until now, let a GM carry a dozen of them for free and made
+    /// every cap total quietly understated.
+    ///
+    /// Configurable rather than a constant because it is a league rule, not a
+    /// fact: set it to 0 to restore the old behaviour. Not nullable — every
+    /// league needs an answer, and "null" would only mean "$0" spelled at
+    /// greater length.
+    /// </summary>
+    public long DefaultCapHit { get; set; } = 1_000_000;
+
     // --- roster composition. Active-slot counts are enforced at lineup
     // submission; the cap and min/max roster size are enforced on trades since
     // 2026-08-03 -- against the *engaged* figures, which include accepted but

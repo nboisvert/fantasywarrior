@@ -202,10 +202,53 @@ public class ViewTests
 
         var row = await db.Standings.SingleAsync(s => s.TeamId == world.Teams[0].TeamId);
 
-        Assert.Equal(9_000_000, row.CapTotal);
+        // $9M held, plus the league's $1M default twice: once for the player
+        // with no contract at all, once for the one whose only contract is for
+        // another season. Neither is a gap to wait out — an unsigned player is
+        // a permanent state, and charging him nothing understated every total.
+        Assert.Equal(11_000_000, row.CapTotal);
+        Assert.Equal(2, row.UnknownContracts);
         // Three open spots: the departed one is closed, but a player with no
         // contract on file still occupies a roster place.
         Assert.Equal(3, row.PlayerCount);
+    }
+
+    [SqlFact]
+    public async Task Standings_ChargeForAnUnsignedPlayer_IsTheLeaguesOwnRule()
+    {
+        await using var db = SqlFixture.NewContext();
+        var world = await new TestWorld(db).CreateAsync();
+
+        world.League.DefaultCapHit = 2_500_000;
+        await db.SaveChangesAsync();
+
+        await world.AddSpotAsync(world.Teams[0], await world.AddPlayerAsync("C", capHit: 9_000_000));
+        await world.AddSpotAsync(world.Teams[0], await world.AddPlayerAsync("G"));
+
+        var row = await db.Standings.SingleAsync(s => s.TeamId == world.Teams[0].TeamId);
+
+        Assert.Equal(11_500_000, row.CapTotal);
+        Assert.Equal(1, row.UnknownContracts);
+    }
+
+    [SqlFact]
+    public async Task Standings_CarryUnsignedPlayersFree_WhenTheLeagueSetsTheDefaultToZero()
+    {
+        await using var db = SqlFixture.NewContext();
+        var world = await new TestWorld(db).CreateAsync();
+
+        // The behaviour every league had before 2026-08-05, still reachable —
+        // as a rule now, not as an assumption baked into the view.
+        world.League.DefaultCapHit = 0;
+        await db.SaveChangesAsync();
+
+        await world.AddSpotAsync(world.Teams[0], await world.AddPlayerAsync("C", capHit: 9_000_000));
+        await world.AddSpotAsync(world.Teams[0], await world.AddPlayerAsync("G"));
+
+        var row = await db.Standings.SingleAsync(s => s.TeamId == world.Teams[0].TeamId);
+
+        Assert.Equal(9_000_000, row.CapTotal);
+        Assert.Equal(1, row.UnknownContracts);
     }
 
     [SqlFact]

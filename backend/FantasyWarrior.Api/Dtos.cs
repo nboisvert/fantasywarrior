@@ -49,6 +49,10 @@ public static class Dtos
             // One pick per team per round, so this doubles as "picks per team
             // per year". Les Mordus: 3.
             draftRounds = league.DraftRounds,
+            // What an unsigned player costs against the cap. Round-tripped so
+            // the Rules panel can PATCH the config back without silently
+            // resetting it to the property default.
+            defaultCapHit = league.DefaultCapHit,
         };
     }
 

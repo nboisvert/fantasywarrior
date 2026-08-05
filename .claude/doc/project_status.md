@@ -269,6 +269,16 @@ was taken — not a record of what changed.
   chat is a UI mock with literal hex values, a light corporate palette and a
   system font stack, so it reads as a real embedded third-party helpdesk widget
   bolted onto the app. No backend. See [cockman-concept.md](cockman-concept.md).
+- **2026-08-05 — A player with no contract stops being free.** Both cap views
+  counted him at $0, which treats "no contract" as a data gap to wait out. It is
+  not: an unsigned free agent and an undrafted prospect are permanent states, and
+  a keeper pool holds plenty of both — 30 on Mordus rosters today. He now costs
+  `Leagues.DefaultCapHit`, $1M by default and editable per league from the Rules
+  panel (0 restores the old behaviour). Both views had to move together, since
+  callers sum `vStandings` and `vTeamCommitments`. `vStandings` also gained
+  `UnknownContracts`: folding an assumed salary into the total makes it
+  invisible, and a figure that is part measurement and part house rule should
+  say so.
 - **2026-08-05 — Half the "missing" Mordus players were never missing, and no
   third-party source was needed for the other half.** The import's 44 unmatched
   names were diagnosed in July as players the NHL API does not expose, which

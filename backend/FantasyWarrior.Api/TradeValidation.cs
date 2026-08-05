@@ -125,11 +125,13 @@ public static class TradeValidation
 
         var proposerImpact = TradeRules.Impact(
             proposer.TeamName, proposer.CapTotal, proposer.PlayerCount,
-            outgoing: fromProposer, incoming: fromCounterparty);
+            outgoing: fromProposer, incoming: fromCounterparty,
+            defaultCapHit: league.DefaultCapHit);
 
         var counterpartyImpact = TradeRules.Impact(
             counterparty.TeamName, counterparty.CapTotal, counterparty.PlayerCount,
-            outgoing: fromCounterparty, incoming: fromProposer);
+            outgoing: fromCounterparty, incoming: fromProposer,
+            defaultCapHit: league.DefaultCapHit);
 
         return
         [

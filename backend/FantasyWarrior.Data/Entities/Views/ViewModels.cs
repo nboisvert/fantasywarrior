@@ -107,8 +107,21 @@ public sealed class StandingsView
     /// <summary>Players currently held — open roster spots only.</summary>
     public int PlayerCount { get; set; }
 
-    /// <summary>Summed cap hits of the current roster; 0 for players with no contract on file.</summary>
+    /// <summary>
+    /// Summed cap hits of the current roster. A player with no contract on file
+    /// is charged the league's <c>DefaultCapHit</c> ($1M unless changed), not
+    /// nothing — see <see cref="UnknownContracts"/> for how many of these there
+    /// are.
+    /// </summary>
     public long CapTotal { get; set; }
+
+    /// <summary>
+    /// How many of the roster's players have no contract for this season, and
+    /// are therefore counted at the league default. Folding an assumed salary
+    /// into <see cref="CapTotal"/> makes it invisible; this is what lets a
+    /// screen say the figure is part measurement and part house rule.
+    /// </summary>
+    public int UnknownContracts { get; set; }
 }
 
 /// <summary>

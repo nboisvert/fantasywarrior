@@ -112,8 +112,9 @@ export function RulesPanel({
       </div>
 
       <span className="section-title" style={{ letterSpacing: "0.05em" }}>
-        Roster size (not enforced yet — empty = no limit)
+        Roster size (empty = no limit)
       </span>
+      <small className="muted">Enforced on trades, when proposed and when accepted.</small>
       <div className="rules-grid">
         {rosterSizes.map(([key, label]) => (
           <label key={key}>
@@ -127,6 +128,27 @@ export function RulesPanel({
             />
           </label>
         ))}
+      </div>
+
+      <span className="section-title" style={{ letterSpacing: "0.05em" }}>
+        Unsigned players
+      </span>
+      <small className="muted">
+        What a player with no contract on file counts against the cap. Unsigned free
+        agents and undrafted prospects never get a salary — set 0 to carry them for free.
+      </small>
+      <div className="rules-grid">
+        <label>
+          Default cap hit
+          <input
+            className="field"
+            inputMode="numeric"
+            value={config.defaultCapHit}
+            onChange={(e) =>
+              setConfig({ ...config, defaultCapHit: Math.max(0, Number(e.target.value) || 0) })
+            }
+          />
+        </label>
       </div>
 
       <p className="muted" style={{ margin: 0, fontSize: "0.8rem" }}>

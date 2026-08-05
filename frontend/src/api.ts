@@ -103,6 +103,14 @@ export interface RuleConfig {
   };
   /** Picks per team per year — one per round. Null = no draft. */
   draftRounds: number | null;
+  /**
+   * What a player with no contract on file costs against the cap, in whole
+   * dollars. $1M by default; 0 carries unsigned players for free.
+   *
+   * Not nullable: an unsigned free agent is a permanent state in a keeper
+   * pool, not a data gap, so every league needs an answer.
+   */
+  defaultCapHit: number;
 }
 
 /** One scoring week. Weeks run Monday-Sunday on the NHL's Eastern game date. */

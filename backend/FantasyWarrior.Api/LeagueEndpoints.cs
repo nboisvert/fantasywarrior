@@ -163,6 +163,7 @@ public static class LeagueEndpoints
             league.RosterMin = config.RosterSize.Min;
             league.RosterMax = config.RosterSize.Max;
             league.DraftRounds = config.DraftRounds;
+            league.DefaultCapHit = config.DefaultCapHit;
 
             // Replace the whole scale: a value removed from the config must stop
             // scoring, which an upsert-only pass would never achieve.
@@ -290,6 +291,11 @@ public static class LeagueEndpoints
                                 ? Math.Round(s.Score / s.RosterGamesPlayed, 2)
                                 : (double?)null,
                             capTotal = s?.CapTotal ?? 0,
+                            // How much of capTotal is the league's DefaultCapHit
+                            // standing in for a contract nobody has on file. The
+                            // total reads as authoritative once those are folded
+                            // in, so the count travels with it.
+                            unknownContracts = s?.UnknownContracts ?? 0,
                             playerCount = s?.PlayerCount ?? 0,
                             // What accepted-but-unexecuted trades already commit
                             // this team to. The trade sheet validates against

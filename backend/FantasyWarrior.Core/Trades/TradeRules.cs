@@ -10,9 +10,10 @@ namespace FantasyWarrior.Core.Trades;
 /// the cap in the afternoon, with each trade looking fine on its own.
 /// </param>
 /// <param name="UnknownContracts">
-/// How many of the players moving have no contract on file. They count as $0 in
-/// the totals — the same way the standings count them — so this is the only
-/// honest signal that a cap figure may be understated.
+/// How many of the players moving have no contract on file. They are charged
+/// the league's <c>DefaultCapHit</c> — the same way the standings charge them —
+/// so the totals are complete, but this is still the honest signal that part of
+/// the figure is a house rule rather than a real salary.
 /// </param>
 public sealed record TradeImpact(
     string TeamName,
@@ -47,6 +48,11 @@ public static class TradeRules
     /// "no contract on file" is a real state, and it is counted rather than
     /// quietly dropped.
     ///
+    /// <paramref name="defaultCapHit"/> is what those players cost — the
+    /// league's rule, not a constant. It has to be the same number
+    /// <c>vStandings</c> uses, or <c>CapBefore</c> and the delta would be
+    /// computed on two different scales and their sum would mean nothing.
+    ///
     /// Draft picks are simply absent from both collections: they carry no
     /// salary and occupy no roster spot, so they move neither number.
     /// </summary>
@@ -55,10 +61,11 @@ public static class TradeRules
         long capBefore,
         int countBefore,
         IReadOnlyCollection<long?> outgoing,
-        IReadOnlyCollection<long?> incoming)
+        IReadOnlyCollection<long?> incoming,
+        long defaultCapHit)
     {
-        var leaving = outgoing.Sum(c => c ?? 0);
-        var arriving = incoming.Sum(c => c ?? 0);
+        var leaving = outgoing.Sum(c => c ?? defaultCapHit);
+        var arriving = incoming.Sum(c => c ?? defaultCapHit);
 
         return new TradeImpact(
             TeamName: teamName,
