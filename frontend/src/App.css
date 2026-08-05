@@ -2145,7 +2145,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  padding-top: 0.4rem;
+  padding-top: 0.85rem;
   border-top: 1px solid var(--border);
 }
 
@@ -2217,7 +2217,7 @@
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  margin-top: 0.35rem;
+  margin-top: 0.75rem;
 }
 
 .trade-vote-collapsed-text {
@@ -2234,6 +2234,8 @@
 
 .trade-vote-collapsed-text strong {
   color: var(--ice-bright);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .trade-vote-collapsed-text .muted {
@@ -2280,6 +2282,8 @@
 
 .trade-vote-recap-text strong {
   color: var(--ice-bright);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .trade-vote-recap-text .muted {
