@@ -3,15 +3,17 @@
 > Source : `Classement Mordus pool a vie saison 3 — PoolExpert.com`, PDF fourni par Nick le 2026-07-31.
 > Données extraites : [`data/mordus-rosters.json`](../../data/mordus-rosters.json).
 
-Ce document sert deux fins : la **correspondance entre le vocabulaire du pool actuel (PoolExpert) et le modèle de l'app**, et le **registre des joueurs non appariés** restant à ajouter.
+Ce document sert deux fins : la **correspondance entre le vocabulaire du pool actuel (PoolExpert) et le modèle de l'app**, et l'**historique des joueurs non appariés**, maintenant tous résolus (§2).
 
 ## État
 
-**Ligue créée en prod le 2026-07-31, recréée sur Azure SQL le 2026-08-02 — code d'accès `Q7ZJ4G`**, saison `20252026`, 14 équipes, 360 joueurs, commissaire `nick`. Créée par `seed-mordus`, qui vérifie chaque identifiant de joueur avant d'écrire quoi que ce soit et refuse d'écraser une ligue existante du même nom.
+**Ligue recréée sur Azure SQL le 2026-08-05 — code d'accès `P7R9CT`**, saison `20252026`, 14 équipes, **404 joueurs**, commissaire `nick`. Créée par `seed-mordus`, qui vérifie chaque identifiant de joueur avant d'écrire quoi que ce soit et refuse d'écraser une ligue existante du même nom.
+
+> Historique : créée le 2026-07-31, recréée sur Azure SQL le 2026-08-02 avec 360 joueurs et le code `Q7ZJ4G`. Le 2026-08-05, les 44 entrées non appariées du §2 ont été résolues et la ligue a été refaite au complet (`wipe-pools` puis `seed-mordus`) pour que les rosters reflètent la réalité. Le code d'accès change à chaque re-seed, il est tiré au hasard.
 
 Les usernames sont le prénom du GM, désambiguïsé par l'initiale du nom en cas de collision (`jonathan` / `jonathanr`). Nicolas Boisvert réutilise son compte existant `nick` plutôt qu'un nouveau `nicolas`, pour que ses deux ligues vivent sous un seul login.
 
-**Pas encore fait** : les `RosterSpot` et les `Lineup` hebdomadaires (modèles livrés en C4/C5 de la refonte). La répartition actif/réserve est conservée dans le JSON, donc la première semaine pourra être matérialisée depuis ce même fichier. Le barème de points est resté aux valeurs par défaut — voir §4.
+Les `RosterSpot` et l'alignement de la semaine 1 sont matérialisés depuis le JSON : `seed-mordus` ouvre les 404 spots au début de la semaine 1 et sème l'alignement actif/réserve tel que le PDF le donnait.
 
 ---
 
@@ -40,9 +42,11 @@ Appliquées en prod via `set-league-rules`.
 | Défaite en prolongation (gardien) | **1** |
 | Blanchissage | **0** (non listé par Nick) |
 | Taille de roster | **23 min, 35 max** |
-| Masse salariale | **115 M** |
+| Masse salariale | **134 M** (Nick, 2026-08-05) |
 
 Deux défauts de l'app diffèrent de cette ligue et ont été écrasés : la victoire de gardien valait 2, et le plafond initial était à 100 M.
+
+**Le plafond a été à 115 M jusqu'au 2026-08-05** — le chiffre de la LNH, pas celui de la ligue. Il mettait Montréal (128,1 M) et Detroit (116,1 M) hors limites sur papier, et après l'ajout des 44 joueurs du §2 il en aurait mis **9 sur 14**. À 134 M, les 14 équipes sont conformes. `seed-mordus` prend maintenant 134 M par défaut.
 
 **Encore inconnu** : la règle de pointage du slot Équipe (§3).
 
@@ -65,26 +69,40 @@ Le registre du §2 est donc vraisemblablement complet, et le découpage des noms
 
 ---
 
-## 2. Joueurs non appariés — à ajouter
+## 2. Joueurs non appariés — résolus le 2026-08-05
 
-**39 entrées** n'ont pas trouvé de correspondance dans la table `Players`. Elles sont conservées ici pour ajout futur.
+**39 entrées, 44 noms** (l'extraction PDF avait fusionné certaines lignes) n'avaient pas trouvé de correspondance dans `Players`. **Les 44 sont résolus, sans ambiguïté ni intervention manuelle.** La liste vit maintenant dans [`data/unresolved-players.txt`](../../data/unresolved-players.txt) et le job `player-resolve` la traite.
 
-### Pourquoi ils manquent
+### Pourquoi ils manquaient — le diagnostic de 2026-07-31 était à moitié faux
 
-`PlayerSyncJob` alimente `players` depuis deux sources seulement : les **alignements d'équipe** et les **listes d'espoirs** de l'API NHL. Deux catégories passent donc entre les mailles :
+Ce document affirmait que `PlayerSyncJob` ne les voyait pas parce qu'il ne lit que deux endpoints (alignements d'équipe et listes d'espoirs). C'est vrai, mais ça n'explique que **19 des 44**.
 
-1. **Les joueurs autonomes sans contrat** — ils ne figurent sur aucun alignement. C'est une lacune réelle pour un pool keeper, où l'on conserve un joueur à travers son autonomie. Concernés : Jonathan Drouin, Marcus Johansson, Sam Montembeault, Reilly Smith, John Klingberg, Philipp Kurashev, Eeli Tolvanen, Connor Ingram, Fabian Lysell, Zack Bolduc, Isaac Howard, Nick Blankenburg.
-2. **Les repêchés 2024-2025 pas encore dans une liste d'espoirs** — Easton Cowan, Caleb Desnoyers, Kashawn Aitcheson, Henry Mews, Cole Reschny, Ethan Wyttenbach, Tij Iginla, Igor Chernyshov, Michael Brandsegg-Nygard, etc.
+**Les 25 autres étaient déjà dans la table depuis le début** — stockés `J. Klingberg`, `R. Smith`, `E. Cowan`, `M. Brandsegg-Nygård`. C'est la forme sous laquelle la LNH publie un joueur entre deux contrats, et c'est l'appariement de l'import qui a échoué, pas l'ingestion. Le `player-sync` relancé le 2026-07-31 « n'en a récupéré aucun » précisément parce qu'il n'y avait rien à récupérer.
 
-Un `player-sync` relancé le 2026-07-31 n'en a récupéré aucun (1 385 documents, inchangé) — confirmant que l'API ne les expose pas par ces deux endpoints.
+Cinq autres ont échoué sur une simple variante d'orthographe : Zack/**Zachary** Bolduc, Sam/**Samuel** Montembeault, Dmitriy/**Dmitri** Simashev, Benjamin/**Ben** Kindel, Axel Sandin Pellikka/**Sandin-Pellikka**.
 
-### Piste de résolution
+Restent **19 vrais absents**, qui relèvent bien des deux catégories annoncées : autonomes sans contrat (sur aucun alignement) et repêchés récents (sur aucune liste d'espoirs).
 
-L'endpoint de recherche public `https://search.d3.nhle.com/api/v1/search/player?q=<nom>` retourne l'identifiant NHL par nom; l'endpoint « landing » par joueur donne ensuite position et équipe. Un job `player-resolve` bâti là-dessus corrigerait les deux catégories de façon permanente. Suivi comme tâche distincte.
+### Comment ils ont été résolus
 
-### Registre
+Le job `player-resolve` (voir [deployment.md](deployment.md)) lit la liste de noms et interroge `https://search.d3.nhle.com/api/v1/search/player`. **Aucun scraping, aucune source tierce** — tout vient de l'API NHL officielle. La piste EliteProspects envisagée un moment n'a pas lieu d'être : les 44 ont tous un identifiant NHL.
 
-Les entrées en **Actif** sont prioritaires : elles laissent l'alignement de l'équipe incomplet. Certaines lignes contiennent deux noms accolés (l'extraction PDF les a fusionnés) — à séparer au moment de la résolution.
+Deux pièges, tous deux trouvés par les tests :
+
+- **Chercher le nom complet retourne le mauvais joueur, en silence.** `q=Zack Bolduc` répond Zack **Smith**, `q=Cole Reschny` répond Cole **Brady**. Il faut chercher par nom de famille seul et désambiguïser localement.
+- **`PlayerNameIndex` est le mauvais outil ici.** Son repli par initiale est juste quand une source abrège un joueur qu'on possède déjà, mais quand la question est « ce nom désigne-t-il quelqu'un ? », il résolvait « Marcel Bolduc » vers **Mathieu** Bolduc, seul M. Bolduc parmi sept homonymes. `PlayerSearchMatcher` exige trois caractères communs au prénom, ce qui garde Zack pour Zachary et refuse Marcel pour Mathieu.
+
+L'endpoint tronque aussi à la limite demandée sans le dire : à 50, Jackson Smith et Brady Martin disparaissaient de leur propre nom de famille. La limite est à 500.
+
+### Enrichissement
+
+Les 19 nouveaux ont ensuite été traités par les jobs existants : `draft-sync`, `career-sync`, `capwages-sync --resolve-unmatched`. Sur les 44 : **44 ont un historique de carrière**, 43 des informations de repêchage (Ilya Nabokov n'a jamais été repêché), **27 un contrat**. Les 17 sans contrat sont les autonomes non signés et les repêchés 2025 sans contrat d'entrée — ils n'ont réellement aucune masse salariale, ce n'est pas un échec d'import.
+
+### Registre — où chacun a été placé
+
+Le placement vient de ce tableau, tel que relevé du PDF. Contrôle indépendant après ajout : **les 14 équipes tombent sur 9F/4D/1G exactement**, toutes dans 23-35, et **Jonathan Rochette pile sur 35**, le maximum. Un découpage fautif n'aurait pas produit ça.
+
+> **Huit de ces joueurs n'ont joué aucun match de la LNH de la saison** (Nabokov, Reschny, Wyttenbach, Aitcheson, Mews, Jackson Smith, Desnoyers, Iginla) et occupent pourtant des postes actifs chez Sylvain et Rochette. Ce n'est pas une erreur : **un DG a le droit d'habiller des joueurs non-LNH** (Nick, 2026-08-05). Ils reçoivent une assignation normale avec toutes les statistiques à zéro. C'est ce qui explique que ces deux équipes marquent très peu dans une replay, où l'alignement de la semaine 1 est reporté tel quel.
 
 | Équipe | Section | Nom(s) |
 |---|---|---|
@@ -127,6 +145,12 @@ Les entrées en **Actif** sont prioritaires : elles laissent l'alignement de l'�
 | Dany Blouin | Réserve | Sam Montembeault |
 | Antoine Sylvain | Réserve | Axel Sandin Pellikka |
 | Jonathan Rochette | Réserve | Reilly Smith |
+
+### Une correction hors registre : Alex DeBrincat
+
+Après ajout des 44, une seule équipe restait hors format — **Yvan Meunier à 8F/4D/1G**, un attaquant de moins. Ses deux entrées ci-dessus sont toutes deux en Réserve, donc le registre ne pouvait pas le corriger.
+
+Nick a tranché (2026-08-05) : **Alex DeBrincat** (8479337, DET), que l'extraction avait classé en réserve, était en réalité dans l'alignement actif. Remonté dans `active`, Meunier passe à 9F/4D/1G et **les 14 équipes sont conformes**. Son total reste 27 — un déplacement entre sections ne change pas la taille du roster.
 
 ---
 

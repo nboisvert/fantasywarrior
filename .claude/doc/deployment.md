@@ -150,10 +150,38 @@ dotnet run --project backend/FantasyWarrior.Jobs -- db-migrate
 dotnet run --project backend/FantasyWarrior.Jobs -- player-sync --season 20252026
 dotnet run --project backend/FantasyWarrior.Jobs -- stats-sync --from 2025-10-07 --to 2026-04-16  # ~10 min
 dotnet run --project backend/FantasyWarrior.Jobs -- period-init --season 20252026
-dotnet run --project backend/FantasyWarrior.Jobs -- capwages-sync
+dotnet run --project backend/FantasyWarrior.Jobs -- player-resolve            # before seeding — see below
+dotnet run --project backend/FantasyWarrior.Jobs -- draft-sync
+dotnet run --project backend/FantasyWarrior.Jobs -- career-sync
+dotnet run --project backend/FantasyWarrior.Jobs -- capwages-sync --resolve-unmatched   # ~15 min
 dotnet run --project backend/FantasyWarrior.Jobs -- seed-mordus
 dotnet run --project backend/FantasyWarrior.Jobs -- sim-clock --set 2025-10-04 --season 20252026
 ```
+
+### `player-resolve` — the players `player-sync` cannot see
+
+`player-sync` reads two endpoints per team, the season roster and the prospect
+list. A player can be on neither and still be someone a GM owns: an unsigned
+free agent is on no roster, and a fresh draftee his club has not listed yet is
+on no prospect list. `seed-mordus` refuses to write a league whose roster file
+names a player it cannot find, so this has to run **before** seeding.
+
+```powershell
+dotnet run --project backend/FantasyWarrior.Jobs -- player-resolve [--file data/unresolved-players.txt] [--dry-run]
+```
+
+It reads one name per line (`#` comments allowed), queries the NHL search
+endpoint by **surname**, and writes only what is unambiguous — anything with
+no match or several is printed at the end for a human. Always `--dry-run`
+first and read that list.
+
+Names are kept spelled the way the source wrote them, on purpose: the matcher
+is what absorbs Zack for Zachary and Sandin Pellikka for Sandin-Pellikka, and
+correcting the input by hand would hide a regression in it.
+
+Nothing here is scraped and no third-party source is involved — it is the same
+official NHL API as everything else. EliteProspects was considered and is not
+needed: every player in this situation still has an NHL id.
 
 `wipe-pools` clears leagues, teams, rosters and un-banks every week while
 leaving players, contracts, games and game lines alone — that half costs hours

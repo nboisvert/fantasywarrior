@@ -18,11 +18,13 @@
 | Database | Azure SQL serverless, free tier, resource group `fw` |
 | Nightly cron | `daily-jobs.yml` — db-migrate → stats-sync → nightly → player-sync → draft-sync → news-sync |
 
-- **Reference data**: 1 567 players, the full 2025-26 regular season (1 342 games,
+- **Reference data**: 1 586 players, the full 2025-26 regular season (1 342 games,
   ~51 k player-game lines, 2025-10-07 → 2026-04-16), contracts scraped from CapWages.
-- **Les Mordus** is the live league — join code `Q7ZJ4G`, season `20252026`,
-  14 GMs, 9F/4D/1G active, 23-35 roster, $115M cap, scoring 1/1/2/1/0
-  (goal/assist/goalie win/OT loss/shutout). See [mordus-pool.md](mordus-pool.md).
+- **Les Mordus** is the live league — join code `P7R9CT`, season `20252026`,
+  14 GMs, **404 players**, 9F/4D/1G active, 23-35 roster, **$134M cap**, scoring
+  1/1/2/1/0 (goal/assist/goalie win/OT loss/shutout). See
+  [mordus-pool.md](mordus-pool.md). Rebuilt 2026-08-05 once the import's 44
+  unmatched entries were resolved, so the rosters now match reality.
 - **A season replay is running.** The simulated date is 2026-01-19 (week 16).
   Everything in the app believes it is that day — check `sim-clock` before
   treating any date-related behaviour as a bug. See [testmode.md](testmode.md).
@@ -267,6 +269,30 @@ was taken — not a record of what changed.
   chat is a UI mock with literal hex values, a light corporate palette and a
   system font stack, so it reads as a real embedded third-party helpdesk widget
   bolted onto the app. No backend. See [cockman-concept.md](cockman-concept.md).
+- **2026-08-05 — Half the "missing" Mordus players were never missing, and no
+  third-party source was needed for the other half.** The import's 44 unmatched
+  names were diagnosed in July as players the NHL API does not expose, which
+  pointed at scraping EliteProspects. Both halves of that were wrong. 25 were
+  already in `Players`, stored "J. Klingberg" — the shape the NHL publishes a
+  man between contracts in — so it was a matching failure at import, not a
+  missing row. The other 19 are genuinely unreachable through the two endpoints
+  `player-sync` reads, but the official search endpoint returns every one of
+  them. **EliteProspects is not integrated and is not needed**: a player in this
+  situation still has an NHL id. `PlayerCareerSeasonStats` already covers the
+  junior/KHL/NCAA history that motivated it.
+- **2026-08-05 — `PlayerNameIndex` is the wrong matcher when the question is
+  "does this name refer to anyone?"** Its first-initial fallback is right where
+  a news source abbreviates a player we already hold, but asked to resolve a
+  name that may match nobody it answered *Mathieu* Bolduc for "Marcel Bolduc" —
+  the only M. Bolduc among seven namesakes. `PlayerSearchMatcher` requires three
+  shared characters in the given name instead, keeping Zack for Zachary and Sam
+  for Samuel while refusing Marcel for Mathieu. Nicknames sharing no prefix
+  (Bill for William) are reported unresolved rather than guessed. Found by the
+  tests, not by review.
+- **2026-08-05 — The Mordus cap was the NHL's number, not the league's.** It had
+  been seeded at $115M since July; the real rule is **$134M** (Nick). At $115M,
+  nine of fourteen teams would have been over budget once the 44 missing players
+  were added. At $134M all fourteen are compliant.
 - **2026-08-04 — An injury list is not a news feed, and news-sync now treats
   them differently.** The two scraped sources publish who is hurt *today*, so a
   player disappearing from one is that source saying "cleared" — nobody ever
@@ -334,7 +360,8 @@ was taken — not a record of what changed.
 - **Cap and roster size are displayed but not enforced** — no add/drop or trade
   is rejected for breaking them.
 - **The "Équipe" roster slot scores nothing** — rule never specified.
-- **Unmatched Les Mordus players** still to reconcile — see [mordus-pool.md](mordus-pool.md).
+- ~~Unmatched Les Mordus players~~ — **done 2026-08-05**, all 44 resolved. See
+  [mordus-pool.md](mordus-pool.md) §2.
 - **Rotate the deploy service principal secret.** It was passed through a chat
   session and phone photos on 2026-08-02. Only the `AZURE_CREDENTIALS` GitHub
   secret would need replacing.

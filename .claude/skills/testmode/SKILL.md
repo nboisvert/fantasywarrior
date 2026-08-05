@@ -109,19 +109,39 @@ de lectures à ménager.
 
 ## Étape 4 — `init` (destructif)
 
+> **Il n'y a pas de job `sim-reset`.** Ce fichier en décrivait un jusqu'au
+> 2026-08-05; il n'a jamais existé sous Azure SQL. La remise à zéro est une
+> séquence de trois jobs, et elle est **plus destructive** que ce que ce
+> paragraphe promettait.
+
 ```bash
-dotnet run --project backend/FantasyWarrior.Jobs -- sim-reset --season 20252026 --dry-run
+dotnet run --project backend/FantasyWarrior.Jobs -- wipe-pools --dry-run
+# montrer le constat, puis :
+dotnet run --project backend/FantasyWarrior.Jobs -- wipe-pools
+dotnet run --project backend/FantasyWarrior.Jobs -- seed-mordus
+dotnet run --project backend/FantasyWarrior.Jobs -- sim-clock --set 2025-10-04 --season 20252026
 ```
 
-**Montre le dry-run à Nick et attends sa confirmation** avant de relancer sans
-`--dry-run`. Ça efface tous les alignements, les échanges, les scores et les
-agrégats joueurs de la saison.
+**Montre le dry-run à Nick et attends sa confirmation** avant de lancer
+`wipe-pools` sans `--dry-run`.
 
-Ce qui est conservé : les roster spots (qui possède qui), les équipes, les
-utilisateurs, les règles, et toutes les données NHL.
+Ce que `wipe-pools` efface : alignements, échanges, scores, **roster spots,
+équipes, ligues et utilisateurs**, plus le banquage de toutes les semaines et
+le curseur de simulation. Contrairement à ce que ce fichier affirmait, **les
+roster spots et les utilisateurs ne survivent pas** — `seed-mordus` les
+recrée depuis `data/mordus-rosters.json`, ce qui est justement pourquoi ce
+fichier doit être à jour avant de commencer.
+
+Ce qui est conservé : toutes les données NHL (joueurs, contrats, matchs,
+statistiques) et le calendrier des semaines lui-même.
+
+`seed-mordus` refuse d'écraser une ligue existante, donc `wipe-pools` doit
+passer avant. **Le code d'accès de la ligue change à chaque re-seed** — il est
+tiré au hasard, préviens Nick du nouveau.
 
 Le curseur atterrit **deux jours** avant le début de la saison, pas un : la
 journée simulée doit être la veille pour que la semaine 1 reste modifiable.
+Pour 2025-26 la semaine 1 commence le 2025-10-06, donc `--set 2025-10-04`.
 
 Après l'init, dis à Nick de saisir les alignements de la semaine 1 dans l'app
 avant d'avancer.
