@@ -382,11 +382,30 @@ public static class TradeEndpoints
             var franchises = await db.NhlTeams.Where(t => allAbbrevs.Contains(t.Abbrev))
                 .ToDictionaryAsync(t => t.Abbrev);
 
-            // Players and franchises in one list, because a trade recap has to
-            // read as one sentence: "Crosby and the Canadiens for Makar and the
-            // Avalanche". A franchise carries position "T", which is what every
-            // screen already keys its position indicator off, and a negative id
-            // so it cannot collide with a player's in a row key.
+            var allPickIds = trades.SelectMany(t => t.Assets)
+                .Where(a => a.DraftPickId is not null).Select(a => a.DraftPickId!.Value).Distinct().ToList();
+            var picks = await db.DraftPicks
+                .Where(p => allPickIds.Contains(p.DraftPickId))
+                .Select(p => new
+                {
+                    p.DraftPickId,
+                    p.Year,
+                    p.Round,
+                    p.OriginalTeamId,
+                    OriginalTeamName = p.OriginalTeam!.Name,
+                })
+                .ToDictionaryAsync(p => p.DraftPickId);
+
+            // **Everything that changed hands**, in one list, because a trade
+            // recap has to read as one sentence: "Crosby, a 1st and the
+            // Canadiens for Makar and the Avalanche". Picks were missing here
+            // from the day they became tradable (2026-08-03) — the offer was
+            // written correctly and simply came back describing nothing, so a
+            // picks-only trade rendered as "nothing for nothing".
+            //
+            // Non-player assets carry a negative id, which cannot collide with
+            // a player's in a row key, and a position the screens already read:
+            // "T" for a franchise, "P" for a pick.
             object[] Side(Trade t, int fromTeamId) =>
             [
                 .. t.Assets
@@ -399,6 +418,26 @@ public static class TradeEndpoints
                             id = a.PlayerId!.Value,
                             name = p?.FullName ?? "Unknown player",
                             position = p?.Position,
+                        };
+                    }),
+                .. t.Assets
+                    .Where(a => a.FromTeamId == fromTeamId && a.AssetType == TradeAssetType.DraftPick)
+                    .Select(a =>
+                    {
+                        var pick = picks.GetValueOrDefault(a.DraftPickId!.Value);
+                        // "2026 rd 1", matching the trade sheet's own wording,
+                        // plus whose pick it is when it is not the sender's —
+                        // "Pittsburgh's 2nd, via Boston" is the whole reason
+                        // OriginalTeamId survives every trade.
+                        var label = pick is null
+                            ? "Draft pick"
+                            : $"{pick.Year} rd {pick.Round}"
+                              + (pick.OriginalTeamId == fromTeamId ? "" : $" · {pick.OriginalTeamName}");
+                        return (object)new
+                        {
+                            id = -(long)a.TradeAssetId,
+                            name = label,
+                            position = "P",
                         };
                     }),
                 .. t.Assets
