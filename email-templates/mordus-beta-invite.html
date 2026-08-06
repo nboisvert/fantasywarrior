@@ -2,12 +2,23 @@
   Fantasy Warrior — Les Mordus beta onboarding email.
   Sent once to the 14 GMs of "Les Mordus" to onboard them as beta testers
   during the 2025-26 season replay (see .claude/doc/testmode.md).
+
   Placeholders to fill in when sending:
     {{FirstName}}   GM's first name, for the greeting line
     {{JoinCode}}     current league join code (testmode reseeds issue a new one —
                      check project_status.md "Current state" before sending;
-                     TKW6UR below was live as of 2026-08-05)
+                     TKW6UR was live as of 2026-08-05)
     {{JoinUrl}}      e.g. https://nboisvert.github.io/fantasywarrior/?join={{JoinCode}}
+
+  Notes on the images:
+    - The wordmark icon is embedded as a base64 data URI (frontend/public/favicon.png,
+      64px) so it always renders, even in clients that block remote images by default.
+    - The two "app in action" screenshots are illustrative Night Arena mockups (not
+      live captures — built from the app's real CSS tokens and Nicolas Boisvert's
+      actual Mordus roster data). They're hosted via raw.githubusercontent.com off
+      this branch. Once this branch merges to main, swap the /claude/ligue-mordus-beta-email-j232lz/
+      segment in both <img src> below for /main/ so the links don't depend on a
+      feature branch sticking around.
 -->
 <!doctype html>
 <html lang="fr" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
@@ -39,12 +50,13 @@
     .container { width: 100% !important; }
     .px { padding-left: 20px !important; padding-right: 20px !important; }
     .headline { font-size: 25px !important; }
+    .shot-col { display: block !important; width: 100% !important; padding: 0 0 14px 0 !important; }
   }
 </style>
 </head>
 <body style="margin:0; padding:0; background-color:#0a0e1a;">
 <div style="display:none; max-height:0; overflow:hidden; opacity:0; mso-hide:all;">
-  La saison 2025-26 se rejoue, une semaine par jour. Trades, alignements, stats vérifiables — et 0$ de frais pour les Mordus cette saison.
+  T'es un piolet, on te veut en premier. Teste la nouvelle app des Mordus — 0$ de frais cette saison.
 </div>
 
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0a0e1a;">
@@ -56,7 +68,7 @@
     <!-- Logo + wordmark -->
     <tr>
       <td align="center" style="padding-bottom: 24px;">
-        <img src="https://nboisvert.github.io/fantasywarrior/favicon-192.png" width="56" height="56" alt="Fantasy Warrior" style="display:block; margin: 0 auto 10px;">
+        <img src="data:image/png;base64,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" width="52" height="52" alt="Fantasy Warrior" style="display:block; margin: 0 auto 10px;">
         <span style="font-family: 'Russo One', Impact, 'Arial Narrow', sans-serif; font-size: 20px; letter-spacing: 0.5px; color: #f1f5f9;">
           FANTASY <span style="color:#38bdf8;">WARRIOR</span>
         </span>
@@ -65,7 +77,7 @@
 
     <!-- Card -->
     <tr>
-      <td class="px" style="background-color:#10162a; border: 1px solid #232a42; border-radius: 16px; padding: 40px 36px;">
+      <td class="px" style="background-color:#10162a; border: 1px solid #232a42; border-radius: 16px; padding: 36px 32px;">
 
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
 
@@ -76,41 +88,27 @@
           </tr>
 
           <tr>
-            <td align="center" class="headline" style="font-family: 'Russo One', Impact, 'Arial Narrow', sans-serif; font-size: 29px; line-height: 1.25; color: #f1f5f9; padding-bottom: 18px;">
-              ON REJOUE LA SAISON.<br>À VOUS DE JOUER.
+            <td align="center" class="headline" style="font-family: 'Russo One', Impact, 'Arial Narrow', sans-serif; font-size: 30px; line-height: 1.2; color: #f1f5f9; padding-bottom: 16px;">
+              T'ES UN PIOLET.<br>ON TE VEUT EN PREMIER.
             </td>
           </tr>
 
           <tr>
-            <td align="center" style="font-family: 'Chakra Petch', Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #c7d2e0; padding-bottom: 8px;">
-              {{FirstName}}, les Mordus déménagent sur <strong style="color:#f1f5f9;">Fantasy Warrior</strong> —
-              une app bâtie par <strong style="color:#38bdf8;">un des vôtres</strong>, pour le pool des vôtres.
-              Avant le vrai coup d'envoi, on vous invite à venir tout défoncer en bêta.
-            </td>
-          </tr>
-
-          <!-- Divider -->
-          <tr>
-            <td style="padding: 22px 0;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-                <td style="border-top: 1px solid #232a42; font-size:0; line-height:0;">&nbsp;</td>
-              </tr></table>
+            <td align="center" style="font-family: 'Chakra Petch', Arial, sans-serif; font-size: 15.5px; line-height: 1.6; color: #c7d2e0; padding-bottom: 26px;">
+              {{FirstName}}, stats à minuit, alignement retravaillé trois fois avant le lock, jamais lâché ta ligue —
+              on sait, on est pareils. C'est pour ça qu'on t'appelle en premier pour tester
+              <strong style="color:#f1f5f9;">la nouvelle plateforme des Mordus.</strong>
             </td>
           </tr>
 
           <!-- Feature 1 -->
           <tr>
-            <td style="padding-bottom: 20px;">
+            <td style="padding-bottom: 14px;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
                 <td width="6" style="background-color:#38bdf8; border-radius:3px; font-size:0; line-height:0;">&nbsp;</td>
                 <td style="padding-left: 14px; font-family: 'Chakra Petch', Arial, sans-serif;">
-                  <div style="font-family: 'Russo One', Impact, 'Arial Narrow', sans-serif; font-size: 14px; letter-spacing: 0.5px; color: #38bdf8; text-transform: uppercase; padding-bottom: 4px;">
-                    Zéro maintenance manuelle
-                  </div>
-                  <div style="font-size: 14.5px; line-height: 1.55; color: #c7d2e0;">
-                    Rosters, blessures, stats : tout se met à jour tout seul chaque nuit, direct depuis la LNH.
-                    Aucun tableur, aucun copier-coller, jamais de retard.
-                  </div>
+                  <span style="font-family: 'Russo One', Impact, 'Arial Narrow', sans-serif; font-size: 13.5px; letter-spacing: 0.4px; color: #38bdf8; text-transform: uppercase;">Zéro maintenance manuelle</span>
+                  <span style="font-size: 14px; color: #c7d2e0;"> — Rosters, stats, alignements à jour tout seul, en continu. Fini l'Excel bricolé à 23h.</span>
                 </td>
               </tr></table>
             </td>
@@ -118,17 +116,12 @@
 
           <!-- Feature 2 -->
           <tr>
-            <td style="padding-bottom: 20px;">
+            <td style="padding-bottom: 14px;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
                 <td width="6" style="background-color:#fbbf24; border-radius:3px; font-size:0; line-height:0;">&nbsp;</td>
                 <td style="padding-left: 14px; font-family: 'Chakra Petch', Arial, sans-serif;">
-                  <div style="font-family: 'Russo One', Impact, 'Arial Narrow', sans-serif; font-size: 14px; letter-spacing: 0.5px; color: #fbbf24; text-transform: uppercase; padding-bottom: 4px;">
-                    Des statistiques blindées
-                  </div>
-                  <div style="font-size: 14.5px; line-height: 1.55; color: #c7d2e0;">
-                    Chaque point est calculé match par match et reste consultable. Un score qui vous surprend?
-                    On remonte jusqu'au but qui l'a produit — rien n'est une boîte noire.
-                  </div>
+                  <span style="font-family: 'Russo One', Impact, 'Arial Narrow', sans-serif; font-size: 13.5px; letter-spacing: 0.4px; color: #fbbf24; text-transform: uppercase;">Des stats béton</span>
+                  <span style="font-size: 14px; color: #c7d2e0;"> — Chaque score est justifiable jusqu'au dernier point. Pas de "fais-moi confiance."</span>
                 </td>
               </tr></table>
             </td>
@@ -136,17 +129,12 @@
 
           <!-- Feature 3 -->
           <tr>
-            <td style="padding-bottom: 20px;">
+            <td style="padding-bottom: 14px;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
                 <td width="6" style="background-color:#a78bfa; border-radius:3px; font-size:0; line-height:0;">&nbsp;</td>
                 <td style="padding-left: 14px; font-family: 'Chakra Petch', Arial, sans-serif;">
-                  <div style="font-family: 'Russo One', Impact, 'Arial Narrow', sans-serif; font-size: 14px; letter-spacing: 0.5px; color: #a78bfa; text-transform: uppercase; padding-bottom: 4px;">
-                    Des trades en ligne
-                  </div>
-                  <div style="font-size: 14.5px; line-height: 1.55; color: #c7d2e0;">
-                    Proposez, négociez, acceptez — tout dans l'app, en quelques touches.
-                    Plus besoin d'un fil Messenger à quinze pour conclure une transaction.
-                  </div>
+                  <span style="font-family: 'Russo One', Impact, 'Arial Narrow', sans-serif; font-size: 13.5px; letter-spacing: 0.4px; color: #a78bfa; text-transform: uppercase;">Des trades en ligne</span>
+                  <span style="font-size: 14px; color: #c7d2e0;"> — Négocie, propose, accepte, direct dans l'app. Plus de texto de dernière minute au commissaire.</span>
                 </td>
               </tr></table>
             </td>
@@ -158,13 +146,29 @@
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
                 <td width="6" style="background-color:#4ade80; border-radius:3px; font-size:0; line-height:0;">&nbsp;</td>
                 <td style="padding-left: 14px; font-family: 'Chakra Petch', Arial, sans-serif;">
-                  <div style="font-family: 'Russo One', Impact, 'Arial Narrow', sans-serif; font-size: 14px; letter-spacing: 0.5px; color: #4ade80; text-transform: uppercase; padding-bottom: 4px;">
-                    Par des poolers, pour des poolers
-                  </div>
-                  <div style="font-size: 14.5px; line-height: 1.55; color: #c7d2e0;">
-                    Construite par un des Mordus, pour son propre pool. Ce que vous détestez des autres
-                    plateformes, on l'a enlevé — et on continue de l'améliorer avec vous.
-                  </div>
+                  <span style="font-family: 'Russo One', Impact, 'Arial Narrow', sans-serif; font-size: 13.5px; letter-spacing: 0.4px; color: #4ade80; text-transform: uppercase;">Par des piolets, pour des piolets</span>
+                  <span style="font-size: 14px; color: #c7d2e0;"> — Bâtie par un des vôtres, pour vos mêmes frustrations.</span>
+                </td>
+              </tr></table>
+            </td>
+          </tr>
+
+          <!-- Screenshots -->
+          <tr>
+            <td align="center" style="font-family: 'Russo One', Impact, 'Arial Narrow', sans-serif; font-size: 13px; letter-spacing: 0.6px; color: #8b96ab; text-transform: uppercase; padding-bottom: 14px;">
+              L'app en action
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-bottom: 26px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+                <td class="shot-col" width="50%" align="center" style="padding-right: 7px;">
+                  <img src="https://raw.githubusercontent.com/nboisvert/fantasywarrior/claude/ligue-mordus-beta-email-j232lz/email-templates/assets/mordus-beta-mock-alignement.png" width="100%" alt="Alignement de la semaine, mis à jour en direct" style="display:block; width:100%; max-width:260px; border-radius:16px; border: 1px solid #232a42;">
+                  <span style="display:block; font-family: 'Chakra Petch', Arial, sans-serif; font-size: 12px; color: #8b96ab; padding-top: 8px;">Ton alignement, en direct</span>
+                </td>
+                <td class="shot-col" width="50%" align="center" style="padding-left: 7px;">
+                  <img src="https://raw.githubusercontent.com/nboisvert/fantasywarrior/claude/ligue-mordus-beta-email-j232lz/email-templates/assets/mordus-beta-mock-trade.png" width="100%" alt="Proposition de transaction, acceptée en deux clics" style="display:block; width:100%; max-width:260px; border-radius:16px; border: 1px solid #232a42;">
+                  <span style="display:block; font-family: 'Chakra Petch', Arial, sans-serif; font-size: 12px; color: #8b96ab; padding-top: 8px;">Une transaction, en 2 clics</span>
                 </td>
               </tr></table>
             </td>
@@ -172,48 +176,47 @@
 
           <!-- Beta callout -->
           <tr>
-            <td style="background: linear-gradient(135deg, rgba(56,189,248,0.12), rgba(34,211,238,0.05)); border: 1px solid #1d4e6b; border-radius: 14px; padding: 22px 22px; padding-bottom: 22px;">
+            <td style="background: linear-gradient(135deg, rgba(56,189,248,0.12), rgba(34,211,238,0.05)); border: 1px solid #1d4e6b; border-radius: 14px; padding: 20px 22px;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
-                  <td align="center" style="font-family: 'Russo One', Impact, 'Arial Narrow', sans-serif; font-size: 17px; letter-spacing: 0.5px; color: #f1f5f9; padding-bottom: 10px;">
-                    DEVENEZ BÊTA-TESTEURS
+                  <td align="center" style="font-family: 'Russo One', Impact, 'Arial Narrow', sans-serif; font-size: 16px; letter-spacing: 0.5px; color: #f1f5f9; padding-bottom: 8px;">
+                    LE TEST : ON REJOUE LA SAISON DERNIÈRE
                   </td>
                 </tr>
                 <tr>
-                  <td align="center" style="font-family: 'Chakra Petch', Arial, sans-serif; font-size: 14.5px; line-height: 1.6; color: #c7d2e0;">
-                    On rejoue actuellement la saison 2025-26 au complet — <strong style="color:#f1f5f9;">une semaine
-                    de plus débloquée chaque jour.</strong> Alignez votre équipe, brassez des trades, cassez des
-                    affaires : c'est justement fait pour ça. Zéro conséquence sur la vraie ligue, juste vous et
-                    l'app, en accéléré.
+                  <td align="center" style="font-family: 'Chakra Petch', Arial, sans-serif; font-size: 14px; line-height: 1.55; color: #c7d2e0;">
+                    Une semaine complète débloquée <strong style="color:#f1f5f9;">chaque jour.</strong>
+                    Aligne ton équipe, brasse des trades, fouille les stats — sens l'app tourner à pleine vitesse.
+                    Zéro conséquence sur la vraie ligue.
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
 
-          <tr><td style="padding-bottom: 16px;">&nbsp;</td></tr>
+          <tr><td style="padding-bottom: 14px;">&nbsp;</td></tr>
 
           <!-- Reward -->
           <tr>
-            <td align="center" style="font-family: 'Chakra Petch', Arial, sans-serif; font-size: 14.5px; line-height: 1.6; color: #c7d2e0; padding-bottom: 24px;">
-              Pour vous remercier d'être les premiers sur la glace —
-              <strong style="color:#4ade80;">0$ de frais pour toute la ligue Les Mordus cette saison.</strong>
-              Aucune condition, aucune lettre en petits caractères.
+            <td align="center" style="font-family: 'Chakra Petch', Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #c7d2e0; padding-bottom: 22px;">
+              Ta récompense pour avoir testé —
+              <strong style="color:#4ade80;">0$ de frais pour toute la prochaine saison.</strong>
+              Sur la maison, merci d'être un bêta-testeur.
             </td>
           </tr>
 
           <!-- CTA button -->
           <tr>
-            <td align="center" style="padding-bottom: 24px;">
+            <td align="center" style="padding-bottom: 22px;">
               <!--[if mso]>
-              <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="{{JoinUrl}}" style="height:50px;v-text-anchor:middle;width:240px;" arcsize="16%" fillcolor="#38bdf8" stroke="f">
+              <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="{{JoinUrl}}" style="height:50px;v-text-anchor:middle;width:260px;" arcsize="16%" fillcolor="#38bdf8" stroke="f">
               <w:anchorlock/>
-              <center style="color:#0a0e1a;font-family:Arial,sans-serif;font-size:16px;font-weight:bold;">Rejoindre la ligue bêta</center>
+              <center style="color:#0a0e1a;font-family:Arial,sans-serif;font-size:16px;font-weight:bold;">J'embarque comme bêta-testeur</center>
               </v:roundrect>
               <![endif]-->
               <!--[if !mso]><!-->
-              <a class="cta" href="{{JoinUrl}}" style="display:inline-block; background: linear-gradient(135deg, #38bdf8, #22d3ee); background-color:#38bdf8; color:#0a0e1a; font-family: 'Chakra Petch', Arial, sans-serif; font-size: 16px; font-weight: 700; text-decoration: none; padding: 14px 36px; border-radius: 14px;">
-                Rejoindre la ligue bêta
+              <a class="cta" href="{{JoinUrl}}" style="display:inline-block; background: linear-gradient(135deg, #38bdf8, #22d3ee); background-color:#38bdf8; color:#0a0e1a; font-family: 'Chakra Petch', Arial, sans-serif; font-size: 16px; font-weight: 700; text-decoration: none; padding: 14px 34px; border-radius: 14px;">
+                J'embarque comme bêta-testeur
               </a>
               <!--<![endif]-->
             </td>
@@ -222,7 +225,7 @@
           <!-- Invite code fallback -->
           <tr>
             <td align="center" style="font-family: 'Chakra Petch', Arial, sans-serif; font-size: 13px; color: #8b96ab; padding-bottom: 10px;">
-              Le bouton ne fonctionne pas? Ouvrez Fantasy Warrior et entrez votre code d'accès.
+              Le bouton ne fonctionne pas? Ouvre Fantasy Warrior et entre ton code d'accès.
             </td>
           </tr>
           <tr>
@@ -233,7 +236,7 @@
             </td>
           </tr>
           <tr>
-            <td align="center" style="font-family: 'Chakra Petch', Arial, sans-serif; font-size: 13px; color: #8b96ab; padding-top: 18px;">
+            <td align="center" style="font-family: 'Chakra Petch', Arial, sans-serif; font-size: 13px; color: #8b96ab; padding-top: 16px;">
               Pas encore de compte? Aucun problème — juste un nom d'utilisateur. Pas de mot de passe, pas de tracas.
             </td>
           </tr>
@@ -244,9 +247,9 @@
 
     <!-- Tagline -->
     <tr>
-      <td align="center" style="padding: 28px 16px 8px;">
+      <td align="center" style="padding: 26px 16px 8px;">
         <span style="font-family: 'Chakra Petch', Arial, sans-serif; font-size: 14px; color: #8b96ab; font-style: italic;">
-          Votre pool. Votre glace. Vos chiffres, pour vrai.
+          À bientôt sur la glace — l'équipe des Mordus.
         </span>
       </td>
     </tr>
@@ -254,8 +257,8 @@
     <!-- Footer -->
     <tr>
       <td align="center" style="font-family: 'Chakra Petch', Arial, sans-serif; font-size: 11px; color: #5c6580; padding: 4px 16px 0;">
-        Vous recevez ce courriel parce que vous faites partie de la ligue Les Mordus.
-        Une question, un bogue, une idée? Répondez directement à ce courriel.
+        Tu reçois ce courriel parce que tu fais partie de la ligue Les Mordus.
+        Une question, un bogue, une idée? Réponds directement à ce courriel.
       </td>
     </tr>
 
