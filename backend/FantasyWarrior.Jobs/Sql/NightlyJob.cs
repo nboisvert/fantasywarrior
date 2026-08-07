@@ -12,22 +12,24 @@ namespace FantasyWarrior.Jobs.Sql;
 /// <list type="number">
 /// <item>score the current week</item>
 /// <item>bank any week whose grace day has passed</item>
-/// <item>execute accepted trades, effective the next week's start</item>
+/// <item>prepare the week ahead: carry its lineups forward, land due trades</item>
 /// </list>
 ///
-/// That order is load-bearing. Trades must run after banking, or a departing
-/// player's banked points would be recomputed against a roster he already left.
-/// It used to live only as step order in a YAML file, where nothing enforced it
-/// and swapping two lines would silently corrupt a week.
+/// That order is load-bearing, though less delicately than it once was. Step 3
+/// used to execute trades and had to follow banking, or a departing player's
+/// banked points would be recomputed against a roster he had already left.
+/// Trades are applied at acceptance now, dated forward, so what is left is the
+/// weaker requirement that next week is carried forward from a week that has
+/// been scored.
 ///
 /// The grace day exists because the NHL corrects boxscores after the fact.
 /// Banking the evening a week ends would freeze whatever was known that night,
 /// and a correction filed the next morning would be lost in silence.
 ///
-/// There is no "materialize next week's lineups" step any more. The Firestore
-/// model needed one because a lineup was a document that had to exist before a
-/// GM could edit it; here a lineup is the set of IsActive flags on rows the
-/// scoring pass creates anyway.
+/// <b>Step 3 runs every night</b>, not only on the nights a week closes. It is
+/// idempotent — it fills in what is missing and rewrites nothing — and a GM who
+/// wants to set next week's lineup should not have to wait for a week to end
+/// before the rows exist.
 /// </summary>
 public sealed class NightlyJob(FantasyWarriorDbContext db)
 {
@@ -63,13 +65,11 @@ public sealed class NightlyJob(FantasyWarriorDbContext db)
         Console.WriteLine("\n[2/3] Banking finished weeks");
         banked += await BankAsync(lastStatDate, dryRun, null, now, ct);
 
-        Console.WriteLine("\n[3/3] Executing accepted trades");
-        if (banked == 0)
-            Console.WriteLine("  No week closed tonight — trades wait for the next week end.");
-        else if (dryRun)
+        Console.WriteLine("\n[3/3] Preparing the week ahead");
+        if (dryRun)
             Console.WriteLine("  (skipped in dry run)");
         else
-            await new ProcessTradesJob(db).RunAsync(await NextWeekStartAsync(lastStatDate, ct), ct);
+            await new WeekAheadJob(db).RunAsync(PoolClock.TodayEt(now), ct);
 
         Console.WriteLine($"\n===== nightly done ({banked} week(s) banked) =====");
         return 0;
@@ -146,19 +146,4 @@ public sealed class NightlyJob(FantasyWarriorDbContext db)
         }
         return done;
     }
-
-    /// <summary>
-    /// The start of the week now beginning — the date an executed trade takes
-    /// effect from, so the incoming player is owned for that whole week rather
-    /// than from part-way through it.
-    /// </summary>
-    private async Task<DateOnly> NextWeekStartAsync(DateOnly lastStatDate, CancellationToken ct) =>
-        await db.Periods
-            .Where(p => p.StartDate > lastStatDate)
-            .OrderBy(p => p.StartDate)
-            .Select(p => (DateOnly?)p.StartDate)
-            .FirstOrDefaultAsync(ct)
-        // Past the last week of the season: nothing further starts, so the day
-        // after the last results is as close as it gets.
-        ?? lastStatDate.AddDays(1);
 }

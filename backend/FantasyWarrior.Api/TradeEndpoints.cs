@@ -1,7 +1,9 @@
 using FantasyWarrior.Core.Cockcoin;
+using FantasyWarrior.Core.Periods;
 using FantasyWarrior.Core.Trades;
 using FantasyWarrior.Data;
 using FantasyWarrior.Data.Entities;
+using FantasyWarrior.Data.Rosters;
 using Microsoft.EntityFrameworkCore;
 
 namespace FantasyWarrior.Api;
@@ -252,7 +254,8 @@ public static class TradeEndpoints
         });
 
         app.MapPost("/api/leagues/{leagueId}/trades/{tradeId}/respond", async (
-            string leagueId, string tradeId, RespondTradeRequest req, FantasyWarriorDbContext db) =>
+            string leagueId, string tradeId, RespondTradeRequest req,
+            FantasyWarriorDbContext db, SimulationClockService clock) =>
         {
             if (string.IsNullOrWhiteSpace(req.Username))
                 return Results.BadRequest(new { error = "Username is required." });
@@ -316,13 +319,50 @@ public static class TradeEndpoints
                 if (errors.Count > 0)
                     return Results.BadRequest(new { error = string.Join(" ", errors), errors });
 
+                // **Where the swap actually lands**, decided here rather than by
+                // whichever night the job happens to catch it. Everything the
+                // app says about this trade from now on — who is on whose
+                // roster, whose lineup he can be put in, what each cap is
+                // committed to — is read off the dates stamped below.
+                var periods = await db.Periods
+                    .Where(p => p.Season == league.Season)
+                    .ToListAsync();
+                var effectiveDate = TradeSchedule.NextPeriodStart(
+                    periods.Select(p => new PeriodSpan(p.Number, p.StartDate, p.EndDate)),
+                    await clock.TodayEtAsync());
+                if (effectiveDate is not { } effective)
+                    return Results.Conflict(new
+                    {
+                        error = "The season has no week left for this trade to take effect in.",
+                    });
+                var nextPeriod = periods.First(p => p.StartDate == effective);
+
+                await db.Entry(trade).Collection(t => t.Assets).LoadAsync();
+
                 trade.Status = TradeStatus.Accepted;
                 trade.RespondedUtc = now;
-                await db.SaveChangesAsync();
+                trade.EffectiveDate = effective;
+
+                // One transaction over the validation above and the roster
+                // change below: a half-applied swap is the one outcome that
+                // leaves the league in a state no rule can describe. Through
+                // the execution strategy because retries are enabled — the
+                // serverless tier drops connections on resume, and a retry must
+                // replay the whole swap rather than half of it.
+                var strategy = db.Database.CreateExecutionStrategy();
+                await strategy.ExecuteAsync(async () =>
+                {
+                    await using var tx = await db.Database.BeginTransactionAsync();
+                    await TradeExecution.ApplyAsync(db, trade, effective, nextPeriod);
+                    await db.SaveChangesAsync();
+                    await tx.CommitAsync();
+                });
+
                 return Results.Ok(new
                 {
                     ok = true, status = "accepted",
-                    note = "Processed at the next week boundary.",
+                    effectiveDate = effective,
+                    note = $"Rosters change on {effective:MMMM d}, when week {nextPeriod.Number} opens.",
                 });
             }
 
