@@ -6,7 +6,11 @@ using Microsoft.EntityFrameworkCore;
 namespace FantasyWarrior.Api;
 
 /// <summary>What a team is committed to right now, before this trade.</summary>
-/// <param name="CapTotal">Standings cap plus what accepted trades already add or remove.</param>
+/// <param name="CapTotal">
+/// The cap of the roster this team will have once every accepted trade has
+/// landed — <c>vStandings.EngagedCapTotal</c>, not the figure the league table
+/// shows.
+/// </param>
 public sealed record EngagedState(int TeamId, string TeamName, long CapTotal, int PlayerCount);
 
 /// <summary>Assets already promised away by an accepted trade.</summary>
@@ -33,21 +37,23 @@ public sealed record EngagedAssets(
 public static class TradeValidation
 {
     /// <summary>
-    /// A team's engaged figures: what the standings say, plus what accepted
-    /// trades have already committed. An absent commitments row is a zero
-    /// delta, not a missing team.
+    /// A team's engaged figures, read straight off the standings view.
+    ///
+    /// This used to add a delta from <c>vTeamCommitments</c> to the standings
+    /// total, because roster spots did not move until the nightly job executed
+    /// an accepted trade. They move at acceptance now, dated forward, so the
+    /// difference is in the spots' own dates and the view computes both figures
+    /// from the same rows in the same statement — one filter apart. There is no
+    /// longer an arithmetic step here that could disagree with the view it is
+    /// adding to.
     /// </summary>
     public static async Task<Dictionary<int, EngagedState>> EngagedStateAsync(
         FantasyWarriorDbContext db, int leagueId, CancellationToken ct = default)
     {
         var standings = await db.Standings
             .Where(s => s.LeagueId == leagueId)
-            .Select(s => new { s.TeamId, s.CapTotal, s.PlayerCount })
+            .Select(s => new { s.TeamId, s.EngagedCapTotal, s.EngagedPlayerCount })
             .ToListAsync(ct);
-
-        var commitments = await db.TeamCommitments
-            .Where(c => c.LeagueId == leagueId)
-            .ToDictionaryAsync(c => c.TeamId, c => new { c.CapDelta, c.CountDelta }, ct);
 
         var names = await db.Teams
             .Where(t => t.LeagueId == leagueId)
@@ -55,15 +61,11 @@ public static class TradeValidation
 
         return standings.ToDictionary(
             s => s.TeamId,
-            s =>
-            {
-                commitments.TryGetValue(s.TeamId, out var delta);
-                return new EngagedState(
-                    s.TeamId,
-                    names.GetValueOrDefault(s.TeamId, "That team"),
-                    s.CapTotal + (delta?.CapDelta ?? 0),
-                    s.PlayerCount + (delta?.CountDelta ?? 0));
-            });
+            s => new EngagedState(
+                s.TeamId,
+                names.GetValueOrDefault(s.TeamId, "That team"),
+                s.EngagedCapTotal,
+                s.EngagedPlayerCount));
     }
 
     /// <summary>

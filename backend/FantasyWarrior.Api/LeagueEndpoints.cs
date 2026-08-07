@@ -258,9 +258,6 @@ public static class LeagueEndpoints
             var normalized = username is null ? null : Queries.Normalize(username);
             var myTeam = normalized is null ? null : teams.FirstOrDefault(t => t.Owner == normalized);
 
-            var commitments = await db.TeamCommitments
-                .Where(c => c.LeagueId == league.LeagueId)
-                .ToDictionaryAsync(c => c.TeamId);
             // Players already moving in an accepted trade: the sheet greys them
             // out rather than letting a GM build an offer the server will refuse.
             var engagedPlayers = engagedAssets.PlayerIds;
@@ -330,12 +327,14 @@ public static class LeagueEndpoints
                             // in, so the count travels with it.
                             unknownContracts = s?.UnknownContracts ?? 0,
                             playerCount = s?.PlayerCount ?? 0,
-                            // What accepted-but-unexecuted trades already commit
+                            // What accepted-but-unlanded trades already commit
                             // this team to. The trade sheet validates against
                             // these, not the two above — otherwise its recap
                             // would show a number the server then contradicts.
-                            engagedCapTotal = (s?.CapTotal ?? 0) + (commitments.GetValueOrDefault(t.TeamId)?.CapDelta ?? 0),
-                            engagedPlayerCount = (s?.PlayerCount ?? 0) + (commitments.GetValueOrDefault(t.TeamId)?.CountDelta ?? 0),
+                            // Columns on the same view row rather than a delta
+                            // added here, so the two figures cannot drift.
+                            engagedCapTotal = s?.EngagedCapTotal ?? 0,
+                            engagedPlayerCount = s?.EngagedPlayerCount ?? 0,
                             playerNhlPoints = teamPlayers
                                 .Where(id => nhlPoints.ContainsKey(id.ToString()))
                                 .ToDictionary(id => id.ToString(), id => nhlPoints[id.ToString()]),

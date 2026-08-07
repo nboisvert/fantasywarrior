@@ -1,9 +1,8 @@
 using FantasyWarrior.Core.Scoring;
-using FantasyWarrior.Data;
 using FantasyWarrior.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 
-namespace FantasyWarrior.Jobs.Sql;
+namespace FantasyWarrior.Data.Rosters;
 
 /// <summary>
 /// Applies a roster change to one team: closes the outgoing assets' spots and
@@ -26,6 +25,13 @@ namespace FantasyWarrior.Jobs.Sql;
 /// week's points belong permanently to whoever fielded the player, so a trade
 /// cannot move history and there is nothing to compensate for — the entire
 /// adjustment ledger this used to maintain is gone.
+///
+/// <b><paramref name="effectiveDate"/> is normally in the future.</b> This
+/// lives in Data rather than Jobs because accepting a trade now applies it
+/// straight away, dated to the next week boundary — the nightly job is no
+/// longer the only caller. Nothing here needed to change for that: the dates
+/// were always parameters, and every query that reads them asks
+/// <see cref="RosterWindow"/> which day it means.
 /// </summary>
 public static class RosterChange
 {

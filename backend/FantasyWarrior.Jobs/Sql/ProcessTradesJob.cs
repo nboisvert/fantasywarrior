@@ -1,5 +1,6 @@
 using FantasyWarrior.Data;
 using FantasyWarrior.Data.Entities;
+using FantasyWarrior.Data.Rosters;
 using Microsoft.EntityFrameworkCore;
 
 namespace FantasyWarrior.Jobs.Sql;

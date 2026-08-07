@@ -251,6 +251,92 @@ public class ViewTests
         Assert.Equal(1, row.UnknownContracts);
     }
 
+    // --- the two figures a forward-dated trade pulls apart ---
+    //
+    // Dates are taken relative to the real day rather than by pinning
+    // SimulationState: that table is a single shared row, and writing it here
+    // would move "today" underneath any standings query running in parallel.
+    // Thirty days clears any midnight or timezone skew between the test host
+    // and the view's Eastern date.
+    private static DateOnly RealToday => DateOnly.FromDateTime(DateTime.Today);
+
+    [SqlFact]
+    public async Task Standings_StillCountAPlayerPromisedAwayInATradeThatHasNotLanded()
+    {
+        await using var db = SqlFixture.NewContext();
+        var world = await new TestWorld(db).CreateAsync();
+
+        await world.AddSpotAsync(world.Teams[0], await world.AddPlayerAsync("C", capHit: 9_000_000));
+        // Traded, effective in a fortnight: his stint is already closed on the
+        // books but he is still on this roster, and still scoring for it.
+        await world.AddSpotAsync(
+            world.Teams[0], await world.AddPlayerAsync("D", capHit: 4_000_000),
+            end: RealToday.AddDays(30));
+
+        var row = await db.Standings.SingleAsync(s => s.TeamId == world.Teams[0].TeamId);
+
+        // Today: both men, because benching the one leaving would hand his GM a
+        // slot he cannot fill this week.
+        Assert.Equal(2, row.PlayerCount);
+        Assert.Equal(13_000_000, row.CapTotal);
+        // Engaged: only the one who stays. This is the figure a new offer is
+        // validated against, and counting the departing $4M there is what let a
+        // GM commit the same cap space twice.
+        Assert.Equal(1, row.EngagedPlayerCount);
+        Assert.Equal(9_000_000, row.EngagedCapTotal);
+    }
+
+    [SqlFact]
+    public async Task Standings_DoNotYetCountAPlayerAcquiredForNextWeek()
+    {
+        await using var db = SqlFixture.NewContext();
+        var world = await new TestWorld(db).CreateAsync();
+
+        await world.AddSpotAsync(world.Teams[0], await world.AddPlayerAsync("C", capHit: 9_000_000));
+        // The other half of the same trade: a real spot, a real cap hit, and a
+        // lineup row for next week — he simply is not here yet.
+        await world.AddSpotAsync(
+            world.Teams[0], await world.AddPlayerAsync("D", capHit: 6_000_000),
+            start: RealToday.AddDays(30));
+
+        var row = await db.Standings.SingleAsync(s => s.TeamId == world.Teams[0].TeamId);
+
+        // The cap gauge must not move on a signature. Nick, 2026-08-07: it
+        // charges the spots that are active, and a spot starting next month is
+        // not one of them.
+        Assert.Equal(1, row.PlayerCount);
+        Assert.Equal(9_000_000, row.CapTotal);
+        // But the commitment is real the moment the trade is agreed, which is
+        // the whole reason a trade is validated against this column.
+        Assert.Equal(2, row.EngagedPlayerCount);
+        Assert.Equal(15_000_000, row.EngagedCapTotal);
+    }
+
+    [SqlFact]
+    public async Task Standings_EngagedAndTodayAgree_WhenNothingIsPending()
+    {
+        await using var db = SqlFixture.NewContext();
+        var world = await new TestWorld(db).CreateAsync();
+
+        await world.AddSpotAsync(world.Teams[0], await world.AddPlayerAsync("C", capHit: 9_000_000));
+        await world.AddSpotAsync(world.Teams[0], await world.AddPlayerAsync("G"));
+        // Released in October: in neither figure, and his points stay put.
+        await world.AddSpotAsync(
+            world.Teams[0], await world.AddPlayerAsync("D", capHit: 5_000_000),
+            start: world.Periods[0].StartDate, end: world.Periods[0].EndDate);
+
+        var row = await db.Standings.SingleAsync(s => s.TeamId == world.Teams[0].TeamId);
+
+        // The ordinary case, which is every team until its first trade — the
+        // two columns are the same aggregate one filter apart, and only the two
+        // spots a trade creates can pull them apart.
+        Assert.Equal(row.PlayerCount, row.EngagedPlayerCount);
+        Assert.Equal(row.CapTotal, row.EngagedCapTotal);
+        Assert.Equal(row.UnknownContracts, row.EngagedUnknownContracts);
+        Assert.Equal(2, row.PlayerCount);
+        Assert.Equal(10_000_000, row.CapTotal);
+    }
+
     [SqlFact]
     public async Task Standings_ShowZerosForATeamThatHasNotPlayedYet()
     {

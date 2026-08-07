@@ -117,11 +117,11 @@ public sealed class StandingsView
 
     public int RosterGamesPlayed { get; set; }
 
-    /// <summary>Players currently held — open roster spots only.</summary>
+    /// <summary>Players held <b>today</b> — spots whose stint covers this game day.</summary>
     public int PlayerCount { get; set; }
 
     /// <summary>
-    /// Summed cap hits of the current roster. A player with no contract on file
+    /// Summed cap hits of today's roster. A player with no contract on file
     /// is charged the league's <c>DefaultCapHit</c> ($1M unless changed), not
     /// nothing — see <see cref="UnknownContracts"/> for how many of these there
     /// are.
@@ -135,40 +135,30 @@ public sealed class StandingsView
     /// screen say the figure is part measurement and part house rule.
     /// </summary>
     public int UnknownContracts { get; set; }
-}
-
-/// <summary>
-/// What a team's <b>accepted but not yet executed</b> trades already commit it
-/// to — a delta, not a total.
-///
-/// This exists because <see cref="StandingsView"/> is the wrong number to
-/// validate a trade against. Standings show the roster as it is today; an
-/// accepted trade is a decision nobody can take back, and it lands at the next
-/// week boundary. Validating a new offer against today's cap lets a GM accept a
-/// $9M contract in the morning and bust the cap in the afternoon, with both
-/// trades individually looking fine.
-///
-/// Kept separate from the standings rather than folded into them on purpose:
-/// the two answer different questions, and the league table must keep showing
-/// what is true now, not what has been promised.
-///
-/// No row for a team with nothing pending — that is a zero delta, and the
-/// caller treats an absent row as such.
-/// </summary>
-public sealed class TeamCommitmentView
-{
-    public int TeamId { get; set; }
-    public int LeagueId { get; set; }
 
     /// <summary>
-    /// Cap arriving minus cap leaving. Players with no contract on file count
-    /// as 0, exactly as they do in the standings — the two must agree or the
-    /// arithmetic between them is meaningless.
+    /// The same three figures for the roster this team will have <b>once every
+    /// accepted trade has landed</b> — what a new offer is validated against.
+    ///
+    /// Standings must keep showing what is true today, but an accepted trade is
+    /// a decision nobody can take back. Checking a new offer against today's
+    /// cap let a GM accept a $9M contract in the morning and bust the cap in
+    /// the afternoon, with both trades individually looking fine.
+    ///
+    /// These used to be a separate view (<c>vTeamCommitments</c>) carrying a
+    /// delta to add to the columns above, because roster spots did not move
+    /// until the nightly job executed the trade. They move at acceptance now,
+    /// dated forward, so the difference between "today" and "committed" is
+    /// already in the spots' own dates — one filter apart, in one statement,
+    /// where they cannot drift.
     /// </summary>
-    public long CapDelta { get; set; }
+    public int EngagedPlayerCount { get; set; }
 
-    /// <summary>Players arriving minus players leaving. Draft picks are not roster spots.</summary>
-    public int CountDelta { get; set; }
+    /// <inheritdoc cref="EngagedPlayerCount"/>
+    public long EngagedCapTotal { get; set; }
+
+    /// <inheritdoc cref="EngagedPlayerCount"/>
+    public int EngagedUnknownContracts { get; set; }
 }
 
 /// <summary>
