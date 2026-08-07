@@ -3,6 +3,7 @@ using FantasyWarrior.Core.Scoring;
 using FantasyWarrior.Core.Time;
 using FantasyWarrior.Data;
 using FantasyWarrior.Data.Entities;
+using FantasyWarrior.Data.Rosters;
 using Microsoft.EntityFrameworkCore;
 
 namespace FantasyWarrior.Api;
@@ -47,14 +48,38 @@ public static class LineupEndpoints
                     slots, used = new { }, entries = Array.Empty<object>(), periods = periodsDto,
                 });
 
+            var today = PoolClock.TodayEt(now);
+
+            // **The roster of the week being asked about**, not of today. Those
+            // used to be the same query, and the difference is the whole bug
+            // this screen had: the picker writes next week, so on the days
+            // between agreeing a trade and it taking effect it was offering a
+            // player who would be gone and hiding the one who would arrive.
             var spots = await db.RosterSpots
-                .Where(s => s.TeamId == team.TeamId && s.EndDate == null)
+                .Where(s => s.TeamId == team.TeamId)
+                .Where(RosterWindow.OwnsPeriod(periodDoc.StartDate, periodDoc.EndDate))
                 .ToListAsync();
-            var playerIds = spots.Where(s => s.PlayerId != null).Select(s => s.PlayerId!.Value).ToList();
+
+            // Held today but not that week — a man on his way out. Returned so
+            // the GM can see where the slot went rather than watch a player
+            // vanish, and never selectable: he has no lineup row to set.
+            //
+            // Only for a week that has not begun. Asking this of a past week
+            // would drag in everyone acquired since, who were never leaving
+            // anything.
+            var leaving = periodDoc.StartDate > today
+                ? await db.RosterSpots
+                    .Where(s => s.TeamId == team.TeamId && s.EndDate != null && s.EndDate < periodDoc.StartDate)
+                    .Where(RosterWindow.OwnedOn(today))
+                    .ToListAsync()
+                : [];
+
+            var allSpots = spots.Concat(leaving).ToList();
+            var playerIds = allSpots.Where(s => s.PlayerId != null).Select(s => s.PlayerId!.Value).ToList();
             var players = await db.Players.Where(p => playerIds.Contains(p.PlayerId))
                 .ToDictionaryAsync(p => p.PlayerId);
             var caps = await Queries.CapHitsAsync(db, league.Season, playerIds);
-            var franchiseAbbrevs = spots.Where(s => s.FranchiseAbbrev != null)
+            var franchiseAbbrevs = allSpots.Where(s => s.FranchiseAbbrev != null)
                 .Select(s => s.FranchiseAbbrev!).ToList();
             var franchises = await db.NhlTeams.Where(t => franchiseAbbrevs.Contains(t.Abbrev))
                 .ToDictionaryAsync(t => t.Abbrev);
@@ -71,60 +96,18 @@ public static class LineupEndpoints
             var weekTotals = await db.TeamPeriodScores
                 .FirstOrDefaultAsync(v => v.TeamId == team.TeamId && v.PeriodId == periodDoc.PeriodId);
 
-            // A week the nightly job has not reached yet has no assignment rows
-            // at all, so every player would read as benched — a GM setting next
-            // week's lineup ahead of time would start from an empty team rather
-            // than from the one he is already fielding.
-            //
-            // Show him what the job *would* pick: last week's active set carried
-            // forward and topped up. Computed, never written: this is a preview
-            // of a default, and persisting it would turn "we picked this for
-            // you" into "you chose this", which is the distinction the whole
-            // forgotten-lineup rule rests on.
-            var previewed = new HashSet<int>();
-            if (results.Count == 0)
-            {
-                var previous = await db.Periods
-                    .Where(p => p.Season == league.Season && p.Number < periodDoc.Number)
-                    .OrderByDescending(p => p.Number)
-                    .FirstOrDefaultAsync();
-                var previousActive = previous is null
-                    ? []
-                    : (await db.RosterAssignments
-                        .Where(a => a.PeriodId == previous.PeriodId && a.IsActive
-                                    && spots.Select(s => s.RosterSpotId).Contains(a.RosterSpotId))
-                        .Select(a => a.RosterSpotId)
-                        .ToListAsync());
-
-                var seasonSoFar = await db.RosterSpotTotals
-                    .Where(v => v.TeamId == team.TeamId)
-                    .ToDictionaryAsync(v => v.RosterSpotId, v => v.ActivePoints);
-                var candidates = spots
-                    .Select(s => new LineupCandidate(
-                        s.RosterSpotId.ToString(), s.PlayerId ?? 0, s.PositionGroup,
-                        seasonSoFar.GetValueOrDefault(s.RosterSpotId), s.OpenedUtc))
-                    .ToList();
-
-                foreach (var id in LineupRules.CarryForward(
-                             candidates,
-                             [.. previousActive.Select(id => id.ToString())],
-                             new LineupSlots(league.ActiveForwards, league.ActiveDefense, league.ActiveGoalies)))
-                    previewed.Add(int.Parse(id));
-            }
-
-            // Already promised away by an accepted trade — the picker's
-            // replacement list uses this to show a passive "leaving via trade"
-            // note. Informational only: per the trade-execution timing (a
-            // pending trade always skips the week immediately after
-            // acceptance), a candidate flagged here still legitimately plays
-            // out whichever week is being set, so this never disables him.
-            var engagedPlayers = (await TradeValidation.EngagedAssetsAsync(db, league.LeagueId)).PlayerIds;
-
-            var entries = spots.Select(s =>
+            // The assignment rows *are* the lineup. This used to compute a
+            // preview of what the carry-forward would pick, because next week's
+            // rows did not exist until the scoring pass reached it — by which
+            // time the week was locked and the preview had never been anyone's
+            // choice. WeekAheadJob writes them the night the week before opens,
+            // so there is nothing left to guess at.
+            var entries = spots.Concat(leaving).Select(s =>
             {
                 var franchise = s.FranchiseAbbrev is null ? null : franchises.GetValueOrDefault(s.FranchiseAbbrev);
                 var p = s.PlayerId is { } id && players.TryGetValue(id, out var found) ? found : null;
                 results.TryGetValue(s.RosterSpotId, out var r);
+                var leaves = s.EndDate is { } end && end < periodDoc.StartDate;
                 return new
                 {
                     spotId = s.RosterSpotId.ToString(),
@@ -141,8 +124,18 @@ public static class LineupEndpoints
                     // A franchise costs no cap and is nobody's contract, which
                     // is the same rule vStandings applies.
                     capHit = s.PlayerId is { } cid && caps.TryGetValue(cid, out var c) ? c : (long?)null,
-                    engaged = s.PlayerId is { } eid && engagedPlayers.Contains(eid),
-                    active = s.IsFranchise || (r?.IsActive ?? previewed.Contains(s.RosterSpotId)),
+                    // Mine now, promised away — the "leaving via trade" mark on
+                    // a row for a week he still plays.
+                    engaged = s.EndDate != null && s.StartDate <= today && s.EndDate >= today,
+                    // Not on this week's roster at all: he leaves before it
+                    // opens. There is no assignment row to set, so the screen
+                    // shows him inert rather than letting a GM pick a man the
+                    // PUT would then refuse.
+                    leaving = leaves,
+                    // Acquired for a week that has not started. He has a real
+                    // spot and a real lineup row — he simply is not here today.
+                    arriving = s.StartDate > today,
+                    active = !leaves && (s.IsFranchise || (r?.IsActive ?? false)),
                     points = r?.FantasyPoints ?? 0,
                     gamesPlayed = r?.GamesPlayed ?? 0,
                     // The week's raw line, so a card can say what actually
@@ -168,9 +161,11 @@ public static class LineupEndpoints
 
             // The Équipe slot is left out on purpose: this counter says how much
             // of his lineup a GM still has to fill, and the franchise is never
-            // something he fills.
+            // something he fills. A departing player is out for the same reason
+            // — he fills nothing that week, and counting him would tell the GM
+            // his lineup is complete when he is a man short.
             var used = new Dictionary<string, int> { ["F"] = 0, ["D"] = 0, ["G"] = 0 };
-            foreach (var e in entries.Where(e => e.active && e.positionGroup != "T"))
+            foreach (var e in entries.Where(e => e.active && !e.leaving && e.positionGroup != "T"))
                 used[e.positionGroup] = used.GetValueOrDefault(e.positionGroup) + 1;
 
             return Results.Ok(new
@@ -178,7 +173,7 @@ public static class LineupEndpoints
                 periodIndex = periodDoc.Number, startDate = periodDoc.StartDate, endDate = periodDoc.EndDate,
                 gameCount = periodDoc.GameCount, locked, finalized = periodDoc.FinalizedUtc is not null,
                 isOwner, hidden = false,
-                setBy = lineup?.SetBy ?? (previewed.Count > 0 ? LineupSetBy.Auto : null),
+                setBy = lineup?.SetBy,
                 submittedUtc = lineup?.SubmittedUtc,
                 activePoints = weekTotals?.ActivePoints ?? 0,
                 benchPoints = weekTotals?.BenchPoints ?? 0,
@@ -211,8 +206,13 @@ public static class LineupEndpoints
             // this list and turn the NOT IN below into `NOT IN (…, NULL)`,
             // which is NULL for every row — an empty free-agent board, with
             // nothing in the logs to say why.
+            // Owned once every accepted trade has landed, not owned today: a
+            // player arriving somewhere on Monday must not sit on the free-agent
+            // board all week, and one leaving on Monday is not free either — his
+            // new team already has him.
             var rosteredIds = await db.RosterSpots
-                .Where(s => s.LeagueId == league.LeagueId && s.EndDate == null && s.PlayerId != null)
+                .Where(s => s.LeagueId == league.LeagueId && s.PlayerId != null)
+                .Where(RosterWindow.Committed())
                 .Select(s => s.PlayerId!.Value)
                 .ToListAsync();
 
@@ -309,8 +309,14 @@ public static class LineupEndpoints
                     error = $"Week {periodDoc.Number} is locked. Set your lineup for the next week instead.",
                 });
 
+            // The roster of the week being set, which is what makes a spotId
+            // for a player who leaves before it — or has not arrived yet —
+            // simply unknown here. LineupRules.Validate then refuses it by
+            // name, so a stale screen cannot write a lineup the week itself
+            // contradicts.
             var spots = await db.RosterSpots
-                .Where(s => s.TeamId == team.TeamId && s.EndDate == null)
+                .Where(s => s.TeamId == team.TeamId)
+                .Where(RosterWindow.OwnsPeriod(periodDoc.StartDate, periodDoc.EndDate))
                 .ToListAsync();
             var candidates = spots
                 .Select(s => new LineupCandidate(
@@ -469,35 +475,47 @@ public static class LineupEndpoints
             var team = await Queries.TeamAsync(db, league.LeagueId, owner);
             if (team is null) return Results.NotFound(new { error = "Team not found." });
 
-            // Both halves of this team's roster history, in one read.
+            // All three of this team's roster tenses, in one read.
             //
-            // A departed player is a *closed* spot that was in the lineup for at
-            // least one week. Those points are banked to this team permanently —
-            // a trade cannot move history — so leaving him out would make the
-            // grid disagree with the standings about where the score came from.
-            // Closed spots that never dressed are excluded: bookkeeping, not
-            // history.
+            // A departed player is a spot whose stint has *finished* and that
+            // was in the lineup for at least one week. Those points are banked
+            // to this team permanently — a trade cannot move history — so
+            // leaving him out would make the grid disagree with the standings
+            // about where the score came from. Spots that never dressed are
+            // excluded: bookkeeping, not history.
+            //
+            // "Finished" is now a date, not a null check. A player traded away
+            // on Monday has an end date already, and putting him in Departed
+            // while he is still scoring for this team would be a screen
+            // contradicting itself.
+            var today = await clock.TodayEtAsync();
             var allSpots = await db.RosterSpots
                 .Where(s => s.TeamId == team.TeamId)
                 .Select(s => new { Spot = s, EverActive = s.Assignments.Any(a => a.IsActive) })
                 .ToListAsync();
 
-            var spots = allSpots.Where(s => s.Spot.EndDate == null).Select(s => s.Spot).ToList();
+            var spots = allSpots
+                .Where(s => s.Spot.StartDate <= today && (s.Spot.EndDate == null || s.Spot.EndDate >= today))
+                .Select(s => s.Spot)
+                .ToList();
             var departedSpots = allSpots
-                .Where(s => s.Spot.EndDate != null && s.EverActive)
+                .Where(s => s.Spot.EndDate is { } end && end < today && s.EverActive)
                 .Select(s => s.Spot)
                 .OrderByDescending(s => s.EndDate)
                 .ToList();
+            // Acquired in a trade that has not reached its effective date. He
+            // has a real spot now, so he goes through the same projection as
+            // everyone else — the parallel row shape this used to need, built
+            // by player id because no spot existed, is gone.
+            var incomingSpots = allSpots
+                .Where(s => s.Spot.StartDate > today)
+                .Select(s => s.Spot)
+                .OrderBy(s => s.StartDate)
+                .ToList();
 
-            // Players arriving via an accepted trade not yet executed by the
-            // nightly job — no RosterSpot exists for them on this team yet, so
-            // they are folded into the same lookups by player id rather than
-            // read off a spot.
-            var incomingPlayerIds = await TradeValidation.IncomingPlayerIdsAsync(db, league.LeagueId, team.TeamId);
-
-            var playerIds = spots.Concat(departedSpots)
+            var playerIds = spots.Concat(departedSpots).Concat(incomingSpots)
                 .Where(s => s.PlayerId != null).Select(s => s.PlayerId!.Value)
-                .Concat(incomingPlayerIds).Distinct().ToList();
+                .Distinct().ToList();
             var players = await db.Players.Where(p => playerIds.Contains(p.PlayerId))
                 .ToDictionaryAsync(p => p.PlayerId);
             var caps = await Queries.CapHitsAsync(db, league.Season, playerIds);
@@ -506,7 +524,7 @@ public static class LineupEndpoints
             // traded away belongs in the departed list for the same reason a
             // player does: its banked points are still part of this team's
             // score.
-            var franchiseAbbrevs = spots.Concat(departedSpots)
+            var franchiseAbbrevs = spots.Concat(departedSpots).Concat(incomingSpots)
                 .Where(s => s.FranchiseAbbrev != null).Select(s => s.FranchiseAbbrev!).Distinct().ToList();
             var franchises = await db.NhlTeams.Where(t => franchiseAbbrevs.Contains(t.Abbrev))
                 .ToDictionaryAsync(t => t.Abbrev);
@@ -522,7 +540,6 @@ public static class LineupEndpoints
             var spotTotals = await db.RosterSpotTotals
                 .Where(v => v.TeamId == team.TeamId)
                 .ToDictionaryAsync(v => v.RosterSpotId);
-            var engagedPlayers = (await TradeValidation.EngagedAssetsAsync(db, league.LeagueId)).PlayerIds;
             var injuries = await Queries.InjuriesAsync(db, playerIds);
 
             // The Équipe slot, as one row of the same grid.
@@ -590,10 +607,13 @@ public static class LineupEndpoints
                     capHit = caps.TryGetValue(playerId, out var c) ? c : (long?)null,
                     headshotUrl = p?.HeadshotUrl,
                     logoUrl = (string?)null,
-                    // Already moving in an accepted trade — the trade sheet
-                    // greys these out instead of letting a GM build an offer
-                    // the server will refuse.
-                    engaged = engagedPlayers.Contains(playerId),
+                    // Mine today with a departure already on the books — the
+                    // "leaving via trade" mark, and what the trade sheet greys
+                    // out instead of letting a GM offer a player twice. Read off
+                    // the spot's own dates rather than off the trade's assets:
+                    // the spot is where the swap is recorded now, and a second
+                    // derivation could disagree with it.
+                    engaged = spot.EndDate != null && spot.StartDate <= today && spot.EndDate >= today,
                     // Injured or suspended right now, per the news sources. The
                     // grid marks the row; the type is what the tooltip says.
                     // Deliberately carried on the row rather than fetched
@@ -631,54 +651,6 @@ public static class LineupEndpoints
                 };
             }
 
-            // Same row shape as Row(), for a player with no RosterSpot on this
-            // team at all — the "Fantasy point" group (RosterSpotTotals-backed)
-            // has nothing to read yet, so it zeroes out; the NHL/cap-hit groups
-            // are keyed by player id and already known regardless of team.
-            object IncomingRow(long playerId)
-            {
-                players.TryGetValue(playerId, out var p);
-                season.TryGetValue(playerId, out var t);
-                injuries.TryGetValue(playerId, out var inj);
-                return new
-                {
-                    id = playerId,
-                    name = p?.FullName ?? "Unknown player",
-                    position = p?.Position ?? "F",
-                    team = p?.TeamAbbrev,
-                    capHit = caps.TryGetValue(playerId, out var c) ? c : (long?)null,
-                    headshotUrl = p?.HeadshotUrl,
-                    logoUrl = (string?)null,
-                    engaged = true,
-                    injuryStatus = inj?.Status,
-                    injuryType = inj?.InjuryType,
-                    isGoalie = (p?.PositionGroup ?? "F") == "G",
-                    gamesPlayed = t?.GamesPlayed ?? 0,
-                    goals = t?.Goals ?? 0,
-                    assists = t?.Assists ?? 0,
-                    points = (t?.Goals ?? 0) + (t?.Assists ?? 0),
-                    plusMinus = t?.PlusMinus ?? 0,
-                    pim = t?.Pim ?? 0,
-                    shots = t?.Shots ?? 0,
-                    hits = t?.Hits ?? 0,
-                    blockedShots = t?.BlockedShots ?? 0,
-                    wins = t?.Wins ?? 0,
-                    otLosses = t?.OtLosses ?? 0,
-                    shutouts = t?.Shutouts ?? 0,
-                    goalsAgainst = t?.GoalsAgainst ?? 0,
-                    saves = t?.Saves ?? 0,
-                    shotsAgainst = t?.ShotsAgainst ?? 0,
-                    teamWins = 0, teamLosses = 0, teamOtLosses = 0,
-                    spotStartDate = (DateOnly?)null,
-                    spotActiveGamesPlayed = 0,
-                    spotActiveGoals = 0,
-                    spotActiveAssists = 0,
-                    spotActivePoints = 0,
-                    spotBenchPoints = 0,
-                    spotEndDate = (DateOnly?)null,
-                };
-            }
-
             return Results.Ok(new
             {
                 season = league.Season,
@@ -687,10 +659,11 @@ public static class LineupEndpoints
                 // answer a different question — where did the score come from —
                 // and the screen shows them apart.
                 departed = departedSpots.Select(Row).ToList(),
-                // Arriving via an accepted trade not yet executed. Hidden by the
-                // frontend when empty, like Departed — every team is here until
-                // its first pending incoming trade.
-                incoming = incomingPlayerIds.Select(IncomingRow).ToList(),
+                // Acquired in a trade that has not reached its effective date.
+                // Through the same projection as everyone else now that he has a
+                // real spot: the parallel row shape this needed, with its whole
+                // Fantasy-point group hard-coded to zero, is gone.
+                incoming = incomingSpots.Select(Row).ToList(),
             });
         });
     }

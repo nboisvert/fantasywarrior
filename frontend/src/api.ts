@@ -167,6 +167,14 @@ export interface LineupEntry extends Engageable {
   /** Always true on an Équipe entry — one franchise, one seat, nothing to
    * toggle. */
   active: boolean;
+  /** He is not on this week's roster: he leaves before it opens. Present only
+   * on a week that has not begun, and never selectable — there is no lineup row
+   * to set. Shown anyway so the GM sees where his slot went rather than watch a
+   * player vanish. */
+  leaving?: boolean;
+  /** Acquired in a trade that has not taken effect. He is genuinely on this
+   * week's roster and can be activated; he is simply not on today's. */
+  arriving?: boolean;
   points: number;
   gamesPlayed: number;
   /** The week's raw line, for cards that say what happened rather than only

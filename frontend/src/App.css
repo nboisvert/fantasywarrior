@@ -526,6 +526,14 @@
   right: 1px;
   color: var(--danger);
 }
+/* He is not dropping out of the lineup, he is leaving the roster — same rose
+   as an exit, but the log-out glyph rather than a down arrow, because the GM
+   cannot undo this one by tapping. */
+.lineup-pending-gone {
+  bottom: 0;
+  right: 1px;
+  color: var(--danger);
+}
 
 /* ---------- lineup replacement picker (Team screen) ---------- */
 
@@ -632,16 +640,42 @@
   white-space: nowrap;
 }
 
-/* Informational only — a bench candidate promised away in an accepted trade
-   still legitimately plays out the week this picker is setting, so this is
-   context, not a warning: muted, same register as .lineup-picker-sub, never
-   the danger rose. */
+/* Why this name is in the list but not like the others. Two states, and they
+   borrow the grid's trade marks rather than inventing a register: rose and a
+   log-out glyph for the man leaving, green and log-in for the one arriving —
+   see .stats-trade-out/-in. Both carry an icon, so neither depends on colour
+   alone. */
 .lineup-picker-note {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
   color: var(--text-muted);
   font-size: 0.68rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.lineup-picker-note.leaving {
+  color: var(--danger);
+}
+.lineup-picker-note.arriving {
+  color: var(--success);
+}
+
+/* A player who is not on next week's roster at all. Listed so the GM sees
+   where his slot went, inert because there is no lineup row to set — and
+   deliberately more legible than :disabled's flat 0.5, which at this size
+   pushed the note explaining the state below readable contrast. The name
+   dims; the reason does not. */
+.lineup-picker-option.gone {
+  opacity: 1;
+  background: none;
+  border-style: dashed;
+}
+.lineup-picker-option.gone .lineup-picker-name,
+.lineup-picker-option.gone .muted,
+.lineup-picker-option.gone .lineup-picker-pts {
+  opacity: 0.45;
 }
 
 .lineup-picker-pts {

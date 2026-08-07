@@ -64,8 +64,9 @@ function formatMoneyCompact(amount: number): string {
   return `$${abs}`;
 }
 
-/** Whether this spot's lineup status changes when the week rolls over. */
-type PendingChange = "in" | "out" | null;
+/** What happens to this spot when the week rolls over: it joins the lineup, it
+ * drops out of it, or the player leaves the team altogether. */
+type PendingChange = "in" | "out" | "gone" | null;
 
 /** Active/bench control on a player row.
  *
@@ -84,24 +85,33 @@ function LineupToggle({
   pending: PendingChange;
   onToggle: (spotId: string) => void;
 }) {
+  // A player who leaves before next week has no lineup row to set, so there is
+  // nothing to tap even when the week itself is open. Shown inert rather than
+  // hidden: a slot going quietly empty is the confusing outcome.
+  const gone = pending === "gone";
+  const canTap = editable && !gone;
+
   const now = entry.active ? "active" : "benched";
   const change =
     pending === "in" ? ", coming into next week's lineup"
     : pending === "out" ? ", dropping out of next week's lineup"
+    : gone ? ", leaving the team before next week"
     : "";
-  const label = `${entry.name} — ${now}${change}${editable ? ", tap to change next week" : ""}`;
-  const className = `lineup-toggle${entry.active ? " on" : ""}${editable ? "" : " static"}`;
+  const label = `${entry.name} — ${now}${change}${canTap ? ", tap to change next week" : ""}`;
+  const className = `lineup-toggle${entry.active ? " on" : ""}${canTap ? "" : " static"}`;
   const icon = entry.active ? <CircleCheckIcon size={16} /> : <CircleIcon size={16} />;
 
-  // The arrow carries direction *and* position *and* colour, so it never
-  // depends on colour alone; the aria-label above states it in words.
+  // The mark carries shape *and* position *and* colour, so it never depends on
+  // colour alone; the aria-label above states it in words.
   const flag = pending && (
     <span className={`lineup-pending lineup-pending-${pending}`} aria-hidden="true">
-      {pending === "in" ? <ArrowUpIcon size={13} /> : <ArrowDownIcon size={13} />}
+      {pending === "in" ? <ArrowUpIcon size={13} />
+        : pending === "out" ? <ArrowDownIcon size={13} />
+        : <LogOutIcon size={13} />}
     </span>
   );
 
-  if (!editable)
+  if (!canTap)
     return (
       <span className={className} title={label} aria-label={label}>
         {icon}
@@ -128,11 +138,22 @@ function LineupToggle({
  *
  * Same position group only — the slots are per position, so a forward can
  * never stand in for a defenceman and offering him would produce a lineup the
- * server rejects. Best first, since that is the choice being made. */
+ * server rejects. Best first, since that is the choice being made.
+ *
+ * **These come from the week being written, not the week on screen.** They used
+ * to come from the current one, which was wrong every time the two rosters
+ * differed: a player traded away was offered as a replacement for a week he
+ * would not play, and the man arriving in the same trade could not be picked at
+ * all.
+ *
+ * A departing player stays in the list rather than disappearing from it —
+ * `leaving` marks him and the option is inert. Watching a name vanish and a
+ * slot go quietly empty is worse than being told why. */
 function replacementsFor(entry: LineupEntry, entries: LineupEntry[]): LineupEntry[] {
   return entries
-    .filter((e) => e.spotId !== entry.spotId && e.positionGroup === entry.positionGroup && e.active !== entry.active)
-    .sort((a, b) => b.seasonPoints - a.seasonPoints);
+    .filter((e) => e.spotId !== entry.spotId && e.positionGroup === entry.positionGroup)
+    .filter((e) => e.leaving || e.active !== entry.active)
+    .sort((a, b) => Number(a.leaving ?? false) - Number(b.leaving ?? false) || b.seasonPoints - a.seasonPoints);
 }
 
 /** The replacement sheet: pick who comes in, or bench outright.
@@ -191,15 +212,31 @@ function LineupPicker({
           <button
             key={o.spotId}
             type="button"
-            className="lineup-picker-option"
-            disabled={busy}
+            className={`lineup-picker-option${o.leaving ? " gone" : ""}`}
+            disabled={busy || o.leaving}
+            aria-label={
+              o.leaving
+                ? `${o.name} — leaves the team before week ${periodIndex}, cannot be selected`
+                : undefined
+            }
             onClick={() => onSwap(o.spotId)}
           >
             <span className="lineup-picker-name-wrap">
               <span className="lineup-picker-name">{formatShortName(o.name)}</span>
-              {/* Informational, never a reason to grey the option out — he
-                  still legitimately plays this week before he leaves. */}
-              {o.engaged && <span className="lineup-picker-note">leaving via trade</span>}
+              {/* The same icon-and-colour pairing the grid's trade marks use,
+                  so it reads as one convention rather than two. */}
+              {o.leaving && (
+                <span className="lineup-picker-note leaving">
+                  <LogOutIcon size={11} />
+                  leaves the team
+                </span>
+              )}
+              {o.arriving && (
+                <span className="lineup-picker-note arriving">
+                  <LogInIcon size={11} />
+                  arriving via trade
+                </span>
+              )}
             </span>
             <span className="muted">{o.team ?? "—"}</span>
             <span className="lineup-picker-pts">{o.seasonPoints} pts</span>
@@ -996,19 +1033,23 @@ export function Stats({
       .map((e) => [e.playerId, e]),
   );
 
-  /** Next week's status per spot, for the arrow. Keyed by spot rather than by
-   * player: a player traded away and back would be two spots, and only the one
-   * still held should be compared. */
-  const nextActiveBySpot = new Map<string, boolean>(
-    (nextLineup?.hidden ? [] : (nextLineup?.entries ?? [])).map((e) => [e.spotId, e.active]),
+  /** Next week's entry per spot. Keyed by spot rather than by player: a player
+   * traded away and back would be two spots, and only the one still held
+   * should be compared. */
+  const nextBySpot = new Map<string, LineupEntry>(
+    (nextLineup?.hidden ? [] : (nextLineup?.entries ?? [])).map((e) => [e.spotId, e]),
   );
 
-  /** In, out, or unchanged when the week rolls over. Null while next week has
-   * not loaded — an arrow that guessed would be worse than no arrow. */
+  /** In, out, gone, or unchanged when the week rolls over. Null while next week
+   * has not loaded — a mark that guessed would be worse than no mark. */
   const pendingFor = (entry: LineupEntry): PendingChange => {
-    const next = nextActiveBySpot.get(entry.spotId);
-    if (next === undefined || next === entry.active) return null;
-    return next ? "in" : "out";
+    const next = nextBySpot.get(entry.spotId);
+    if (!next) return null;
+    // Checked before the active comparison: he is not dropping out of a
+    // lineup, he is leaving the roster, and only one of those is the GM's to
+    // undo.
+    if (next.leaving) return "gone";
+    return next.active === entry.active ? null : next.active ? "in" : "out";
   };
 
 
@@ -1126,14 +1167,16 @@ export function Stats({
             />
           )}
 
-          {/* Arriving via an accepted trade not yet executed — no roster spot
-              exists for them here yet, so no lineup toggle. Hidden entirely
+          {/* Acquired in a trade that has not reached its effective date. They
+              have a roster spot, and a lineup row for the week they arrive in —
+              which is set from the picker, not from here, because this grid is
+              the week in progress and they are not in it yet. Hidden entirely
               when there are none, same as Departed. */}
           {incomingRows.length > 0 && (
             <RosterGrid
               rows={incomingRows}
               title="Incoming"
-              subtitle={`${incomingRows.length} player, arriving on trade execution`}
+              subtitle={`${incomingRows.length} player, on the roster when the week turns`}
               emptyLabel="Nobody arriving."
               saving={saving}
               onOpenPlayer={setOpenPlayerId}
@@ -1144,19 +1187,23 @@ export function Stats({
           )}
         </>
       )}
-      {pickerSpotId && lineup && nextLineup && (() => {
-        const entry = lineup.entries.find((e) => e.spotId === pickerSpotId);
+      {/* Everything in here is **next week's** lineup — the one being written.
+          It used to read from the week on screen, which is the same roster
+          right up until a trade lands, and a different one exactly when it
+          matters. */}
+      {pickerSpotId && nextLineup && (() => {
+        const entry = nextLineup.entries.find((e) => e.spotId === pickerSpotId);
         if (!entry) return null;
         const max =
-          entry.positionGroup === "F" ? lineup.slots.forwards
-          : entry.positionGroup === "D" ? lineup.slots.defense
-          : lineup.slots.goalies;
+          entry.positionGroup === "F" ? nextLineup.slots.forwards
+          : entry.positionGroup === "D" ? nextLineup.slots.defense
+          : nextLineup.slots.goalies;
         const close = () => setPickerSpotId(null);
         return (
           <LineupPicker
             entry={entry}
-            entries={lineup.entries}
-            slotIsFree={(lineup.used[entry.positionGroup] ?? 0) < max}
+            entries={nextLineup.entries}
+            slotIsFree={(nextLineup.used[entry.positionGroup] ?? 0) < max}
             busy={saving}
             periodIndex={nextLineup.periodIndex}
             onSwap={(inSpotId) => {
