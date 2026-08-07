@@ -88,6 +88,11 @@ dotnet run --project backend/FantasyWarrior.Jobs -- sim-advance --to 2025-11-23
 
 Pour `+7d`, calcule la date cible depuis la date courante lue à l'étape 1.
 
+Depuis un téléphone (ou toute session sans accès à `C:\Nick\fw`), le même job
+est aussi exposé en `POST /api/testmode/advance?username=nick&to=2025-11-23`
+sur l'API — voir la section « Depuis le mobile » de
+[`testmode.md`](../../doc/testmode.md). Réservé à `nick`.
+
 Le job s'arrête **à chaque fin de semaine** traversée : c'est ce qui fait que les
 échanges d'une semaine s'exécutent à sa frontière et pas à la fin du saut.
 

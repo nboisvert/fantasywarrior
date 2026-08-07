@@ -61,6 +61,22 @@ non à la fin d'un saut jusqu'à la semaine 8.
 saison complète d'un coup est redevenu une opération ordinaire ; avancer semaine
 par semaine reste le rythme de test naturel.
 
+## Depuis le mobile
+
+`sim-advance` est aussi exposé en HTTP, pour avancer sans être devant `C:\Nick\fw` :
+
+```
+POST /api/testmode/advance?username=nick&to=2025-11-23&dryRun=false
+```
+
+Réservé à `nick` (403 pour tout autre `username`) — la simulation est globale
+et banque des semaines pour de vrai, donc un tap accidentel depuis le téléphone
+d'un autre GM n'est pas souhaitable. Ce n'est pas de la vraie auth (l'app n'en a
+pas encore), juste un garde-fou tant que ça dure. La réponse renvoie la sortie
+console du job (`output`), les mêmes lignes que la commande CLI. Un job déjà en
+cours répond 409 plutôt que de se chevaucher. Prévu pour disparaître avec le
+reste du mode test quand la vraie saison commence.
+
 ## Deux choses qui surprennent
 
 **Le jour de grâce.** Une semaine n'est banquée qu'un jour après sa fin, pour

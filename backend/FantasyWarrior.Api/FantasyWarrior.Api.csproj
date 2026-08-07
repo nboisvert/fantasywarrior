@@ -3,6 +3,8 @@
   <ItemGroup>
     <ProjectReference Include="..\FantasyWarrior.Core\FantasyWarrior.Core.csproj" />
     <ProjectReference Include="..\FantasyWarrior.Data\FantasyWarrior.Data.csproj" />
+    <!-- SimAdvanceJob only, for TestModeEndpoints -- see .claude/doc/testmode.md. -->
+    <ProjectReference Include="..\FantasyWarrior.Jobs\FantasyWarrior.Jobs.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

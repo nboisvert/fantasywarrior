@@ -65,6 +65,16 @@ was taken — not a record of what changed.
 
 ### Architecture
 
+- **2026-08-07 — `sim-advance` is also an API endpoint, Nick-only.** Advancing
+  the replay used to mean a PowerShell prompt on `C:\Nick\fw`; now
+  `POST /api/testmode/advance?username=nick&to=...` on the deployed API runs
+  the same job, so it can be triggered from a phone. Gated on
+  `username == "nick"` (403 otherwise) because the job it wraps banks weeks
+  permanently and executes trades across both leagues at once — not real auth,
+  just a guard against a pool-mate's stray tap until the app has something
+  stronger. Meant to be removed with the rest of test mode once the real
+  season starts. `FantasyWarrior.Api` now references `FantasyWarrior.Jobs` to
+  reach `SimAdvanceJob` directly rather than shelling out.
 - **2026-08-03 — SignalR does exactly two things**: tell a league who is online,
   and deliver private messages. Polling was cheaper and was rejected — presence
   and event pop-ups both need a push. The cost is real, since a WebSocket is a

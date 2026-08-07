@@ -90,6 +90,7 @@ TradeEndpoints.Map(app);
 PlayerEndpoints.Map(app);
 CockcoinEndpoints.Map(app);
 MessageEndpoints.Map(app);
+TestModeEndpoints.Map(app);
 
 // The one live channel: direct messages and presence today, event pop-ups next.
 // Push only -- clients never call into it, they POST and it pushes.

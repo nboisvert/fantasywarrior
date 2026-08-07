@@ -4,6 +4,7 @@ WORKDIR /src
 # Project files first, so a source-only change reuses the restore layer.
 COPY backend/FantasyWarrior.Core/FantasyWarrior.Core.csproj backend/FantasyWarrior.Core/
 COPY backend/FantasyWarrior.Data/FantasyWarrior.Data.csproj backend/FantasyWarrior.Data/
+COPY backend/FantasyWarrior.Jobs/FantasyWarrior.Jobs.csproj backend/FantasyWarrior.Jobs/
 COPY backend/FantasyWarrior.Api/FantasyWarrior.Api.csproj backend/FantasyWarrior.Api/
 RUN dotnet restore backend/FantasyWarrior.Api/FantasyWarrior.Api.csproj
 COPY backend/ backend/
