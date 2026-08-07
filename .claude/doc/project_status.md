@@ -35,9 +35,9 @@
   treating any date-related behaviour as a bug. See [testmode.md](testmode.md).
 
 **Built and working**: player and stats services, leagues/teams/multi-tenancy,
-weekly-lineup scoring with banked points, trades (propose → accept/decline →
-nightly-processed → community rating), the five screens, the news ticker,
-per-player news and injury status.
+weekly-lineup scoring with banked points, trades (propose → accept, which
+applies the swap dated to the next Monday → lands → community rating), the five
+screens, the news ticker, per-player news and injury status.
 
 ## Roadmap
 
@@ -187,6 +187,14 @@ was taken — not a record of what changed.
   `Teams.FranchiseAbbrev` stays: it is the team's identity and never moves,
   while the spot is the asset a trade can carry. The two start equal and are
   meant to be able to diverge.
+- **2026-08-07 — Next week's lineup is written, not previewed.** The endpoint
+  used to compute what the carry-forward *would* pick and never store it,
+  because the rows only appeared when the scoring pass reached the week — by
+  which time it was locked, and the "preview" had never been anyone's choice.
+  `WeekAheadJob` writes them every night, fills in what is missing and rewrites
+  nothing, so the forgotten-lineup rule is data rather than a guess and a trade
+  can edit next week's lineup like anything else. `setBy: "auto"` is now a
+  stored value.
 
 ### UI
 
@@ -251,14 +259,37 @@ was taken — not a record of what changed.
 
 ### Trades
 
+- **2026-08-07 — Accepting a trade executes it, dated to the next Monday.** The
+  effect did not move: the swap still lands on a week boundary and no player
+  ever owns two teams on one day. What moved is when the database is told.
+  Between agreeing and executing, the app used to still believe the old
+  rosters — and that window is exactly when a GM sets the lineup for the week
+  the trade lands in, so he was offered a player who would be gone and denied
+  the one who would arrive. The old effective date was a *consequence of job
+  scheduling* rather than a rule: the nightly job ran trades on banking nights,
+  and the grace day pushed them a week later than `scoring-model.md` promised.
+  It is now `TradeSchedule.NextPeriodStart`, pure and tested.
+- **2026-08-07 — A `RosterSpot` can start or end in the future, and that is the
+  property everything else follows from.** "Never closed" and "held today" split
+  apart for exactly the two spots a trade creates. `RosterWindow` names the
+  three questions that used to share one filter. The surprise: the old
+  `EndDate IS NULL` did not become wrong, it changed meaning — it is now the
+  *engaged* figure.
+- **2026-08-07 — `vTeamCommitments` is gone, folded into `vStandings`.** The
+  delta it carried is in the spots' own dates now, so today's cap and the
+  engaged cap are the same aggregate one filter apart, in one statement, where
+  they cannot drift from each other. That costs `vStandings` a `Today` CTE
+  reading `SimulationState` — the first date logic in any view here — because
+  the displayed cap must keep counting only the spots active today (Nick).
 - **2026-08-03 — The cap is enforced against *engaged* figures, not the
   standings.** An accepted trade is irreversible and lands at the next week
-  boundary, but `vStandings` still describes today's roster. Validating against
-  it would let a GM accept a $9M contract in the morning and bust the cap in the
-  afternoon, each trade looking fine on its own. `vTeamCommitments` carries the
-  difference, and it is a **view rather than a `TradeEngaged` flag**: an
-  aggregate over an honest event log cannot drift, whereas a flag nobody cleared
-  freezes a player forever, silently. Same reasoning as the cockcoin ledger.
+  boundary, but the standings figure describes today's roster. Validating
+  against it would let a GM accept a $9M contract in the morning and bust the
+  cap in the afternoon, each trade looking fine on its own. This is still true;
+  only where the engaged figure comes from has changed (see above). It remains
+  **derived rather than a `TradeEngaged` flag**: an aggregate over honest dates
+  cannot drift, whereas a flag nobody cleared freezes a player forever,
+  silently. Same reasoning as the cockcoin ledger.
 - **2026-08-03 — Accepted trades lock their assets; pending ones do not.**
   Shopping the same player to three GMs is normal and only one offer can ever be
   accepted — the others are refused at that moment. Once accepted, re-offering
@@ -306,8 +337,9 @@ was taken — not a record of what changed.
   not: an unsigned free agent and an undrafted prospect are permanent states, and
   a keeper pool holds plenty of both — 30 on Mordus rosters today. He now costs
   `Leagues.DefaultCapHit`, $1M by default and editable per league from the Rules
-  panel (0 restores the old behaviour). Both views had to move together, since
-  callers sum `vStandings` and `vTeamCommitments`. `vStandings` also gained
+  panel (0 restores the old behaviour). Both views had to move together at the
+  time, since callers summed `vStandings` and `vTeamCommitments` — the latter is
+  gone as of 2026-08-07 and both figures now come from one. `vStandings` also gained
   `UnknownContracts`: folding an assumed salary into the total makes it
   invisible, and a figure that is part measurement and part house rule should
   say so.

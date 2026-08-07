@@ -54,11 +54,20 @@ En parallèle, `rosterSpot.activePoints` cumule ce qu'un joueur a rapporté à *
 |---|---|
 | **Lundi 00h00 ET** | La semaine démarre et **le lineup se verrouille**. Plus aucune modification. |
 | Lundi → dimanche | Le job nocturne recalcule la semaine en cours **à zéro** chaque nuit. Rien ne s'accumule. |
+| Chaque nuit | Les alignements de la semaine **suivante** sont créés par report, s'ils n'existent pas déjà. Jamais réécrits. |
 | **Fin de dimanche + 1 jour de grâce** | La semaine est **banquée** : ses points rejoignent `finalizedScore` et n'en bougeront plus jamais. |
-| Au même rollover | Les trades acceptés s'exécutent, effectifs au début de la semaine suivante. |
-| Puis | Les lineups de la semaine suivante sont créés par report. |
 
 Le **jour de grâce** existe parce que la NHL corrige ses feuilles de match après coup. Banquer le soir même figerait ce qu'on savait cette nuit-là, et une correction du lendemain serait perdue en silence.
+
+### Les trades ne sont plus dans ce cycle
+
+**Accepter un échange l'exécute** (`TradeExecution`), daté au **lundi suivant** : le spot sortant reçoit une `EndDate` au dimanche, le spot entrant une `StartDate` au lundi, et les alignements de cette semaine-là suivent — le partant perd le sien, l'arrivant en reçoit un, inactif.
+
+L'effet n'a pas bougé d'un jour : un échange prend toujours effet à une frontière de semaine, et un joueur n'a jamais deux propriétaires le même jour. Ce qui a changé, c'est **quand la base est mise au courant**.
+
+C'est ce qui rend l'écran d'alignement honnête. Le picker règle la semaine suivante ; tant que les rosters ne bougeaient qu'au job de nuit, il proposait un joueur qui serait parti et cachait celui qui allait arriver.
+
+> **Avant le 2026-08-07**, le job nocturne exécutait les échanges la nuit où une semaine était banquée, effectifs « à la première semaine commençant après la dernière journée de stats ». Le jour de grâce faisait tomber ça une semaine plus tard que ce que ce document annonçait. La date était une conséquence de l'ordonnancement, pas une règle.
 
 ---
 
@@ -72,7 +81,9 @@ Le lineup de la semaine N doit être soumis **avant** que la semaine N commence.
 ### Lineup oublié
 Le lineup de la semaine précédente est **reporté automatiquement**, moins les joueurs qui ont quitté le roster, puis **complété** par les meilleurs disponibles à chaque position. Un GM en vacances n'est pas puni — dans un pool entre amis, ça viderait le classement de son sens.
 
-Le document porte `setBy: "auto"` pour que l'interface puisse le signaler.
+La rangée porte `setBy: "auto"` pour que l'interface puisse le signaler.
+
+Le report est **écrit** par `WeekAheadJob`, chaque nuit, et ne réécrit jamais une rangée existante — c'est toute la règle. L'endpoint calculait autrefois un aperçu de ce que le report *aurait* choisi, sans jamais l'écrire ; les rangées n'apparaissaient donc qu'au passage du pointage, quand la semaine était déjà verrouillée.
 
 ### Slots
 Configurables par le commissaire, par position. **Les Mordus : 9 attaquants, 4 défenseurs, 1 gardien.**
@@ -83,6 +94,17 @@ Aligner **moins** que le maximum est permis — on marque simplement moins. Alig
 
 ### Transactions
 **Tout prend effet au rollover de période**, trades comme agents libres. Un roster spot ne commence donc jamais en milieu de semaine, ce qui élimine toute une catégorie de cas de bord.
+
+**Un roster spot peut commencer dans le futur.** C'est la propriété dont tout le reste découle depuis le 2026-08-07 : « jamais fermé » et « détenu aujourd'hui » ont cessé d'être la même question, et elles se séparent pour exactement les deux spots qu'un échange crée.
+
+| Question | Prédicat (`RosterWindow`) | Sert à |
+|---|---|---|
+| Détenu aujourd'hui | `Start <= today && (End == null \|\| End >= today)` | le roster affiché, le **plafond** |
+| Détenu cette semaine-là | `Start <= fin && (End == null \|\| End >= début)` | l'alignement, le pointage |
+| **Engagé** | `End == null` | ce qu'on valide un échange contre |
+| *engaged* (la mention) | détenu aujourd'hui **et** `End != null` | « part bientôt » à l'écran |
+
+L'ancien filtre `EndDate IS NULL` n'est pas devenu faux : il a changé de sens. Il désigne maintenant l'engagé.
 
 ### Points acquis
 Une fois une semaine banquée, ses points appartiennent définitivement à l'équipe qui a aligné le joueur. **Un échange ne peut pas déplacer l'historique.**
@@ -156,7 +178,7 @@ Des calendriers par ligue ramèneraient une requête par ligue — c'est la rais
 | Slots actifs par position | `ruleConfig.topCount` | **oui, à la soumission du lineup** |
 | Taille de roster min/max | `ruleConfig.rosterSize` | **oui, sur les échanges** (proposition et acceptation) |
 | Plafond salarial | `league.capAmount` | **oui, sur les échanges** (proposition et acceptation) |
-| Coût d'un joueur sans contrat | `ruleConfig.defaultCapHit` | **oui**, dans `vStandings`, `vTeamCommitments` et la validation d'échange |
+| Coût d'un joueur sans contrat | `ruleConfig.defaultCapHit` | **oui**, dans `vStandings` (colonnes du jour *et* engagées) et la validation d'échange |
 | Valeur du slot Équipe | `ruleConfig.extraPointValues` (`teamWins`/`teamLosses`/`teamOtLosses`) | oui, au calcul |
 | Choix au repêchage par équipe par année | `ruleConfig.draftRounds` | un par ronde, généré par `draft-picks-init` |
 
@@ -167,20 +189,25 @@ et d'un espoir repêché qui n'a pas encore signé, et un pool keeper en compte
 beaucoup. Les compter à 0 $ laissait un DG en accumuler gratuitement et
 sous-estimait chaque total.
 
-Les deux vues doivent bouger ensemble : `vStandings` est la base et
-`vTeamCommitments` le delta, et l'appelant les additionne. `vStandings` expose
-aussi `UnknownContracts` — une fois le salaire supposé fondu dans le total, plus
-rien ne le distingue d'un vrai, et un chiffre mi-mesuré mi-conventionnel doit le
-dire.
+`vStandings` expose aussi `UnknownContracts` — une fois le salaire supposé fondu
+dans le total, plus rien ne le distingue d'un vrai, et un chiffre mi-mesuré
+mi-conventionnel doit le dire.
 
 **Le plafond est appliqué contre les chiffres *engagés*, pas contre le
-classement** (2026-08-03). Un échange accepté est irréversible : il s'exécute à
-la frontière de semaine, mais `vStandings` décrit encore le roster
-d'aujourd'hui. Valider contre lui laisserait un GM accepter un contrat de 9 M$
-le matin et faire sauter le plafond l'après-midi, chaque échange paraissant
-légal isolément. `vTeamCommitments` porte la différence. Même logique pour les
-actifs : un joueur ou un choix déjà en mouvement dans un échange accepté ne peut
-pas être réoffert. Les offres *en attente*, elles, ne verrouillent rien.
+classement** (2026-08-03). Un échange accepté est irréversible. Valider contre
+le plafond du jour laisserait un GM accepter un contrat de 9 M$ le matin et
+faire sauter le plafond l'après-midi, chaque échange paraissant légal isolément.
+
+Depuis le 2026-08-07 les deux chiffres sortent de la **même vue** :
+`CapTotal`/`PlayerCount` filtrent les spots détenus aujourd'hui,
+`EngagedCapTotal`/`EngagedPlayerCount` ceux qui restent une fois tous les
+échanges arrivés. Même agrégation, un filtre d'écart, un seul énoncé — ils ne
+peuvent plus diverger, alors qu'auparavant `vTeamCommitments` portait un delta
+que l'appelant additionnait.
+
+Même logique pour les actifs : un joueur ou un choix déjà en mouvement dans un
+échange accepté ne peut pas être réoffert. Les offres *en attente*, elles, ne
+verrouillent rien.
 
 Ce qui n'est toujours **pas** appliqué : rien n'empêche un roster d'être hors
 limites par un autre chemin — il n'existe simplement aucun autre chemin

@@ -30,9 +30,9 @@ public sealed record EngagedAssets(
 ///
 /// <b>Why "engaged" and not the standings.</b> An accepted trade is a decision
 /// nobody can take back — it lands at the next week boundary. Checking against
-/// <c>vStandings</c> alone would let a GM accept a $9M contract in the morning
-/// and bust the cap in the afternoon, with both trades looking fine
-/// individually. <c>vTeamCommitments</c> carries that difference.
+/// the cap a team carries *today* would let a GM accept a $9M contract in the
+/// morning and bust it in the afternoon, with both trades looking fine
+/// individually. <c>vStandings</c> carries both figures, one filter apart.
 /// </summary>
 public static class TradeValidation
 {

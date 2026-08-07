@@ -190,6 +190,19 @@ avec PositionGroup
 > Un spot est **fermé, jamais supprimé** : l'équipe garde définitivement ce que
 > ce joueur lui a banqué.
 >
+> **`StartDate` et `EndDate` peuvent être dans le futur** (2026-08-07). Accepter
+> un échange l'exécute immédiatement, daté au lundi suivant : le spot sortant
+> reçoit une `EndDate` au dimanche, le spot entrant une `StartDate` au lundi.
+> C'est ce qui permet à un GM de régler l'alignement de la semaine prochaine
+> avec le roster qu'il aura vraiment.
+>
+> Conséquence : « jamais fermé » a cessé de vouloir dire « détenu aujourd'hui ».
+> Les trois questions vivent dans `RosterWindow` (voir
+> [scoring-model.md](scoring-model.md) §4) et l'ancien filtre désigne maintenant
+> l'**engagé**. Les index filtrés ci-dessus s'en trouvent inchangés et corrects :
+> le spot sortant quitte le filtre au moment même où l'entrant y entre, donc
+> jamais deux propriétaires.
+>
 > **Un spot tient un joueur *ou* une franchise NHL** (le slot Équipe, groupe de
 > position `T`) depuis le 2026-08-05 — voir [mordus-pool.md](mordus-pool.md) §3
 > pour le renversement de décision que ça représente. Trois détails qui ne sont
@@ -292,27 +305,30 @@ le trafic ordinaire, pas seulement au login.
 | `vPlayerSeasonStats` | totaux saison par joueur (`GROUP BY` sur `PlayerGameStats`) |
 | `vRosterSpotTotals` | points et matchs par spot, actifs et banc séparés |
 | `vTeamPeriodScores` | points actifs/banc par équipe par semaine → l'historique hebdomadaire |
-| `vStandings` | classement : SUM par équipe, cap total, matchs du roster, points/match |
-| `vTeamCommitments` | par équipe, le **delta** de cap et d'effectif qu'engagent les échanges **acceptés mais pas encore exécutés** |
+| `vStandings` | classement : SUM par équipe, cap et effectif **d'aujourd'hui** et **engagés**, matchs du roster, points/match |
 
 Les totaux **à une date** (mode test) sont des requêtes paramétrées, pas des
 vues — c'est la même agrégation avec un `WHERE GameDate <= @asOf`.
 
-> **`vTeamCommitments` est séparée de `vStandings` exprès.** Les deux répondent à
-> des questions différentes : le classement montre le roster **d'aujourd'hui**,
-> la seconde ce qui est **déjà promis** pour la semaine prochaine. Les fusionner
-> ferait mentir le classement. La validation d'échange additionne les deux ; rien
-> d'autre ne le fait.
+> **`vStandings` est la seule vue du schéma qui sait quel jour on est.** Sa CTE
+> `Today` lit le même curseur que tout le monde : `SimulationState.AsOfDate + 1`
+> quand un replay tourne — la relation que `SimulationClockService` dérive — et
+> la vraie date de l'Est sinon.
 >
-> Elle ne compte que `AssetType = Player` : un choix au repêchage n'a ni salaire
-> ni place au roster. Et un contrat manquant y vaut 0 $ **comme dans
-> `vStandings`** — les deux chiffres se font additionner, donc ils doivent
-> traiter l'inconnu pareil, sinon la somme ne veut rien dire.
+> Elle en a besoin parce qu'un spot peut commencer ou finir dans le futur. Le
+> plafond affiché ne compte que les spots **actifs aujourd'hui** (Nick,
+> 2026-08-07) : un joueur promis en échange y compte encore, son remplaçant pas
+> encore.
 >
-> Un delta plutôt qu'un drapeau `TradeEngaged` sur les lignes : une agrégation
-> sur un journal d'événements honnête ne peut pas dériver, alors qu'un drapeau
-> oublié gèle un joueur pour toujours, en silence. Même raisonnement que le
-> ledger cockcoin.
+> **`vTeamCommitments` a disparu le 2026-08-07.** Elle portait le delta de cap et
+> d'effectif des échanges acceptés, parce que les rosters ne bougeaient qu'à
+> l'exécution. Ils bougent à l'acceptation maintenant, donc ce delta est dans les
+> dates des spots : `CapTotal` et `EngagedCapTotal` sont la même agrégation à un
+> filtre près, dans le même énoncé, où ils ne peuvent plus diverger. Une addition
+> en C# entre une vue et une autre en moins.
+>
+> La CTE `Scoring` n'est pas concernée : elle somme des `RosterAssignments`, qui
+> n'existent que pour les semaines déjà atteintes.
 
 ---
 

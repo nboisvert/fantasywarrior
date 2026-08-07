@@ -22,7 +22,8 @@ l'aurait fait.
 
 **Une seule étape est sautée : `stats-sync`.** Les gamelogs sont déjà en base, aller les rechercher auprès de l'API NHL serait du gaspillage. Tout le reste
 s'exécute réellement : agrégats de saison des joueurs, pointage hebdomadaire,
-banquage, exécution des échanges, matérialisation de la semaine suivante.
+banquage, report des alignements de la semaine suivante, atterrissage des
+échanges.
 
 | Sur l'horloge simulée | Volontairement sur l'horloge réelle |
 |---|---|
@@ -54,8 +55,12 @@ que quiconque ait pu le saisir.
 | Revenir au temps réel | `sim-clock --off` |
 
 `sim-advance` **s'arrête à chaque fin de semaine** traversée. C'est ce qui fait
-qu'un échange proposé en semaine 5 s'exécute à la frontière de la semaine 5 et
-non à la fin d'un saut jusqu'à la semaine 8.
+que chaque semaine est réellement pointée et banquée, plutôt que sautée.
+
+Depuis le 2026-08-07, un échange **s'applique à l'acceptation**, daté au lundi
+suivant : il ne dépend plus du tout du découpage des sauts. Ce qui reste au job
+de nuit, c'est de faire passer l'échange à `Processed` quand sa date arrive, et
+de reporter les alignements de la semaine suivante.
 
 **Coût** : plus de quota de lectures depuis le passage à Azure SQL. Rejouer une
 saison complète d'un coup est redevenu une opération ordinaire ; avancer semaine
