@@ -25,6 +25,21 @@ export interface LeagueSummary {
   members: number;
 }
 
+/** Whether a season replay is running, and where its cursor sits. */
+export interface ClockStatus {
+  simulated: boolean;
+  asOfDate: string | null;
+  season: string | null;
+  todayEt: string;
+  lastStatDate: string;
+}
+
+/** The console output of a sim-advance run, same text the CLI job prints. */
+export interface TestModeAdvanceResult {
+  ok: boolean;
+  output: string;
+}
+
 /** One unused draft pick a team holds. Picks exist one season ahead and only
  * one, so the year is shown but never chosen. */
 export interface DraftPickDto {
@@ -468,6 +483,14 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ username, ruleConfig }),
     }),
+  clock: () => request<ClockStatus>("/api/clock"),
+  /** Nick-only — see TestModeEndpoints.cs. Runs sim-advance up to `to`. */
+  testModeAdvance: (username: string, to: string, dryRun: boolean) =>
+    request<TestModeAdvanceResult>(
+      `/api/testmode/advance?username=${encodeURIComponent(username)}` +
+        `&to=${encodeURIComponent(to)}&dryRun=${dryRun}`,
+      { method: "POST" },
+    ),
   teamSeasonStats: (leagueId: string, username: string) =>
     request<TeamSeasonStats>(
       `/api/leagues/${encodeURIComponent(leagueId)}/teams/${encodeURIComponent(username)}/season-stats`,

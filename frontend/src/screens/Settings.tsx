@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, formatCap } from "../api";
 import type { LeagueDetail, LeagueSummary } from "../api";
-import { LogOutIcon, MessageSquareIcon, SettingsIcon } from "../components/Icons";
+import { LogOutIcon, MessageSquareIcon, SettingsIcon, ShieldIcon } from "../components/Icons";
 import { CockmanChat } from "../components/CockmanChat";
 import { LoadingLogo } from "../components/LoadingLogo";
 import { RulesPanel } from "./RulesPanel";
+import { TestModePanel } from "./TestModePanel";
 
 export function Settings({
   username,
@@ -26,6 +27,7 @@ export function Settings({
   const [error, setError] = useState("");
   const [showRules, setShowRules] = useState(false);
   const [showCockman, setShowCockman] = useState(false);
+  const [showTestMode, setShowTestMode] = useState(false);
 
   const refresh = useCallback(() => {
     api.myLeagues(username).then(setLeagues).catch((e) => setError((e as Error).message));
@@ -60,6 +62,11 @@ export function Settings({
   };
 
   const isCommissioner = league != null && league.commissionerUsername === username;
+  // Global, not per-league — the simulation applies to every league at once,
+  // so this can't be folded into isCommissioner. Enforced again server-side
+  // (TestModeEndpoints.cs); this gate is just what decides whether to show
+  // the button at all.
+  const isNick = username === "nick";
 
   return (
     <section className="fade-in" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
@@ -171,6 +178,27 @@ export function Settings({
 
       {showCockman && league && (
         <CockmanChat league={league} onClose={() => setShowCockman(false)} />
+      )}
+
+      {isNick && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+          <div className="dashboard-section-head">
+            <span className="section-title">
+              <ShieldIcon size={14} className="inline-icon" /> Test mode
+            </span>
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={() => setShowTestMode(!showTestMode)}
+              aria-expanded={showTestMode}
+            >
+              {showTestMode ? "Hide" : "Open"}
+            </button>
+          </div>
+          {showTestMode && (
+            <TestModePanel username={username} onClose={() => setShowTestMode(false)} />
+          )}
+        </div>
       )}
 
       <button className="btn-ghost" onClick={onLogout} style={{ alignSelf: "flex-start" }}>
