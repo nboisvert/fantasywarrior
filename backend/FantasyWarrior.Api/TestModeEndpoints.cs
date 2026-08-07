@@ -9,9 +9,10 @@ namespace FantasyWarrior.Api;
 /// which still describe the CLI job this wraps.
 ///
 /// Gated on <c>username == "nick"</c> rather than left open like every other
-/// endpoint: <see cref="SimAdvanceJob"/> banks weeks permanently and executes
-/// trades for *both* leagues at once, so a stray tap from a pool-mate's phone
-/// is a different order of mistake than a bad lineup edit. This is not real
+/// endpoint: <see cref="SimAdvanceJob"/> banks weeks permanently and lands
+/// accepted trades for *both* leagues at once, so a stray tap from a
+/// pool-mate's phone is a different order of mistake than a bad lineup edit.
+/// This is not real
 /// auth -- the app has none yet -- just a guard against an accidental tap
 /// until the app trusts something stronger than the username the client sends.
 /// Meant to go away with the rest of test mode once the real season starts.
