@@ -19,8 +19,15 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
-    <None Update="appsettings.Local.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('appsettings.Local.json')" />
+    <!-- CopyToPublishDirectory="Never": Jobs is only ever run locally/in CI via
+         `dotnet run` (daily-jobs.yml), never published on its own. Publish-time
+         copy has to be off, though, because FantasyWarrior.Api now references
+         this project (for SimAdvanceJob) and a P2P reference's CopyToOutputDirectory
+         items flow into the referencing project's publish output; without this,
+         `dotnet publish` on the Api collides with its own appsettings.json at the
+         same relative path (NETSDK1152). -->
+    <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Never" />
+    <None Update="appsettings.Local.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Never" Condition="Exists('appsettings.Local.json')" />
   </ItemGroup>
 
 </Project>
