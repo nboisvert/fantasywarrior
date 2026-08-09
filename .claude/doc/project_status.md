@@ -18,18 +18,22 @@
 | Database | Azure SQL serverless, free tier, resource group `fw` |
 | Nightly cron | `daily-jobs.yml` — db-migrate → stats-sync → nightly → player-sync → draft-sync → news-sync |
 
-- **Reference data**: 1 586 players, the full 2025-26 regular season (1 342 games,
-  ~51 k player-game lines, 2025-10-07 → 2026-04-16), contracts scraped from CapWages.
+- **Reference data**: 1 586 players, the full 2025-26 regular season (1 312 games —
+  32 teams × 82, confirmed against the NHL's published schedule — ~51 k
+  player-game lines, 2025-10-07 → 2026-04-16), contracts scraped from CapWages.
 - **Les Mordus** is the live league — join code `TKW6UR`, season `20252026`,
   14 GMs, **404 players plus one NHL franchise each (418 roster spots)**,
   9F/4D/1G active plus the Équipe slot, 23-35 roster, **$134M cap**, scoring
   1/1/2/1/0 (goal/assist/goalie win/OT loss/shutout) and 2/0/1 for the
   franchise (win/loss/OT loss). See [mordus-pool.md](mordus-pool.md).
-- **A season replay is running.** The simulated date is 2025-11-17 (week 7
-  under way; weeks 1-6 banked), restarted from scratch on 2026-08-05 so the
-  Équipe slot scores from week 1. Everything in the app believes it is that
-  day — check `sim-clock` before treating any date-related behaviour as a bug.
-  See [testmode.md](testmode.md).
+- **A season replay is running**, restarted from scratch on 2026-08-05 (join
+  code `TKW6UR`) so the Équipe slot scores from week 1. **The exact simulated
+  date needs reconfirming with `sim-clock`** — testmode.md's journal only logs
+  the replay reaching week 2 under this restart; a later state (week 7,
+  2025-11-17) is on record but likely describes the *previous* replay, before
+  the restart. Everything in the app believes it is whatever day `sim-clock`
+  reports — check it before treating any date-related behaviour as a bug. See
+  [testmode.md](testmode.md).
 
 **Built and working**: player and stats services, leagues/teams/multi-tenancy,
 weekly-lineup scoring with banked points, trades (propose → accept, which

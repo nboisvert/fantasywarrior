@@ -202,7 +202,9 @@ to rebuild and is identical for everyone.
   never be banked again. Fixed; the wipe now un-banks them.
 - **FantasySP returns 403 Forbidden** (2026-08-02) — the site started blocking
   the scraper. Rotowire's two sources still work. `news-sync` logs the status
-  rather than reporting a silent zero.
+  rather than reporting a silent zero. Superseded by a more detailed diagnosis
+  (client fingerprinting, deliberately not chased) — see project_status.md's
+  Open items.
 - **Cloud Run could not reach Azure SQL** (2026-08-02) — it has no stable
   outbound IP, and pinning one needs Cloud NAT at about $32/month. That is why
   the API moved to Azure Container Apps rather than why a firewall rule was

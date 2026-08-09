@@ -163,6 +163,9 @@ Ce qui reste vrai de la crainte initiale : la nullabilité de `PlayerId` s'est p
 
 ## 4. Reste à obtenir de Nick
 
-*(Plus rien de bloquant : la dernière règle manquante, le pointage du slot Équipe, a été tranchée le 2026-08-05 — voir §3.)*
-
-Les salaires actuels de `players` sont estimés (`capHitSource: "estimated"`), pas réels. Le PDF contient la vraie colonne `PSal` par joueur; l'importer donnerait des masses salariales exactes et rendrait le plafond de 115 M significatif. Non fait — les valeurs sont dans les colonnes numériques du PDF, que l'extraction n'apparie pas de façon fiable aux noms (c'est justement le problème d'entremêlement des colonnes qui a rendu nécessaire le découpage par dictionnaire). Faisable si Nick veut un export CSV de PoolExpert.
+*(Rien de bloquant.)* Les deux points encore ouverts au moment d'écrire ce
+paragraphe — salaires estimés plutôt que réels, plafond LNH plutôt que celui
+de la ligue — sont tous les deux réglés depuis : les salaires viennent de
+CapWages depuis le 2026-08-02 (voir [data-model.md](data-model.md)), et le
+plafond est à **134 M$** depuis le 2026-08-05 (§1). La dernière règle
+manquante, le pointage du slot Équipe, a été tranchée le même jour — voir §3.

@@ -69,7 +69,7 @@ Après `sim-clock`, enrichis avec l'API si elle tourne (sinon dis-le simplement)
 
 ```bash
 curl -s http://localhost:5099/api/clock
-curl -s "http://localhost:5099/api/leagues/haPRaAJ3Vo3nqPufYGOM?username=nick"
+curl -s "http://localhost:5099/api/leagues/<code>?username=nick"   # <code> = le join code, ex. TKW6UR
 ```
 
 Rapporte à Nick, en français et brièvement :
@@ -170,7 +170,7 @@ Commit avec le reste du travail, sans le pousser séparément.
 
 | Simulé | Réel |
 |---|---|
-| La journée courante de toute l'app | Le cache joueurs (TTL 10 min) |
+| La journée courante de toute l'app | — |
 | Le pointage hebdomadaire et le banquage | La synchro des nouvelles et sa purge 30 jours |
 | Les verrous d'alignement | `player-sync` (les alignements NHL récupérés) |
 | L'exécution des échanges | |

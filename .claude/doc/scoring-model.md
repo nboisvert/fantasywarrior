@@ -111,7 +111,7 @@ Une fois une semaine banquée, ses points appartiennent définitivement à l'éq
 
 C'est ce qui a permis de supprimer tout le système de compensation (`Adjustment`) : il n'y a plus rien à compenser.
 
-**Corollaire** : changer le barème en cours de saison ne recalcule pas le passé. Le total devient un mélange de deux barèmes — défendable, mais à assumer. La commande `recompute` est la porte de sortie.
+**Corollaire** : changer le barème en cours de saison ne recalcule pas le passé. Le total devient un mélange de deux barèmes — défendable, mais à assumer. La porte de sortie est de dé-banquer puis rejouer (§10) — **pas** une commande `recompute` : elle est citée ici, dans un commentaire de `RosterAssignment.cs` et dans le message d'erreur de `PATCH /api/leagues/{code}/rules`, mais n'existe pas dans `Jobs/Program.cs`. Un job du même nom que `sim-reset` ou `set-league-rules` avant lui.
 
 ### Séries éliminatoires
 **Exclues.** Le filtre `gameType == 2` s'applique partout. C'est une règle, pas un accident.
