@@ -7,9 +7,9 @@ Ce document sert deux fins : la **correspondance entre le vocabulaire du pool ac
 
 ## État
 
-**Ligue recréée sur Azure SQL le 2026-08-05 — code d'accès `P7R9CT`**, saison `20252026`, 14 équipes, **404 joueurs**, commissaire `nick`. Créée par `seed-mordus`, qui vérifie chaque identifiant de joueur avant d'écrire quoi que ce soit et refuse d'écraser une ligue existante du même nom.
+**Ligue recréée sur Azure SQL le 2026-08-05 — code d'accès `TKW6UR`**, saison `20252026`, 14 équipes, **404 joueurs plus une franchise NHL par équipe (418 spots)**, commissaire `nick`. Créée par `seed-mordus`, qui vérifie chaque identifiant de joueur avant d'écrire quoi que ce soit et refuse d'écraser une ligue existante du même nom.
 
-> Historique : créée le 2026-07-31, recréée sur Azure SQL le 2026-08-02 avec 360 joueurs et le code `Q7ZJ4G`. Le 2026-08-05, les 44 entrées non appariées du §2 ont été résolues et la ligue a été refaite au complet (`wipe-pools` puis `seed-mordus`) pour que les rosters reflètent la réalité. Le code d'accès change à chaque re-seed, il est tiré au hasard.
+> Historique : créée le 2026-07-31, recréée sur Azure SQL le 2026-08-02 avec 360 joueurs et le code `Q7ZJ4G`. Le 2026-08-05, les 44 entrées non appariées du §2 ont été résolues et la ligue a été refaite (`wipe-pools` puis `seed-mordus`, code `P7R9CT`) pour que les rosters reflètent la réalité. Le même jour, une deuxième reconstruction a ajouté les 14 slots Équipe (§3) et émis le code actuel, `TKW6UR` — `P7R9CT` ne répond plus. Le code d'accès change à chaque re-seed, il est tiré au hasard.
 
 Les usernames sont le prénom du GM, désambiguïsé par l'initiale du nom en cas de collision (`jonathan` / `jonathanr`). Nicolas Boisvert réutilise son compte existant `nick` plutôt qu'un nouveau `nicolas`, pour que ses deux ligues vivent sous un seul login.
 
@@ -75,26 +75,11 @@ Le registre du §2 est donc vraisemblablement complet, et le découpage des noms
 
 **39 entrées, 44 noms** (l'extraction PDF avait fusionné certaines lignes) n'avaient pas trouvé de correspondance dans `Players`. **Les 44 sont résolus, sans ambiguïté ni intervention manuelle.** La liste vit maintenant dans [`data/unresolved-players.txt`](../../data/unresolved-players.txt) et le job `player-resolve` la traite.
 
-### Pourquoi ils manquaient — le diagnostic de 2026-07-31 était à moitié faux
+### Pourquoi ils manquaient, et comment résolus (résumé)
 
-Ce document affirmait que `PlayerSyncJob` ne les voyait pas parce qu'il ne lit que deux endpoints (alignements d'équipe et listes d'espoirs). C'est vrai, mais ça n'explique que **19 des 44**.
+Le diagnostic initial (`PlayerSyncJob` ne lit que deux endpoints — alignements et listes d'espoirs) n'expliquait que 19 des 44. Les 25 autres étaient déjà dans `Players`, stockés sous forme abrégée (`J. Klingberg`) — la façon dont la LNH publie un joueur entre deux contrats — donc c'était un échec d'appariement à l'import, pas d'ingestion ; 5 de ceux-là étaient de simples variantes d'orthographe (Zack/Zachary, Sam/Samuel, etc.).
 
-**Les 25 autres étaient déjà dans la table depuis le début** — stockés `J. Klingberg`, `R. Smith`, `E. Cowan`, `M. Brandsegg-Nygård`. C'est la forme sous laquelle la LNH publie un joueur entre deux contrats, et c'est l'appariement de l'import qui a échoué, pas l'ingestion. Le `player-sync` relancé le 2026-07-31 « n'en a récupéré aucun » précisément parce qu'il n'y avait rien à récupérer.
-
-Cinq autres ont échoué sur une simple variante d'orthographe : Zack/**Zachary** Bolduc, Sam/**Samuel** Montembeault, Dmitriy/**Dmitri** Simashev, Benjamin/**Ben** Kindel, Axel Sandin Pellikka/**Sandin-Pellikka**.
-
-Restent **19 vrais absents**, qui relèvent bien des deux catégories annoncées : autonomes sans contrat (sur aucun alignement) et repêchés récents (sur aucune liste d'espoirs).
-
-### Comment ils ont été résolus
-
-Le job `player-resolve` (voir [deployment.md](deployment.md)) lit la liste de noms et interroge `https://search.d3.nhle.com/api/v1/search/player`. **Aucun scraping, aucune source tierce** — tout vient de l'API NHL officielle. La piste EliteProspects envisagée un moment n'a pas lieu d'être : les 44 ont tous un identifiant NHL.
-
-Deux pièges, tous deux trouvés par les tests :
-
-- **Chercher le nom complet retourne le mauvais joueur, en silence.** `q=Zack Bolduc` répond Zack **Smith**, `q=Cole Reschny` répond Cole **Brady**. Il faut chercher par nom de famille seul et désambiguïser localement.
-- **`PlayerNameIndex` est le mauvais outil ici.** Son repli par initiale est juste quand une source abrège un joueur qu'on possède déjà, mais quand la question est « ce nom désigne-t-il quelqu'un ? », il résolvait « Marcel Bolduc » vers **Mathieu** Bolduc, seul M. Bolduc parmi sept homonymes. `PlayerSearchMatcher` exige trois caractères communs au prénom, ce qui garde Zack pour Zachary et refuse Marcel pour Mathieu.
-
-L'endpoint tronque aussi à la limite demandée sans le dire : à 50, Jackson Smith et Brady Martin disparaissaient de leur propre nom de famille. La limite est à 500.
+Résolus par `player-resolve` (voir [deployment.md](deployment.md)), qui interroge `https://search.d3.nhle.com/api/v1/search/player` par **nom de famille seul** — aucun scraping, aucune source tierce. Deux pièges trouvés par les tests : chercher un nom complet peut retourner un homonyme en silence (`q=Zack Bolduc` → Zack **Smith**), et `PlayerNameIndex` (repli par initiale) est le mauvais outil pour résoudre un nom inconnu — `PlayerSearchMatcher` (trois caractères communs au prénom) le remplace ici. L'endpoint tronque aussi à la limite demandée sans le dire ; la limite utilisée est 500.
 
 ### Enrichissement
 

@@ -1,7 +1,8 @@
 # Deployment & Operations Runbook
 
 > Everything needed to run Fantasy Warrior live.
-> Last updated: 2026-08-03 — SignalR hub, and why the app is capped at one replica.
+> Last updated: 2026-08-09 — refreshed the test count (`/doc-clean`); the
+> SignalR/one-replica architecture below is unchanged since 2026-08-03.
 
 ## Architecture (live)
 
@@ -129,7 +130,7 @@ Credentials: `backend/FantasyWarrior.{Jobs,Api}/appsettings.Local.json`, or the
 ```powershell
 dotnet run --project backend/FantasyWarrior.Api --no-launch-profile   # :5099
 cd frontend && npm run dev                                            # :5173
-dotnet test FantasyWarrior.slnx                                       # 173 tests
+dotnet test FantasyWarrior.slnx                                       # ~353 tests
 ```
 
 Jobs: `dotnet run --project backend/FantasyWarrior.Jobs -- <job>`. See the

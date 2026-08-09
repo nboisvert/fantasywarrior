@@ -35,6 +35,7 @@ solo on this repo; revisit if collaborators join.
 - **News service** — pulls NHL news into a global `NewsItems` table, not league-scoped. **Personal/non-commercial use only** per both sites' terms: no redistribution, and never scrape Rotowire's subscription-locked "ANALYSIS" content. See [news-integration-guide.md](.claude/doc/news-integration-guide.md).
 - Features are built on Nick's own buddies' pool first, agile and incremental.
 - **Every feature that touches the database ships with mocking-free unit tests for its pure logic** — proactively, not only live-verified.
+- **Doc coherence** — run `/doc-clean` when the docs feel stale or contradictory. It cross-checks `.claude/doc/*.md` against the code (the code always wins) and archives the old part of `project_status.md`'s decisions log into [decisions-archive.md](.claude/doc/decisions-archive.md). See the `doc-cleaner` skill.
 
 ## Reference docs
 

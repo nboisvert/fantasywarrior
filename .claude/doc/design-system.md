@@ -51,8 +51,8 @@ Rayons de 12 à 16 px. Transitions de 150 à 300 ms, et **uniquement** sur
 ## Mise en page
 
 Mobile d'abord, contenu à 680 px de large maximum. Barre de navigation basse
-fixe à 64 px + `env(safe-area-inset-bottom)`, **4 onglets** : Dashboard (défaut),
-Standings, Team, Trades — les réglages vivent dans un bouton-icône de la barre
+fixe à 64 px + `env(safe-area-inset-bottom)`, **4 onglets** : GM Office (défaut,
+clé interne `dashboard`), Standings, Team, Trades — les réglages vivent dans un bouton-icône de la barre
 du haut, pas dans la navigation. Le rembourrage bas du contenu doit dégager la
 navigation.
 

@@ -1,7 +1,7 @@
 # Fantasy Warrior — Project Status
 
 > **Read at the start of every session, and keep updated along the way.**
-> Last updated: 2026-08-05.
+> Last updated: 2026-08-09.
 >
 > This file holds the **current state and the decisions behind it**. It is not a
 > changelog — `git log` is, and the commit messages in this repo are detailed.
@@ -20,19 +20,16 @@
 
 - **Reference data**: 1 586 players, the full 2025-26 regular season (1 342 games,
   ~51 k player-game lines, 2025-10-07 → 2026-04-16), contracts scraped from CapWages.
-- **Les Mordus** is the live league — join code `P7R9CT`, season `20252026`,
-  14 GMs, **404 players plus one NHL franchise each**, 9F/4D/1G active plus the
-  Équipe slot, 23-35 roster, **$134M cap**, scoring 1/1/2/1/0
-  (goal/assist/goalie win/OT loss/shutout) and 2/0/1 for the franchise
-  (win/loss/OT loss). See [mordus-pool.md](mordus-pool.md). Rebuilt 2026-08-05
-  once the import's 44 unmatched entries were resolved, so the rosters now match
-  reality.
+- **Les Mordus** is the live league — join code `TKW6UR`, season `20252026`,
+  14 GMs, **404 players plus one NHL franchise each (418 roster spots)**,
+  9F/4D/1G active plus the Équipe slot, 23-35 roster, **$134M cap**, scoring
+  1/1/2/1/0 (goal/assist/goalie win/OT loss/shutout) and 2/0/1 for the
+  franchise (win/loss/OT loss). See [mordus-pool.md](mordus-pool.md).
 - **A season replay is running.** The simulated date is 2025-11-17 (week 7
   under way; weeks 1-6 banked), restarted from scratch on 2026-08-05 so the
-  Équipe slot scores from week 1. **Join code `TKW6UR`** — the wipe-and-reseed
-  issues a new one, and the old `P7R9CT` no longer resolves.
-  Everything in the app believes it is that day — check `sim-clock` before
-  treating any date-related behaviour as a bug. See [testmode.md](testmode.md).
+  Équipe slot scores from week 1. Everything in the app believes it is that
+  day — check `sim-clock` before treating any date-related behaviour as a bug.
+  See [testmode.md](testmode.md).
 
 **Built and working**: player and stats services, leagues/teams/multi-tenancy,
 weekly-lineup scoring with banked points, trades (propose → accept, which
@@ -61,7 +58,9 @@ screens, the news ticker, per-player news and injury status.
 ## Decisions log
 
 Newest first. Each line is a decision that is still in force, with the reason it
-was taken — not a record of what changed.
+was taken — not a record of what changed. **Only the last ~5 days live here** —
+older entries (back to 2026-07-22) are in
+[decisions-archive.md](decisions-archive.md), same format, nothing dropped.
 
 ### Architecture
 
@@ -75,99 +74,17 @@ was taken — not a record of what changed.
   stronger. Meant to be removed with the rest of test mode once the real
   season starts. `FantasyWarrior.Api` now references `FantasyWarrior.Jobs` to
   reach `SimAdvanceJob` directly rather than shelling out.
-- **2026-08-03 — SignalR does exactly two things**: tell a league who is online,
-  and deliver private messages. Polling was cheaper and was rejected — presence
-  and event pop-ups both need a push. The cost is real, since a WebSocket is a
-  request that never ends and the API cannot scale to zero while one is open,
-  so the *client* owns the budget: connect while a league is loaded and the tab
-  is visible, drop 60 s after it is hidden, stop on `pagehide`. Billing is per
-  replica-second, not per connection, so fourteen GMs at once cost what one
-  does; what costs money is a forgotten tab, and `visibilitychange` is the whole
-  lever.
-- **2026-08-03 — No idle timeout, no activity tracking.** A first version
-  dropped the socket after 3 min without a pointerdown/keydown/scroll. SignalR
-  keeps its own connection alive with pings, so that was never about staying
-  connected — it was a budget mechanism grafted onto the connection lifecycle,
-  and it was the root of most of this feature's complexity: listeners on scroll,
-  "the normal state is disconnected" leaking into unrelated decisions, and a
-  retry path with no backoff that could hammer `/hubs/live/negotiate` once per
-  scroll event against a cold API. `visibilitychange` alone covers the case that
-  actually costs money.
-- **2026-08-03 — `PresenceService` owns who is online, and never touches SQL.**
-  It is keyed by league and refcounted by connection, so a GM with the app on
-  his phone and his laptop does not go dark when he closes one. A disconnect is
-  now pure memory plus one send — measured at 0 queries, against 2 on connect
-  which are unavoidable (username → id, join code → id). It lives in
-  `FantasyWarrior.Core` rather than beside the hub because it contains no
-  SignalR at all, and Core is the project whose tests actually run in CI.
-- **2026-08-03 — The Container App is capped at one replica.** Not a budget
-  decision: the hub's connection groups and `PresenceRegistry` are both
-  per-process, so a second replica would silently drop messages between GMs
-  split across the two and report half the league offline. Going wider needs a
-  backplane and a shared presence store, not a bigger number.
-- **2026-08-03 — Presence is broadcast as a roster, never as a delta.** The
-  first cut pushed "nick just arrived", which the league could apply but which
-  told *nick* nothing about the five people already there — his own counter read
-  zero until some REST call happened to seed it. The whole league now travels in
-  one payload on every connect and disconnect: a few hundred bytes for fourteen
-  GMs, it reaches the arriving client through the same group as everyone else,
-  and it is idempotent, so a missed event is repaired by the next one instead of
-  leaving a dot stuck. `PresenceRoster.ForLeagueAsync` is the single builder,
-  used by both the push and the REST fetch, so the two cannot answer differently.
-- **2026-08-03 — Online means one thing: a live connection.** There is no
-  "recently active so probably still around" window. The earlier version had a
-  90-second one, and it cost far more than it bought: the offline announcement
-  had to be delayed past it, which forced a detached timer with its own DI
-  scope, which then disagreed with the very window it was built around. One
-  predicate deletes that whole class of bug, and since the client only holds a
-  connection while the app is actually being used, "connected" and "here" mean
-  the same thing anyway. `LastSeenUtc` survives to word the label for people who
-  are *not* online; it never decides the dot.
-- **2026-08-03 — Presence is still passive underneath.** No heartbeat: a
-  middleware stamps `User.LastSeenUtc` from ordinary traffic, throttled to one
-  write a minute per user.
-- **2026-08-02 — Firestore → Azure SQL + EF Core.** Most of the backend's
-  remaining complexity existed only to dodge Firestore's 50 000 reads/day free
-  tier: a season-stats cache with its own invalidation rules, twelve
-  denormalised columns on `Teams`, a hand-maintained `score = finalizedScore +
-  periodPoints` invariant. In SQL those are a `GROUP BY`, some joins and a
-  `SUM()`. The UI did not change by a line — every API response stayed identical
-  field for field. See [data-model.md](data-model.md).
-- **2026-08-02 — Cloud Run → Azure Container Apps.** Cloud Run has no stable
-  outbound IP, so it could never be allowed through the Azure SQL firewall
-  without paying ~$32/month for Cloud NAT. Container Apps environments have
-  stable outbound IPs, so the firewall rule is derived by the deploy workflow
-  rather than maintained by hand.
-- **2026-08-02 — No registry credentials on the Container App.** `GITHUB_TOKEN`
-  expires when the workflow run ends, and an app with stored credentials never
-  falls back to an anonymous pull — so a dead token 401s even on a public image,
-  hours after a green deploy. The ghcr package is public; the deploy asserts
-  `/health` instead of only printing it.
-- **2026-08-02 — Salaries come from CapWages, scraped.** PuckPedia is the gold
-  source but its data API is private and paid. CapWages embeds the figures in
-  Next.js `__NEXT_DATA__` JSON with an `nhlId` for exact joins. Contracts live in
-  their own `PlayerContracts` table rather than a column on `Player`, because
-  they change every year and the old column needed hand-written merge-field
-  protection to survive a player sync.
-- **2026-07-22 — Auth deliberately bypassed.** Login is username-only and the API
-  trusts the client, so the UI and league schema could be built first. This is
-  now the single biggest open risk (see below).
 
 ### Scoring
 
-- **2026-07-31 — Weekly lineups with permanently banked points**, replacing the
-  season-cumulative model. The old design recomputed every player's whole season
-  nightly, auto-selected a top-X per position, and wrote a compensating ledger
-  entry on every transaction so totals wouldn't jump — three mechanisms fighting
-  to produce a number nobody could explain, at ~90 000 Firestore reads a night
-  against a 50 000/day tier. Because a week's points are now banked when it
-  closes, **a trade can never move history**, and the entire compensation
-  apparatus became meaningless and was deleted. [scoring-model.md](scoring-model.md)
-  is authoritative.
-- **2026-08-02 — Cap hit is shown for the season being displayed**, not the
-  newest contract on file. Contracts run years ahead (Jack Eichel is $10M in
-  2025-26 and $13.5M from 2026-27), so taking the latest made the player card
-  disagree with the Team grid about the same player — and the grid was right.
+- **2026-08-07 — Next week's lineup is written, not previewed.** The endpoint
+  used to compute what the carry-forward *would* pick and never store it,
+  because the rows only appeared when the scoring pass reached the week — by
+  which time it was locked, and the "preview" had never been anyone's choice.
+  `WeekAheadJob` writes them every night, fills in what is missing and rewrites
+  nothing, so the forgotten-lineup rule is data rather than a guess and a trade
+  can edit next week's lineup like anything else. `setBy: "auto"` is now a
+  stored value.
 - **2026-08-05 — The "Équipe" slot is a roster spot, not a column.** Every GM in
   Les Mordus owns one NHL franchise for life; it now banks its own record — 2
   per win, 1 per overtime loss here, priced per league through
@@ -187,14 +104,6 @@ was taken — not a record of what changed.
   `Teams.FranchiseAbbrev` stays: it is the team's identity and never moves,
   while the spot is the asset a trade can carry. The two start equal and are
   meant to be able to diverge.
-- **2026-08-07 — Next week's lineup is written, not previewed.** The endpoint
-  used to compute what the carry-forward *would* pick and never store it,
-  because the rows only appeared when the scoring pass reached the week — by
-  which time it was locked, and the "preview" had never been anyone's choice.
-  `WeekAheadJob` writes them every night, fills in what is missing and rewrites
-  nothing, so the forgotten-lineup rule is data rather than a guess and a trade
-  can edit next week's lineup like anything else. `setBy: "auto"` is now a
-  stored value.
 
 ### UI
 
@@ -230,32 +139,6 @@ was taken — not a record of what changed.
   `GET /free-agents` accordingly lost its `period` parameter and now aggregates
   the season in SQL (tens of thousands of game lines, none wanted individually),
   bounded to the simulated day like every other season total.
-- **2026-08-02 — GM Office's dashboard replaced "League News" with "Top
-  Reserve" and "Top Free Agents".** Two leaderboard card grids: the viewer's
-  currently-benched players ranked by what they scored last week, and
-  league-wide unrostered players ranked by fantasy points under the league's
-  own scale — which is what lets a goalie's wins/saves compete with a
-  skater's goals/assists for a spot. New `GET /free-agents` endpoint; Top
-  Reserve needed no new endpoint, just two `lineup` calls joined on `spotId`.
-- **2026-08-02 — The Team screen shows a second grid for departed players.** A
-  team keeps whatever a player banked for it, so the standings figure is not
-  explained by the current roster alone. Both grids share one `RosterGrid`
-  component: 21 columns and a derived footer duplicated would drift silently,
-  and this table changes often.
-- **2026-07-26 — The Roster screen was retired.** Its player list duplicated what
-  the Team/Stats grids already showed; only its cap-gauge detail was unique, so
-  that moved into Team as a collapsible section. Same reasoning as the
-  no-duplicate-destinations rule.
-- **2026-07-23 — Position display is standardised to F/D/G everywhere**, with
-  exactly two visual patterns (pill or bare coloured letter) chosen by data
-  density. Display-only: the raw NHL position code stays in the data. An audit
-  found the rule was being broken in 4 of 8 places before it was written down.
-- **2026-07-23 — Ask before building any player-row list** (how many lines, name
-  truncation, what sits on the right). Several rounds were spent guessing this
-  per screen; screens intentionally differ.
-- **2026-07-22 — Never two destinations to the same place on one screen.**
-- **2026-07-22 — Dashboard is the default tab**, Settings lives in a topbar icon
-  rather than the bottom nav, which freed the slot for Trades.
 
 ### Trades
 
@@ -281,57 +164,9 @@ was taken — not a record of what changed.
   they cannot drift from each other. That costs `vStandings` a `Today` CTE
   reading `SimulationState` — the first date logic in any view here — because
   the displayed cap must keep counting only the spots active today (Nick).
-- **2026-08-03 — The cap is enforced against *engaged* figures, not the
-  standings.** An accepted trade is irreversible and lands at the next week
-  boundary, but the standings figure describes today's roster. Validating
-  against it would let a GM accept a $9M contract in the morning and bust the
-  cap in the afternoon, each trade looking fine on its own. This is still true;
-  only where the engaged figure comes from has changed (see above). It remains
-  **derived rather than a `TradeEngaged` flag**: an aggregate over honest dates
-  cannot drift, whereas a flag nobody cleared freezes a player forever,
-  silently. Same reasoning as the cockcoin ledger.
-- **2026-08-03 — Accepted trades lock their assets; pending ones do not.**
-  Shopping the same player to three GMs is normal and only one offer can ever be
-  accepted — the others are refused at that moment. Once accepted, re-offering
-  the same player would otherwise blow up inside the nightly job at 09:30 UTC
-  rather than at the proposal.
-- **2026-08-03 — Validation runs at propose *and* accept**, through one shared
-  helper. Rosters move in between, and accepting is the last moment anyone can
-  be told. Execution is deliberately not a third checkpoint: refusing there
-  would need a new terminal status for a trade both GMs already agreed to.
-- **2026-08-03 — A player with no contract counts as $0 and is reported.** 16 of
-  701 active NHL players have no salary on file. We cannot validate what we do
-  not know, so the count of unknowns is shown next to the figure instead of
-  being quietly folded into it.
-- **2026-07-23 — Acceptance does not execute the trade.** It sits `accepted`
-  until the nightly job swaps the rosters, so a day's score is always computed on
-  that day's rosters before any trade takes effect.
-- **2026-07-23 — `cancelled` is distinct from `declined`.** The proposer
-  withdrawing and the counterparty rejecting are different events; the status
-  alone communicates who acted, with no extra field.
-- **2026-07-23 — Pending, declined and cancelled trades are private** to the two
-  teams involved. Accepted and processed trades are public to the league.
-- **2026-07-23 — Trade votes record which team was favoured**
-  (`FavoredTeamId` + magnitude), not a proposer-relative 1-5 scale. A "which GM
-  wins their trades most" rollup can then aggregate across trades without
-  knowing each trade's roles.
 
 ### Product
 
-- **2026-08-03 — Direct messages are 1-to-1 and scoped to a league**, not a
-  league-wide room. Threads are per pool because the context of a conversation
-  *is* the pool, and it keeps the contact list trivially correct — it is the
-  league's membership, never a union across pools. There is no `Conversations`
-  table: a thread is just the messages between two users, read both ways.
-- **2026-08-03 — The chat sheet is inside the Night Arena theme**, which is the
-  exact opposite of the Cockman rule below and for the same reason. Cockman
-  clashes because it plays a bolted-on third-party widget; this is a native
-  screen and has to read as one.
-- **2026-07-27 — Merge feature branches straight to `main`** while Nick is solo.
-- **2026-07-27 — Garry Cockman clashes with the theme on purpose.** The mascot
-  chat is a UI mock with literal hex values, a light corporate palette and a
-  system font stack, so it reads as a real embedded third-party helpdesk widget
-  bolted onto the app. No backend. See [cockman-concept.md](cockman-concept.md).
 - **2026-08-05 — A player with no contract stops being free.** Both cap views
   counted him at $0, which treats "no contract" as a data gap to wait out. It is
   not: an unsigned free agent and an undrafted prospect are permanent states, and
@@ -397,12 +232,6 @@ was taken — not a record of what changed.
   him, and letting one site's silence resolve the other's report is how a flag
   starts lying. Where two sources report the same man, the API shows the one
   reported first — its "hurt since" date is the true one.
-- **2026-07-28 — News is not league-scoped.** The ticker's news half is a generic
-  NHL feed; only trades are league-scoped. Roster-move items were removed from
-  the ticker in the same change.
-- **2026-07-22 — UI in English only.**
-- **2026-07-22 — The draft happens outside the app for 2026-27.** A live
-  interactive draft targets 2027-28.
 
 ## Open items
 
