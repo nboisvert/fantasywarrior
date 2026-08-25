@@ -738,7 +738,7 @@ function RosterGrid({
                       column is already proven to stick, at the exact width
                       `--stats-player-w` gives every other row. */}
                   <td className="stats-col-player stats-prospect-label-cell">
-                    Prospects
+                    <div className="stats-col-player-inner">Prospects</div>
                   </td>
                   <td colSpan={21} />
                 </tr>
@@ -760,6 +760,7 @@ function RosterGrid({
                 }
               >
                 <td className="stats-col-player">
+                <div className="stats-col-player-inner">
                   {/* The franchise's logo sits where a player's active/bench
                       control does — not a button, because there is nothing to
                       decide: one franchise, one seat, always in the lineup. */}
@@ -815,6 +816,7 @@ function RosterGrid({
                   <span className={`stats-player-pos pos-compact-${posGroupClass(r.position)}`}>
                     {posGroup(r.position)}
                   </span>
+                </div>
                 </td>
                 {/* A franchise has none of these. It scored, so PTS is real;
                     everything else is a dash rather than a zero, which would
@@ -862,7 +864,7 @@ function RosterGrid({
           <tfoot>
             <tr>
               <th className="stats-col-player" scope="row">
-                Total
+                <div className="stats-col-player-inner">Total</div>
               </th>
               <td className="accent stats-group-start">{poolGp}</td>
               <td className="accent">{poolGoalsTotal}</td>

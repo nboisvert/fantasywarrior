@@ -138,6 +138,33 @@ mécanisme sticky quand un autre marche déjà dans le même tableau — voir
 « Prospects » ci-dessous, qui réutilise `.stats-col-player` au lieu d'un
 `position: sticky` maison.
 
+**`.stats-col-player` ne doit jamais porter `display: flex` (2026-08-25).**
+Nick l'a repéré zoomé sur son téléphone : un fin liseré vertical entre les
+bordures de rangée de la colonne collante et celles des colonnes chiffrées.
+Mesuré en direct (un décodeur PNG écrit à la main, `System.Drawing` ayant
+refusé de répondre ce jour-là) : les bordures de la colonne du nom
+atterrissaient 1 à 3 px plus haut que celles du reste de la rangée — sous 1 px
+CSS une fois ramené à la densité de l'écran, donc invisible à l'œil nu, mais
+bien réel au zoom. Un `<td>` en `display: flex` **sort de l'algorithme de
+suivi des colonnes du tableau** (déjà noté plus haut pour l'en-tête, mais la
+portée était sous-estimée) : chaque cellule de la colonne se met alors à
+arrondir sa propre hauteur indépendamment sous `border-collapse`, au lieu de
+partager la hauteur véritable de sa rangée avec ses voisines.
+
+Le correctif retire `display: flex` de `.stats-col-player` lui-même — qui
+redevient une cellule de tableau ordinaire — et déplace la mise en page flex
+(icône-ou-espace réservé, nom, bouton calendrier, pastille de position) sur
+un `<div className="stats-col-player-inner">` à l'intérieur. C'est exactement
+le principe que l'en-tête `rowSpan={2}` appliquait déjà (« le bouton fournit
+sa propre mise en page interne, la cellule n'a pas besoin de l'être ») —
+étendu maintenant à chaque cellule collante : la rangée de joueur, la rangée
+« Prospects » et le pied « Total ». La surcharge `display: table-cell` du
+thead est devenue inutile et a été retirée ; il ne reste que le
+`vertical-align: middle` qui centre « Player » sur les deux rangées d'en-tête
+fusionnées. Vérifié après coup sur les 34 rangées de la page : écart de
+**0 px exactement** entre chaque cellule collante et sa voisine, contre
+0,5-1 px avant.
+
 **Zone prospect, en bas de la grille Team (2026-08-25).** Les joueurs sans aucun
 match de carrière LNH (règle et provenance dans
 [data-model.md](data-model.md)) sont épinglés **sous** le roster, dans un ordre

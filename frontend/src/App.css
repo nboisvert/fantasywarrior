@@ -1771,18 +1771,13 @@
   background: rgba(56, 189, 248, 0.14);
 }
 
-/* The rowSpan=2 Player header must stay a genuine table-cell — overriding
-   `display` to flex (as .stats-col-player does for the tbody/name+pos row)
-   makes the browser drop it out of the table's column-tracking algorithm,
-   which throws off colSpan alignment on the group-label row above it and
-   defeats the rowSpan merge visually. The button inside already provides its
-   own inline-flex layout for the label+chevron, so the cell itself doesn't
-   need to be a flex container. Its border-bottom (from `.stats-group-row th`
-   above) renders at the true bottom of the cell — i.e. after both header
-   rows, same as every other header cell — so it reads as one merged cell,
-   not two stacked ones. */
+/* Only vertical-align is special here now: the Player header's `rowSpan={2}`
+   needs its content centred across both header rows' combined height, not
+   just the first one. (This cell used to also need forcing back to
+   `display: table-cell` — the tbody/tfoot cells were still `display: flex`
+   directly on the `<td>` at the time, which is exactly the bug fixed above;
+   now that none of them are, this rule has nothing left to override.) */
 .stats-grid thead th.stats-col-player {
-  display: table-cell;
   vertical-align: middle;
 }
 
@@ -1844,13 +1839,19 @@
    columns scroll under it, common data-grid pattern on narrow screens. Needs
    an opaque background matching the row so scrolled-under cells don't show
    through, and a z-index above the rest of the (unpositioned) row cells. */
+/* A genuine table-cell — never `display: flex` here (Nick, 2026-08-25: he
+   could see it, zoomed in on his phone, as a hairline vertical gap between
+   the sticky column's row borders and the scrollable columns' own). A flexed
+   `<td>` drops out of the table's column-tracking algorithm, and every row's
+   sticky cell was independently rounding its own height under
+   `border-collapse` instead of sharing the row's one true height with its
+   siblings — a sub-pixel disagreement, but a real and visible one at zoom.
+   `.stats-col-player-inner` carries the flex layout instead, the same way
+   the thead button below already did before this fix existed. */
 .stats-col-player {
   position: sticky;
   left: 0;
   z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
   text-align: left;
   min-width: 9.5rem;
   /* Forces every grid's sticky column to the one width `useSharedPlayerColumnWidth`
@@ -1863,6 +1864,17 @@
      true content width in the first place. */
   width: var(--stats-player-w);
   background: var(--bg-elevated);
+}
+
+/* The flex layout itself — icon-or-spacer, name, calendar button, position
+   pill — lives on this inner wrapper, not on the `<td>`/`<th>` (see the
+   comment above). `height: 100%` is what keeps `align-items: center`
+   meaningful once the cell's own height is no longer flex-negotiated. */
+.stats-col-player-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  height: 100%;
 }
 
 .stats-grid thead .stats-col-player {
