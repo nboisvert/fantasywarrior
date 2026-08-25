@@ -84,11 +84,37 @@ older entries (back to 2026-07-22) are in
   change is explicitly never allowed to restate. For 5,434 rows (≈14k a full
   season, both leagues) against 50k game lines, there was no pressure to relieve.
   The fix is one `WHERE p.Season = l.Season` in each of the two views. Points
-  reset because the filter moves. **Two columns, two questions**: `League.Season`
-  answers "whose points count" and advancing it *is* the reset;
-  `League.Phase` answers "what is allowed right now" — which no date can derive,
-  unlike `Period`, whose status is deliberately not stored. Design in
+  reset because the filter moves. Design in
   [season-lifecycle.md](season-lifecycle.md).
+
+- **2026-08-25 — Three different things are called "season", and only one of
+  them wants a table.** Nick asked what `League.Season` actually is and whether
+  it should be a table; the question was right and it split into three.
+  **(A)** the NHL season, `"20262027"` — the NHL's own identifier, same argument
+  as `Player.PlayerId`, so it stays a value: a `Seasons` table would carry no
+  attribute the string lacks, would put a foreign key on ~50k
+  `PlayerGameStats` rows for nothing, and the one thing it would be asked —
+  succession — is a pure function. What is missing there is a `Season` helper in
+  Core, not a table: the string surgery is currently repeated in four places
+  (`CurrentSeason()`, the draft-year `[..4] + 1`, three hardcoded defaults, and
+  the frontend's `formatSeason`), and the column is free text, so `"2025-2026"`
+  would create a phantom season in silence.
+  **(B)** the league's own season — "Les Mordus, saison 4". **This is the table**,
+  `LeagueSeasons(LeagueId, Season, Number, Phase, ChampionTeamId)`, and it does
+  not exist at all today even though the source PDF is titled *"Classement
+  Mordus pool a vie **saison 3**"* — the pool has counted its own seasons for
+  three years. It turns the rollover into an insert rather than an overwrite of
+  `League.Season` (which would destroy the record the league ever played
+  2025-26), and it is the only place a champion can be written.
+  **(C)** the draft year, `2026` — derived from (A), never stored twice: the
+  draft is named for the summer it is held in, the season for the two years it
+  spans, and the 2026 draft stocks `"20262027"`. `DraftPicksInitJob` already
+  computes exactly this; nothing says so, so every reader re-derives it.
+  **Correction to the same day's earlier entry**: `Phase` belongs on the
+  `LeagueSeason` row, not on `League` — "the league is drafting" cannot say
+  *for which season*. Each row walks `Preparing → Protecting → Drafting →
+  PreSeason → InSeason → Complete`, exactly one row per league is not
+  `Complete`, and the off-season phases belong to the season being **prepared**.
 
 - **2026-08-25 — The measurement is stored, the verdict stays derived.**
   Off-season protection needs to know who has too few NHL games to be draftable.

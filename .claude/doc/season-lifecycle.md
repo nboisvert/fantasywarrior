@@ -1,120 +1,228 @@
-# Cycle de vie d'une saison — conception
+# Le concept de saison, et le cycle de vie d'une saison
 
-> **Statut : conception, rien n'est construit.** Aucune colonne `Phase`
-> n'existe, aucune transition n'est codée. Ce document fixe la forme avant
-> qu'on écrive la première ligne, parce que la première version envisagée
-> effaçait des données irrécupérables (§4).
+> **Statut : conception, rien n'est construit.** Aucune table `LeagueSeasons`,
+> aucune colonne `Phase`, aucune transition. Ce document fixe la forme avant
+> qu'on écrive la première ligne.
 >
-> Idée de Nick, 2026-08-25. À faire vivre : quand une phase est construite,
-> elle passe de « proposé » à « fait » ici même.
-
-## Le problème
-
-L'app n'a **jamais franchi une frontière de saison**. Les Mordus est pourtant
-un pool keeper : les rosters se reportent, les points repartent à zéro, et
-entre les deux se tient un repêchage avec protections et vols
-([scoring-model.md](scoring-model.md) §11).
-
-Deux choses manquent, et ce sont deux choses **différentes** :
-
-1. **« Les points de quelle saison comptent ? »** — aujourd'hui personne ne
-   pose la question. `vStandings` et `vRosterSpotTotals` somment *toutes* les
-   `RosterAssignments` d'une équipe depuis toujours. Au premier jour de
-   2026-27, le classement afficherait encore les points de 2025-26.
-2. **« Qu'est-ce que l'app permet en ce moment ? »** — les échanges sont-ils
-   ouverts, la fenêtre de protection est-elle fermée, le repêchage roule-t-il.
-   Rien de tout ça ne se lit dans un calendrier ; c'est une décision que
-   quelqu'un prend.
+> Idée de Nick, 2026-08-25 ; modélisation reprise le même jour après sa
+> question — « c'est une seule colonne sur ligue ? quelle est sa valeur ? ça
+> prendrait pas une table ? on entame quelle saison, 2026 ou 2027 ? ». Elle
+> était juste : §1 remplace ce que la première version de ce document disait.
+>
+> À faire vivre : quand une phase est construite, elle passe de « proposé » à
+> « fait » ici même.
 
 ---
 
-## 1. Deux colonnes, deux questions
+## 1. Trois choses s'appellent « saison »
 
-| Colonne | Répond à | L'avancer fait quoi |
-|---|---|---|
-| **`Leagues.Season`** (existe déjà) | Les points de quelle saison comptent | **C'est la remise à zéro.** Une écriture, réversible. |
-| **`Leagues.Phase`** (à créer) | Ce que l'app permet en ce moment | Ouvre et ferme des mécanismes |
+C'est là qu'est le problème de modélisation, et c'est pour ça que « 2026 ou
+2027 ? » n'a pas de bonne réponse aujourd'hui : la question porte sur deux
+identifiants différents qu'on appelle du même nom.
 
-Les séparer est le cœur de la conception. Fondues en une seule, on ne pourrait
-plus afficher le classement final de la saison écoulée pendant l'entre-saison —
-c'est-à-dire précisément au moment où les DG le regardent le plus.
+| | Quoi | Portée | Aujourd'hui |
+|---|---|---|---|
+| **A. La saison LNH** | `"20262027"` | **Globale** — un fait sur la LNH | Une chaîne de 8 caractères sur 7 entités |
+| **B. La saison de la ligue** | « Les Mordus, saison 4 » | **Par ligue** | **N'existe pas** |
+| **C. L'année de repêchage** | `2026` | Par ligue | `DraftPick.Year`, sans que rien ne dise ce que le nombre veut dire |
 
-### Pourquoi une colonne `Phase` alors que `Period` s'en passe
+Le PDF source des Mordus s'intitule **« Classement Mordus pool a vie saison
+3 »**. Le pool compte ses propres saisons depuis toujours — c'est son
+vocabulaire — et l'app n'a aucun endroit où l'écrire.
 
-`Period` dit explicitement qu'il n'a **aucune colonne de statut** : à venir /
-en cours / terminée se dérivent des dates et ne feraient que diverger si on les
-stockait. Le même raisonnement s'applique ici — mais seulement à moitié.
+### La réponse en une phrase
 
-- **« La saison se joue-t-elle ? »** *est* dérivable : aujourd'hui tombe-t-il
-  dans une `Period` de `League.Season`.
-- **« Où en est-on dans le programme d'entre-saison ? »** ne l'est pas. La
-  fenêtre de protection ferme quand le commissaire le décide, pas à une date
-  que le calendrier LNH connaît. Le repêchage commence quand 14 personnes sont
-  disponibles un mardi soir.
-
-`Phase` porte donc la deuxième moitié, celle qu'aucune date ne peut répondre.
-La première moitié reste dérivée, et les deux doivent s'accorder — voir §5.
+**A reste une valeur, B devient une table, C se dérive de A.**
 
 ---
 
-## 2. Les phases
+## 2. A — la saison LNH : une valeur, pas une table
+
+`"20262027"` : quatre chiffres pour l'année de départ, quatre pour l'année de
+fin. C'est **l'identifiant de la LNH elle-même**, celui que ses propres API
+renvoient. Même argument que `Player.PlayerId`, qui est l'id LNH et non une
+colonne identity : stable, globalement unique, et déjà présent dans toutes les
+charges utiles qu'on ingère.
+
+Elle est portée par : `Games`, `PlayerGameStats`, `PlayerContracts`,
+`PlayerCareerSeasonStats`, `Periods`, `SimulationState`, `Leagues`.
+
+**Pas de table `Seasons`.** Elle ne porterait aucun attribut que la chaîne ne
+donne déjà, elle imposerait une clé étrangère sur ~50 000 lignes de
+`PlayerGameStats` pour rien, et la seule chose qu'on lui demanderait — la
+succession — est une fonction pure.
+
+### Ce qui manque : un helper, pas une table
+
+La chirurgie de chaîne est aujourd'hui éparpillée, et chaque endroit la refait :
+
+| Où | Ce qu'il fait |
+|---|---|
+| `Jobs/Program.cs:99` `CurrentSeason()` | `$"{start}{start + 1}"`, bascule en septembre |
+| `Jobs/Program.cs:219` | `int.Parse(CurrentSeason()[..4]) + 1` pour l'année de repêchage |
+| `Jobs/Program.cs` ×3 | `"20252026"` en dur comme valeur par défaut |
+| `PlayerCard.tsx:207` `formatSeason` | `slice(0,4)` + `slice(6)` → `"2025-26"` |
+
+Un `FantasyWarrior.Core/Seasons/Season.cs`, pur et testé, les remplace tous :
+
+```csharp
+public static class Season
+{
+    public static bool   IsValid(string s);        // 8 chiffres, seconde moitié = première + 1
+    public static int    StartYear(string s);      // "20262027" -> 2026
+    public static int    EndYear(string s);        // -> 2027
+    public static string Next(string s);           // -> "20272028"
+    public static string Previous(string s);
+    public static string FromStartYear(int y);     // 2026 -> "20262027"
+    public static string CurrentOn(DateOnly today);// bascule en septembre
+    public static string Display(string s);        // -> "2026-27"
+}
+```
+
+`IsValid` mérite d'exister : la saison est aujourd'hui du texte libre, donc
+`"2025-2026"` ou `"20252026 "` créerait une saison fantôme en silence, sans
+qu'aucune contrainte ne s'y oppose.
+
+---
+
+## 3. C — l'année de repêchage : « 2026 ou 2027 ? »
+
+Les deux, et c'est bien le problème. Ce sont deux nombres différents pour deux
+choses différentes :
 
 ```
-InSeason ──(dernière semaine banquée)──> OffSeason
-                                             │
-                                             ▼
-                                        Protecting ──(verrouillage)──> Drafting
-                                                                          │
-                                                                          ▼
-                                    InSeason <──(Season++)── PreSeason <──┘
+été 2026 ──── le repêchage de 2026 ──── saison LNH 2026-27
+             DraftPick.Year = 2026      Season = "20262027"
+             LeagueSeason  n° 4
 ```
 
-| Phase | Ce qui est ouvert | Ce qui est fermé |
+**Le repêchage est nommé par l'année où il se tient ; la saison par les deux
+années qu'elle chevauche.** Le repêchage de 2026 garnit la saison `20262027`.
+`DraftPicksInitJob` fait déjà exactement ça — `CurrentSeason()[..4] + 1` vaut
+2026 pendant `20252026` — mais aucun commentaire ne le dit, donc chaque lecteur
+doit le redériver et peut se tromper.
+
+C'est donc `Season.StartYear(s)`, rien de plus. Ce qu'il faut n'est pas une
+colonne de plus mais une phrase dans `DraftPick` : *« l'année civile où le
+repêchage se tient ; il garnit la saison `Season.FromStartYear(Year)` »*.
+
+---
+
+## 4. B — la saison de la ligue : voilà la table
+
+C'est la réponse à « ça prendrait pas une table ? ». Oui — mais pour la saison
+**de la ligue**, pas pour celle de la LNH.
+
+```
+LeagueSeasons
+  LeagueSeasonId
+  LeagueId          FK
+  Season            "20262027" — la saison LNH qu'elle joue
+  Number            4 — le compte de la ligue, celui du PDF
+  Phase             tinyint, voir §5
+  ChampionTeamId    FK null — écrit à la complétion
+  StartedUtc, CompletedUtc
+  UNIQUE (LeagueId, Season)
+  UNIQUE (LeagueId, Number)
+```
+
+Et `Leagues.Season` **reste**, comme clé étrangère vers la ligne courante via
+`(LeagueId, Season)`. Ce n'est pas une dénormalisation : « laquelle est la
+courante » est une propriété de la ligue, pas quelque chose qu'on dérive sans
+ambiguïté — et ça garde `vStandings` sur une simple jointure.
+
+### Ce que la table achète
+
+**Le rollover devient une insertion, pas une écrasure.** Aujourd'hui avancer la
+saison veut dire écraser `Leagues.Season` — ce qui détruit la trace que la ligue
+ait jamais joué 2025-26. Avec la table, on ferme une ligne et on en ouvre une :
+l'historique **est** la table.
+
+**La phase trouve un domicile honnête** — voir §5. C'est une correction : la
+première version de ce document mettait `Phase` sur `Leagues`, et ça ne tenait
+pas (« la ligue repêche » — pour quelle saison ?).
+
+**Le champion existe.** `ChampionTeamId`, écrit quand la saison se complète.
+Aujourd'hui il n'y a nulle part où mettre « champion de la saison 3 ».
+
+**Le numéro de saison existe.** Les Mordus disent « saison 3 » depuis trois ans.
+Un pool à vie compte en saisons, pas en années LNH.
+
+### Ce que la table n'est pas
+
+`Periods` **ne pointe pas** vers `LeagueSeasons`. Une semaine est une propriété
+du calendrier LNH, pas d'un pool — c'est ce qui permet au job nocturne d'aller
+chercher les lignes de match une seule fois et de servir toutes les ligues
+([scoring-model.md](scoring-model.md) §7). `Periods` garde la chaîne LNH ;
+`LeagueSeasons` la référence aussi. Deux grains différents, correctement.
+
+---
+
+## 5. Les phases vivent sur la ligne de saison
+
+Chaque `LeagueSeason` a son propre cycle : **on la prépare, on la joue, on la
+clôt.**
+
+```
+Preparing ──> Protecting ──> Drafting ──> PreSeason ──> InSeason ──> Complete
+```
+
+**Exactement une ligne par ligue n'est pas `Complete` : c'est la saison
+courante.** C'est ce qui règle le « à qui appartient l'entre-saison » qui
+embrouillait la première version : les phases d'entre-saison appartiennent à la
+saison qu'on **prépare**, pas à celle qui vient de finir.
+
+Concrètement, en juillet 2026 chez Les Mordus :
+
+| Ligne | Phase |
+|---|---|
+| saison 3 — `20252026` | `Complete`, champion écrit |
+| saison 4 — `20262027` | `Protecting` |
+
+Le classement à l'écran est encore celui de la saison 3, parce que
+`Leagues.Season` pointe encore sur elle. Il bascule d'un coup en entrant dans
+`InSeason`.
+
+| Phase | Ouvert | Fermé |
 |---|---|---|
-| **InSeason** | Alignements hebdo, échanges, pointage | Protections, repêchage |
-| **OffSeason** | Échanges | Alignements (plus de semaines), protections pas encore ouvertes |
-| **Protecting** | Le DG choisit ses protégés | **Échanges gelés** — voir §3 |
-| **Drafting** | Les vols, à tour de rôle | Échanges, protections |
-| **PreSeason** | Échanges, réparation de roster sous le minimum | Alignements (semaine 1 pas commencée) |
+| `Preparing` | rien | tout — l'état de départ |
+| `Protecting` | Le DG choisit ses protégés | **Échanges gelés** |
+| `Drafting` | Les vols, à tour de rôle | Échanges, protections |
+| `PreSeason` | Échanges, réparation du roster sous le minimum | Alignements |
+| `InSeason` | Alignements hebdo, échanges, pointage | Protections, repêchage |
+| `Complete` | rien | tout — lecture seule pour toujours |
 
 `PreSeason` existe parce qu'une équipe peut sortir du repêchage sous
-`RosterMin` — elle a perdu deux joueurs et n'en a repêché qu'un — et qu'il faut
-une fenêtre pour se remettre en règle avant que le pointage reprenne.
+`RosterMin` — deux joueurs perdus, un seul repêché — et qu'il lui faut une
+fenêtre pour se remettre en règle avant que le pointage reprenne.
 
----
+### Où chaque contrôle se branche
 
-## 3. Ce que chaque phase change, et où
-
-Toutes ces vérifications ont déjà un endroit où atterrir.
-
-| Mécanisme | Où le contrôle se branche | Règle |
+| Mécanisme | Point d'accroche | Règle |
 |---|---|---|
 | Échanges | `TradeValidation.Validate` — **prend déjà `League` en paramètre** | Refusés en `Protecting` et `Drafting` |
-| Alignements | `LineupEndpoints`, verrou de période | Inchangé : le verrou de semaine suffit, il n'y a pas de semaine hors saison |
-| Protections | à écrire | Modifiables en `Protecting` seulement |
-| Vols | à écrire | En `Drafting` seulement |
+| Alignements | verrou de période, existe | Inchangé : hors saison il n'y a pas de semaine |
+| Protections | à écrire | `Protecting` seulement |
+| Vols | à écrire | `Drafting` seulement |
 | `protection-reset` | existe | Joué en entrant dans `InSeason` |
 
 ### Le gel des échanges n'est pas cosmétique
 
 Un échange ferme un spot et en ouvre un neuf. Le spot neuf **n'hérite d'aucune
 protection** — le joueur deviendrait exposé sans que personne ne l'ait décidé.
-Ce n'est pas un détail d'ergonomie, c'est une faille : le gel entre le
-verrouillage des protections et la fin des vols est ce qui la ferme.
+C'est une faille, pas une question d'ergonomie.
 
 ---
 
-## 4. Ce qu'on ne fait **pas** : effacer les `RosterAssignments`
+## 6. Ce qu'on ne fait **pas** : effacer les `RosterAssignments`
 
-La première version de l'idée effaçait les assignations de la saison écoulée au
-moment du rollover. Ça remet bien le classement à zéro — et ça coûte quatre
-choses.
+La première forme de l'idée effaçait les assignations de la saison écoulée au
+rollover. Ça remet bien le classement à zéro — et ça coûte quatre choses.
 
 **Ça ne touche pas que le classement.** `vRosterSpotTotals` lit les mêmes
 lignes. En keeper, un `RosterSpot` survit à la saison : effacer 2025-26 met la
 colonne PTS de l'écran Team à 0 **pour un joueur encore sur le roster**, et rend
-« combien ce joueur m'a rapporté depuis que je l'ai » sans réponse pour
-toujours. C'est la question d'un pool à vie.
+« combien ce joueur m'a rapporté depuis que je l'ai » sans réponse pour toujours.
 
 **Ça contredit l'invariant central.** `RosterAssignment` est *le* grain honnête
 du modèle, et toute la mécanique de banque existe pour qu'une semaine appartienne
@@ -122,23 +230,41 @@ définitivement à qui a aligné le joueur ([scoring-model.md](scoring-model.md)
 §4). Effacer au rollover dit l'inverse.
 
 **C'est irréversible là où ça compte.** `PlayerGameStats` survit (≈50 000
-lignes), donc on pourrait rejouer — mais **sous le barème d'aujourd'hui**. Or
+lignes) donc on pourrait rejouer — mais **sous le barème d'aujourd'hui**. Or
 changer le barème ne recalcule jamais le passé ; un efface-et-rejoue
 recalculerait tout. Le chiffre banqué est le procès-verbal de ce qui était vrai,
 pas un cache reconstructible.
 
-**Ça n'achète rien.** 5 434 lignes au 2026-08-25 (11 semaines banquées, 2
-ligues), ≈14 000 pour une saison complète, contre 50 000 `PlayerGameStats`. Il
-n'y a ni problème d'espace ni problème de vitesse à résoudre.
-
-Et en creux : `CLAUDE.md` pose l'interaction entre DG comme l'attrait principal.
-« Le classement final de la saison 3 », « les 5 meilleures semaines de
-l'histoire du pool », « X n'a jamais fini devant Y en quatre ans » sont tous à un
-`WHERE` près tant que les lignes restent, et impossibles sinon.
+**Ça n'achète rien.** 5 434 lignes au 2026-08-25 (11 semaines, 2 ligues), ≈14 000
+pour une saison complète, contre 50 000 `PlayerGameStats`. Ni problème d'espace,
+ni problème de vitesse.
 
 ---
 
-## 5. Le vrai correctif : scoper les vues
+## 7. Ce que l'historique rend possible — et c'est le sujet
+
+`CLAUDE.md` pose l'interaction entre DG comme l'attrait principal du produit.
+Une fois `LeagueSeasons` en place **et les assignations conservées**, tout ce qui
+suit est à une requête près — et rien de tout ça n'est possible si on efface.
+
+| Écran | La requête derrière |
+|---|---|
+| « Les Mordus — saison 3, champion : Lachance » | `LeagueSeasons.ChampionTeamId` |
+| Le palmarès : qui a gagné chaque saison | Une ligne par `LeagueSeason` |
+| « Boisvert n'a jamais fini devant Lachance en 4 ans » | Classements par saison, comparés |
+| « Ta meilleure semaine à vie : 47 pts, saison 2, semaine 14 » | `MAX` sur `RosterAssignments` par équipe |
+| « Crosby t'a rapporté 312 pts en 3 saisons » | `vRosterSpotTotals` **sans** filtre de saison |
+| « Meilleure saison de l'histoire du pool » | `MAX` sur les totaux par `LeagueSeason` |
+| Le trophée du DG le plus actif en échanges, à vie | `vPoolerTradeRecord` par saison |
+
+C'est la différence entre un pool qui recommence chaque année et un **pool à
+vie** — ce que Les Mordus est déjà dans le titre de son propre rapport. Le
+filtre de saison donne les deux lectures depuis les mêmes lignes : avec, c'est
+l'année en cours ; sans, c'est la carrière.
+
+---
+
+## 8. Le correctif qui tient tout : scoper les vues
 
 Les points repartent à zéro parce que **le filtre bouge**, pas parce que la
 donnée meurt.
@@ -155,50 +281,55 @@ WHERE p.[Season] = l.[Season]
 ```
 
 Le même filtre dans `vRosterSpotTotals`. `vTeamPeriodScores` est déjà par
-période, donc déjà scopable par la saison de la période.
+période, donc déjà scopable.
 
-**C'est un bug latent aujourd'hui, indépendamment des phases** : les deux vues
-sont fausses dès la première `Period` d'une deuxième saison, même sans
-repêchage. À corriger avant tout le reste.
+**C'est un bug latent aujourd'hui, indépendamment de tout le reste** : les deux
+vues sont fausses dès la première `Period` d'une deuxième saison, repêchage ou
+pas.
 
 ### La conséquence à assumer
 
-`vStandings` joint `PlayerContracts` sur `l.Season`. Avancer `League.Season`
-reprice donc tout le plafond au même instant — c'est correct (les contrats de la
-nouvelle saison sont les bons), mais ça arrive d'un coup et il faut le voir une
+`vStandings` joint `PlayerContracts` sur `l.Season`. Avancer `Leagues.Season`
+reprice donc tout le plafond au même instant — c'est correct, les contrats de la
+nouvelle saison sont les bons, mais ça arrive d'un coup et il faut le voir une
 fois avant que 14 personnes le découvrent.
 
-C'est aussi pourquoi **`Season` s'avance en dernier**, en entrant dans
-`InSeason`, et non à l'ouverture de l'entre-saison : jusque-là le classement
-affiche encore la saison qui vient de finir, ce qui est exactement ce qu'on veut
-regarder en juillet.
+C'est aussi pourquoi **`Leagues.Season` s'avance en dernier**, en entrant dans
+`InSeason` : jusque-là le classement affiche encore la saison qui vient de finir,
+ce qu'on veut précisément regarder en juillet.
 
 ---
 
-## 6. Ordre de construction
+## 9. Ordre de construction
 
-1. **Scoper `vStandings` et `vRosterSpotTotals`** — une migration, aucune
-   dépendance sur le reste. Corrige un bug qui existe déjà.
-2. `period-init --season 20262027` — le repêchage doit dater les spots qu'il
-   ouvre sur une semaine 1 qui existe.
-3. `Leagues.Phase` + les transitions + le contrôle dans
-   `TradeValidation.Validate`.
-4. La phase `Protecting` : l'écran de sélection, le verrouillage,
-   l'auto-remplissage des silencieux.
-5. La phase `Drafting` : l'ordre, les vols, les quotas.
-6. `PreSeason` → `InSeason` : `Season++` et `protection-reset`.
+1. **`Season` (Core), pur et testé** — remplace les quatre endroits de §2. Aucune
+   dépendance, aucune migration.
+2. **Scoper `vStandings` et `vRosterSpotTotals`** — une migration. Corrige un bug
+   qui existe déjà.
+3. **`LeagueSeasons`** + backfill : une ligne par ligue existante
+   (`Number = 3` pour Les Mordus, `Phase = InSeason`).
+4. `period-init --season 20262027`.
+5. Les phases : transitions + contrôle dans `TradeValidation.Validate`.
+6. `Protecting` : écran de sélection, verrouillage, auto-remplissage.
+7. `Drafting` : ordre, vols, quotas.
+8. `PreSeason → InSeason` : `Leagues.Season++`, `protection-reset`,
+   `ChampionTeamId` sur la ligne qui se clôt.
+9. **Le palmarès** (§7) — le premier écran qui paie l'historique.
 
-## 7. Encore ouvert
+---
+
+## 10. Encore ouvert
 
 - **`TradeSchedule.NextPeriodStart` retourne `null`** passé la dernière semaine
-  d'une saison, donc aucun échange n'est possible en `OffSeason` ni en
-  `PreSeason` — alors que le tableau du §2 les dit ouverts. Il faut qu'il sache
-  atteindre la semaine 1 de la saison suivante.
-- **Combien de joueurs protégeables par DG**, et **combien de pertes maximum
-  par équipe** — les deux chiffres manquent encore
-  ([mordus-pool.md](mordus-pool.md)).
+  d'une saison, donc aucun échange n'est possible en `PreSeason` — alors que §5
+  les dit ouverts. Il doit savoir atteindre la semaine 1 de la saison suivante.
+- **Les règles de la saison 2, c'était quoi ?** Le barème vit sur `League` et
+  change en place. Un pool à vie finira par vouloir le figer par saison. Pas
+  aujourd'hui — mais `LeagueSeasons` est l'endroit où ça atterrira.
+- **Combien de joueurs protégeables par DG**, et **combien de pertes maximum par
+  équipe** ([mordus-pool.md](mordus-pool.md)).
 - **Qui déclenche une transition ?** Le commissaire à la main, ou le job
-  nocturne quand la dernière semaine banque. Les deux se défendent ; la main est
-  plus simple et plus sûre pour une première saison.
-- **Les listes de protection sont-elles publiques** avant le repêchage ? C'est
-  une décision de produit, pas de modèle, et elle change beaucoup l'ambiance.
+  nocturne quand la dernière semaine banque. La main est plus simple et plus sûre
+  pour une première saison.
+- **Les listes de protection sont-elles publiques** avant le repêchage ? Décision
+  de produit, pas de modèle, et elle change beaucoup l'ambiance.
