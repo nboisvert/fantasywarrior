@@ -17,7 +17,7 @@
 // weights, a non-zero shutout value, etc.) is reflected in the Fantasy point
 // group the same way it is everywhere else in the app (Standings/Dashboard).
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api, formatCap, formatShortName, posGroup, posGroupClass } from "../api";
 import type {
   InjuryFields, LeagueDetail, LineupDto, LineupEntry, PlayerPeriods as PlayerPeriodsDto,
@@ -518,6 +518,46 @@ function SortableHead({
   );
 }
 
+/**
+ * Keeps `--stats-snap-pad` equal to the sticky player column's real width, so
+ * a snapped stat block comes to rest *beside* the name rather than underneath
+ * it.
+ *
+ * The snap positions are the group-start columns, and the snapport therefore
+ * has to begin exactly where the scrollable content visually begins. That edge
+ * is the player column's right edge — and its width is content-driven: a long
+ * name, an injury mark, a franchise logo each push it wider. The 9.5rem in the
+ * stylesheet is only its floor, and hard-coding that floor as the padding
+ * snapped the first group *under* the name, taking its first column (GP) off
+ * screen entirely (Nick, 2026-08-25).
+ *
+ * Measured from the header cell, which is a real table-cell and so renders at
+ * the true column width. Deliberately not written back into the column's own
+ * `min-width`: that would ratchet — the column could never shrink again, and
+ * no resize would fire to correct it.
+ */
+function useSnapPadding(rowCount: number) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const scroll = ref.current;
+    const cell = scroll?.querySelector<HTMLElement>("thead .stats-col-player");
+    if (!scroll || !cell) return;
+
+    const apply = () =>
+      scroll.style.setProperty("--stats-snap-pad", `${cell.getBoundingClientRect().width}px`);
+
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(cell);
+    return () => observer.disconnect();
+    // Re-attaches when the table itself appears or disappears: an empty grid
+    // renders an empty-state paragraph instead, and the ref goes null with it.
+  }, [rowCount]);
+
+  return ref;
+}
+
 /** The roster grid: one sortable table with its own totals footer.
  *
  * A component rather than two copies of the markup, because this table changes
@@ -553,6 +593,8 @@ function RosterGrid({
   // that one shared table could not give.
   const sort = useSort<PlayerRow>(rows, "poolPoints");
 
+  const scrollRef = useSnapPadding(rows.length);
+
   // Totals are derived from this grid's own rows, so the departed grid foots to
   // what those players actually banked rather than repeating the roster's.
   const sum = <T,>(list: T[], pick: (r: T) => number) => list.reduce((acc, r) => acc + pick(r), 0);
@@ -586,7 +628,7 @@ function RosterGrid({
       {rows.length === 0 ? (
         <p className="empty-state">{emptyLabel}</p>
       ) : (
-      <div className="stats-grid-scroll">
+      <div className="stats-grid-scroll" ref={scrollRef}>
         <table className="stats-grid">
           <thead>
             <tr className="stats-group-row">

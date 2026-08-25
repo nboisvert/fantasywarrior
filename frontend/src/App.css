@@ -1679,11 +1679,13 @@
 
      The padding is what makes a block land *beside* the sticky column rather
      than underneath it: the snapport has to begin where the scrollable content
-     visually begins, which is exactly the player column's width. Hence the
-     shared custom property — those two numbers must never drift apart. */
-  --stats-player-col: 9.5rem;
+     visually begins, which is the player column's right edge. That column is
+     as wide as its content needs, so the 9.5rem below is only a fallback --
+     `useSnapPadding` in Stats.tsx measures the real width and writes it here.
+     Hard-coding the floor snapped the first group under the name and pushed
+     its first column off screen (Nick, 2026-08-25). */
   scroll-snap-type: x mandatory;
-  scroll-padding-left: var(--stats-player-col);
+  scroll-padding-left: var(--stats-snap-pad, 9.5rem);
   border: 1px solid var(--border);
   border-radius: 16px;
   background: var(--surface);
@@ -1802,7 +1804,7 @@
   align-items: center;
   gap: 0.45rem;
   text-align: left;
-  min-width: var(--stats-player-col, 9.5rem);
+  min-width: 9.5rem;
   background: var(--bg-elevated);
 }
 

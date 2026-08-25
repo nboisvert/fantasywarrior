@@ -77,11 +77,19 @@ catégories : Fantasy point, Record, NHL, Extra, Cap hit. C'est du `scroll-snap`
 CSS, pas du JavaScript — `scroll-snap-type: x mandatory` sur
 `.stats-grid-scroll` garantit le point d'arrêt, `scroll-snap-stop: always` sur
 `.stats-group-start` fait qu'un geste avance **exactement un** bloc plutôt que
-le nombre que son élan porterait. Le `scroll-padding-left` vaut la largeur de la
-colonne du nom, sinon le bloc atterrirait dessous; les deux partagent la
-variable `--stats-player-col` pour ne pas dériver. Aucun balisage nouveau : la
-classe `.stats-group-start` marquait déjà la première colonne de chaque groupe
-dans l'en-tête, chaque rangée et le pied.
+le nombre que son élan porterait. Aucun balisage nouveau : la classe
+`.stats-group-start` marquait déjà la première colonne de chaque groupe dans
+l'en-tête, chaque rangée et le pied.
+
+Le `scroll-padding-left` doit valoir la largeur de la colonne collante du nom,
+sinon le bloc atterrit **dessous** et sa première colonne sort de l'écran —
+c'est exactement ce qui s'est produit au premier jet, avec un 9,5 rem codé en
+dur. Cette largeur est dictée par le contenu (nom long, marqueur de blessure,
+logo de franchise), donc 9,5 rem n'en est que le plancher : le hook
+`useSnapPadding` de `Stats.tsx` mesure la cellule d'en-tête et écrit la vraie
+valeur dans `--stats-snap-pad`, la feuille de style ne gardant que le repli.
+Ne jamais réinjecter cette mesure dans le `min-width` de la colonne — elle ne
+pourrait plus rétrécir, et aucun redimensionnement ne viendrait la corriger.
 
 **Contrepartie à connaître** : sous `mandatory`, on ne peut se poser qu'au début
 d'un bloc. Un groupe plus large que l'espace visible (l'écran moins la colonne
