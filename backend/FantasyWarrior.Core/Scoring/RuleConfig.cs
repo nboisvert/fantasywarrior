@@ -30,6 +30,13 @@ public sealed class RuleConfig
     public int? DraftRounds { get; set; }
 
     /// <summary>
+    /// How many roster spots a GM may protect before the off-season steal
+    /// draft. Null = not configured. A player who is auto-protected on
+    /// experience alone does not spend one of these.
+    /// </summary>
+    public int? ProtectionSlots { get; set; }
+
+    /// <summary>
     /// What a player with no contract on file counts against the cap, in whole
     /// dollars. $1M by default (Nick, 2026-08-05); 0 restores the old behaviour
     /// of carrying such players for free.
@@ -82,6 +89,9 @@ public static class RuleConfigValidation
 
         if (config.RosterSize.Min is { } min && config.RosterSize.Max is { } max && min > max)
             errors.Add($"Roster minimum ({min}) cannot exceed the maximum ({max}).");
+
+        if (config.ProtectionSlots is < 0)
+            errors.Add("Protection slots cannot be negative.");
 
         // A negative default would pay a team to hold unsigned players, and
         // every cap total in the league would drift further from the truth the

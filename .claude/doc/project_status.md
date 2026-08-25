@@ -1,7 +1,7 @@
 # Fantasy Warrior — Project Status
 
 > **Read at the start of every session, and keep updated along the way.**
-> Last updated: 2026-08-09.
+> Last updated: 2026-08-25.
 >
 > This file holds the **current state and the decisions behind it**. It is not a
 > changelog — `git log` is, and the commit messages in this repo are detailed.
@@ -57,7 +57,7 @@ screens, the news ticker, per-player news and injury status.
 | Draft picks — tradable, one year ahead | **Done** (the draft itself is not) |
 | Real authentication | Todo |
 | Free agency | Todo |
-| Off-season protection & steal draft | **Foundation only** (2026-08-25) — the spot carries a status, auto-protection reads live, the card shows it. Nothing can protect or steal yet. |
+| Off-season protection & steal draft | **Foundation only** (2026-08-25) — the spot carries a status, auto-protection reads live, the card shows it, `LeagueSeasons`/phases/trade-freeze exist and are deployed. The protection and draft screens themselves are not built — both are player-row lists and need the CLAUDE.md ask first, plus two numbers Nick hasn't set. |
 | 🏁 **Season-tracking MVP in prod for early October 2026** (NHL 2026-27) | — |
 | Interactive live draft (target: 2027-28 season) | Todo |
 
@@ -69,6 +69,39 @@ older entries (back to 2026-07-22) are in
 [decisions-archive.md](decisions-archive.md), same format, nothing dropped.
 
 ### Architecture
+
+- **2026-08-25 — The season-lifecycle foundation is built and deployed**, same
+  day as the design doc (`season-lifecycle.md`). `Season` (Core, 35 tests)
+  replaces four places that each re-derived the NHL season string on their own.
+  `LeagueSeasons` exists, backfilled one row per league (`Number = 3` for Les
+  Mordus, matching its own source PDF; `InSeason`), with a filtered unique
+  index enforcing "at most one non-Complete row per league" as a real
+  constraint rather than a sentence in a doc. `Leagues.Season` deliberately
+  keeps **no** foreign key to it: a composite FK was the first thing tried and
+  cannot work — creating a league inserts the `Leagues` row first, since it is
+  the row that hands out the `LeagueId` any `LeagueSeason` row would need to
+  reference, so a constraint requiring the reverse would refuse the very
+  insert that has to happen first. `LeagueSeasonPhase` and
+  `SeasonPhaseRules` (Core, tested) model the six-phase lifecycle and gate
+  trades; the freeze is wired into `TradeEndpoints.ValidateAgainstEngagedAsync`,
+  the one helper both propose and accept already shared, so neither path can
+  drift from the other. `SeasonPhaseJob` (`season-phase --league --to <Phase>`)
+  advances a league one step, flips `League.Season` and clears protections on
+  entering `InSeason`, writes the champion off `vStandings` on entering
+  `Complete` — **never run against a real league**, since advancing a season
+  is Nick's call, not a default. `vStandings` and `vRosterSpotTotals` are now
+  scoped to the league's current season (a latent bug that predates all of
+  this: neither ever filtered by season, so a keeper spot's assignments from
+  two different seasons would have summed together the moment any league
+  reached a second one) — verified live against Les Mordus, same 435 spots and
+  same 454-point leader before and after. The palmarès
+  (`GET /api/leagues/{id}/seasons` + `Palmares.tsx`) is the first screen paid
+  for by keeping `RosterAssignments` forever instead of clearing them; it lives
+  behind a trophy icon on Standings rather than a new bottom-nav tab (already
+  full) or a duplicate shortcut. **Deliberately not built**: the protection and
+  draft screens themselves, both player-row lists that need the CLAUDE.md ask
+  first (how many lines, name truncation, what sits on the right) and two
+  numbers — protection slots, max losses per team — Nick has not set yet.
 
 - **2026-08-25 — The season rollover moves a filter; it never deletes a row.**
   Nick's first shape for the keeper rollover was to delete the finished
@@ -369,16 +402,15 @@ older entries (back to 2026-07-22) are in
 - **Rotate the deploy service principal secret.** It was passed through a chat
   session and phone photos on 2026-08-02. Only the `AZURE_CREDENTIALS` GitHub
   secret would need replacing.
-- **Nothing in the app can cross a season boundary yet**, found while planning
-  the off-season draft (2026-08-25). `vStandings` filters by no season at all —
-  its `Scoring` CTE sums *every* `RosterAssignment` a team has ever had, so on
-  the first day of 2026-27 the table would still show 2025-26 points, in a
-  keeper pool whose whole rule is that points reset. `vRosterSpotTotals` has the
-  same hole. And `TradeSchedule.NextPeriodStart` returns null past the last week
-  of the season, so no trade can be made in an off-season. None of it is wrong
-  today; all of it blocks any real off-season feature. The design for the way
-  out — league phases, and why the rollover must never delete assignments — is
-  in [season-lifecycle.md](season-lifecycle.md).
+- ~~Nothing in the app can cross a season boundary~~ — **the foundation is
+  built** (2026-08-25): `vStandings` and `vRosterSpotTotals` are scoped to the
+  league's season (verified live: Les Mordus' 435 spots and top score of 454
+  unchanged after the migration), `LeagueSeasons` exists and is backfilled
+  (Number 3 for Les Mordus), and `LeagueSeasonPhase` plus the trade freeze are
+  wired into `TradeEndpoints`. **`TradeSchedule.NextPeriodStart` still returns
+  null past the last week of a season**, so a trade in `PreSeason` would still
+  be refused even though the phase itself allows it — the one piece of this
+  that is still wrong today. See [season-lifecycle.md](season-lifecycle.md).
 - **Free agency and the draft** are modelled in the schema but not built —
   neither needs a migration.
 - **Nothing announces a failed nightly.** `daily-jobs.yml` failed 17 nights in a

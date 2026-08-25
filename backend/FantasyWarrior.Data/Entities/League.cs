@@ -67,6 +67,16 @@ public sealed class League
     /// </summary>
     public int? DraftRounds { get; set; }
 
+    /// <summary>
+    /// How many roster spots a GM may protect before the off-season steal
+    /// draft. Null = not configured yet — Les Mordus has never run one, so
+    /// there is no real number to default this to (see
+    /// <c>mordus-pool.md</c>'s "à fixer" rows). A player who qualifies for
+    /// <c>ProtectionRules.IsAutoProtected</c> does not spend one of these; this
+    /// count is only for the GM's own picks.
+    /// </summary>
+    public int? ProtectionSlots { get; set; }
+
     /// <summary>Active forward slots per week. Les Mordus: 9.</summary>
     public int ActiveForwards { get; set; }
 
@@ -91,4 +101,10 @@ public sealed class League
     public ICollection<Trade> Trades { get; set; } = [];
 
     public ICollection<DraftPick> DraftPicks { get; set; } = [];
+
+    /// <summary>
+    /// This league's own playthrough history — see <see cref="LeagueSeason"/>.
+    /// Exactly one row here is ever not <c>Complete</c>.
+    /// </summary>
+    public ICollection<LeagueSeason> Seasons { get; set; } = [];
 }

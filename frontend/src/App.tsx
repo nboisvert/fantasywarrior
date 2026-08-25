@@ -16,6 +16,7 @@ import { Login } from "./screens/Login";
 import { LeagueGate } from "./screens/LeagueGate";
 import { Dashboard } from "./screens/Dashboard";
 import { Standings } from "./screens/Standings";
+import { Palmares } from "./screens/Palmares";
 import { Stats } from "./screens/Stats";
 import { Trades } from "./screens/Trades";
 import { Settings } from "./screens/Settings";
@@ -51,6 +52,9 @@ export default function App() {
   // Which team the Stats screen shows: null = the signed-in user's own team.
   // Set when navigating from a Standings row; reset when the Stats tab is tapped.
   const [statsTeam, setStatsTeam] = useState<string | null>(null);
+  // Palmarès sits inside the Standings tab rather than its own bottom-nav slot
+  // (already full) or a second shortcut anywhere else — one reachable path.
+  const [showPalmares, setShowPalmares] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [defaultChecked, setDefaultChecked] = useState(false);
   const [error, setError] = useState("");
@@ -260,7 +264,10 @@ export default function App() {
         )}
         {tab !== "settings" && leagueId && !league && !error && <LoadingLogo label="Loading league…" />}
         {league && tab === "dashboard" && <Dashboard league={league} username={username} />}
-        {league && tab === "standings" && (
+        {league && tab === "standings" && showPalmares && (
+          <Palmares leagueId={league.id} onClose={() => setShowPalmares(false)} />
+        )}
+        {league && tab === "standings" && !showPalmares && (
           <Standings
             league={league}
             username={username}
@@ -268,6 +275,7 @@ export default function App() {
               setStatsTeam(owner);
               setTab("stats");
             }}
+            onOpenPalmares={() => setShowPalmares(true)}
           />
         )}
         {league && tab === "stats" && (

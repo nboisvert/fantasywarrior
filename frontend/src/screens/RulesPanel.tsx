@@ -131,6 +131,32 @@ export function RulesPanel({
       </div>
 
       <span className="section-title" style={{ letterSpacing: "0.05em" }}>
+        Off-season protection (empty = not configured yet)
+      </span>
+      <small className="muted">
+        How many roster spots each GM may protect before the off-season steal draft.
+        A player with too little NHL experience is protected for free and does not
+        count against this.
+      </small>
+      <div className="rules-grid">
+        <label>
+          Protection slots
+          <input
+            className="field"
+            inputMode="numeric"
+            placeholder="not configured"
+            value={config.protectionSlots ?? ""}
+            onChange={(e) =>
+              setConfig({
+                ...config,
+                protectionSlots: e.target.value === "" ? null : Math.max(0, Number(e.target.value) || 0),
+              })
+            }
+          />
+        </label>
+      </div>
+
+      <span className="section-title" style={{ letterSpacing: "0.05em" }}>
         Unsigned players
       </span>
       <small className="muted">

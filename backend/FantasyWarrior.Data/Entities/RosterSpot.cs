@@ -13,6 +13,9 @@ public enum RosterSpotEndReason : byte
 {
     Release = 0,
     Trade = 1,
+
+    /// <summary>Lost in the off-season steal draft. See <c>scoring-model.md</c> §11.</summary>
+    Draft = 2,
 }
 
 /// <summary>

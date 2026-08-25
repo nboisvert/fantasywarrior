@@ -49,6 +49,9 @@ public static class Dtos
             // One pick per team per round, so this doubles as "picks per team
             // per year". Les Mordus: 3.
             draftRounds = league.DraftRounds,
+            // Null until a commissioner sets one — Les Mordus has never run an
+            // off-season draft, so there is no real number to default this to.
+            protectionSlots = league.ProtectionSlots,
             // What an unsigned player costs against the cap. Round-tripped so
             // the Rules panel can PATCH the config back without silently
             // resetting it to the property default.

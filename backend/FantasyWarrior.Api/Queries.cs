@@ -1,4 +1,5 @@
 using FantasyWarrior.Core.Scoring;
+using FantasyWarrior.Core.Seasons;
 using FantasyWarrior.Data;
 using FantasyWarrior.Data.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -26,6 +27,19 @@ public static class Queries
     public static Task<Team?> TeamAsync(
         FantasyWarriorDbContext db, int leagueId, string username, CancellationToken ct = default) =>
         db.Teams.FirstOrDefaultAsync(t => t.LeagueId == leagueId && t.Owner!.Username == username, ct);
+
+    /// <summary>
+    /// The one <see cref="LeagueSeason"/> row that is not <c>Complete</c> — the
+    /// season this league is either playing or preparing right now. Enforced as
+    /// exactly one by <c>UX_LeagueSeasons_OneActivePerLeague</c>, so this never
+    /// has to pick among candidates. Null only for a league with no
+    /// <see cref="LeagueSeason"/> rows at all, which does not happen once a
+    /// league has been through the backfill or created after it.
+    /// </summary>
+    public static Task<LeagueSeason?> ActiveLeagueSeasonAsync(
+        FantasyWarriorDbContext db, int leagueId, CancellationToken ct = default) =>
+        db.LeagueSeasons.FirstOrDefaultAsync(
+            s => s.LeagueId == leagueId && s.Phase != LeagueSeasonPhase.Complete, ct);
 
     /// <summary>A league's scale as the engine consumes it: stat name to value.</summary>
     public static async Task<Dictionary<string, double>> ScaleAsync(

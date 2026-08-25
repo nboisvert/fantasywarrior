@@ -1,3 +1,4 @@
+using FantasyWarrior.Core.Seasons;
 using FantasyWarrior.Core.Time;
 using FantasyWarrior.Data;
 using FantasyWarrior.Jobs.CapWages;
@@ -53,6 +54,12 @@ using FantasyWarrior.Jobs.Sql;
 //     Clears every off-season protection in a league. A protection is worth one
 //     summer and expires when the season it guarded begins, which is why the
 //     status is a column on the spot rather than a row per draft.
+//   season-phase --league <joinCode> --to <Phase> [--dry-run]
+//     Moves a league's active LeagueSeason one step: Preparing -> Protecting ->
+//     Drafting -> PreSeason -> InSeason -> Complete. Run by a commissioner's
+//     decision, never a clock. --to Preparing with no open season opens the next
+//     one. --to InSeason flips League.Season and clears protections; --to
+//     Complete writes the champion off vStandings. See season-lifecycle.md.
 //   draft-picks-init --league <joinCode> [--year YYYY] [--dry-run]
 //     One pick per team per round for one season, defaulting to the season
 //     after the current one. Picks exist one year ahead and only one, which is
@@ -96,12 +103,7 @@ static string? GetOption(string[] args, string name)
     return index >= 0 && index + 1 < args.Length ? args[index + 1] : null;
 }
 
-static string CurrentSeason()
-{
-    var now = DateTime.UtcNow;
-    var start = now.Month >= 9 ? now.Year : now.Year - 1;
-    return $"{start}{start + 1}";
-}
+static string CurrentSeason() => Season.CurrentOn(DateOnly.FromDateTime(DateTime.UtcNow));
 
 // An identifiable User-Agent, per the vendor guide — never a browser's, since
 // the point is that these sites can see who is calling.
@@ -208,7 +210,7 @@ switch (job)
     case "period-init":
     {
         await using var db = DataServiceCollectionExtensions.CreateContext();
-        return await new PeriodInitJob(db).RunAsync(GetOption(args, "--season") ?? "20252026", dryRun);
+        return await new PeriodInitJob(db).RunAsync(GetOption(args, "--season") ?? CurrentSeason(), dryRun);
     }
 
     case "draft-picks-init":
@@ -216,7 +218,7 @@ switch (job)
         await using var db = DataServiceCollectionExtensions.CreateContext();
         // Year defaults to the season after the current one: picks are always
         // generated one year ahead, never for the season being played.
-        var defaultYear = int.Parse(CurrentSeason()[..4]) + 1;
+        var defaultYear = Season.StartYear(CurrentSeason()) + 1;
         return await new DraftPicksInitJob(db).RunAsync(
             GetOption(args, "--league"),
             int.TryParse(GetOption(args, "--year"), out var draftYear) ? draftYear : defaultYear,
@@ -227,6 +229,13 @@ switch (job)
     {
         await using var db = DataServiceCollectionExtensions.CreateContext();
         return await new ProtectionResetJob(db).RunAsync(GetOption(args, "--league"), dryRun);
+    }
+
+    case "season-phase":
+    {
+        await using var db = DataServiceCollectionExtensions.CreateContext();
+        return await new SeasonPhaseJob(db).RunAsync(
+            GetOption(args, "--league"), GetOption(args, "--to"), dryRun);
     }
 
     case "period-rollup":
@@ -251,7 +260,7 @@ switch (job)
         await using var db = DataServiceCollectionExtensions.CreateContext();
         return await new SeedMordusJob(db).RunAsync(
             file: GetOption(args, "--file") ?? "data/mordus-rosters.json",
-            season: GetOption(args, "--season") ?? "20252026",
+            season: GetOption(args, "--season") ?? CurrentSeason(),
             commissioner: GetOption(args, "--commissioner") ?? "nick",
             // The league's real cap (Nick, 2026-08-05). It was seeded at
             // $115M — the NHL's own number — which is not the rule the Mordus
@@ -278,7 +287,7 @@ switch (job)
             return 0;
         }
         if (GetOption(args, "--set") is { } set)
-            await clock.SetAsync(DateOnly.Parse(set), GetOption(args, "--season") ?? "20252026");
+            await clock.SetAsync(DateOnly.Parse(set), GetOption(args, "--season") ?? CurrentSeason());
         var state = await clock.StateAsync();
         Console.WriteLine(state is null
             ? "No simulation running — real clock."

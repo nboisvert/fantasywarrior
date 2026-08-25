@@ -46,7 +46,7 @@ solo on this repo; revisit if collaborators join.
 | [data-model.md](.claude/doc/data-model.md) | The SQL schema and **why** it is shaped that way. |
 | [deployment.md](.claude/doc/deployment.md) | Infra, config, local dev commands, ops runbook, troubleshooting log. Keep it updated when infra changes. |
 | [design-system.md](.claude/doc/design-system.md) | Night Arena detail: exact colours, typography, PWA asset regeneration. |
-| [season-lifecycle.md](.claude/doc/season-lifecycle.md) | **Design, not built.** What "season" means (three different things), `LeagueSeasons`, the phases, and why the rollover never deletes assignments. |
+| [season-lifecycle.md](.claude/doc/season-lifecycle.md) | What "season" means (three different things), `LeagueSeasons`, the phases, the palmarès. **Foundation built** — the protection/draft screens themselves are not. |
 | [testmode.md](.claude/doc/testmode.md) | Season replay. |
 | [news-integration-guide.md](.claude/doc/news-integration-guide.md) | News sources and their ToS constraints. |
 | [mordus-pool.md](.claude/doc/mordus-pool.md) | Les Mordus league: import, vocabulary mapping, unmatched players. |

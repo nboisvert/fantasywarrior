@@ -79,6 +79,14 @@ gardiens auto-protégés, 725 repêchables, 11 inconnus (jamais synchronisés).
 pas construit** — rien ne peut encore écrire `Protected`, et rien ne vole
 personne. Voir [scoring-model.md](scoring-model.md) §11.
 
+**Livré le même jour, la fondation « saison »** ([season-lifecycle.md](season-lifecycle.md)) :
+Les Mordus a maintenant une ligne `LeagueSeasons` — `Number = 3`, confirmé par
+le titre du PDF source, `Phase = InSeason`. `RuleConfig.ProtectionSlots` existe
+dans le panneau Règles, prêt à recevoir le chiffre ci-dessous dès qu'il est
+fixé. Les échanges se geleraient automatiquement si la ligue entrait en phase
+`Protecting`/`Drafting` — mais rien n'a fait avancer sa phase, et personne ne
+le fera sans une décision explicite de Nick.
+
 ### Validation croisée par la taille de roster
 
 La règle 23-35 confirme indépendamment l'extraction. En ajoutant à chaque équipe ses joueurs non appariés (§2) :

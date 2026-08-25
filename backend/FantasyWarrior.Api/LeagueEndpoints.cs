@@ -163,6 +163,7 @@ public static class LeagueEndpoints
             league.RosterMin = config.RosterSize.Min;
             league.RosterMax = config.RosterSize.Max;
             league.DraftRounds = config.DraftRounds;
+            league.ProtectionSlots = config.ProtectionSlots;
             league.DefaultCapHit = config.DefaultCapHit;
 
             // Replace the whole scale: a value removed from the config must stop
@@ -353,6 +354,31 @@ public static class LeagueEndpoints
                     .ThenBy(t => t.Name),
                 myRoster,
             });
+        });
+
+        // The palmarès: one row per season this league has ever played,
+        // newest first, with its champion — the first screen that pays off
+        // keeping RosterAssignments forever instead of clearing them at
+        // rollover (season-lifecycle.md §7).
+        app.MapGet("/api/leagues/{leagueId}/seasons", async (string leagueId, FantasyWarriorDbContext db) =>
+        {
+            var league = await Queries.LeagueByCodeAsync(db, leagueId);
+            if (league is null) return Results.NotFound(new { error = "League not found." });
+
+            var seasons = await db.LeagueSeasons
+                .Where(s => s.LeagueId == league.LeagueId)
+                .OrderByDescending(s => s.Number)
+                .Select(s => new
+                {
+                    number = s.Number,
+                    season = s.Season,
+                    phase = s.Phase.ToString(),
+                    championTeamName = s.ChampionTeam!.Name,
+                    completedUtc = s.CompletedUtc,
+                })
+                .ToListAsync();
+
+            return Results.Ok(seasons);
         });
     }
 

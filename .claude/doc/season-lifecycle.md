@@ -1,8 +1,14 @@
 # Le concept de saison, et le cycle de vie d'une saison
 
-> **Statut : conception, rien n'est construit.** Aucune table `LeagueSeasons`,
-> aucune colonne `Phase`, aucune transition. Ce document fixe la forme avant
-> qu'on écrive la première ligne.
+> **Statut : la fondation est construite (2026-08-25) — §§1-8 sont faits.**
+> `Season` (Core), `LeagueSeasons`, les phases, le gel des échanges, le
+> correctif des deux vues et le palmarès sont en place et déployés. **Ce qui
+> reste proposé** : les mécaniques de protection/vol elles-mêmes (§9 points
+> 6-7) — pas de screen de sélection des protégés, pas de rondes de vol, parce
+> que les chiffres qui les gouvernent (combien de places, combien de pertes
+> max par équipe) ne sont toujours pas fixés (§10), et que la liste de
+> protection est un écran-liste-de-joueurs qui doit d'abord répondre à la
+> convention player-row de `CLAUDE.md`.
 >
 > Idée de Nick, 2026-08-25 ; modélisation reprise le même jour après sa
 > question — « c'est une seule colonne sur ligue ? quelle est sa valeur ? ça
@@ -63,7 +69,10 @@ La chirurgie de chaîne est aujourd'hui éparpillée, et chaque endroit la refai
 | `Jobs/Program.cs` ×3 | `"20252026"` en dur comme valeur par défaut |
 | `PlayerCard.tsx:207` `formatSeason` | `slice(0,4)` + `slice(6)` → `"2025-26"` |
 
-Un `FantasyWarrior.Core/Seasons/Season.cs`, pur et testé, les remplace tous :
+**✅ Construit** (2026-08-25) — `FantasyWarrior.Core/Seasons/Season.cs`, pur et
+testé (35 tests), les remplace tous. Les trois premiers points de la table
+délèguent désormais à `Season` ; le formatteur front reste dupliqué (deux
+lignes, pas un risque de dériver un seuil).
 
 ```csharp
 public static class Season
@@ -126,10 +135,20 @@ LeagueSeasons
   UNIQUE (LeagueId, Number)
 ```
 
-Et `Leagues.Season` **reste**, comme clé étrangère vers la ligne courante via
-`(LeagueId, Season)`. Ce n'est pas une dénormalisation : « laquelle est la
-courante » est une propriété de la ligue, pas quelque chose qu'on dérive sans
-ambiguïté — et ça garde `vStandings` sur une simple jointure.
+Et `Leagues.Season` **reste**, pointant vers la ligne courante par valeur — via
+`(LeagueId, Season)`, mais **sans FK composite**. C'était le premier réflexe et
+il ne tient pas : créer une ligue insère d'abord la ligne `Leagues` (c'est elle
+qui distribue le `LeagueId` dont toute ligne `LeagueSeasons` a besoin), donc une
+FK sur `(LeagueId, Season)` refuserait cette toute première insertion — l'œuf
+et la poule, sans échappatoire de contrainte différée sous SQL Server. Le
+rapprochement reste une valeur que l'application tient honnête, exactement
+comme `Team.FranchiseAbbrev` et `NhlTeam.Abbrev` le font déjà. Ce n'est pas une
+dénormalisation pour autant : « laquelle est la courante » est une propriété de
+la ligue, pas quelque chose qu'on dérive sans ambiguïté — et ça garde
+`vStandings` sur une simple jointure.
+
+**✅ Construit** (2026-08-25) : la table, son backfill (Mordus `Number = 3`),
+et cette même limite documentée dans `LeagueSeason.cs`.
 
 ### Ce que la table achète
 
@@ -162,6 +181,14 @@ chercher les lignes de match une seule fois et de servir toutes les ligues
 
 Chaque `LeagueSeason` a son propre cycle : **on la prépare, on la joue, on la
 clôt.**
+
+**✅ Construit** (2026-08-25) : `LeagueSeasonPhase` (Core, avec
+`SeasonPhaseRules.CanTransition`/`CanTrade`, testés) ; `SeasonPhaseJob`
+(`season-phase --league <code> --to <Phase> [--dry-run]`) fait avancer une
+ligue d'un pas, ouvre la saison suivante depuis `Preparing`, bascule
+`Leagues.Season` et vide les protections en entrant en `InSeason`, écrit le
+champion en entrant en `Complete`. **Jamais exécuté sur une vraie ligue** —
+avancer réellement une saison est une décision de Nick, pas la mienne.
 
 ```
 Preparing ──> Protecting ──> Drafting ──> PreSeason ──> InSeason ──> Complete
@@ -212,6 +239,11 @@ Un échange ferme un spot et en ouvre un neuf. Le spot neuf **n'hérite d'aucune
 protection** — le joueur deviendrait exposé sans que personne ne l'ait décidé.
 C'est une faille, pas une question d'ergonomie.
 
+**✅ Construit** : le contrôle est dans `TradeEndpoints.ValidateAgainstEngagedAsync`
+— le point d'entrée partagé par proposer et accepter un échange — donc les deux
+chemins le refusent identiquement. Les protections et les vols eux-mêmes
+restent **à écrire** (voir le statut en tête de document).
+
 ---
 
 ## 6. Ce qu'on ne fait **pas** : effacer les `RosterAssignments`
@@ -253,14 +285,23 @@ suit est à une requête près — et rien de tout ça n'est possible si on effa
 | Le palmarès : qui a gagné chaque saison | Une ligne par `LeagueSeason` |
 | « Boisvert n'a jamais fini devant Lachance en 4 ans » | Classements par saison, comparés |
 | « Ta meilleure semaine à vie : 47 pts, saison 2, semaine 14 » | `MAX` sur `RosterAssignments` par équipe |
-| « Crosby t'a rapporté 312 pts en 3 saisons » | `vRosterSpotTotals` **sans** filtre de saison |
+| « Crosby t'a rapporté 312 pts en 3 saisons » | `RosterAssignments`/`RosterSpots`, **hors** `vRosterSpotTotals` |
 | « Meilleure saison de l'histoire du pool » | `MAX` sur les totaux par `LeagueSeason` |
 | Le trophée du DG le plus actif en échanges, à vie | `vPoolerTradeRecord` par saison |
 
 C'est la différence entre un pool qui recommence chaque année et un **pool à
 vie** — ce que Les Mordus est déjà dans le titre de son propre rapport. Le
-filtre de saison donne les deux lectures depuis les mêmes lignes : avec, c'est
-l'année en cours ; sans, c'est la carrière.
+filtre de saison donne les deux lectures depuis les mêmes lignes, mais **pas la
+même vue** : `vRosterSpotTotals` sert désormais le "cette saison" du §8 (elle a
+dû être scopée pour la même raison que `vStandings`), et une carrière se lit en
+requêtant `RosterAssignments` directement, sans passer par elle.
+
+**✅ Construit** (2026-08-25) : `GET /api/leagues/{leagueId}/seasons` +
+l'écran `Palmares.tsx`, une ligne par `LeagueSeason`, atteint depuis un lien
+sur Standings plutôt qu'un nouvel onglet (la barre du bas était déjà pleine).
+Ce n'est pas un écran de joueurs — chaque ligne est une saison/équipe — donc il
+ne déclenche pas la convention player-row de `CLAUDE.md`. Les autres lignes du
+tableau ci-dessus restent illustratives, non construites.
 
 ---
 
@@ -298,23 +339,25 @@ C'est aussi pourquoi **`Leagues.Season` s'avance en dernier**, en entrant dans
 `InSeason` : jusque-là le classement affiche encore la saison qui vient de finir,
 ce qu'on veut précisément regarder en juillet.
 
+**✅ Construit et déployé** (2026-08-25) : migration
+`ScopeStandingsAndRosterTotalsBySeason`, vérifiée sur la base réelle — les
+14 équipes des Mordus affichent toujours leurs bons totaux (454 pts en tête,
+435 lignes dans `vRosterSpotTotals`), le filtre étant aujourd'hui un no-op
+puisqu'aucune ligue n'a encore atteint une deuxième saison.
+
 ---
 
 ## 9. Ordre de construction
 
-1. **`Season` (Core), pur et testé** — remplace les quatre endroits de §2. Aucune
-   dépendance, aucune migration.
-2. **Scoper `vStandings` et `vRosterSpotTotals`** — une migration. Corrige un bug
-   qui existe déjà.
-3. **`LeagueSeasons`** + backfill : une ligne par ligue existante
-   (`Number = 3` pour Les Mordus, `Phase = InSeason`).
-4. `period-init --season 20262027`.
-5. Les phases : transitions + contrôle dans `TradeValidation.Validate`.
-6. `Protecting` : écran de sélection, verrouillage, auto-remplissage.
-7. `Drafting` : ordre, vols, quotas.
-8. `PreSeason → InSeason` : `Leagues.Season++`, `protection-reset`,
-   `ChampionTeamId` sur la ligne qui se clôt.
-9. **Le palmarès** (§7) — le premier écran qui paie l'historique.
+1. ✅ **`Season` (Core), pur et testé** — remplace les quatre endroits de §2.
+2. ✅ **Scoper `vStandings` et `vRosterSpotTotals`** — corrige un bug qui existait déjà. Déployé.
+3. ✅ **`LeagueSeasons`** + backfill — une ligne par ligue existante (`Number = 3` pour Les Mordus, `Phase = InSeason`). Déployé.
+4. ⬜ `period-init --season 20262027` — **pas fait** : aucun match `20262027` n'est encore en base (`Games`), le job refuserait honnêtement de tourner. Rien à faire tant que le calendrier 2026-27 n'existe pas.
+5. ✅ Les phases : `SeasonPhaseRules` + `SeasonPhaseJob` + gel dans `TradeEndpoints`.
+6. ⬜ `Protecting` : écran de sélection, verrouillage, auto-remplissage — **en attente** : `RuleConfig.ProtectionSlots` existe (nullable, non fixé) mais l'écran est une liste de joueurs et doit d'abord répondre à la convention player-row.
+7. ⬜ `Drafting` : ordre, vols, quotas — **en attente** des deux chiffres du §10 et d'une décision d'écran/navigation.
+8. ✅ `SeasonPhaseJob --to InSeason/Complete` : `Leagues.Season` bascule, `protection-reset` tourne, `ChampionTeamId` s'écrit. **Jamais exécuté sur une vraie ligue.**
+9. ✅ **Le palmarès** (§7) — `GET .../seasons` + `Palmares.tsx`, déployé.
 
 ---
 
@@ -323,13 +366,32 @@ ce qu'on veut précisément regarder en juillet.
 - **`TradeSchedule.NextPeriodStart` retourne `null`** passé la dernière semaine
   d'une saison, donc aucun échange n'est possible en `PreSeason` — alors que §5
   les dit ouverts. Il doit savoir atteindre la semaine 1 de la saison suivante.
+  **Toujours ouvert** ; `SeasonPhaseRules.CanTrade` autorise déjà `PreSeason`,
+  mais `TradeSchedule` bloquerait quand même faute de semaine à viser.
+- **`period-init --season 20262027` ne peut pas encore tourner** : il dérive le
+  calendrier des matchs déjà en base (`Games`), et 2026-27 n'y est pas. Se
+  résout tout seul le jour où `stats-sync`/`player-sync` voient la nouvelle
+  saison ; rien à construire.
 - **Les règles de la saison 2, c'était quoi ?** Le barème vit sur `League` et
   change en place. Un pool à vie finira par vouloir le figer par saison. Pas
   aujourd'hui — mais `LeagueSeasons` est l'endroit où ça atterrira.
 - **Combien de joueurs protégeables par DG**, et **combien de pertes maximum par
-  équipe** ([mordus-pool.md](mordus-pool.md)).
-- **Qui déclenche une transition ?** Le commissaire à la main, ou le job
-  nocturne quand la dernière semaine banque. La main est plus simple et plus sûre
-  pour une première saison.
+  équipe** ([mordus-pool.md](mordus-pool.md)). `RuleConfig.ProtectionSlots`
+  existe déjà et attend le premier chiffre ; le second n'a même pas encore de
+  colonne.
+- **Qui déclenche une transition ?** Le commissaire à la main
+  (`season-phase --to <Phase>`, construit) ou le job nocturne quand la dernière
+  semaine banque. La main est plus simple et plus sûre pour une première saison,
+  et c'est ce qui est construit — rien n'appelle `SeasonPhaseJob` automatiquement.
 - **Les listes de protection sont-elles publiques** avant le repêchage ? Décision
   de produit, pas de modèle, et elle change beaucoup l'ambiance.
+- **L'écran de protection et l'écran de vol** sont des listes de joueurs.
+  `CLAUDE.md` demande de demander — combien de lignes, nom tronqué ou pas, quoi
+  à droite — avant de construire n'importe quel écran-liste-de-joueurs ; ça n'a
+  pas été fait ici, donc ces deux écrans restent non construits même si leur
+  mécanique serait simple à câbler sur ce qui existe déjà
+  (`RosterSpots.ProtectionStatus`, `ProtectionRules.IsAutoProtected`,
+  `RosterChange.ApplyAsync` avec `startReason: Draft`).
+- **La barre de navigation du bas reste pleine.** Palmarès a trouvé sa place
+  dans Standings ; Protection et Draft devront trouver la leur sans ajouter de
+  destination en double.

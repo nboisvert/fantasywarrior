@@ -130,6 +130,8 @@ export interface RuleConfig {
   };
   /** Picks per team per year — one per round. Null = no draft. */
   draftRounds: number | null;
+  /** Roster spots a GM may protect before the off-season steal draft. Null = not configured. */
+  protectionSlots: number | null;
   /**
    * What a player with no contract on file costs against the cap, in whole
    * dollars. $1M by default; 0 carries unsigned players for free.
@@ -250,6 +252,17 @@ export interface LeagueDetail {
   /** The requesting user's own roster (empty if they have no team here).
    * Other teams' rosters are fetched on demand. */
   myRoster: RosterPlayer[];
+}
+
+/** One row of the palmarès — one season this league has played. */
+export interface LeagueSeasonSummary {
+  number: number;
+  /** The NHL season this row plays, e.g. "20262027". */
+  season: string;
+  phase: "Preparing" | "Protecting" | "Drafting" | "PreSeason" | "InSeason" | "Complete";
+  /** Null until the season closes and a champion is written. */
+  championTeamName: string | null;
+  completedUtc: string | null;
 }
 
 /** How a player is unavailable right now, per the news sources. Null on both
@@ -489,6 +502,9 @@ export const api = {
     request<LeagueDetail>(
       `/api/leagues/${encodeURIComponent(leagueId)}?username=${encodeURIComponent(username)}`,
     ),
+  /** The palmarès: one row per season this league has ever played, newest first. */
+  seasons: (leagueId: string) =>
+    request<LeagueSeasonSummary[]>(`/api/leagues/${encodeURIComponent(leagueId)}/seasons`),
   news: (limit = 30) =>
     request<NewsArticle[]>(`/api/news?limit=${encodeURIComponent(String(limit))}`),
   updateRules: (leagueId: string, username: string, ruleConfig: RuleConfig) =>

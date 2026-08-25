@@ -1,4 +1,5 @@
 import type { LeagueDetail } from "../api";
+import { TrophyIcon } from "../components/Icons";
 
 // Teams arrive sorted by score from the API. A row is a shortcut to that
 // team's Stats screen (no inline roster expansion anymore).
@@ -6,14 +7,26 @@ export function Standings({
   league,
   username,
   onOpenTeamStats,
+  onOpenPalmares,
 }: {
   league: LeagueDetail;
   username: string;
   onOpenTeamStats: (ownerUsername: string) => void;
+  onOpenPalmares: () => void;
 }) {
   return (
     <section className="fade-in" style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-      <span className="section-title">Standings — Season {league.season}</span>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.6rem" }}>
+        <span className="section-title">Standings — Season {league.season}</span>
+        <button
+          type="button"
+          className="icon-btn"
+          onClick={onOpenPalmares}
+          aria-label="View the league's palmarès"
+        >
+          <TrophyIcon size={20} />
+        </button>
+      </div>
       {league.teams.length === 0 && <p className="empty-state">No team in this league yet.</p>}
       <ol className="standings-list">
         {league.teams.map((team, i) => (

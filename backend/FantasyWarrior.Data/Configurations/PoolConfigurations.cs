@@ -68,6 +68,38 @@ public sealed class LeagueConfiguration : IEntityTypeConfiguration<League>
     }
 }
 
+public sealed class LeagueSeasonConfiguration : IEntityTypeConfiguration<LeagueSeason>
+{
+    public void Configure(EntityTypeBuilder<LeagueSeason> b)
+    {
+        b.ToTable("LeagueSeasons");
+        b.HasKey(x => x.LeagueSeasonId);
+        b.Property(x => x.Season).HasMaxLength(8).IsFixedLength().IsUnicode(false).IsRequired();
+        b.Property(x => x.Phase).HasConversion<byte>();
+
+        b.HasIndex(x => new { x.LeagueId, x.Season }).IsUnique();
+        b.HasIndex(x => new { x.LeagueId, x.Number }).IsUnique();
+
+        // The database version of "exactly one row per league is ever not
+        // Complete" (LeagueSeasonPhase = 5) — a real constraint rather than a
+        // sentence in a doc, the same reasoning as
+        // UX_RosterSpots_OneOpenFranchisePerTeam.
+        b.HasIndex(x => x.LeagueId, "UX_LeagueSeasons_OneActivePerLeague")
+            .IsUnique()
+            .HasFilter("[Phase] <> 5");
+
+        b.HasOne(x => x.League)
+            .WithMany(l => l!.Seasons)
+            .HasForeignKey(x => x.LeagueId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        b.HasOne(x => x.ChampionTeam)
+            .WithMany()
+            .HasForeignKey(x => x.ChampionTeamId)
+            .OnDelete(DeleteBehavior.NoAction);
+    }
+}
+
 public sealed class LeagueMemberConfiguration : IEntityTypeConfiguration<LeagueMember>
 {
     public void Configure(EntityTypeBuilder<LeagueMember> b)

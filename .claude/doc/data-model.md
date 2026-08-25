@@ -188,12 +188,33 @@ Enabled, UpdatedUtc
 ExternalAuthId (null, prévu pour l'auth), CreatedUtc, LastLoginUtc
 
 **`Leagues`** — `LeagueId`, Name, Season, CommissionerUserId (FK), **`JoinCode`
-(unique, court)**, CapAmount, RosterMin, RosterMax, ActiveForwards, ActiveDefense,
-ActiveGoalies, CreatedUtc
+(unique, court)**, CapAmount, RosterMin, RosterMax, **ProtectionSlots (null)**,
+ActiveForwards, ActiveDefense, ActiveGoalies, CreatedUtc
 
 > Le `JoinCode` est ce que l'API expose comme `id`. Le frontend traite `league.id`
 > comme une chaîne opaque et le garde en `localStorage` — exposer un code court
 > plutôt qu'un entier a permis de ne pas toucher `LeagueGate`/`Settings`.
+
+> **`ProtectionSlots`** — combien de spots un DG peut protéger avant le
+> repêchage de vol. Null tant qu'aucun commissaire ne l'a fixé ; Les Mordus n'a
+> jamais tenu ce repêchage, il n'y a donc pas de vrai chiffre à défaut.
+
+**`LeagueSeasons`** — `LeagueSeasonId`, LeagueId (FK), Season (char(8)), Number,
+Phase (tinyint : Preparing/Protecting/Drafting/PreSeason/InSeason/Complete),
+ChampionTeamId (FK Teams, null), StartedUtc, CompletedUtc
+→ unique (LeagueId, Season) ; unique (LeagueId, Number)
+→ index unique **filtré** `(LeagueId) WHERE Phase <> 5` — au plus une ligne
+non-`Complete` par ligue, une vraie contrainte plutôt qu'une phrase de doc
+
+> Le pendant table de « saison » : `Leagues.Season` reste une valeur nommant la
+> saison LNH dont les points comptent maintenant ; cette table est le compte
+> **propre à la ligue** (« saison 3 » des Mordus) et le domicile de `Phase`.
+> **Pas de FK composite** de `Leagues.Season` vers cette table : créer une
+> ligue insère d'abord `Leagues` (elle distribue le `LeagueId` que toute ligne
+> `LeagueSeasons` réclame), donc une FK dans l'autre sens refuserait la toute
+> première insertion — l'œuf et la poule. Le rapprochement reste une valeur,
+> comme `Team.FranchiseAbbrev`/`NhlTeam.Abbrev`. Voir
+> [season-lifecycle.md](season-lifecycle.md).
 
 **`LeagueMembers`** — PK (LeagueId, UserId), JoinedUtc
 
@@ -218,8 +239,15 @@ réassemble la même forme JSON qu'avant, donc `RulesPanel.tsx` n'a pas bougé.
 **`RosterSpots`** — `RosterSpotId`, LeagueId, TeamId (FK), **PlayerId (FK null)**,
 **FranchiseAbbrev (FK NhlTeams, null)**, PositionGroup (`F`/`D`/`G`/`T`, gelé à
 l'ouverture), StartDate, StartReason (tinyint), StartTradeId (FK null),
-StartDraftPickId (FK null), EndDate (null), EndReason (tinyint null),
-EndTradeId (FK null), **ProtectionStatus (tinyint, défaut 0)**, OpenedUtc, ClosedUtc
+StartDraftPickId (FK null), EndDate (null), **EndReason (tinyint null :
+Release/Trade/Draft)**, EndTradeId (FK null), **ProtectionStatus (tinyint,
+défaut 0)**, OpenedUtc, ClosedUtc
+
+> `EndReason.Draft` — perdu au repêchage de vol. Ajoutée le 2026-08-25,
+> **jamais encore posée** : rien n'écrit de vol aujourd'hui. `RosterChange
+> .ApplyAsync` sait déjà accepter `StartReason.Draft` (existait avant elle) —
+> un vol emprunte le même chemin qu'un échange, rien de nouveau à écrire côté
+> mutation de roster le jour où le repêchage existera.
 
 → CHECK `CK_RosterSpots_PlayerOrFranchise` : exactement un des deux, en accord
 avec PositionGroup
@@ -365,12 +393,23 @@ le trafic ordinaire, pas seulement au login.
 | Vue | Ce qu'elle donne |
 |---|---|
 | `vPlayerSeasonStats` | totaux saison par joueur (`GROUP BY` sur `PlayerGameStats`) |
-| `vRosterSpotTotals` | points et matchs par spot, actifs et banc séparés |
+| `vRosterSpotTotals` | points et matchs par spot **cette saison**, actifs et banc séparés |
 | `vTeamPeriodScores` | points actifs/banc par équipe par semaine → l'historique hebdomadaire |
 | `vStandings` | classement : SUM par équipe, cap et effectif **d'aujourd'hui** et **engagés**, matchs du roster, points/match |
 
 Les totaux **à une date** (mode test) sont des requêtes paramétrées, pas des
 vues — c'est la même agrégation avec un `WHERE GameDate <= @asOf`.
+
+> **`vStandings` et `vRosterSpotTotals` filtrent maintenant par saison**
+> (2026-08-25) : un `RosterSpot` de pool keeper survit à une frontière de
+> saison, donc sans ce filtre les deux vues auraient sommé les
+> `RosterAssignments` de *toutes* les saisons ensemble — un score qui ne
+> repart jamais à zéro. Le filtre joint `Periods` et compare `p.Season` à
+> `Leagues.Season` ; il ne change rien tant qu'aucune ligue n'a de deuxième
+> saison en base (vérifié sur Les Mordus après déploiement : mêmes 435 lignes,
+> mêmes totaux). Une future carrière/palmarès à vie ne passe **pas** par ces
+> deux vues — elle lit `RosterAssignments` sans ce filtre. Voir
+> [season-lifecycle.md](season-lifecycle.md) §§6-8.
 
 > **`vStandings` est la seule vue du schéma qui sait quel jour on est.** Sa CTE
 > `Today` lit le même curseur que tout le monde : `SimulationState.AsOfDate + 1`

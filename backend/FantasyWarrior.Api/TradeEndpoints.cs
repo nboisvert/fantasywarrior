@@ -1,5 +1,6 @@
 using FantasyWarrior.Core.Cockcoin;
 using FantasyWarrior.Core.Periods;
+using FantasyWarrior.Core.Seasons;
 using FantasyWarrior.Core.Trades;
 using FantasyWarrior.Data;
 using FantasyWarrior.Data.Entities;
@@ -33,6 +34,15 @@ public static class TradeEndpoints
         FantasyWarriorDbContext db, League league, int proposerTeamId, int counterpartyTeamId,
         IReadOnlyCollection<long> fromProposer, IReadOnlyCollection<long> fromCounterparty)
     {
+        // A trade closes a spot and opens a new one, and the new one inherits
+        // no protection at all — a player a GM had just protected would
+        // silently become stealable. Freezing trades for exactly the two
+        // phases where that could happen (season-lifecycle.md §5) closes the
+        // hole rather than working around it after the fact.
+        var activeSeason = await Queries.ActiveLeagueSeasonAsync(db, league.LeagueId);
+        if (activeSeason is not null && !SeasonPhaseRules.CanTrade(activeSeason.Phase))
+            return [$"Trades are frozen during the off-season {activeSeason.Phase.ToString().ToLowerInvariant()} phase."];
+
         var engaged = await TradeValidation.EngagedStateAsync(db, league.LeagueId);
         if (!engaged.TryGetValue(proposerTeamId, out var proposerState)
             || !engaged.TryGetValue(counterpartyTeamId, out var counterpartyState))

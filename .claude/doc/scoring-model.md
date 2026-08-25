@@ -282,9 +282,15 @@ la règle écrite à un seul endroit.
 n'affiche rien — plutôt que de coller une pastille `AUTO` sur un vétéran dont la
 synchro a échoué.
 
-Ce qui reste devant, quand le repêchage arrivera : geler le calcul le jour même
-(un joueur qui dispute son 100e match entre deux rondes changerait de catégorie),
-ajouter `RosterSpotEndReason.Draft`, geler les échanges pendant la fenêtre (un
-échange ouvre un spot neuf, qui n'hérite d'aucune protection), et exclure le slot
-`T` des volables. Le vol lui-même est déjà écrit : c'est
-`RosterChange.ApplyAsync` avec `startReason: Draft`.
+**Construit depuis** (2026-08-25, voir [season-lifecycle.md](season-lifecycle.md)) :
+`RosterSpotEndReason.Draft` existe, le gel des échanges tourne déjà dans
+`TradeEndpoints` pour toute ligue dont la saison active est en `Protecting`
+ou `Drafting`, et `LeagueSeasons.Phase` est l'endroit qui décide de la fenêtre.
+
+Ce qui reste devant, quand le repêchage arrivera : geler le calcul de
+`CareerNhlGames` le jour même (un joueur qui dispute son 100e match entre deux
+rondes changerait de catégorie), exclure le slot `T` des volables, et
+construire l'écran de sélection et les rondes elles-mêmes — les deux étant des
+listes de joueurs qui doivent d'abord répondre à la convention player-row de
+CLAUDE.md. Le vol lui-même est déjà écrit : c'est `RosterChange.ApplyAsync`
+avec `startReason: Draft`.
