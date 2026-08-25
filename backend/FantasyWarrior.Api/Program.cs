@@ -87,6 +87,7 @@ app.MapGet("/api/clock", async (SimulationClockService clock) =>
 LeagueEndpoints.Map(app);
 LineupEndpoints.Map(app);
 TradeEndpoints.Map(app);
+DraftEndpoints.Map(app);
 PlayerEndpoints.Map(app);
 CockcoinEndpoints.Map(app);
 MessageEndpoints.Map(app);

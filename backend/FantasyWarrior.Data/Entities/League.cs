@@ -77,6 +77,32 @@ public sealed class League
     /// </summary>
     public int? ProtectionSlots { get; set; }
 
+    /// <summary>
+    /// How many of the off-season draft's opening rounds are steal rounds, in
+    /// which a GM takes an exposed player off a rival's roster. Les Mordus: 2.
+    /// Null or 0 = the draft goes straight to its rookie / free-agent rounds.
+    ///
+    /// Deliberately independent of <see cref="DraftRounds"/>, and it is not an
+    /// error for it to differ: they size two different drafts that happen to run
+    /// back to back. Les Mordus runs 2 steal rounds and 3 rookie rounds.
+    ///
+    /// Unlike <see cref="DraftRounds"/> this generates no rows — a steal turn is
+    /// not tradable, so every team gets exactly this many and there is nothing
+    /// to own (Nick, 2026-08-25).
+    /// </summary>
+    public int? StealRounds { get; set; }
+
+    /// <summary>
+    /// The most players one team may lose across a whole steal draft. Les
+    /// Mordus: 2. Null = uncapped, which is a real choice and not a limit of
+    /// zero.
+    ///
+    /// It closes the pool from underneath as the draft runs: once a team reaches
+    /// this, every remaining player it holds stops being available to everyone.
+    /// That is why the available list is recomputed per turn and never cached.
+    /// </summary>
+    public int? MaxLossesPerTeam { get; set; }
+
     /// <summary>Active forward slots per week. Les Mordus: 9.</summary>
     public int ActiveForwards { get; set; }
 

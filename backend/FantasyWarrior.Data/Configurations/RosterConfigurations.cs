@@ -196,3 +196,82 @@ public sealed class DraftPickConfiguration : IEntityTypeConfiguration<DraftPick>
             .OnDelete(DeleteBehavior.NoAction);
     }
 }
+
+public sealed class DraftSelectionConfiguration : IEntityTypeConfiguration<DraftSelection>
+{
+    public void Configure(EntityTypeBuilder<DraftSelection> b)
+    {
+        b.ToTable("DraftSelections", t =>
+        {
+            // A steal takes from a team and spends no entitlement; a rookie pick
+            // spends one and takes from nobody. Written as a constraint rather
+            // than a convention for the same reason
+            // CK_RosterSpots_PlayerOrFranchise is: the shape is the meaning, and
+            // a row that violated it would be a draft nobody could read back.
+            t.HasCheckConstraint(
+                "CK_DraftSelections_SegmentShape",
+                "([Segment] = 0 AND [DraftPickId] IS NULL) " +
+                "OR ([Segment] = 1 AND [StolenFromTeamId] IS NULL AND [DraftPickId] IS NOT NULL)");
+
+            // A passed turn takes nobody from nobody.
+            t.HasCheckConstraint(
+                "CK_DraftSelections_PassTakesNobody",
+                "[PlayerId] IS NOT NULL OR [StolenFromTeamId] IS NULL");
+        });
+
+        b.HasKey(x => x.DraftSelectionId);
+
+        b.Property(x => x.Segment).HasConversion<byte>();
+
+        // THE guard. Without an entitlement row to claim, the steal segment has
+        // nothing else that can stop two GMs from both believing they are on
+        // turn 7. The second INSERT violates this and the whole transaction
+        // rolls back — a 409, never a silent double pick.
+        b.HasIndex(x => new { x.LeagueSeasonId, x.OverallIndex })
+            .IsUnique()
+            .HasDatabaseName("UX_DraftSelections_OneSelectionPerTurn");
+
+        // One entitlement, one selection. This is what makes DraftPick.UsedUtc
+        // and this table unable to disagree, and it replaces a conditional
+        // update that a future caller could forget to write.
+        b.HasIndex(x => x.DraftPickId)
+            .IsUnique()
+            .HasFilter("[DraftPickId] IS NOT NULL")
+            .HasDatabaseName("UX_DraftSelections_OnePerPick");
+
+        // Nobody is drafted twice in one draft.
+        b.HasIndex(x => new { x.LeagueSeasonId, x.PlayerId })
+            .IsUnique()
+            .HasFilter("[PlayerId] IS NOT NULL")
+            .HasDatabaseName("UX_DraftSelections_OnePerPlayer");
+
+        // The losses quota, recomputed on every turn — see DraftPool.
+        b.HasIndex(x => new { x.LeagueSeasonId, x.StolenFromTeamId })
+            .HasDatabaseName("IX_DraftSelections_Losses");
+
+        b.HasOne(x => x.LeagueSeason)
+            .WithMany()
+            .HasForeignKey(x => x.LeagueSeasonId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        b.HasOne(x => x.Team)
+            .WithMany()
+            .HasForeignKey(x => x.TeamId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        b.HasOne(x => x.StolenFromTeam)
+            .WithMany()
+            .HasForeignKey(x => x.StolenFromTeamId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        b.HasOne(x => x.Player)
+            .WithMany()
+            .HasForeignKey(x => x.PlayerId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        b.HasOne(x => x.DraftPick)
+            .WithMany()
+            .HasForeignKey(x => x.DraftPickId)
+            .OnDelete(DeleteBehavior.NoAction);
+    }
+}
