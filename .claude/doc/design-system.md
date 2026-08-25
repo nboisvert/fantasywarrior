@@ -181,8 +181,17 @@ lisent comme le même *type* de marque, sans en partager la couleur : le or
 veut déjà dire « trade » ailleurs sur l'écran, l'ice veut déjà dire « chiffre
 vedette » sur la colonne PT deux centimètres plus loin, et emprunter l'un ou
 l'autre ici attribuerait une signification qui n'existe pas. Le texte muté dit
-« section », rien de plus. Le filet de 2 px en `--border-strong` porte le même
-poids que l'ancienne bordure seule qu'il remplace.
+« section », rien de plus.
+
+**Sans bordure (2026-08-25).** La teinte de fond seule marque la rangée —
+`border-top: none`, à outrepasser explicitement le séparateur ordinaire de
+1 px que chaque rangée hérite sinon (`.stats-grid tbody tr + tr td`, plus
+spécifique qu'une simple absence de déclaration). Et le mot ne colle plus à
+la bordure collante : `padding-left: 0.5rem` sur `.stats-prospect-label-cell`,
+la même valeur que le rembourrage ordinaire des cellules — mais elle aussi
+doit être écrite à une spécificité qui bat la règle de la rangée
+(`.stats-grid tbody tr.stats-prospect-label-row td` remet tout à zéro à
+`(0,2,3)`), sans quoi le padding s'écrit et ne s'applique jamais.
 
 ## Messagerie (2026-08-03)
 

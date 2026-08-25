@@ -1798,13 +1798,14 @@
    here would claim a meaning this doesn't have. Muted text says "section",
    which is all this needs to say. */
 /* `.stats-grid tbody tr + tr td` above already claims every row's top border
-   at (0,1,4) specificity; this needs to outrank it by class count, not just
-   exist, or the ordinary 1px separator silently wins regardless of which
-   rule comes later in the file. */
+   at (0,1,4) specificity; `border-top: none` needs to outrank it by class
+   count, not just exist, or the ordinary 1px separator silently wins
+   regardless of which rule comes later in the file (Nick, 2026-08-25: no
+   border at all here — the tint alone marks the row). */
 .stats-grid tbody tr.stats-prospect-label-row td {
   height: 16px;
   padding: 0;
-  border-top: 2px solid var(--border-strong);
+  border-top: none;
   background: var(--surface-strong);
 }
 
@@ -1827,6 +1828,14 @@
   color: var(--text-muted);
   white-space: nowrap;
   background: var(--surface-strong);
+}
+
+/* The row rule above sets every cell's padding to 0 at (0,2,3) specificity —
+   this needs to match that (three classes, not two) or "PROSPECTS" stays
+   flush against the sticky column's own left edge regardless of what a
+   plain `.stats-prospect-label-cell` padding declares. */
+.stats-grid tbody tr.stats-prospect-label-row td.stats-prospect-label-cell {
+  padding-left: 0.5rem;
 }
 
 .stats-grid th.accent,
