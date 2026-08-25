@@ -3,6 +3,7 @@ using FantasyWarrior.Core.Scoring;
 using FantasyWarrior.Core.Time;
 using FantasyWarrior.Data;
 using FantasyWarrior.Data.Entities;
+using FantasyWarrior.Data.Players;
 using FantasyWarrior.Data.Rosters;
 using Microsoft.EntityFrameworkCore;
 
@@ -541,6 +542,10 @@ public static class LineupEndpoints
                 .Where(v => v.TeamId == team.TeamId)
                 .ToDictionaryAsync(v => v.RosterSpotId);
             var injuries = await Queries.InjuriesAsync(db, playerIds);
+            // Never played an NHL game, so the grid sinks him below the roster
+            // and keeps him out of the sort entirely. Read here rather than on
+            // the client: it is a fact about the player, not about the screen.
+            var prospects = await Prospects.ForAsync(db, playerIds);
 
             // The Équipe slot, as one row of the same grid.
             //
@@ -570,6 +575,8 @@ public static class LineupEndpoints
                     injuryStatus = (string?)null,
                     injuryType = (string?)null,
                     isGoalie = false,
+                    // A franchise is not a player and has no career to have missed.
+                    isProspect = false,
                     gamesPlayed = 0, goals = 0, assists = 0, points = 0, plusMinus = 0,
                     pim = 0, shots = 0, hits = 0, blockedShots = 0,
                     wins = 0, otLosses = 0, shutouts = 0,
@@ -623,6 +630,7 @@ public static class LineupEndpoints
                     injuryStatus = inj?.Status,
                     injuryType = inj?.InjuryType,
                     isGoalie = spot.PositionGroup == "G",
+                    isProspect = prospects.Contains(playerId),
                     gamesPlayed = t?.GamesPlayed ?? 0,
                     goals = t?.Goals ?? 0,
                     assists = t?.Assists ?? 0,

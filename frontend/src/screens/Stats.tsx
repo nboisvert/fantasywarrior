@@ -366,6 +366,10 @@ interface PlayerRow {
   name: string;
   position: string;
   isGoalie: boolean;
+  // Never played an NHL game. Pinned below the roster and held out of the sort
+  // entirely — see `withProspectsLast`. Computed by the API, not here: it is a
+  // fact about the player's career, not about this screen.
+  isProspect: boolean;
   // The Équipe slot: one row per team, holding an NHL franchise instead of a
   // player. Only the three Record columns and the Fantasy point PTS carry a
   // number (Nick, 2026-08-05) — a franchise has no goals, no cap hit and no
@@ -464,6 +468,35 @@ function useSort<T extends object>(rows: T[], initialKey: keyof T) {
 
   return { sorted, key: key as string, dir, toggle };
 }
+/** F, then D, then G — the order a GM reads his own bench in. */
+const PROSPECT_POSITION_ORDER = ["F", "D", "G"];
+
+/**
+ * Prospects last, always, in a fixed order the sort never touches (Nick,
+ * 2026-08-25).
+ *
+ * They are held out of the sort rather than merely sorted to the bottom: a GM
+ * ranking his roster by points is not ranking twenty players who have never
+ * dressed, and a zone that keeps exactly the same shape whatever the sort is
+ * the thing the accent border can honestly delimit. Sorting inside it would
+ * make that border move under the reader's thumb.
+ *
+ * Position group first, then name — and never the current sort key, which is
+ * the whole point.
+ */
+function withProspectsLast(rows: PlayerRow[]): PlayerRow[] {
+  const roster = rows.filter((r) => !r.isProspect);
+  const prospects = rows
+    .filter((r) => r.isProspect)
+    .sort((a, b) => {
+      const byPosition =
+        PROSPECT_POSITION_ORDER.indexOf(posGroup(a.position)) -
+        PROSPECT_POSITION_ORDER.indexOf(posGroup(b.position));
+      return byPosition !== 0 ? byPosition : a.name.localeCompare(b.name);
+    });
+  return [...roster, ...prospects];
+}
+
 
 /** Top row of the two-row grouped header: a label spanning the columns
  * belonging to one data source (Fantasy point / NHL season totals / Extra
@@ -593,6 +626,12 @@ function RosterGrid({
   // that one shared table could not give.
   const sort = useSort<PlayerRow>(rows, "poolPoints");
 
+  // The order actually rendered: whatever the sort produced, then the prospect
+  // zone bolted to the bottom. `firstProspectId` is only ever used to hang the
+  // divider on the row that opens that zone.
+  const ordered = withProspectsLast(sort.sorted);
+  const firstProspectId = ordered.find((r) => r.isProspect)?.id ?? null;
+
   const scrollRef = useSnapPadding(rows.length);
 
   // Totals are derived from this grid's own rows, so the departed grid foots to
@@ -675,7 +714,7 @@ function RosterGrid({
             </tr>
           </thead>
           <tbody>
-            {sort.sorted.map((r) => {
+            {ordered.map((r) => {
               const lineupEntry = lineupByPlayer?.get(r.id);
               return (
               <Fragment key={r.id}>
@@ -690,6 +729,7 @@ function RosterGrid({
                     r.injuryStatus && "stats-row-out",
                     r.tradeMark === "out" && "stats-row-trade-out",
                     r.tradeMark === "in" && "stats-row-trade-in",
+                    r.id === firstProspectId && "stats-prospect-start",
                   ]
                     .filter(Boolean)
                     .join(" ") || undefined
@@ -1016,6 +1056,10 @@ export function Stats({
       name: p.name,
       position: p.position,
       isGoalie,
+      // `?? false` is the same deploy-skew guard as the pool columns below: an
+      // API that predates this field sends undefined, and undefined would read
+      // as "not a prospect", which is the harmless way round.
+      isProspect: p.isProspect ?? false,
       isFranchise,
       logoUrl: p.logoUrl ?? null,
       // Left out of the W/OTL columns' own fields on purpose: those totals are

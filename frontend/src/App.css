@@ -1786,6 +1786,19 @@
   border-top: 1px solid var(--border);
 }
 
+/* The prospect zone opens here: players with no NHL game to their name, pinned
+   below the roster and out of the sort (Nick, 2026-08-25). One accented rule
+   across the whole row, on the cells rather than the `tr`, so it carries under
+   the sticky name column the same way the ordinary row separators do.
+
+   Deliberately not the ice accent: that colour already means "this is the
+   headline number" on the PTS column two inches away, and a divider borrowing
+   it would read as an endorsement of the players below rather than a boundary.
+   Weight and brightness say "section", which is all this has to say. */
+.stats-grid tbody tr.stats-prospect-start td {
+  border-top: 2px solid var(--border-strong);
+}
+
 .stats-grid th.accent,
 .stats-grid td.accent {
   color: var(--ice-bright);

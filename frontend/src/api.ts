@@ -269,6 +269,11 @@ export interface PlayerSeasonStatsRow extends Engageable, InjuryFields {
   capHit: number | null;
   headshotUrl: string | null;
   isGoalie: boolean;
+  /** No NHL game ever played. Not `Player.Status === "prospect"`, which means
+   * something else (not on an NHL club's season roster) and catches a
+   * different set — the grid keeps these players below the roster and out of
+   * the sort. */
+  isProspect: boolean;
   gamesPlayed: number;
   goals: number;
   assists: number;

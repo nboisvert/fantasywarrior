@@ -98,6 +98,24 @@ du nom) verrait donc sa dernière colonne inatteignable au repos. `Extra`
 si une colonne s'ajoute. Le repli tient en un mot : `mandatory` → `proximity`,
 qui laisse se poser entre deux blocs.
 
+**Zone prospect, en bas de la grille Team (2026-08-25).** Les joueurs sans aucun
+match de carrière LNH (règle et provenance dans
+[data-model.md](data-model.md)) sont épinglés **sous** le roster, dans un ordre
+fixe **F → D → G puis nom**, et ils sont **hors tri** : cliquer sur une colonne
+ne les réordonne pas. C'est délibéré — un DG qui classe son roster par points ne
+classe pas vingt joueurs qui n'ont jamais joué, et une zone qui garde toujours
+la même tête est la seule qu'une bordure peut honnêtement délimiter; trier
+dedans ferait bouger cette bordure sous le pouce.
+
+La bordure est un filet de 2 px en `--border-strong` posé sur les cellules de la
+première rangée prospect (`.stats-prospect-start`), pas sur le `tr` — elle
+traverse ainsi sous la colonne collante du nom comme les séparateurs de rangée
+ordinaires. **Pas l'accent glace** : cette couleur veut déjà dire « voici le
+chiffre vedette » sur la colonne PT à cinq centimètres de là, et un séparateur
+qui l'emprunterait se lirait comme une mise en valeur des joueurs du dessous
+plutôt que comme une frontière. Le poids et la clarté disent « section », c'est
+tout ce que ça a à dire.
+
 ## Messagerie (2026-08-03)
 
 Les DMs vivent dans une **feuille plein écran**, préfixe `chat-`

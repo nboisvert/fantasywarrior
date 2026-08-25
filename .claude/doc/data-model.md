@@ -97,6 +97,34 @@ LeagueAbbrev, TeamName)
 > `DraftChecked` : la ligne de la saison en cours change toute l'année.
 > Manuel pour l'instant, pas encore dans le cron nightly.
 
+> **La notion de prospect se lit ici, et nulle part ailleurs** (2026-08-25). Un
+> joueur est un prospect tant qu'il n'a **aucun match de carrière LNH** : pas de
+> ligne `LeagueAbbrev = 'NHL'` avec `GamesPlayed > 0`. Le jour où il joue son
+> premier match, il cesse d'en être un sans que personne ait à le dire.
+>
+> **Ce n'est pas `Players.Status`**, qui vaut pourtant déjà `"prospect"` — celui-là
+> veut dire « pas sur l'alignement d'une équipe LNH », ce qui est un autre
+> ensemble. Sur les 41 joueurs des Mordus sans match LNH le 2026-08-25, **19
+> portaient `Status = "nhl"`** : habillés par un club, pas encore une minute de
+> jeu. Lire `Status` ici répondrait silencieusement à une autre question.
+>
+> **Dérivé, jamais stocké** (choix de Nick). Une colonne devrait être entretenue
+> par `career-sync`, qui n'est pas dans le cron nightly — elle serait périmée
+> exactement le jour qui compte, celui des débuts. Le calcul vit dans
+> [`Prospects.ForAsync`](../../backend/FantasyWarrior.Data/Players/Prospects.cs),
+> une lecture indexée, et un joueur que `career-sync` n'a jamais atteint
+> (`CareerStatsSyncedUtc` nul) n'est **pas** rapporté comme prospect : « on a
+> regardé, il n'a rien joué » et « on n'a jamais regardé » sont deux états
+> différents, la même distinction que `DraftChecked`.
+>
+> **Sous la replay, la règle ignore la date simulée.** Les lignes de carrière
+> sont par saison, pas par date, donc un joueur qui a débuté en mars 2026 compte
+> comme ayant joué même quand le curseur est en décembre 2025. Au 2025-12-22,
+> **14 joueurs des Mordus** sont dans ce cas — toute leur carrière LNH tient
+> dans 2025-26 et aucun match avant le curseur. Corrigeable si ça gêne : borner
+> la saison en cours par `PlayerGameStats` × `Games.GameDate`, qui eux sont
+> datés. Pas fait, personne ne l'a demandé.
+
 > **Colonnes typées, pas clé/valeur.** `StatLine`/`StatKeys` restent la
 > représentation de *pointage* — une map, ce qui permet à un commissaire de scorer
 > n'importe quelle statistique sans changement de schéma — et
