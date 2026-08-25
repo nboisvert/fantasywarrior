@@ -149,13 +149,24 @@ dedans ferait bouger cette bordure sous le pouce.
 
 La zone s'ouvre par une **rangée dédiée**, pas seulement une bordure — le mot
 « PROSPECTS » à la même proportion que le bandeau « Trade Alert » du ticker
-(16 px, police minuscule en gras, lettres très espacées) pour que les deux se
-lisent comme le même *type* de marque, sans en partager la couleur : le or
-veut déjà dire « trade » ailleurs sur l'écran, l'ice veut déjà dire « chiffre
-vedette » sur la colonne PT deux centimètres plus loin, et emprunter l'un ou
-l'autre ici attribuerait une signification qui n'existe pas. Le texte muté dit
-« section », rien de plus. Le filet de 2 px en `--border-strong` porte le même
-poids que l'ancienne bordure seule qu'il remplace.
+(police minuscule en gras, lettres très espacées) pour que les deux se lisent
+comme le même *type* de marque, sans en partager la couleur : le or veut déjà
+dire « trade » ailleurs sur l'écran, l'ice veut déjà dire « chiffre vedette »
+sur la colonne PT deux centimètres plus loin, et emprunter l'un ou l'autre ici
+attribuerait une signification qui n'existe pas. Le texte muté dit « section »,
+rien de plus. Le filet de 2 px en `--border-strong` porte le même poids que
+l'ancienne bordure seule qu'il remplace.
+
+**Un pill, pas un bandeau plein (2026-08-25).** Le premier jet peignait toute
+la rangée — la cellule collante *et* le prolongement vide sur 21 colonnes —
+dans le même `--surface-strong`, ce qui donnait une dalle grise pâle et
+quasi vide plutôt qu'une étiquette : verdict de Nick, « chaque pièce est
+bonne mais le résultat est bof ». Les trois ingrédients (police, espacement,
+couleur) n'ont pas bougé — c'est leur agencement qui a changé. Seul le mot
+porte maintenant le fond, dans un `.stats-prospect-label-pill` arrondi
+(`border-radius: 999px`) qui s'arrête à sa propre largeur ; le reste de la
+rangée est nu, ne montrant que le filet de 2 px. Un tag posé sur une ligne
+de séparation, pas un bloc de couleur.
 
 ## Messagerie (2026-08-03)
 
