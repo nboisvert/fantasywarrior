@@ -85,11 +85,7 @@ Le `scroll-padding-left` doit valoir la largeur de la colonne collante du nom,
 sinon le bloc atterrit **dessous** et sa première colonne sort de l'écran —
 c'est exactement ce qui s'est produit au premier jet, avec un 9,5 rem codé en
 dur. Cette largeur est dictée par le contenu (nom long, marqueur de blessure,
-logo de franchise), donc 9,5 rem n'en est que le plancher : le hook
-`useSnapPadding` de `Stats.tsx` mesure la cellule d'en-tête et écrit la vraie
-valeur dans `--stats-snap-pad`, la feuille de style ne gardant que le repli.
-Ne jamais réinjecter cette mesure dans le `min-width` de la colonne — elle ne
-pourrait plus rétrécir, et aucun redimensionnement ne viendrait la corriger.
+logo de franchise), donc 9,5 rem n'en est que le plancher.
 
 **Contrepartie à connaître** : sous `mandatory`, on ne peut se poser qu'au début
 d'un bloc. Un groupe plus large que l'espace visible (l'écran moins la colonne
@@ -97,6 +93,50 @@ du nom) verrait donc sa dernière colonne inatteignable au repos. `Extra`
 (+/-, PIM, SOG, GAA, SV%) est le plus large et c'est lui qu'il faut surveiller
 si une colonne s'ajoute. Le repli tient en un mot : `mandatory` → `proximity`,
 qui laisse se poser entre deux blocs.
+
+**Une seule largeur pour les trois grilles de l'écran (2026-08-25).** Roster,
+Departed et Incoming sont trois `<table>` distincts, et `table-layout: auto`
+donne à chacun sa propre largeur de colonne — même balisage, mais le nom le
+plus long de *sa* liste la fixe. Vérifié en direct (Chrome headless, DOM
+mesuré) : sur une même équipe, la colonne du nom faisait 211 px sur Roster et
+188 px sur Departed, un vrai saut visible en descendant d'une section à
+l'autre — c'est le décalage que Nick a signalé entre le nom et le toggle.
+
+Deux causes empilées, deux correctifs :
+- **Departed et Incoming n'affichent jamais le toggle actif/banc** (rien à
+  activer pour un joueur parti ou pas encore arrivé) — la ligne avait donc une
+  icône de moins que Roster. `.stats-toggle-spacer` (même boîte que
+  `.lineup-toggle`, vide) comble ce trou dans les deux grilles, pour que la
+  structure soit identique partout.
+- **Même structure ne garantit pas même largeur** : chaque table calcule
+  toujours sa colonne à partir de ses propres noms. Le hook
+  `useSharedPlayerColumnWidth` de `Stats.tsx`, posé sur la `<section>` racine
+  de l'écran (pas sur une grille), mesure la cellule la plus large **à
+  travers les trois grilles montées** et écrit une seule valeur dans
+  `--stats-player-w`. `.stats-col-player` s'y range avec
+  `width: var(--stats-player-w)` — un vrai `width`, pas juste un `min-width`,
+  sinon rien ne forcerait les trois tables à s'aligner. Tant que la variable
+  est absente (`var()` invalide sans repli → valeur initiale `auto`), le
+  `min-width: 9.5rem` gouverne seul — c'est justement l'état non contraint
+  dont le hook a besoin pour mesurer.
+- **`--stats-snap-pad` a disparu**, remplacé par `--stats-player-w` réutilisé
+  directement pour `scroll-padding-left` : une fois que toutes les colonnes
+  partagent la même largeur forcée, il n'y a plus qu'une valeur à connaître,
+  pas deux à garder synchronisées. L'ancien hook par-grille
+  (`useSnapPadding`) est parti avec elle — il aurait de toute façon mesuré
+  *avant* que le hook partagé (posé sur le parent) n'ait forcé la largeur,
+  React exécutant les effets des enfants avant ceux du parent.
+
+**Piège rencontré, à ne pas répéter** : la première tentative posait
+`position: sticky` sur un `<span>` niché dans une cellule à `colSpan`. Ça ne
+collait pas — measuré en direct, l'élément restait à sa position de flux
+normal (x≈1000px) au lieu de x≈17px. La colonne `.stats-col-player` elle-même
+colle très bien (elle porte les noms de joueurs depuis le début) ; c'est
+spécifiquement la stickiness d'un descendant *imbriqué* dans une cellule
+`colSpan` qui échoue silencieusement. Le correctif : ne jamais réinventer un
+mécanisme sticky quand un autre marche déjà dans le même tableau — voir
+« Prospects » ci-dessous, qui réutilise `.stats-col-player` au lieu d'un
+`position: sticky` maison.
 
 **Zone prospect, en bas de la grille Team (2026-08-25).** Les joueurs sans aucun
 match de carrière LNH (règle et provenance dans
@@ -107,14 +147,15 @@ classe pas vingt joueurs qui n'ont jamais joué, et une zone qui garde toujours
 la même tête est la seule qu'une bordure peut honnêtement délimiter; trier
 dedans ferait bouger cette bordure sous le pouce.
 
-La bordure est un filet de 2 px en `--border-strong` posé sur les cellules de la
-première rangée prospect (`.stats-prospect-start`), pas sur le `tr` — elle
-traverse ainsi sous la colonne collante du nom comme les séparateurs de rangée
-ordinaires. **Pas l'accent glace** : cette couleur veut déjà dire « voici le
-chiffre vedette » sur la colonne PT à cinq centimètres de là, et un séparateur
-qui l'emprunterait se lirait comme une mise en valeur des joueurs du dessous
-plutôt que comme une frontière. Le poids et la clarté disent « section », c'est
-tout ce que ça a à dire.
+La zone s'ouvre par une **rangée dédiée**, pas seulement une bordure — le mot
+« PROSPECTS » à la même proportion que le bandeau « Trade Alert » du ticker
+(16 px, police minuscule en gras, lettres très espacées) pour que les deux se
+lisent comme le même *type* de marque, sans en partager la couleur : le or
+veut déjà dire « trade » ailleurs sur l'écran, l'ice veut déjà dire « chiffre
+vedette » sur la colonne PT deux centimètres plus loin, et emprunter l'un ou
+l'autre ici attribuerait une signification qui n'existe pas. Le texte muté dit
+« section », rien de plus. Le filet de 2 px en `--border-strong` porte le même
+poids que l'ancienne bordure seule qu'il remplace.
 
 ## Messagerie (2026-08-03)
 

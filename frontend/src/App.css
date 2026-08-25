@@ -1679,13 +1679,17 @@
 
      The padding is what makes a block land *beside* the sticky column rather
      than underneath it: the snapport has to begin where the scrollable content
-     visually begins, which is the player column's right edge. That column is
-     as wide as its content needs, so the 9.5rem below is only a fallback --
-     `useSnapPadding` in Stats.tsx measures the real width and writes it here.
-     Hard-coding the floor snapped the first group under the name and pushed
-     its first column off screen (Nick, 2026-08-25). */
+     visually begins, which is the player column's right edge. Reuses
+     `--stats-player-w` rather than measuring its own — that variable is
+     already the true, content-driven width of this exact column (set by
+     `useSharedPlayerColumnWidth` in Stats.tsx, inherited down from the screen
+     root), so a second measurement here would just be a second place for the
+     two to drift apart. Hard-coding the 9.5rem floor as the padding once
+     snapped the first group under the name and pushed its first column off
+     screen (Nick, 2026-08-25) — this is that bug's fix, kept in sync with the
+     column's own width by construction now instead of by convention. */
   scroll-snap-type: x mandatory;
-  scroll-padding-left: var(--stats-snap-pad, 9.5rem);
+  scroll-padding-left: var(--stats-player-w, 9.5rem);
   border: 1px solid var(--border);
   border-radius: 16px;
   background: var(--surface);
@@ -1787,16 +1791,47 @@
 }
 
 /* The prospect zone opens here: players with no NHL game to their name, pinned
-   below the roster and out of the sort (Nick, 2026-08-25). One accented rule
-   across the whole row, on the cells rather than the `tr`, so it carries under
-   the sticky name column the same way the ordinary row separators do.
+   below the roster and out of the sort (Nick, 2026-08-25). A dedicated row,
+   not just a border on the first prospect's own cells — the earlier version
+   of this — so the zone is named, not merely fenced. Same weight either way:
+   a 2px `--border-strong` top edge, still the whole boundary this has to
+   draw.
 
-   Deliberately not the ice accent: that colour already means "this is the
-   headline number" on the PTS column two inches away, and a divider borrowing
-   it would read as an endorsement of the players below rather than a boundary.
-   Weight and brightness say "section", which is all this has to say. */
-.stats-grid tbody tr.stats-prospect-start td {
+   Proportioned like the ticker's "Trade Alert" strip on purpose (16px, tiny
+   bold uppercase type, wide letter-spacing) so the two read as the same
+   *kind* of mark. Not its colours: gold there means "trade", and reusing it
+   here would claim a meaning this doesn't have. Muted text says "section",
+   which is all this needs to say. */
+/* `.stats-grid tbody tr + tr td` above already claims every row's top border
+   at (0,1,4) specificity; this needs to outrank it by class count, not just
+   exist, or the ordinary 1px separator silently wins regardless of which
+   rule comes later in the file. */
+.stats-grid tbody tr.stats-prospect-label-row td {
+  height: 16px;
+  padding: 0;
   border-top: 2px solid var(--border-strong);
+  background: var(--surface-strong);
+}
+
+/* The label cell reuses `.stats-col-player` itself — same sticky column,
+   same `--stats-player-w`, same left edge every name lines up on — rather
+   than a `position: sticky` of its own. That was the first attempt, and it
+   silently failed: nested inside a `colSpan`-ing cell, the browser did not
+   treat it as sticky at all (rendered at its static flow position, hundreds
+   of pixels into the scrolled-off content). This column is already proven to
+   stick, so there is nothing left to get wrong. */
+/* Two classes, not one, so this wins over `.stats-col-player`'s own
+   background/height regardless of which rule happens to sit later in the
+   file — specificity says so explicitly rather than depending on source
+   order, which the next edit to either rule could quietly invert. */
+.stats-col-player.stats-prospect-label-cell {
+  height: 16px;
+  font: 700 0.6rem var(--font-body);
+  letter-spacing: 0.5em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+  background: var(--surface-strong);
 }
 
 .stats-grid th.accent,
@@ -1818,6 +1853,15 @@
   gap: 0.45rem;
   text-align: left;
   min-width: 9.5rem;
+  /* Forces every grid's sticky column to the one width `useSharedPlayerColumnWidth`
+     measured across all of them (Roster/Departed/Incoming render as separate
+     `<table>`s, and `table-layout: auto` would otherwise size each one from
+     its own content alone — see that hook's comment in Stats.tsx). Unset, an
+     invalid `var()` falls back to the property's initial value (`auto`), so
+     `min-width` above still governs until the hook has something to say —
+     which is also the state the hook itself needs cells in, to measure their
+     true content width in the first place. */
+  width: var(--stats-player-w);
   background: var(--bg-elevated);
 }
 
@@ -2520,8 +2564,9 @@
 }
 
 /* The Équipe slot's crest, in the seat the active/bench control occupies on a
-   player row. Same box so the column of names below it stays aligned, but not
-   a button and not focusable: one franchise, one seat, nothing to decide. */
+   player row. Same box as `.lineup-toggle` so the column of names below it
+   stays aligned, but not a button and not focusable: one franchise, one seat,
+   nothing to decide. */
 .stats-franchise-logo {
   display: inline-block;
   flex: 0 0 auto;
@@ -2529,6 +2574,20 @@
   height: 1.55rem;
   margin: -0.6rem 0;
   object-fit: contain;
+}
+
+/* A player with nothing to toggle — every row in the Departed and Incoming
+   grids, since neither shows the active/bench control (Nick, 2026-08-25: the
+   Roster grid's own sticky column came out ~23px wider than the other two
+   *because* they render one fewer element, and `<table>` sizes its columns
+   per instance, so the two grids drifted apart). Same box, empty, so the name
+   still starts at the same x whichever grid it's read in. */
+.stats-toggle-spacer {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 1.55rem;
+  height: 1.55rem;
+  margin: -0.6rem 0;
 }
 
 .lineup-toggle:not(.static):hover,

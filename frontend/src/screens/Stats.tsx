@@ -551,42 +551,44 @@ function SortableHead({
   );
 }
 
+
 /**
- * Keeps `--stats-snap-pad` equal to the sticky player column's real width, so
- * a snapped stat block comes to rest *beside* the name rather than underneath
- * it.
+ * The Roster/Departed/Incoming grids are three separate `<table>`s, and
+ * `table-layout: auto` sizes each one's player column from *its own* content
+ * alone. Structurally identical rows (a toggle-or-spacer, the name, the
+ * calendar button, the position pill) still land at different widths across
+ * tables whenever the widest name differs between the lists — which it
+ * usually does — so the sticky column's right edge visibly jumps between
+ * sections (Nick, 2026-08-25, confirmed by measuring the live DOM: Roster's
+ * column rendered 211px, Departed's 188px, on identical markup).
  *
- * The snap positions are the group-start columns, and the snapport therefore
- * has to begin exactly where the scrollable content visually begins. That edge
- * is the player column's right edge — and its width is content-driven: a long
- * name, an injury mark, a franchise logo each push it wider. The 9.5rem in the
- * stylesheet is only its floor, and hard-coding that floor as the padding
- * snapped the first group *under* the name, taking its first column (GP) off
- * screen entirely (Nick, 2026-08-25).
+ * Fixed by measuring the widest cell across *all* currently-mounted grids and
+ * forcing every `.stats-col-player` to that one width via `--stats-player-w`
+ * — see the `width: var(--stats-player-w)` rule in App.css, which only
+ * engages once this has a value; unset, cells keep sizing off `min-width` the
+ * way the measurement below needs them to.
  *
- * Measured from the header cell, which is a real table-cell and so renders at
- * the true column width. Deliberately not written back into the column's own
- * `min-width`: that would ratchet — the column could never shrink again, and
- * no resize would fire to correct it.
+ * Runs once per data load (mount, refetch after a trade or a test-mode
+ * advance) rather than continuously: the inputs that change a name's width —
+ * which players are on the grid — are exactly `players`/`departed`/`incoming`
+ * changing, and re-measuring on every incidental re-render (opening a
+ * periods panel, ticking `saving`) would be pure waste.
  */
-function useSnapPadding(rowCount: number) {
-  const ref = useRef<HTMLDivElement>(null);
+function useSharedPlayerColumnWidth(deps: readonly unknown[]) {
+  const ref = useRef<HTMLElement>(null);
 
   useLayoutEffect(() => {
-    const scroll = ref.current;
-    const cell = scroll?.querySelector<HTMLElement>("thead .stats-col-player");
-    if (!scroll || !cell) return;
-
-    const apply = () =>
-      scroll.style.setProperty("--stats-snap-pad", `${cell.getBoundingClientRect().width}px`);
-
-    apply();
-    const observer = new ResizeObserver(apply);
-    observer.observe(cell);
-    return () => observer.disconnect();
-    // Re-attaches when the table itself appears or disappears: an empty grid
-    // renders an empty-state paragraph instead, and the ref goes null with it.
-  }, [rowCount]);
+    const root = ref.current;
+    if (!root) return;
+    const cells = root.querySelectorAll<HTMLElement>("tbody .stats-col-player, tfoot .stats-col-player");
+    if (cells.length === 0) return;
+    let widest = 0;
+    for (const cell of cells) widest = Math.max(widest, cell.getBoundingClientRect().width);
+    root.style.setProperty("--stats-player-w", `${widest}px`);
+    // deps is the caller's contract (which data actually changes a name's
+    // width), not a literal array this closure reads from directly.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
 
   return ref;
 }
@@ -632,8 +634,6 @@ function RosterGrid({
   const ordered = withProspectsLast(sort.sorted);
   const firstProspectId = ordered.find((r) => r.isProspect)?.id ?? null;
 
-  const scrollRef = useSnapPadding(rows.length);
-
   // Totals are derived from this grid's own rows, so the departed grid foots to
   // what those players actually banked rather than repeating the roster's.
   const sum = <T,>(list: T[], pick: (r: T) => number) => list.reduce((acc, r) => acc + pick(r), 0);
@@ -667,7 +667,7 @@ function RosterGrid({
       {rows.length === 0 ? (
         <p className="empty-state">{emptyLabel}</p>
       ) : (
-      <div className="stats-grid-scroll" ref={scrollRef}>
+      <div className="stats-grid-scroll">
         <table className="stats-grid">
           <thead>
             <tr className="stats-group-row">
@@ -718,6 +718,31 @@ function RosterGrid({
               const lineupEntry = lineupByPlayer?.get(r.id);
               return (
               <Fragment key={r.id}>
+              {/* Opens the prospect zone: a section header, not just a border,
+                  at the same tiny/wide-letter-spaced proportions as the
+                  ticker's "Trade Alert" strip (Nick, 2026-08-25) — the two
+                  read as the same *kind* of mark, a small label, even though
+                  they mean different things. Muted rather than gold or ice:
+                  both those colours already carry a meaning elsewhere on this
+                  screen (gold = trade, ice = headline number), and borrowing
+                  one here would misattribute it. This replaces the earlier
+                  border-only divider; there is now one mechanism, not two
+                  stacked on top of each other. */}
+              {r.id === firstProspectId && (
+                <tr className="stats-prospect-label-row">
+                  {/* The label rides the same sticky `.stats-col-player` cell
+                      every name does, rather than a `position: sticky` of its
+                      own — that stopped working once nested inside a
+                      `colSpan`-ing cell (sticky's containing-block search
+                      apparently doesn't reach through one reliably), and this
+                      column is already proven to stick, at the exact width
+                      `--stats-player-w` gives every other row. */}
+                  <td className="stats-col-player stats-prospect-label-cell">
+                    Prospects
+                  </td>
+                  <td colSpan={21} />
+                </tr>
+              )}
               {/* The coloured edge rides the sticky identity cell, so it stays
                   on screen while the twenty numeric columns scroll under it —
                   a border on the row itself would scroll away with them. A row
@@ -729,7 +754,6 @@ function RosterGrid({
                     r.injuryStatus && "stats-row-out",
                     r.tradeMark === "out" && "stats-row-trade-out",
                     r.tradeMark === "in" && "stats-row-trade-in",
-                    r.id === firstProspectId && "stats-prospect-start",
                   ]
                     .filter(Boolean)
                     .join(" ") || undefined
@@ -741,20 +765,24 @@ function RosterGrid({
                       decide: one franchise, one seat, always in the lineup. */}
                   {r.isFranchise ? (
                     <img className="stats-franchise-logo" src={r.logoUrl ?? ""} alt={r.name} />
+                  ) : lineupEntry ? (
+                    <LineupToggle
+                      entry={lineupEntry}
+                      // Editable whenever *next* week is: this week's own
+                      // lock is irrelevant, since a tap never touches it.
+                      editable={!!lineupEditable}
+                      busy={saving}
+                      pending={pendingFor?.(lineupEntry) ?? null}
+                      onToggle={(spotId) => onToggleLineup?.(spotId)}
+                    />
                   ) : (
-                    /* Departed players have no lineup entry, so this whole
-                       control is absent for them rather than shown inert. */
-                    lineupEntry && (
-                      <LineupToggle
-                        entry={lineupEntry}
-                        // Editable whenever *next* week is: this week's own
-                        // lock is irrelevant, since a tap never touches it.
-                        editable={!!lineupEditable}
-                        busy={saving}
-                        pending={pendingFor?.(lineupEntry) ?? null}
-                        onToggle={(spotId) => onToggleLineup?.(spotId)}
-                      />
-                    )
+                    // Departed and Incoming carry no lineup entry, so no grid
+                    // in either ever shows a toggle. An empty box of the same
+                    // size, not nothing: the Roster grid's rows all show one,
+                    // and column width is per-table, so a bare absence here
+                    // would leave the name starting ~23px further left than
+                    // it does one section up.
+                    <span className="stats-toggle-spacer" aria-hidden="true" />
                   )}
                   {r.isFranchise ? (
                     /* Full name, not "M. Canadiens" (Nick, 2026-08-05): there
@@ -899,6 +927,14 @@ export function Stats({
   // far. Cached per player: reopening a row should not re-ask.
   const [openPeriodsFor, setOpenPeriodsFor] = useState<number | null>(null);
   const [periodsByPlayer, setPeriodsByPlayer] = useState<Record<number, PlayerPeriodsDto>>({});
+
+  // Keeps the Roster/Departed/Incoming grids' sticky columns the same width as
+  // each other — see the hook's own comment. Scoped to the whole screen (not
+  // one grid) because that's the only vantage point that can see all three
+  // tables at once. Declared up here with the other hooks, unconditionally:
+  // `viewedTeam`'s early return below would otherwise skip it on some
+  // renders and not others, which is exactly what Rules of Hooks forbids.
+  const gridsRef = useSharedPlayerColumnWidth([players, departed, incoming]);
 
   useEffect(() => {
     let ignore = false;
@@ -1142,7 +1178,11 @@ export function Stats({
   const maxRosterSize = league.ruleConfig.rosterSize.max;
 
   return (
-    <section className="fade-in" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+    <section
+      className="fade-in"
+      style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+      ref={gridsRef}
+    >
       {!isOwnTeam && (
         <button type="button" className="btn-ghost stats-back" onClick={onBackToStandings}>
           <ArrowLeftIcon size={16} />
