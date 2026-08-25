@@ -162,6 +162,36 @@
   flex-shrink: 0;
 }
 
+/* Auto-protected: too few NHL games for anyone to draft him away.
+   Ice-cyan, because it is a good thing to read on your own player — the rose
+   in this card is spoken for by the injury mark, and the two must never be
+   confused at a glance.
+
+   Deliberately NOT a .roster-pos-pill: that pattern is reserved for the F/D/G
+   indicator, and a second pill of the same shape on the same row, saying
+   something else entirely, is exactly what that rule exists to prevent.
+
+   margin-left:auto pins it to the right edge; flex-shrink:0 means .pc-team
+   ellipsizes to make room rather than the badge squashing — the same call as
+   the injury badge, where the mark matters more than the last letters of a
+   surname. */
+.pc-protect-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--ice-glow);
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.12);
+  color: var(--ice-bright);
+  font-family: var(--font-display);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+}
+
 /* ---------- bio grid ---------- */
 
 .pc-bio-grid {

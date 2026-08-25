@@ -86,6 +86,17 @@ public sealed class CareerStatsSyncJob(NhlApiClient nhl, FantasyWarriorDbContext
                 Shutouts = s.Shutouts,
             }));
 
+            // Written here, in the same save as the rows it sums, because that
+            // makes this job the total's only writer and drift impossible. It
+            // is what ProtectionRules reads: too few NHL games and nobody can
+            // draft this player away from his GM. Junior, KHL and NCAA lines are
+            // in `rows` too and must not count — a 200-game junior career is
+            // exactly the profile the rule protects. Playoffs never reach here:
+            // the query above already keeps regular season only.
+            player.CareerNhlGames = rows
+                .Where(s => s.LeagueAbbrev == "NHL")
+                .Sum(s => s.GamesPlayed);
+
             player.CareerStatsSyncedUtc = DateTime.UtcNow;
             synced++;
 

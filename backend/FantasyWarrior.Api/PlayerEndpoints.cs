@@ -1,3 +1,4 @@
+using FantasyWarrior.Core.Drafts;
 using FantasyWarrior.Core.Players;
 using FantasyWarrior.Core.Scoring;
 using FantasyWarrior.Core.Time;
@@ -116,6 +117,16 @@ public static class PlayerEndpoints
                 draftRound = player.DraftRound,
                 draftOverall = player.DraftOverall,
                 draftTeamAbbrev = player.DraftTeamAbbrev,
+                // Off-season protection. Both null when career-sync has never
+                // reached this player: zero NHL games and "we never looked" are
+                // different states, and reporting the second as the first would
+                // put an AUTO badge on a veteran. The card shows nothing on
+                // null rather than guessing.
+                careerNhlGames = player.CareerNhlGames,
+                autoProtected = player.CareerNhlGames is { } careerGames
+                    ? ProtectionRules.IsAutoProtected(
+                        PositionGroups.CodeFrom(player.Position), careerGames)
+                    : (bool?)null,
                 isGoalie = player.Position == "G",
                 season,
                 seasonTotals = new

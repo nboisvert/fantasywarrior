@@ -49,6 +49,10 @@ using FantasyWarrior.Jobs.Sql;
 //   period-rollup [--league <id>] [--week N] [--dry-run]
 //     Scores one week into RosterAssignment rows. Everything above that grain
 //     is a view, so this writes nothing else.
+//   protection-reset --league <joinCode> [--dry-run]
+//     Clears every off-season protection in a league. A protection is worth one
+//     summer and expires when the season it guarded begins, which is why the
+//     status is a column on the spot rather than a row per draft.
 //   draft-picks-init --league <joinCode> [--year YYYY] [--dry-run]
 //     One pick per team per round for one season, defaulting to the season
 //     after the current one. Picks exist one year ahead and only one, which is
@@ -217,6 +221,12 @@ switch (job)
             GetOption(args, "--league"),
             int.TryParse(GetOption(args, "--year"), out var draftYear) ? draftYear : defaultYear,
             dryRun);
+    }
+
+    case "protection-reset":
+    {
+        await using var db = DataServiceCollectionExtensions.CreateContext();
+        return await new ProtectionResetJob(db).RunAsync(GetOption(args, "--league"), dryRun);
     }
 
     case "period-rollup":

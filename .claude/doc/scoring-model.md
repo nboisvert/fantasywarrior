@@ -1,7 +1,7 @@
 # Modèle de pointage — référence
 
 > La référence pour toute règle de pointage. Si le code et ce document divergent, l'un des deux est un bug.
-> Dernière mise à jour : 2026-08-05 (slot Équipe).
+> Dernière mise à jour : 2026-08-25 (protection d'entre-saison, §11).
 
 ## En une phrase
 
@@ -14,7 +14,7 @@ Chaque semaine, un GM active un sous-ensemble de son roster. Seuls les points de
 | Entité | Table | Ce que c'est |
 |---|---|---|
 | **Period** | table `Periods` (globale) | Une semaine de pointage. Lundi→dimanche sur la date de match NHL (Est). ~28 par saison. |
-| **RosterSpot** | table `RosterSpots` | L'appartenance d'un **joueur ou d'une franchise** à une équipe, du jour X au jour Y. Jamais supprimé, seulement fermé. |
+| **RosterSpot** | table `RosterSpots` | L'appartenance d'un **joueur ou d'une franchise** à une équipe, du jour X au jour Y. Jamais supprimé, seulement fermé. Porte aussi `ProtectionStatus`, hors pointage — voir §11. |
 | **RosterAssignment** | table `RosterAssignments` | Ce qu'un spot a produit une semaine, et s'il était actif. **Une ligne par (spot, semaine)** — le seul grain stocké. |
 | **Team** | table `Teams` | Ne porte **aucun cumul**. Tous les totaux sont des vues (`vStandings`, `vTeamPeriodScores`, `vRosterSpotTotals`). |
 
@@ -250,3 +250,41 @@ Un backfill de saison complète est redevenu une opération ordinaire depuis le 
   comme s'il était nul. Chez Les Mordus, 30 joueurs sont dans ce cas.
 - Le repêchage lui-même n'existe pas. Les choix se créent et s'échangent ; rien
   ne les convertit encore en joueurs (`DraftPick.UsedUtc` n'est jamais écrit).
+
+### La protection d'entre-saison — la fondation seulement (2026-08-25)
+
+**Hors pointage entièrement.** Une protection ne change ni un alignement, ni des
+points, ni un plafond ; elle est ici parce qu'elle vit sur un `RosterSpot`, et que
+ce document doit être lu avant de toucher aux spots.
+
+La règle de la ligue : entre deux saisons, chaque DG protège un nombre limité de
+joueurs ; les autres sont exposés et peuvent être **volés** pendant les deux
+premières rondes du repêchage. Les exposés que personne ne réclame restent chez
+eux — ils n'ont jamais bougé.
+
+Ce qui existe aujourd'hui :
+
+| | |
+|---|---|
+| `RosterSpots.ProtectionStatus` | La décision du DG. `Unprotected` pour tout le monde ; **rien ne peut encore écrire `Protected`.** |
+| `Players.CareerNhlGames` | Matchs LNH en carrière, écrit par `career-sync`. |
+| `ProtectionRules.IsAutoProtected` | Le verdict : gardien ≤ 50 matchs, patineur ≤ 100 → intouchable, **gratuitement** (ça ne consomme aucune place). |
+| `protection-reset --league` | Efface l'ardoise. Une protection ne vaut qu'un été. |
+| La pastille `AUTO` | Sur la carte joueur, et seulement là. |
+
+**On stocke la mesure, on dérive le verdict.** Le nombre de matchs est une donnée
+de référence à un seul écrivain ; l'auto-protection est une comparaison à un
+seuil. Les séparer permet de déplacer un seuil sans réécrire une ligne, et garde
+la règle écrite à un seul endroit.
+
+**Zéro n'est pas « on ne sait pas. »** `CareerNhlGames` est null exactement quand
+`CareerStatsSyncedUtc` l'est, `autoProtected` est alors null, et l'interface
+n'affiche rien — plutôt que de coller une pastille `AUTO` sur un vétéran dont la
+synchro a échoué.
+
+Ce qui reste devant, quand le repêchage arrivera : geler le calcul le jour même
+(un joueur qui dispute son 100e match entre deux rondes changerait de catégorie),
+ajouter `RosterSpotEndReason.Draft`, geler les échanges pendant la fenêtre (un
+échange ouvre un spot neuf, qui n'hérite d'aucune protection), et exclure le slot
+`T` des volables. Le vol lui-même est déjà écrit : c'est
+`RosterChange.ApplyAsync` avec `startReason: Draft`.

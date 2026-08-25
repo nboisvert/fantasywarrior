@@ -25,6 +25,7 @@ public sealed class RosterSpotConfiguration : IEntityTypeConfiguration<RosterSpo
         b.Property(x => x.FranchiseAbbrev).HasMaxLength(3).IsFixedLength().IsUnicode(false);
         b.Property(x => x.StartReason).HasConversion<byte>();
         b.Property(x => x.EndReason).HasConversion<byte>();
+        b.Property(x => x.ProtectionStatus).HasConversion<byte>();
 
         // **One owner per player per league**, as a constraint rather than a
         // hope. Under Firestore this was checked by loading every team in the

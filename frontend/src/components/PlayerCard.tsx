@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { JSX, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import { posGroup, posGroupClass } from "../api";
-import { CrossIcon, ExternalLinkIcon, GavelIcon, XIcon } from "./Icons";
+import { CrossIcon, ExternalLinkIcon, GavelIcon, ShieldIcon, XIcon } from "./Icons";
 import "./PlayerCard.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5099";
@@ -114,6 +114,13 @@ interface PlayerDetail {
   draftRound: number | null;
   draftOverall: number | null;
   draftTeamAbbrev: string | null;
+  // Regular-season NHL games, career to date, and whether that puts him out of
+  // reach in the off-season draft. Both null means career-sync has never
+  // reached him — not that he has never played. The card shows nothing on
+  // null: an AUTO badge on a veteran whose sync failed would be a lie about a
+  // real person, and no badge at all is merely a gap.
+  careerNhlGames: number | null;
+  autoProtected: boolean | null;
   isGoalie: boolean;
   // Null for a player with no NHL game on record at all — every true
   // prospect. `seasonTotals` below is never null from the API even then
@@ -692,6 +699,19 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
                     <span className="pc-team">{player.team}</span>
                     {player.sweaterNumber != null && (
                       <span className="pc-number">#{player.sweaterNumber}</span>
+                    )}
+                    {/* Explicitly `=== true`: null means career-sync has never
+                        looked, which is not the same as "not protected". */}
+                    {player.autoProtected === true && (
+                      <span
+                        className="pc-protect-pill"
+                        title={`Auto-protected — ${player.careerNhlGames} NHL ${
+                          player.careerNhlGames === 1 ? "game" : "games"
+                        }, too few to be drafted away`}
+                      >
+                        <ShieldIcon size={12} />
+                        AUTO
+                      </span>
                     )}
                   </div>
                 </div>

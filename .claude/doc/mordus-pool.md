@@ -52,6 +52,33 @@ Deux défauts de l'app diffèrent de cette ligue et ont été écrasés : la vic
 le 2026-08-05 (§3). C'était la dernière règle manquante ; le barème de la ligue
 est complet.
 
+### Règles d'entre-saison (Nick, 2026-08-25)
+
+Le pool est keeper : les rosters se reportent, les points repartent à zéro. Entre
+deux saisons se tient un repêchage dont **les deux premières rondes sont des
+rondes de vol**.
+
+| Règle | Valeur |
+|---|---|
+| Joueurs protégeables par DG | Paramétrable par ligue — **chiffre à fixer** |
+| Auto-protégé, gardien | **≤ 50** matchs LNH en carrière |
+| Auto-protégé, patineur | **≤ 100** matchs LNH en carrière |
+| L'auto-protection consomme une place | **Non**, elle est gratuite |
+| Rondes de vol | **2**, donc **2 vols par équipe** |
+| Pertes maximales par équipe | Plafonné aussi — **chiffre à fixer** |
+| Joueurs exposés non réclamés | Restent à leur équipe (ils n'ont jamais bougé) |
+
+Deux seuils et non un seul parce qu'un gardien joue environ la moitié des matchs
+de son club : mesuré à la barre des patineurs, il resterait intouchable deux fois
+plus longtemps. Sur les 1 597 joueurs en base, ça donne 763 patineurs et 98
+gardiens auto-protégés, 725 repêchables, 11 inconnus (jamais synchronisés).
+
+**Livré au 2026-08-25** : la colonne `RosterSpots.ProtectionStatus` (tout le monde
+à `Unprotected`), `Players.CareerNhlGames`, la règle `ProtectionRules`, la pastille
+`AUTO` sur la carte joueur, et `protection-reset`. **Le repêchage lui-même n'est
+pas construit** — rien ne peut encore écrire `Protected`, et rien ne vole
+personne. Voir [scoring-model.md](scoring-model.md) §11.
+
 ### Validation croisée par la taille de roster
 
 La règle 23-35 confirme indépendamment l'extraction. En ajoutant à chaque équipe ses joueurs non appariés (§2) :

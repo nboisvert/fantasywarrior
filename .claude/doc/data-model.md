@@ -57,8 +57,27 @@ démarrage de l'API : plusieurs instances qui migrent en parallèle est un scén
 Position (char(1)), PositionGroup (char(1), calculée persistée), TeamAbbrev (FK),
 Status, SweaterNumber, ShootsCatches, BirthDate, BirthCountry, HeightCm, WeightKg,
 HeadshotUrl, DraftYear, DraftRound, DraftOverall, DraftTeamAbbrev, DraftChecked,
-CapWagesSlug, CareerStatsSyncedUtc, LastSyncedUtc
+CapWagesSlug, CareerStatsSyncedUtc, CareerNhlGames (null), LastSyncedUtc
 → index : (LastName, FirstName) pour la recherche, (TeamAbbrev), (Status)
+
+> **`CareerNhlGames`** — matchs de saison régulière LNH en carrière, la somme
+> des lignes `PlayerCareerSeasonStats` où `LeagueAbbrev = 'NHL'`. **Null
+> exactement quand `CareerStatsSyncedUtc` l'est** : zéro match et « jamais
+> regardé » sont deux états différents, et un vétéran dont la synchro a échoué
+> ne doit surtout pas se lire comme une recrue.
+>
+> Stockée plutôt que sommée à la lecture, pour la même raison que
+> `PositionGroup` : elle a **un seul écrivain** — `career-sync`, qui l'écrit dans
+> le même `SaveChanges` que les lignes dont elle dérive, donc elle ne peut pas
+> diverger — et une colonne se compare en SQL, là où une somme sur une autre
+> table obligerait le seuil qui la lit à être écrit deux fois.
+>
+> C'est ce que lit `ProtectionRules.IsAutoProtected` : trop peu de matchs LNH et
+> personne ne peut repêcher ce joueur à son DG (gardien ≤ 50, patineur ≤ 100).
+> **On stocke la mesure, on dérive le verdict** — déplacer un seuil ne réécrit
+> alors aucune ligne. Périmée d'au plus la fenêtre de fraîcheur de `career-sync`
+> (30 jours) ; sans effet à ces seuils, mais c'est une raison de plus pour que le
+> repêchage lui-même **gèle** le chiffre plutôt que de le lire vivant.
 
 **`PlayerContracts`** — `PlayerContractId`, PlayerId (FK), Season, CapHit, Aav,
 TotalValue, YearsRemaining, ClauseType, Source, ImportedUtc → unique (PlayerId, Season)
@@ -200,7 +219,7 @@ réassemble la même forme JSON qu'avant, donc `RulesPanel.tsx` n'a pas bougé.
 **FranchiseAbbrev (FK NhlTeams, null)**, PositionGroup (`F`/`D`/`G`/`T`, gelé à
 l'ouverture), StartDate, StartReason (tinyint), StartTradeId (FK null),
 StartDraftPickId (FK null), EndDate (null), EndReason (tinyint null),
-EndTradeId (FK null), OpenedUtc, ClosedUtc
+EndTradeId (FK null), **ProtectionStatus (tinyint, défaut 0)**, OpenedUtc, ClosedUtc
 
 → CHECK `CK_RosterSpots_PlayerOrFranchise` : exactement un des deux, en accord
 avec PositionGroup
@@ -208,6 +227,21 @@ avec PositionGroup
 → index unique **filtré** `(LeagueId, FranchiseAbbrev) WHERE EndDate IS NULL AND FranchiseAbbrev IS NOT NULL`
 → index unique **filtré** `(TeamId) WHERE EndDate IS NULL AND PositionGroup = 'T'`
 → index (TeamId) WHERE EndDate IS NULL ; (LeagueId, StartDate, EndDate)
+
+> **`ProtectionStatus`** (`Unprotected` 0 / `Protected` 1) — le DG a-t-il dépensé
+> une de ses places de protection sur ce spot, mettant son joueur hors d'atteinte
+> au repêchage d'entre-saison. **La décision du DG, rien d'autre.**
+>
+> « Auto-protégé » n'y figure volontairement pas : c'est un fait sur le
+> **joueur**, dérivé de `Players.CareerNhlGames`, et il s'applique aussi à un
+> agent libre qui n'a aucun spot. L'y fondre détruirait de surcroît la distinction
+> dont la phase protection a le plus besoin — « intouchable de toute façon » et
+> « le DG a brûlé une place sur lui » ne sont pas la même réponse.
+>
+> **Une colonne et non une ligne par repêchage**, parce que la valeur est
+> éphémère (Nick, 2026-08-25) : elle ne vaut qu'un été et expire au début de la
+> saison qu'elle protégeait. Il n'y a pas d'historique à garder, seulement une
+> ardoise à effacer — c'est ce que fait le job `protection-reset`.
 
 > Le premier index filtré fait de « un joueur, un seul propriétaire par ligue »
 > une **contrainte de base de données**, là où Firestore exigeait un scan

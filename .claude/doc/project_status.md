@@ -57,6 +57,7 @@ screens, the news ticker, per-player news and injury status.
 | Draft picks — tradable, one year ahead | **Done** (the draft itself is not) |
 | Real authentication | Todo |
 | Free agency | Todo |
+| Off-season protection & steal draft | **Foundation only** (2026-08-25) — the spot carries a status, auto-protection reads live, the card shows it. Nothing can protect or steal yet. |
 | 🏁 **Season-tracking MVP in prod for early October 2026** (NHL 2026-27) | — |
 | Interactive live draft (target: 2027-28 season) | Todo |
 
@@ -68,6 +69,25 @@ older entries (back to 2026-07-22) are in
 [decisions-archive.md](decisions-archive.md), same format, nothing dropped.
 
 ### Architecture
+
+- **2026-08-25 — The measurement is stored, the verdict stays derived.**
+  Off-season protection needs to know who has too few NHL games to be draftable.
+  Two different things were hiding in that: the **games count**, reference data
+  with a single writer, and **auto-protection**, a comparison against a
+  threshold. `Players.CareerNhlGames` is written by `career-sync` in the same
+  `SaveChanges` as the career rows it sums, so it cannot drift;
+  `ProtectionRules.IsAutoProtected` stays a comparison, written once. Storing
+  nothing would have made every read sum `PlayerCareerSeasonStats` and — the day
+  a view needed it — **copied the threshold into SQL**; that, not the query
+  cost, is what decided it. Storing the verdict instead would have meant
+  rewriting rows every time a prospect plays a game, and losing the number
+  itself, which is the thing worth displaying. The precedent was in the same
+  table: `Player.PositionGroup` is a computed **persisted** column for exactly
+  those two reasons.
+  Accepted consequence: `CareerNhlGames` is stale by at most 30 days
+  (career-sync's window, because the current season's row keeps changing all
+  year). Irrelevant at 50 and 100 games — but one more reason the draft itself
+  must **freeze** the figure rather than read it live.
 
 - **2026-08-07 — `sim-advance` is also an API endpoint, Nick-only.** Advancing
   the replay used to mean a PowerShell prompt on `C:\Nick\fw`; now
@@ -111,6 +131,22 @@ older entries (back to 2026-07-22) are in
   meant to be able to diverge.
 
 ### UI
+
+- **2026-08-25 — Auto-protection is marked on the player card, and nowhere
+  else.** Protection is an off-season mechanism, but one half of it matters all
+  year: whether a kid on your roster is out of anyone's reach. That is the only
+  part worth showing during a season (Nick), so it is a single `AUTO` pill at
+  the right of the card's header row and nothing on any list or grid.
+  A new `.pc-protect-pill` rather than `.roster-pos-pill`: that pattern is
+  reserved for the F/D/G indicator, and a second pill of the same shape on the
+  same row saying something else is exactly what that rule prevents. Ice-cyan,
+  because rose on this card is spoken for by the injury mark and the two must
+  never be confused at a glance. It pins right and refuses to shrink, so the
+  team abbreviation ellipsizes to make room — the same call as the injury badge.
+  **Nothing is drawn when the answer is unknown.** `autoProtected` is `bool?`,
+  null when career-sync has never reached the player, and the card renders on
+  `=== true` only. An `AUTO` badge on a veteran whose sync failed would be a
+  false statement about a real person; no badge is merely a gap.
 
 - **2026-08-04 — An unavailable player is marked twice on the Team grid, and
   neither mark costs the row a column**: a rose edge on the sticky identity
@@ -287,6 +323,15 @@ older entries (back to 2026-07-22) are in
 - **Rotate the deploy service principal secret.** It was passed through a chat
   session and phone photos on 2026-08-02. Only the `AZURE_CREDENTIALS` GitHub
   secret would need replacing.
+- **Nothing in the app can cross a season boundary yet**, found while planning
+  the off-season draft (2026-08-25). `vStandings` filters by no season at all —
+  its `Scoring` CTE sums *every* `RosterAssignment` a team has ever had, so on
+  the first day of 2026-27 the table would still show 2025-26 points, in a
+  keeper pool whose whole rule is that points reset. And
+  `TradeSchedule.NextPeriodStart` returns null past the last week of the season,
+  so no trade can be made in an off-season. Neither is wrong today; both block
+  any real off-season feature. Fixing the view means joining `Periods` in that
+  CTE and filtering on the league's own season.
 - **Free agency and the draft** are modelled in the schema but not built —
   neither needs a migration.
 - **Nothing announces a failed nightly.** `daily-jobs.yml` failed 17 nights in a

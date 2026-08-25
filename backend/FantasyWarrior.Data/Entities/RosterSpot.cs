@@ -16,6 +16,29 @@ public enum RosterSpotEndReason : byte
 }
 
 /// <summary>
+/// Whether the GM has spent one of his protection slots on this spot, keeping
+/// its player out of reach in the coming off-season draft.
+///
+/// **The GM's decision, and nothing else.** "Auto-protected" — too few NHL games
+/// to be draftable at all — is deliberately absent: that is a fact about the
+/// player, derived from <see cref="Player.CareerNhlGames"/> by
+/// <c>ProtectionRules.IsAutoProtected</c>, and it applies to a free agent who
+/// has no spot at all. Folding it in here would also destroy the distinction the
+/// protection phase needs most: "untouchable anyway" and "the GM burned a slot on
+/// him" are not the same answer.
+///
+/// **Ephemeral** (Nick, 2026-08-25). It only means anything between two seasons
+/// and resets to <see cref="Unprotected"/> for everyone at the start of each one
+/// — which is why it is a column rather than a row per draft. There is no
+/// history to keep.
+/// </summary>
+public enum RosterProtectionStatus : byte
+{
+    Unprotected = 0,
+    Protected = 1,
+}
+
+/// <summary>
 /// One stint of an asset belonging to a team: from the day it was acquired to
 /// the day it left, or open-ended if it is still held.
 ///
@@ -101,6 +124,13 @@ public sealed class RosterSpot
     public RosterSpotEndReason? EndReason { get; set; }
 
     public int? EndTradeId { get; set; }
+
+    /// <summary>
+    /// Whether the GM has protected this spot for the coming off-season draft.
+    /// Resets to <see cref="RosterProtectionStatus.Unprotected"/> for the whole
+    /// league each season — see the enum.
+    /// </summary>
+    public RosterProtectionStatus ProtectionStatus { get; set; }
 
     public DateTime OpenedUtc { get; set; }
 

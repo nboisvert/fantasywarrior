@@ -91,6 +91,31 @@ public sealed class Player
     /// </summary>
     public DateTime? CareerStatsSyncedUtc { get; set; }
 
+    /// <summary>
+    /// Regular-season NHL games this player has played in his whole career —
+    /// the sum of his <see cref="PlayerCareerSeasonStat"/> rows where the league
+    /// is the NHL. Null exactly when <see cref="CareerStatsSyncedUtc"/> is:
+    /// **zero games and "never looked" are different states**, and a veteran
+    /// whose sync failed must not read as a rookie.
+    ///
+    /// Stored rather than summed on demand, for the same reason
+    /// <see cref="PositionGroup"/> is: it has one writer — career-sync, which
+    /// sets it in the same save as the rows it derives from, so it cannot drift
+    /// — and a plain column can be compared in SQL, where a sum over another
+    /// table would force the threshold that reads it to be written twice.
+    ///
+    /// It is what decides <c>ProtectionRules.IsAutoProtected</c>: too few NHL
+    /// games and nobody can draft this player away from his GM. The measurement
+    /// lives here; the verdict stays derived, one comparison away, so moving a
+    /// threshold never means rewriting rows.
+    ///
+    /// Stale by at most career-sync's freshness window (30 days) because the
+    /// current season's row keeps changing all year. Irrelevant at thresholds of
+    /// 50 and 100 games; the draft itself will freeze the figure rather than
+    /// read it live.
+    /// </summary>
+    public int? CareerNhlGames { get; set; }
+
     public DateTime LastSyncedUtc { get; set; }
 
     public NhlTeam? Team { get; set; }
