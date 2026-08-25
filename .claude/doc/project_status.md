@@ -27,11 +27,12 @@
   1/1/2/1/0 (goal/assist/goalie win/OT loss/shutout) and 2/0/1 for the
   franchise (win/loss/OT loss). See [mordus-pool.md](mordus-pool.md).
 - **A season replay is running**, restarted from scratch on 2026-08-05 (join
-  code `TKW6UR`) so the Équipe slot scores from week 1. **The exact simulated
-  date needs reconfirming with `sim-clock`** — testmode.md's journal only logs
-  the replay reaching week 2 under this restart; a later state (week 7,
-  2025-11-17) is on record but likely describes the *previous* replay, before
-  the restart. Everything in the app believes it is whatever day `sim-clock`
+  code `TKW6UR`) so the Équipe slot scores from week 1. It sits at
+  **2025-12-22, week 12, weeks 1-11 banked** — advanced five weeks on
+  2026-08-24, which also settled the doubt this paragraph used to carry: the
+  week-7 state on record did belong to *this* replay, not the previous one; it
+  was testmode.md's journal that had skipped the passages. `sim-clock` stays
+  the only authority. Everything in the app believes it is whatever day it
   reports — check it before treating any date-related behaviour as a bug. See
   [testmode.md](testmode.md).
 
