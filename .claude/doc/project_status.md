@@ -70,6 +70,26 @@ older entries (back to 2026-07-22) are in
 
 ### Architecture
 
+- **2026-08-25 — The season rollover moves a filter; it never deletes a row.**
+  Nick's first shape for the keeper rollover was to delete the finished
+  season's `RosterAssignments`, which does reset the standings. It also empties
+  `vRosterSpotTotals`, which reads the same rows — so the Team screen's PTS
+  column would go to zero **for a player still on the roster**, since a keeper
+  spot survives the season. "What has he produced for me since I got him" is
+  the question a lifetime pool exists to answer, and deleting is the one way to
+  make it permanently unanswerable. It also contradicts banking itself: a
+  week's points belong permanently to whoever fielded the player. And it is not
+  recoverable in the way that matters — `PlayerGameStats` survives, so a replay
+  is possible, but only under *today's* scale, restating history that a scale
+  change is explicitly never allowed to restate. For 5,434 rows (≈14k a full
+  season, both leagues) against 50k game lines, there was no pressure to relieve.
+  The fix is one `WHERE p.Season = l.Season` in each of the two views. Points
+  reset because the filter moves. **Two columns, two questions**: `League.Season`
+  answers "whose points count" and advancing it *is* the reset;
+  `League.Phase` answers "what is allowed right now" — which no date can derive,
+  unlike `Period`, whose status is deliberately not stored. Design in
+  [season-lifecycle.md](season-lifecycle.md).
+
 - **2026-08-25 — The measurement is stored, the verdict stays derived.**
   Off-season protection needs to know who has too few NHL games to be draftable.
   Two different things were hiding in that: the **games count**, reference data
@@ -327,11 +347,12 @@ older entries (back to 2026-07-22) are in
   the off-season draft (2026-08-25). `vStandings` filters by no season at all —
   its `Scoring` CTE sums *every* `RosterAssignment` a team has ever had, so on
   the first day of 2026-27 the table would still show 2025-26 points, in a
-  keeper pool whose whole rule is that points reset. And
-  `TradeSchedule.NextPeriodStart` returns null past the last week of the season,
-  so no trade can be made in an off-season. Neither is wrong today; both block
-  any real off-season feature. Fixing the view means joining `Periods` in that
-  CTE and filtering on the league's own season.
+  keeper pool whose whole rule is that points reset. `vRosterSpotTotals` has the
+  same hole. And `TradeSchedule.NextPeriodStart` returns null past the last week
+  of the season, so no trade can be made in an off-season. None of it is wrong
+  today; all of it blocks any real off-season feature. The design for the way
+  out — league phases, and why the rollover must never delete assignments — is
+  in [season-lifecycle.md](season-lifecycle.md).
 - **Free agency and the draft** are modelled in the schema but not built —
   neither needs a migration.
 - **Nothing announces a failed nightly.** `daily-jobs.yml` failed 17 nights in a
