@@ -277,3 +277,9 @@ older entries (back to 2026-07-22) are in
   secret would need replacing.
 - **Free agency and the draft** are modelled in the schema but not built —
   neither needs a migration.
+- **Nothing announces a failed nightly.** `daily-jobs.yml` failed 17 nights in a
+  row (2026-08-08 → 2026-08-24) and it only surfaced because the app broke. The
+  chain is `db-migrate → stats-sync → nightly → player-sync → draft-sync →
+  news-sync`, so a red first step silently stops all data movement. No
+  notification exists today. See deployment.md's troubleshooting log for that
+  outage; the CI-side cause of the abort is still unproven.

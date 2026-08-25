@@ -271,3 +271,40 @@ to rebuild and is identical for everyone.
     `ImagePullBackOff` still has a replica object with no container inside it.
 - **A stale local `dotnet run` locks the build output** — kill the
   `FantasyWarrior.Api` or `FantasyWarrior.Jobs` process and rebuild.
+- **Every screen but News says "failed to fetch"** (2026-08-24) — one pending
+  migration, and a 17-day silence that hid it.
+
+  `GET /api/leagues/{id}` was the only endpoint failing, with
+  `Invalid column name 'EngagedCapTotal' / 'EngagedPlayerCount' /
+  'EngagedUnknownContracts'`. Every screen loads league detail first, so
+  everything broke *except* News — the one screen that never asks for it. The
+  browser reported `Failed to fetch` rather than `HTTP 500` because an
+  unhandled exception's response carries no CORS headers, so the fetch fails at
+  the network layer instead of returning a status the client can read.
+
+  The database was still at `20260805175925_TeamSlot` while the deployed API
+  carried the 2026-08-07 code that reads the new `vStandings`. Fixed by
+  applying the one pending migration:
+  ```bash
+  dotnet run --project backend/FantasyWarrior.Jobs -- db-migrate
+  ```
+
+  **How it went unnoticed for 17 days**: `daily-jobs.yml` had been failing at
+  its *Apply migrations* step every single night since 2026-08-08 — 17
+  consecutive red runs, and nothing announces them. `stats-sync`, `nightly`,
+  `player-sync`, `draft-sync` and `news-sync` are all downstream of that step,
+  so the whole chain had been dead for as long.
+
+  Two things to know when reading those runs:
+  - **Exit code 134 is a .NET console job aborting on an unhandled exception**
+    (SIGABRT), not a step-specific code. `News sync` produced the same 134 on
+    2026-08-04. GitHub's annotation shows only the number; the message is in
+    the step log, which needs admin rights on the repo to fetch over the API.
+  - A green *Apply migrations* usually means **nothing was pending**, not that
+    CI can migrate. Check the migration's own timestamp against the run.
+
+  Still unexplained: the same migration applied cleanly by hand against the
+  same server, and its SQL was verified as a plain `SELECT` against production
+  before applying. So the CI failure is environmental and remains unproven.
+  Nothing is pending now, so the next scheduled run should get past that step —
+  **watch it**, and if it still aborts, read the step log for the real message.
