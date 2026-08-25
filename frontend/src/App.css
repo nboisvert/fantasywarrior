@@ -1643,13 +1643,25 @@
   }
 }
 
+/* Was just `.stats-table-title`'s own margin-bottom; now the row wrapper that
+   also seats the position filter, right-aligned against the title exactly
+   the way Nick asked for it (2026-08-25). `baseline` rather than `center`:
+   the filter's own small buttons otherwise look like they're floating a
+   couple of px above the title's text. */
+.stats-table-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 0 0.5rem;
+}
+
 .stats-table-title {
   display: block;
   font-size: 0.78rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  margin: 0 0 0.5rem;
 }
 
 /* De-emphasized count next to the ROSTER title (2026-07-27, per Nick — same
@@ -1660,6 +1672,61 @@
   text-transform: none;
   letter-spacing: normal;
   color: var(--text-muted);
+}
+
+/* All/F/D/G — filters the Roster grid and, silently, Departed/Incoming with
+   it (2026-08-25, per Nick: "un contrôle bien pensé et subtil sans
+   réinventer la roue"). A segmented pill, the same rounded-group shape the
+   bottom nav already uses, rather than a new control language. */
+.stats-position-filter {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.stats-position-filter-btn {
+  min-width: 1.6rem;
+  padding: 0.2rem 0.4rem;
+  border: none;
+  border-radius: 7px;
+  background: none;
+  color: var(--text-muted);
+  font: 700 0.68rem var(--font-body);
+  cursor: pointer;
+  transition: color 0.15s, background-color 0.15s;
+}
+
+.stats-position-filter-btn:hover {
+  color: var(--text);
+}
+
+/* Active borrows its colour from the position it filters to — the same
+   ice/violet/gold `.roster-pos-pill`/`.pos-compact` already use everywhere
+   else, so "you're looking at defense" reads the same way a defenceman's own
+   row marker does, never a new colour to learn. "All" has no position of its
+   own and gets the app's ordinary selected-state ice instead (same as an
+   active bottom-nav tab). */
+.stats-position-filter-btn.active {
+  background: rgba(56, 189, 248, 0.12);
+  color: var(--ice-bright);
+}
+
+/* `.pos-compact-d`/`-g` alone only carry `color` at (0,1,0), and `.active`
+   above already claims that property at (0,2,0) — without repeating it here,
+   at (0,3,0), the ice would win over the position colour it's supposed to
+   be overridden by. */
+.stats-position-filter-btn.active.pos-compact-d {
+  background: rgba(167, 139, 250, 0.14);
+  color: var(--defense);
+}
+
+.stats-position-filter-btn.active.pos-compact-g {
+  background: rgba(251, 191, 36, 0.14);
+  color: var(--gold);
 }
 
 /* Horizontal scroll is contained to this wrapper only (the page itself never

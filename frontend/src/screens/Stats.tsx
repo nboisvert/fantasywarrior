@@ -593,6 +593,63 @@ function useSharedPlayerColumnWidth(deps: readonly unknown[]) {
   return ref;
 }
 
+/** The four things `.stats-position-filter` can be set to — "ALL" plus the
+ * three real position groups. The franchise slot ("T") is deliberately not a
+ * choice: it isn't a position a GM would filter for. */
+type PositionFilter = "ALL" | "F" | "D" | "G";
+
+/** "No forwards on this list." — the empty state a position filter can reach
+ * that `emptyLabel` can't: the grid has players, just none in this group. */
+function positionFilterEmptyLabel(filter: PositionFilter): string {
+  const noun = filter === "F" ? "forwards" : filter === "D" ? "defensemen" : "goalies";
+  return `No ${noun} here.`;
+}
+
+/** All/F/D/G, right-aligned against the Roster title (Nick, 2026-08-25) —
+ * one control filtering all three grids on the screen, not repeated next to
+ * Departed's or Incoming's own titles. A segmented pill rather than a new
+ * shape: same rounded-group language as the bottom nav, and the active
+ * position borrows its colour straight from `.roster-pos-pill`/
+ * `.pos-compact` (ice/violet/gold) so "you're looking at defense" reads the
+ * same way a defenceman's own position marker already does everywhere else
+ * in the app — never a new colour meaning to learn. */
+function PositionFilterControl({
+  value, onChange,
+}: {
+  value: PositionFilter;
+  onChange: (filter: PositionFilter) => void;
+}) {
+  const options: { key: PositionFilter; label: string }[] = [
+    { key: "ALL", label: "All" },
+    { key: "F", label: "F" },
+    { key: "D", label: "D" },
+    { key: "G", label: "G" },
+  ];
+  return (
+    <div className="stats-position-filter" role="group" aria-label="Filter roster by position">
+      {options.map((opt) => {
+        const active = value === opt.key;
+        // "ALL" has no position colour of its own — it keeps the button's
+        // plain active treatment (ice, same as everything else the app calls
+        // "selected"). F/D/G borrow theirs from the same class every other
+        // position marker in the app already uses.
+        const posClass = active && opt.key !== "ALL" ? ` pos-compact-${opt.key.toLowerCase()}` : "";
+        return (
+          <button
+            key={opt.key}
+            type="button"
+            className={`stats-position-filter-btn${active ? ` active${posClass}` : ""}`}
+            aria-pressed={active}
+            onClick={() => onChange(opt.key)}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /** The roster grid: one sortable table with its own totals footer.
  *
  * A component rather than two copies of the markup, because this table changes
@@ -609,6 +666,7 @@ function RosterGrid({
   rows, title, subtitle, emptyLabel,
   lineupByPlayer, pendingFor, lineupEditable, saving, onToggleLineup,
   onOpenPlayer, openPeriodsFor, periodsByPlayer, onTogglePeriods,
+  positionFilter, onPositionFilterChange,
 }: {
   rows: PlayerRow[];
   title: string;
@@ -623,10 +681,24 @@ function RosterGrid({
   openPeriodsFor: number | null;
   periodsByPlayer: Record<number, PlayerPeriodsDto>;
   onTogglePeriods: (playerId: number) => void;
+  /** Applies to this grid's own rows regardless of who renders the control —
+   * one filter, shared by Roster/Departed/Incoming, so it has to reach all
+   * three even though only Roster shows the buttons. */
+  positionFilter: PositionFilter;
+  /** Present only on the instance that should render the filter control
+   * itself (Roster) — Departed and Incoming still receive `positionFilter`
+   * above, but stay silent about changing it. */
+  onPositionFilterChange?: (filter: PositionFilter) => void;
 }) {
+  // Applied before anything else touches `rows`, so sorting, totals and the
+  // Extra-position goalie split all naturally see only what the filter lets
+  // through — one filter step, not one per downstream computation.
+  const filteredRows =
+    positionFilter === "ALL" ? rows : rows.filter((r) => posGroup(r.position) === positionFilter);
+
   // Each grid sorts independently — that is the main thing two instances need
   // that one shared table could not give.
-  const sort = useSort<PlayerRow>(rows, "poolPoints");
+  const sort = useSort<PlayerRow>(filteredRows, "poolPoints");
 
   // The order actually rendered: whatever the sort produced, then the prospect
   // zone bolted to the bottom. `firstProspectId` is only ever used to hang the
@@ -634,38 +706,46 @@ function RosterGrid({
   const ordered = withProspectsLast(sort.sorted);
   const firstProspectId = ordered.find((r) => r.isProspect)?.id ?? null;
 
-  // Totals are derived from this grid's own rows, so the departed grid foots to
-  // what those players actually banked rather than repeating the roster's.
+  // Totals are derived from this grid's own (filtered) rows, so the departed
+  // grid foots to what those players actually banked rather than repeating
+  // the roster's, and a position filter foots to just the players on screen.
   const sum = <T,>(list: T[], pick: (r: T) => number) => list.reduce((acc, r) => acc + pick(r), 0);
-  const goalieRows = rows.filter((r) => r.isGoalie);
-  const poolGp = sum(rows, (r) => r.poolGamesPlayed);
-  const poolGoalsTotal = sum(rows, (r) => r.poolGoals);
-  const poolAssistsTotal = sum(rows, (r) => r.poolAssists);
-  const poolPtsTotal = sum(rows, (r) => r.poolPoints);
-  const nhlGp = sum(rows, (r) => r.gamesPlayed);
-  const nhlGoalsTotal = sum(rows, (r) => r.goals);
-  const nhlAssistsTotal = sum(rows, (r) => r.assists);
-  const nhlPtsTotal = sum(rows, (r) => r.nhlPoints);
-  const winsTotal = sum(rows, (r) => r.wins);
-  const otLossesTotal = sum(rows, (r) => r.otLosses);
-  const shutoutsTotal = sum(rows, (r) => r.shutouts);
-  const plusMinusTotal = sum(rows, (r) => r.plusMinus);
-  const pimTotal = sum(rows, (r) => r.pim);
-  const shotsTotal = sum(rows, (r) => r.shots);
+  const goalieRows = filteredRows.filter((r) => r.isGoalie);
+  const poolGp = sum(filteredRows, (r) => r.poolGamesPlayed);
+  const poolGoalsTotal = sum(filteredRows, (r) => r.poolGoals);
+  const poolAssistsTotal = sum(filteredRows, (r) => r.poolAssists);
+  const poolPtsTotal = sum(filteredRows, (r) => r.poolPoints);
+  const nhlGp = sum(filteredRows, (r) => r.gamesPlayed);
+  const nhlGoalsTotal = sum(filteredRows, (r) => r.goals);
+  const nhlAssistsTotal = sum(filteredRows, (r) => r.assists);
+  const nhlPtsTotal = sum(filteredRows, (r) => r.nhlPoints);
+  const winsTotal = sum(filteredRows, (r) => r.wins);
+  const otLossesTotal = sum(filteredRows, (r) => r.otLosses);
+  const shutoutsTotal = sum(filteredRows, (r) => r.shutouts);
+  const plusMinusTotal = sum(filteredRows, (r) => r.plusMinus);
+  const pimTotal = sum(filteredRows, (r) => r.pim);
+  const shotsTotal = sum(filteredRows, (r) => r.shots);
   const goaliesGp = sum(goalieRows, (r) => r.gamesPlayed);
   const goaliesGa = sum(goalieRows, (r) => r.goalsAgainst);
   const goaliesSaves = sum(goalieRows, (r) => r.saves);
   const goaliesShotsAgainst = sum(goalieRows, (r) => r.shotsAgainst);
-  const capTotal = sum(rows, (r) => r.capHit ?? 0);
+  const capTotal = sum(filteredRows, (r) => r.capHit ?? 0);
 
   return (
     <div>
-      <span className="stats-table-title">
-        {title}
-        {subtitle != null && <span className="stats-table-title-sub"> {subtitle}</span>}
-      </span>
+      <div className="stats-table-head">
+        <span className="stats-table-title">
+          {title}
+          {subtitle != null && <span className="stats-table-title-sub"> {subtitle}</span>}
+        </span>
+        {onPositionFilterChange && (
+          <PositionFilterControl value={positionFilter} onChange={onPositionFilterChange} />
+        )}
+      </div>
       {rows.length === 0 ? (
         <p className="empty-state">{emptyLabel}</p>
+      ) : filteredRows.length === 0 ? (
+        <p className="empty-state">{positionFilterEmptyLabel(positionFilter)}</p>
       ) : (
       <div className="stats-grid-scroll">
         <table className="stats-grid">
@@ -929,6 +1009,11 @@ export function Stats({
   // far. Cached per player: reopening a row should not re-ask.
   const [openPeriodsFor, setOpenPeriodsFor] = useState<number | null>(null);
   const [periodsByPlayer, setPeriodsByPlayer] = useState<Record<number, PlayerPeriodsDto>>({});
+  // One filter, shared by all three grids — see PositionFilterControl. Reset
+  // alongside the fetch below whenever `targetUsername` changes: a filter
+  // left on "D" while switching to a teammate's roster would silently show
+  // an incomplete-looking team with no visible reason why.
+  const [positionFilter, setPositionFilter] = useState<PositionFilter>("ALL");
 
   // Keeps the Roster/Departed/Incoming grids' sticky columns the same width as
   // each other — see the hook's own comment. Scoped to the whole screen (not
@@ -942,6 +1027,7 @@ export function Stats({
     let ignore = false;
     setLoading(true);
     setError("");
+    setPositionFilter("ALL");
     api
       .teamSeasonStats(league.id, targetUsername)
       .then((res) => {
@@ -1275,6 +1361,8 @@ export function Stats({
             openPeriodsFor={openPeriodsFor}
             periodsByPlayer={periodsByPlayer}
             onTogglePeriods={togglePeriods}
+            positionFilter={positionFilter}
+            onPositionFilterChange={setPositionFilter}
           />
 
           {/* Players this team no longer holds but whose banked points it
@@ -1292,6 +1380,9 @@ export function Stats({
               openPeriodsFor={openPeriodsFor}
               periodsByPlayer={periodsByPlayer}
               onTogglePeriods={togglePeriods}
+              // No control of its own — the Roster grid's is the only one on
+              // screen, and this just obeys whatever it's set to.
+              positionFilter={positionFilter}
             />
           )}
 
@@ -1311,6 +1402,7 @@ export function Stats({
               openPeriodsFor={openPeriodsFor}
               periodsByPlayer={periodsByPlayer}
               onTogglePeriods={togglePeriods}
+              positionFilter={positionFilter}
             />
           )}
         </>

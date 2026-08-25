@@ -193,6 +193,37 @@ doit être écrite à une spécificité qui bat la règle de la rangée
 (`.stats-grid tbody tr.stats-prospect-label-row td` remet tout à zéro à
 `(0,2,3)`), sans quoi le padding s'écrit et ne s'applique jamais.
 
+**Filtre de position, aligné à droite du titre ROSTER (2026-08-25, per
+Nick).** All/F/D/G en pill segmenté — même langage arrondi-en-groupe que la
+barre de navigation basse, pas une forme nouvelle. `.stats-table-head`
+remplace le `<span>` de titre seul par une ligne `flex`
+`justify-content: space-between`, titre à gauche, `PositionFilterControl` à
+droite.
+
+Un seul contrôle pour tout l'écran : posé une fois, à côté du titre Roster,
+il filtre en silence Departed et Incoming aussi — `positionFilter` descend
+dans les trois instances de `RosterGrid`, `onPositionFilterChange` seulement
+dans la première (sa présence est ce qui décide si l'instance dessine les
+boutons). Le sous-titre « 26 / 35 player » n'en tient jamais compte — c'est
+la taille réelle du roster, pas ce que le filtre laisse voir en ce moment.
+
+Actif emprunte sa couleur à la position filtrée — le même ice/violet/or que
+`.roster-pos-pill`/`.pos-compact` partout ailleurs, pour que « tu regardes la
+défense » se lise pareil que le marqueur de position d'un défenseur sur sa
+propre rangée. « All » n'a pas de couleur de position à lui, il prend l'ice
+« sélectionné » ordinaire de l'app (même traitement qu'un onglet de nav bas
+actif). Piège de spécificité, encore : `.pos-compact-d/-g` ne portent que
+`color` à `(0,1,0)`, et `.stats-position-filter-btn.active` réclame déjà cette
+propriété à `(0,2,0)` — sans réécrire `color` dans la règle combinée
+`.active.pos-compact-d/-g` à `(0,3,0)`, l'ice gagnerait sur la couleur de
+position qu'il est censé céder.
+
+Grille vide **à cause du filtre** (aucun défenseur chez les partis, par
+exemple) distincte de grille vide **tout court** : `positionFilterEmptyLabel`
+donne « No defensemen here. » plutôt que le message générique de la grille
+(« Nobody has left this roster. »), qui resterait correct mais mentirait par
+omission sur pourquoi rien ne s'affiche.
+
 ## Messagerie (2026-08-03)
 
 Les DMs vivent dans une **feuille plein écran**, préfixe `chat-`
