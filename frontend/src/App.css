@@ -1807,9 +1807,10 @@
    exist, or the ordinary 1px separator silently wins regardless of which
    rule comes later in the file. */
 .stats-grid tbody tr.stats-prospect-label-row td {
-  height: 20px;
+  height: 16px;
   padding: 0;
   border-top: 2px solid var(--border-strong);
+  background: var(--surface-strong);
 }
 
 /* The label cell reuses `.stats-col-player` itself — same sticky column,
@@ -1824,27 +1825,13 @@
    file — specificity says so explicitly rather than depending on source
    order, which the next edit to either rule could quietly invert. */
 .stats-col-player.stats-prospect-label-cell {
-  height: 20px;
-}
-
-/* The tint used to fill the whole row — the sticky cell *and* the empty
-   colSpan continuation past it, both `--surface-strong` — and it read as a
-   pale, mostly-blank slab rather than a label (Nick, 2026-08-25: "chaque
-   pièce est bonne mais le résultat est bof"). A pill around just the word,
-   on an otherwise unfilled row, is the same three ingredients — font, wide
-   spacing, muted colour, all untouched — put together differently: one small
-   tag sitting on a divider line, not a colour block. */
-.stats-prospect-label-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.15rem 0.5rem;
-  border-radius: 999px;
-  background: var(--surface-strong);
+  height: 16px;
   font: 700 0.6rem var(--font-body);
   letter-spacing: 0.5em;
   text-transform: uppercase;
   color: var(--text-muted);
   white-space: nowrap;
+  background: var(--surface-strong);
 }
 
 .stats-grid th.accent,

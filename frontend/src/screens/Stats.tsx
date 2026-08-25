@@ -738,7 +738,7 @@ function RosterGrid({
                       column is already proven to stick, at the exact width
                       `--stats-player-w` gives every other row. */}
                   <td className="stats-col-player stats-prospect-label-cell">
-                    <span className="stats-prospect-label-pill">Prospects</span>
+                    Prospects
                   </td>
                   <td colSpan={21} />
                 </tr>
