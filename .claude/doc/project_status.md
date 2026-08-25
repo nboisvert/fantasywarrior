@@ -144,6 +144,17 @@ older entries (back to 2026-07-22) are in
   `GET /free-agents` accordingly lost its `period` parameter and now aggregates
   the season in SQL (tens of thousands of game lines, none wanted individually),
   bounded to the simulated day like every other season total.
+- **2026-08-25 — Fixed: the player card crashed for every true prospect.**
+  `PlayerDetail.season` was typed `string`, never `string | null` — but the API
+  genuinely sends `null` for a player with zero NHL games on record, and
+  `formatSeason(null)` threw reading `.length`. No error boundary exists
+  anywhere in the app, so the crash took the whole screen down, not just the
+  card. Nick reported it as "the player card doesn't work" for Zharovsky; the
+  same crash hits every prospect, not just him. Fixed at the type (now
+  honest) and the one call site; the "Season" heading now omits the year it
+  doesn't have, and the stats panel shows "No stats this season" instead of a
+  wall of zeros, which is what a truthiness check on the always-non-null
+  `seasonTotals` used to render instead.
 
 ### Trades
 

@@ -115,7 +115,11 @@ interface PlayerDetail {
   draftOverall: number | null;
   draftTeamAbbrev: string | null;
   isGoalie: boolean;
-  season: string;
+  // Null for a player with no NHL game on record at all — every true
+  // prospect. `seasonTotals` below is never null from the API even then
+  // (it sums zero rows to zero, not to nothing), so this is the field that
+  // actually says whether there is a season to report.
+  season: string | null;
   seasonTotals: SeasonTotals | null;
   recentGames: RecentGame[] | null;
 }
@@ -779,8 +783,15 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
                 className="pc-tabpanel"
               >
                 <div className="pc-stats-panel">
-                  <span className="section-title">Season {formatSeason(player.season)}</span>
-                  {player.seasonTotals ? (
+                  <span className="section-title">
+                    {player.season ? `Season ${formatSeason(player.season)}` : "Season"}
+                  </span>
+                  {/* `season == null` means no NHL game on record at all — a
+                      prospect. `seasonTotals` is never actually null from the
+                      API (it sums zero rows to zero, not to nothing), so a
+                      bare truthiness check here rendered a wall of "0"
+                      tiles for exactly the players this message is for. */}
+                  {player.season && player.seasonTotals ? (
                     <div className={`pc-tiles${player.isGoalie ? " pc-tiles-goalie" : ""}`}>
                       {(player.isGoalie
                         ? goalieTiles(player.seasonTotals)
