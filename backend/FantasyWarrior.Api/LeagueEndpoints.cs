@@ -1,3 +1,4 @@
+using FantasyWarrior.Core.Messaging;
 using FantasyWarrior.Core.Scoring;
 using FantasyWarrior.Core.Time;
 using FantasyWarrior.Data;
@@ -379,6 +380,66 @@ public static class LeagueEndpoints
                 .ToListAsync();
 
             return Results.Ok(seasons);
+        });
+
+        // Who has actually shown up — the commissioner's answer to "did a real
+        // person log in, or did I just look at their team?"
+        //
+        // LastLoginUtc was written at every login since the SQL rebuild and read
+        // by nothing at all, which is why the first genuine outside login
+        // (steeve, 2026-08-25) could only be inferred from a declined trade.
+        // The two timestamps answer different questions and both are here:
+        // LoginUtc is a deliberate act, SeenUtc is any traffic at all.
+        //
+        // Commissioner-only, and not because the data is sensitive — it is a
+        // diagnostic with no screen, and a per-GM last-login list on a public
+        // route is a surveillance feature nobody asked for.
+        app.MapGet("/api/leagues/{leagueId}/activity", async (
+            string leagueId, string? username, FantasyWarriorDbContext db, PresenceService presence) =>
+        {
+            if (string.IsNullOrWhiteSpace(username))
+                return Results.BadRequest(new { error = "Username is required." });
+
+            var league = await Queries.LeagueByCodeAsync(db, leagueId);
+            if (league is null) return Results.NotFound(new { error = "League not found." });
+
+            var commissioner = await db.Users.FindAsync(league.CommissionerUserId);
+            if (commissioner?.Username != Queries.Normalize(username))
+                return Results.Json(new { error = "Only the commissioner can read league activity." }, statusCode: 403);
+
+            var now = DateTime.UtcNow;
+            var members = await db.LeagueMembers
+                .Where(m => m.LeagueId == league.LeagueId)
+                .Select(m => new
+                {
+                    m.UserId,
+                    m.User!.Username,
+                    m.User.DisplayName,
+                    m.User.CreatedUtc,
+                    m.User.LastLoginUtc,
+                    m.User.LastSeenUtc,
+                })
+                .ToListAsync();
+
+            return Results.Ok(members
+                .Select(m => new
+                {
+                    username = m.Username,
+                    displayName = m.DisplayName,
+                    online = presence.IsOnline(league.LeagueId, m.UserId),
+                    // Null means this account has never once been logged into,
+                    // however recently something stamped it as seen.
+                    lastLoginUtc = m.LastLoginUtc,
+                    lastLoginLabel = Presence.Describe(false, m.LastLoginUtc, now),
+                    lastSeenUtc = m.LastSeenUtc,
+                    lastSeenLabel = Presence.Describe(
+                        presence.IsOnline(league.LeagueId, m.UserId), m.LastSeenUtc, now),
+                    createdUtc = m.CreatedUtc,
+                })
+                // Whoever turned up most recently first: this list is read to
+                // find out who is alive, not to look someone up.
+                .OrderByDescending(m => m.lastLoginUtc ?? DateTime.MinValue)
+                .ThenBy(m => m.username, StringComparer.Ordinal));
         });
     }
 

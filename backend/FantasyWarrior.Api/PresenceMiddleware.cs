@@ -1,3 +1,4 @@
+using FantasyWarrior.Core.Messaging;
 using FantasyWarrior.Data;
 
 namespace FantasyWarrior.Api;
@@ -14,10 +15,14 @@ namespace FantasyWarrior.Api;
 public static class PresenceMiddleware
 {
     /// <summary>
-    /// The three places the API carries a username. The request body is
-    /// deliberately not one of them: reading it would mean buffering every POST
-    /// to learn something the GET traffic already tells us, and a GM who is
-    /// posting is a GM who was just reading.
+    /// The places the API carries a username, resolved by
+    /// <see cref="PresenceStamping.ResolveViewer"/> — which one of them names
+    /// the *viewer* is a rule with a bug history, so it lives in Core under
+    /// tests rather than inline here.
+    ///
+    /// The request body is deliberately not one of them: reading it would mean
+    /// buffering every POST to learn something the GET traffic already tells
+    /// us, and a GM who is posting is a GM who was just reading.
     /// </summary>
     public static IApplicationBuilder UsePresenceStamping(this IApplicationBuilder app) =>
         app.Use(async (context, next) =>
@@ -33,10 +38,13 @@ public static class PresenceMiddleware
 
             await next();
 
-            var raw = context.Request.RouteValues.TryGetValue("username", out var fromRoute)
-                ? fromRoute as string
-                : context.Request.Query["username"].FirstOrDefault()
-                  ?? context.Request.Query["viewer"].FirstOrDefault();
+            var raw = PresenceStamping.ResolveViewer(
+                context.Request.Path.Value,
+                context.Request.RouteValues.TryGetValue("username", out var fromRoute)
+                    ? fromRoute as string
+                    : null,
+                context.Request.Query["username"].FirstOrDefault(),
+                context.Request.Query["viewer"].FirstOrDefault());
 
             if (string.IsNullOrWhiteSpace(raw)) return;
 

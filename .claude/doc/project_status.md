@@ -70,6 +70,30 @@ older entries (back to 2026-07-22) are in
 
 ### Architecture
 
+- **2026-08-25 — Presence stamps the viewer, never the viewed.** The middleware
+  read `username` from the route values *first*, and on every league-scoped team
+  route that segment names the team's **owner**, not the caller. Opening a
+  rival's roster, pricing a trade against him (`CreateTradeSheet` fetches his
+  `season-stats` and `picks` with no `viewer` at all) or scrolling his week in
+  Stats all stamped **him** as "seen just now". The whole league read as active:
+  eight GMs who have never logged in showed "4h ago". The rule now lives in
+  `PresenceStamping.ResolveViewer` (Core, 12 tests) instead of inline in the
+  middleware, because it is a rule with a bug history. **Only the query string
+  names the viewer** — `viewer` first, then `username`. A route segment counts
+  only in the `/api/users/{username}/…` family, where the subject *is* the
+  caller by construction and which is the first call the app makes after login.
+  Everywhere else an ambiguous request stamps nobody: a missed stamp costs a
+  stale label for one request, a wrong one invents activity that never happened.
+  **Rows already written stay wrong** — they were not cleaned, they simply decay.
+- **2026-08-25 — `LastLoginUtc` is readable, commissioner-only.** It had been
+  written at every login since the SQL rebuild and read by *nothing*, so when
+  the first real outside GM logged in (steeve) his arrival could only be
+  inferred from a trade he declined. `GET /api/leagues/{leagueId}/activity`
+  returns, per member, both timestamps side by side: `lastLoginUtc` is a
+  deliberate act, `lastSeenUtc` is any traffic at all — and only the first one
+  was ever immune to the bug above. No screen, on purpose: it is a diagnostic,
+  and a per-GM last-login list on a public route is a surveillance feature
+  nobody asked for.
 - **2026-08-25 — The season-lifecycle foundation is built and deployed**, same
   day as the design doc (`season-lifecycle.md`). `Season` (Core, 35 tests)
   replaces four places that each re-derived the NHL season string on their own.
