@@ -189,6 +189,7 @@ ExternalAuthId (null, prévu pour l'auth), CreatedUtc, LastLoginUtc
 
 **`Leagues`** — `LeagueId`, Name, Season, CommissionerUserId (FK), **`JoinCode`
 (unique, court)**, CapAmount, RosterMin, RosterMax, **ProtectionSlots (null)**,
+**StealRounds (null)**, **MaxLossesPerTeam (null)**, DraftRounds (null),
 ActiveForwards, ActiveDefense, ActiveGoalies, CreatedUtc
 
 > Le `JoinCode` est ce que l'API expose comme `id`. Le frontend traite `league.id`
@@ -198,6 +199,19 @@ ActiveForwards, ActiveDefense, ActiveGoalies, CreatedUtc
 > **`ProtectionSlots`** — combien de spots un DG peut protéger avant le
 > repêchage de vol. Null tant qu'aucun commissaire ne l'a fixé ; Les Mordus n'a
 > jamais tenu ce repêchage, il n'y a donc pas de vrai chiffre à défaut.
+
+> **`StealRounds`** et **`MaxLossesPerTeam`** — 2 et 2 chez Les Mordus. Le
+> premier dimensionne le segment de vol **sans générer une seule ligne** : un
+> tour de vol ne s'échange pas, donc chaque équipe en a exactement ce nombre et
+> il n'y a rien à posséder. Le second referme le bassin par en dessous pendant
+> que le repêchage tourne — quand une équipe atteint sa limite, tous ses joueurs
+> restants cessent d'être disponibles pour tout le monde, ce qui est la raison
+> pour laquelle la liste des disponibles est recalculée à chaque tour et jamais
+> mise en cache. Null pour les deux = « la ligue n'a pas cette règle », pas zéro.
+>
+> **`StealRounds` est délibérément indépendant de `DraftRounds`** : ils
+> dimensionnent deux repêchages différents qui s'enchaînent, et les voir
+> diverger n'est pas une erreur.
 
 **`LeagueSeasons`** — `LeagueSeasonId`, LeagueId (FK), Season (char(8)), Number,
 Phase (tinyint : Preparing/Protecting/Drafting/PreSeason/InSeason/Complete),
@@ -336,6 +350,36 @@ OriginalTeamId (FK), CurrentTeamId (FK), PlayerId (FK null), UsedUtc, CreatedUtc
 
 > Propriétaire distinct de l'origine : ça donne gratuitement l'affichage
 > « 2e ronde de PIT via BOS ».
+
+**`DraftSelections`** — `DraftSelectionId`, LeagueSeasonId (FK, cascade),
+OverallIndex, Segment (tinyint), Round, TeamId (FK), PlayerId (FK null =
+tour passé), StolenFromTeamId (FK null), DraftPickId (FK null), MadeUtc
+→ unique (LeagueSeasonId, OverallIndex) — `UX_DraftSelections_OneSelectionPerTurn`
+→ unique (DraftPickId) filtré — une habilitation ne se dépense qu'une fois
+→ unique (LeagueSeasonId, PlayerId) filtré — un joueur ne bouge qu'une fois
+→ CHECK : un vol ne porte pas de `DraftPickId` ; une pige recrue en porte un et
+  ne vole personne ; un tour passé ne vole personne
+
+> **Pourquoi cette table plutôt qu'une dérivation.** La tentation est de relire
+> le repêchage dans les `RosterSpots` qu'il a ouverts — ils portent déjà
+> `StartReason = Draft`. **C'est impossible** : `SeedMordusJob` a ouvert les 418
+> spots de l'import des Mordus avec exactement cette raison, donc la dérivation
+> compterait 418 piges fantômes avant la première vraie.
+>
+> Et même dans une ligue vierge ça resterait faux : un vol est une **paire** de
+> spots sans clé pour l'événement entre les deux, et l'ordre du repêchage
+> finirait par reposer sur celui d'une colonne identity.
+>
+> La raison porteuse est ailleurs. Les tours de vol ne s'échangent pas, donc ils
+> n'ont **aucune ligne à réclamer** : sans horloge, deux DG peuvent soumettre au
+> même instant en croyant tous deux être au tour 7, avec deux joueurs
+> différents — aucune autre contrainte du schéma ne le remarquerait.
+> `UX_DraftSelections_OneSelectionPerTurn` est la seule chose qui l'arrête.
+>
+> C'est la même distinction que `Trades` à côté de `RosterSpot.StartTradeId`, et
+> personne ne reconstruit un échange à partir d'une paire de spots : un spot
+> enregistre **une possession dans le temps**, ceci enregistre **un événement
+> dans une séquence**.
 
 **`Trades`** — `TradeId`, LeagueId, ProposerTeamId, CounterpartyTeamId, Status
 (tinyint), CreatedUtc, RespondedUtc, ProcessedUtc, EffectiveDate

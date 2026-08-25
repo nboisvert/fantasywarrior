@@ -1,0 +1,360 @@
+/* The draft room. Night Arena tokens only — no new colours are introduced
+   here; gold means "this is waiting on you" exactly as it does on the Trades
+   tab, and ice means "this is live" exactly as it does on the topbar badge. */
+
+.draft-room {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.draft-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.draft-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.draft-sub {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.draft-progress {
+  color: var(--text-muted);
+}
+
+/* Who is picking. The gold state is the whole of the app's urgency signal:
+   with no clock, nothing else tells a GM to move. */
+.draft-clock {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.15rem 0.6rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.draft-clock.mine {
+  border-color: rgba(251, 191, 36, 0.45);
+  background: rgba(251, 191, 36, 0.1);
+  box-shadow: 0 0 18px rgba(251, 191, 36, 0.14);
+}
+
+.draft-clock-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  width: 100%;
+}
+
+.draft-clock.mine .draft-clock-label {
+  color: var(--gold);
+}
+
+.draft-clock-team {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.draft-clock-wait {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.draft-quota {
+  display: flex;
+  gap: 1.1rem;
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.draft-quota strong {
+  color: var(--text);
+}
+
+/* Three panes, one destination. Splitting these across bottom-nav slots would
+   put two routes to the same screen in the bar. */
+.draft-panes {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.draft-pane-btn {
+  flex: 1;
+  min-height: 40px;
+  padding: 0.45rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.draft-pane-btn.active {
+  border-color: rgba(56, 189, 248, 0.4);
+  background: rgba(56, 189, 248, 0.12);
+  color: var(--ice);
+}
+
+.draft-pane-btn:focus-visible {
+  outline: 2px solid var(--ice);
+  outline-offset: 2px;
+}
+
+.draft-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.draft-search {
+  min-height: 44px;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.draft-search:focus-visible {
+  outline: 2px solid var(--ice);
+  outline-offset: 1px;
+}
+
+.draft-pos-filter {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.draft-pos-chip {
+  flex: 1;
+  min-height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.draft-pos-chip.active {
+  border-color: rgba(56, 189, 248, 0.4);
+  color: var(--ice);
+}
+
+.draft-pos-chip:focus-visible {
+  outline: 2px solid var(--ice);
+  outline-offset: 2px;
+}
+
+/* The player row. One line (Nick, 2026-08-25): compact position letter, short
+   name, the GM who holds him, cap hit right. Dense enough that a GM can scan a
+   pool of hundreds without scrolling past the same player twice. */
+.draft-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.draft-row {
+  display: grid;
+  grid-template-columns: 1.2rem minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.35rem 0.5rem;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+/* Browsing the pool while you wait is the point of an asynchronous draft, so a
+   row that is not yours is still readable — it just stops being a button. */
+.draft-row[aria-disabled="true"] {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.draft-row:not([aria-disabled="true"]):hover {
+  background: var(--surface);
+}
+
+.draft-row:focus-visible {
+  outline: 2px solid var(--ice);
+  outline-offset: -2px;
+}
+
+.draft-row-pos {
+  font-weight: 800;
+  font-size: 0.8rem;
+}
+
+.draft-row-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.draft-row-owner {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  max-width: 7.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.draft-row-cap {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.draft-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+/* The pick feed. */
+.draft-feed,
+.draft-teams {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.draft-feed-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  padding: 0.5rem 0.4rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.draft-feed-index {
+  min-width: 1.6rem;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.draft-feed-text strong {
+  color: var(--text);
+}
+
+.draft-team-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0.7rem;
+  align-items: center;
+  padding: 0.5rem 0.4rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.draft-team-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.draft-team-takes {
+  color: var(--success);
+  font-variant-numeric: tabular-nums;
+}
+
+.draft-team-losses {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A team that has lost its limit is closed to everyone — worth reading at a
+   glance, because it explains why its players vanished from the pool. */
+.draft-team-losses.maxed {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.draft-commissioner {
+  display: flex;
+  gap: 0.5rem;
+  padding-top: 0.4rem;
+}
+
+/* Sits on PlayerCard's .pc-overlay/.pc-sheet chrome. */
+.draft-confirm {
+  padding: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.draft-confirm-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.draft-confirm-name {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.draft-confirm-detail {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* A steal closes a roster spot on someone else's team and there is no undo
+   endpoint, by design. Say so before the tap, not after. */
+.draft-confirm-warn {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--gold);
+}
+
+.draft-confirm-actions {
+  display: flex;
+  gap: 0.5rem;
+  padding-top: 0.35rem;
+}
+
+.draft-confirm-actions button {
+  flex: 1;
+  min-height: 44px;
+}

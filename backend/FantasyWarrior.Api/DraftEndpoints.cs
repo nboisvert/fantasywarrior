@@ -501,7 +501,8 @@ public static class DraftEndpoints
         var candidate = new DraftCandidate(
             playerId, player.PositionGroup, player.CareerNhlGames,
             spot?.TeamId, spot?.ProtectionStatus == RosterProtectionStatus.Protected,
-            spot is null ? 0 : ctx.LossesOf(spot.TeamId));
+            spot is null ? 0 : ctx.LossesOf(spot.TeamId),
+            ctx.TakenPlayerIds.Contains(playerId));
 
         return DraftPool.IneligibleReason(
             candidate, turn.Segment, turn.TeamId, ctx.League.MaxLossesPerTeam)

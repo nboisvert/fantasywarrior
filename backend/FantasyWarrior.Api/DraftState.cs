@@ -41,6 +41,10 @@ public sealed record DraftContext(
     public string TeamName(int teamId) =>
         TeamsById.TryGetValue(teamId, out var t) ? t.Name : "Unknown";
 
+    /// <summary>Everyone who has already changed hands in this draft.</summary>
+    public HashSet<long> TakenPlayerIds =>
+        [.. Selections.Where(s => s.PlayerId is not null).Select(s => s.PlayerId!.Value)];
+
     public string? OwnerUsername(int teamId) =>
         TeamsById.TryGetValue(teamId, out var t) ? t.Owner?.Username : null;
 }
@@ -157,6 +161,8 @@ public static class DraftContextLoader
     private static async Task<List<DraftPoolRow>> RosteredAsync(
         FantasyWarriorDbContext db, DraftContext ctx, CancellationToken ct)
     {
+        var taken = ctx.TakenPlayerIds;
+
         // PlayerId != null drops the franchise slots before they can ride along
         // as nulls - the same trap that once silently emptied the free-agent
         // list.
@@ -186,7 +192,8 @@ public static class DraftContextLoader
                     h.CareerNhlGames,
                     h.TeamId,
                     h.ProtectionStatus == RosterProtectionStatus.Protected,
-                    ctx.LossesOf(h.TeamId)),
+                    ctx.LossesOf(h.TeamId),
+                    taken.Contains(h.PlayerId)),
                 ShortName: DraftFormat.ShortName(h.FirstName, h.LastName),
                 Position: h.Position,
                 NhlTeam: h.NhlTeam,
@@ -200,6 +207,8 @@ public static class DraftContextLoader
     private static async Task<List<DraftPoolRow>> UnrosteredAsync(
         FantasyWarriorDbContext db, DraftContext ctx, CancellationToken ct)
     {
+        var taken = ctx.TakenPlayerIds;
+
         var rostered = await db.RosterSpots
             .Where(s => s.LeagueId == ctx.League.LeagueId && s.PlayerId != null)
             .Where(RosterWindow.Committed())
@@ -225,7 +234,8 @@ public static class DraftContextLoader
         return free
             .Select(p => new DraftPoolRow(
                 Candidate: new DraftCandidate(
-                    p.PlayerId, p.PositionGroup, p.CareerNhlGames, null, false, 0),
+                    p.PlayerId, p.PositionGroup, p.CareerNhlGames, null, false, 0,
+                    taken.Contains(p.PlayerId)),
                 ShortName: DraftFormat.ShortName(p.FirstName, p.LastName),
                 Position: p.Position,
                 NhlTeam: p.NhlTeam,

@@ -246,12 +246,92 @@ export interface LeagueDetail {
   commissionerUsername: string;
   ruleConfig: RuleConfig;
   members: string[];
+  /** What phase this league's current season sits in. Null for a league with
+   * no season row at all. `phase === "Drafting"` is what puts the Draft tab in
+   * the bottom nav. */
+  activeSeason: { number: number; season: string; phase: string } | null;
   /** Null before a season's period calendar has been generated. */
   currentPeriod: PeriodDto | null;
   teams: TeamDto[];
   /** The requesting user's own roster (empty if they have no team here).
    * Other teams' rosters are fetched on demand. */
   myRoster: RosterPlayer[];
+}
+
+/** Which of the two drafts a turn belongs to. The Drafting phase runs the steal
+ * rounds and then the rookie / free-agent rounds, back to back in one room. */
+export type DraftSegment = "steal" | "rookie";
+
+export interface DraftPlayerRef {
+  playerId: number;
+  /** Already truncated by the server ("N. MacKinnon") — the two halves of the
+   * name live in the database and splitting FullName on a space is wrong for
+   * "Jean-Gabriel Pageau". */
+  shortName: string;
+  position: string;
+  positionGroup: PosGroup;
+}
+
+/** One selection that has already happened. `passed` means the GM took nobody,
+ * which a GM facing an empty pool has to be able to do. */
+export interface DraftSelectionDto {
+  overallIndex: number;
+  segment: DraftSegment;
+  round: number;
+  byTeamName: string;
+  /** The robbed team; null outside the steal rounds. */
+  fromTeamName: string | null;
+  passed: boolean;
+  player: DraftPlayerRef | null;
+  madeUtc: string;
+}
+
+export interface DraftTeamRow {
+  teamName: string;
+  ownerUsername: string | null;
+  losses: number;
+  takes: number;
+}
+
+export interface DraftOnTheClock {
+  overallIndex: number;
+  segment: DraftSegment;
+  round: number;
+  pickInRound: number;
+  teamName: string;
+  ownerUsername: string | null;
+}
+
+/** The room's whole state. `running: false` is the normal answer eleven months
+ * of the year, and it is what tells the nav whether the Draft tab exists. */
+export interface DraftState {
+  running: boolean;
+  phase: string | null;
+  year?: number;
+  seasonNumber?: number;
+  stealRounds?: number;
+  draftRounds?: number;
+  maxLossesPerTeam?: number | null;
+  segment?: DraftSegment;
+  round?: number;
+  totalTurns?: number;
+  turnsMade?: number;
+  onTheClock?: DraftOnTheClock | null;
+  isMyTurn?: boolean;
+  /** 0 when it is your turn, null when you have none left. */
+  turnsUntilMine?: number | null;
+  myTeam?: { teamName: string; losses: number; takes: number } | null;
+  teams?: DraftTeamRow[];
+  history?: DraftSelectionDto[];
+}
+
+export interface DraftCandidate extends DraftPlayerRef {
+  capHit: number | null;
+  nhlTeam: string | null;
+  /** The GM who holds him. Null in the rookie rounds, where nobody does — the
+   * row then falls back to the NHL club. */
+  ownerTeamName: string | null;
+  ownerUsername: string | null;
 }
 
 /** One row of the palmarès — one season this league has played. */
@@ -552,6 +632,53 @@ export const api = {
     request<FreeAgentRow[]>(
       `/api/leagues/${encodeURIComponent(leagueId)}/free-agents` +
         `${limit ? `?limit=${limit}` : ""}`,
+    ),
+  /** The draft room's one read. Answers `running: false` outside the Drafting
+   * phase rather than 404-ing, so the nav learns from the same call. */
+  draft: (leagueId: string, username: string) =>
+    request<DraftState>(
+      `/api/leagues/${encodeURIComponent(leagueId)}/draft?username=${encodeURIComponent(username)}`,
+    ),
+  /** The pool for whoever is on the clock — recomputed server-side every call.
+   * It cannot be cached: one team reaching its loss cap takes its whole roster
+   * out of the pool at once. */
+  draftAvailable: (
+    leagueId: string,
+    username: string,
+    opts?: { search?: string; pos?: string; limit?: number },
+  ) =>
+    request<DraftCandidate[]>(
+      `/api/leagues/${encodeURIComponent(leagueId)}/draft/available` +
+        `?username=${encodeURIComponent(username)}` +
+        (opts?.search ? `&search=${encodeURIComponent(opts.search)}` : "") +
+        (opts?.pos && opts.pos !== "ALL" ? `&pos=${encodeURIComponent(opts.pos)}` : "") +
+        (opts?.limit ? `&limit=${opts.limit}` : ""),
+    ),
+  /** Make the pick. `playerId: null` passes the turn. `expectedOverallIndex` is
+   * the turn the screen was showing — sending it turns a stale tab into a clean
+   * 409 instead of a surprise. */
+  draftSelect: (
+    leagueId: string,
+    username: string,
+    playerId: number | null,
+    expectedOverallIndex: number,
+  ) =>
+    request<DraftState>(`/api/leagues/${encodeURIComponent(leagueId)}/draft/selections`, {
+      method: "POST",
+      body: JSON.stringify({ username, playerId, expectedOverallIndex }),
+    }),
+  /** Commissioner: freeze the reverse-standings order and open the room. */
+  openDraft: (leagueId: string, username: string) =>
+    request<{ ok: boolean; year: number; order: string[] }>(
+      `/api/leagues/${encodeURIComponent(leagueId)}/draft/open`,
+      { method: "POST", body: JSON.stringify({ username }) },
+    ),
+  /** Commissioner: close it, used turns or not. An exposed player nobody
+   * claimed simply stays where he was. */
+  closeDraft: (leagueId: string, username: string) =>
+    request<{ ok: boolean; phase: string; unusedTurns: number }>(
+      `/api/leagues/${encodeURIComponent(leagueId)}/draft/close`,
+      { method: "POST", body: JSON.stringify({ username }) },
     ),
   trades: (leagueId: string, username: string) =>
     request<Trade[]>(

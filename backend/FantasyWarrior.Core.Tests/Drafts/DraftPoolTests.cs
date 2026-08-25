@@ -79,6 +79,29 @@ public class DraftPoolTests
     }
 
     [Fact]
+    public void APlayerMovesAtMostOncePerDraft()
+    {
+        // Found by driving a real draft: without this the pool kept offering a
+        // player who had just changed hands, and the unique index refused him
+        // only after the GM had tapped his row.
+        var moved = Rostered() with { AlreadyTakenThisDraft = true };
+
+        Assert.Equal("He has already been drafted this off-season.", Steal(moved));
+        Assert.Equal("He has already been drafted this off-season.", Rookie(moved));
+    }
+
+    [Fact]
+    public void AlreadyTakenBeatsEveryOtherReason()
+    {
+        // He is on my own roster now precisely because I took him. "You already
+        // hold him" would be true and useless; the honest answer is that he has
+        // moved once already.
+        var mine = Rostered(owner: Me) with { AlreadyTakenThisDraft = true };
+
+        Assert.Equal("He has already been drafted this off-season.", Steal(mine));
+    }
+
+    [Fact]
     public void Steal_ATeamBelowItsLossCapIsStillOpen()
     {
         Assert.Null(Steal(Rostered(losses: 1)));

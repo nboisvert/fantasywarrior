@@ -57,9 +57,9 @@ screens, the news ticker, per-player news and injury status.
 | Draft picks — tradable, one year ahead | **Done** (the draft itself is not) |
 | Real authentication | Todo |
 | Free agency | Todo |
-| Off-season protection & steal draft | **Foundation only** (2026-08-25) — the spot carries a status, auto-protection reads live, the card shows it, `LeagueSeasons`/phases/trade-freeze exist and are deployed. The protection and draft screens themselves are not built — both are player-row lists and need the CLAUDE.md ask first, plus two numbers Nick hasn't set. |
+| Off-season protection & steal draft | **Draft done** (2026-08-25) — the room runs both segments, no clock, verified end to end. **The protection screen is not built**: nothing writes `Protected` yet, so the first draft filters on auto-protection alone. It needs the CLAUDE.md player-row ask and `ProtectionSlots`. |
 | 🏁 **Season-tracking MVP in prod for early October 2026** (NHL 2026-27) | — |
-| Interactive live draft (target: 2027-28 season) | Todo |
+| Interactive live draft | **Done** (2026-08-25) — brought forward from its 2027-28 target. Asynchronous and turn-based; a clock was considered and refused. |
 
 ## Decisions log
 
@@ -70,6 +70,35 @@ older entries (back to 2026-07-22) are in
 
 ### Architecture
 
+- **2026-08-25 — The draft room is built, and it has no clock.** The `Drafting`
+  phase runs **two drafts back to back in one room**: 2 steal rounds, then the
+  rookie / free-agent rounds that finally spend the `DraftPick` rows nothing had
+  ever consumed. They share a turn engine and a selection log and differ only in
+  where a turn comes from and who is available — which is what "generic over
+  draft type" buys: a third kind is a third branch in `DraftPool`.
+  **No pick clock** (Nick): the GM on the clock picks whenever they get to it,
+  nobody is timed out, nothing auto-picks. That is a product decision *and* the
+  reason the whole draft fits inside request handling — no `IHostedService`, no
+  timer, and the Container App keeps scaling to zero between picks.
+  **Steal turns are not tradable**, so they have no entitlement row; the 28 turns
+  are derived. That is exactly what makes `DraftSelections` necessary rather than
+  convenient — with nothing to claim, a unique index on
+  `(LeagueSeasonId, OverallIndex)` is the only thing stopping two GMs from taking
+  turn 7. Deriving the draft from `RosterSpots` with `StartReason = Draft` was
+  never an option anyway: `SeedMordusJob` opened all 418 Mordus spots with that
+  reason. Order is frozen into `PickInRound` at open and never re-read from the
+  standings — steal turns read `OriginalTeamId`, rookie turns `CurrentTeamId`, so
+  trading a first-rounder moves the rookie pick without moving the steal turn it
+  was never attached to. `RosterMin` is deliberately **not** enforced on a
+  selection: `PreSeason` exists so a team can come out of the draft under it.
+  Verified end to end against LocalDB — a real steal closes the victim's spot the
+  day before it opens the thief's, and `RosterSpot.StartDraftPickId` was written
+  for the first time since the schema was authored.
+- **2026-08-25 — Les Mordus' two open draft numbers are set**: `StealRounds = 2`
+  and `MaxLossesPerTeam = 2` (Nick), both league columns. 14 teams × 2 losses is
+  exactly the 28 steal turns, so the pool really can close — which is why **a
+  turn can be passed**. `ProtectionSlots` is still unset and stays unset: the
+  protection screen is a separate player-row screen and needs its own ask.
 - **2026-08-25 — Presence stamps the viewer, never the viewed.** The middleware
   read `username` from the route values *first*, and on every league-scoped team
   route that segment names the team's **owner**, not the caller. Opening a

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "./api";
-import type { LeagueDetail } from "./api";
+import type { DraftState, LeagueDetail } from "./api";
 import {
   ActivityIcon,
   ArrowLeftRightIcon,
   BriefcaseIcon,
   ChevronDownIcon,
+  ListOrderedIcon,
   MessageSquareIcon,
   TrophyIcon,
 } from "./components/Icons";
@@ -22,11 +23,12 @@ import { Trades } from "./screens/Trades";
 import { Settings } from "./screens/Settings";
 import { NewsTicker } from "./components/NewsTicker";
 import { ChatSheet } from "./components/ChatSheet";
+import DraftRoom from "./screens/DraftRoom";
 import { ToastHost } from "./components/Toast";
 import { LiveProvider, useLive } from "./live/LiveProvider";
 import "./App.css";
 
-type Tab = "dashboard" | "standings" | "stats" | "trades" | "settings";
+type Tab = "dashboard" | "standings" | "stats" | "trades" | "draft" | "settings";
 
 /** Keeps the topbar's unread badge live while the chat sheet is closed.
  *
@@ -41,6 +43,19 @@ function UnreadBridge({ username, onIncoming }: { username: string; onIncoming: 
     () => onMessage((m) => { if (m.to === username) onIncoming(); }),
     [onMessage, username, onIncoming],
   );
+  return null;
+}
+
+/** Keeps the Draft tab honest while you are somewhere else in the app.
+ *
+ * The room itself subscribes to the same push, but it is only mounted while
+ * the Draft tab is open - so a pick landing while you read the standings had
+ * nothing listening, and the nav would keep saying it was your turn after you
+ * had already been passed. Has to live inside LiveProvider, hence a component
+ * rather than a hook call in App. Renders nothing. */
+function DraftBridge({ onDraft: onPush }: { onDraft: (s: DraftState) => void }) {
+  const { onDraft } = useLive();
+  useEffect(() => onDraft(onPush), [onDraft, onPush]);
   return null;
 }
 
@@ -118,6 +133,27 @@ export default function App() {
       // A badge is not worth an error banner: worst case it shows nothing.
       .catch(() => setOffersToAnswer(0));
   }, [leagueId, username, tab]);
+
+  // Whether the Draft tab exists at all, and whether it is your turn. Guarded
+  // by the phase the league already reports, so this costs nothing the eleven
+  // months of the year when nobody is drafting.
+  const draftRunning = league?.activeSeason?.phase === "Drafting";
+  const [draftTurn, setDraftTurn] = useState<DraftState | null>(null);
+
+  useEffect(() => {
+    if (!leagueId || !username || !draftRunning) {
+      setDraftTurn(null);
+      return;
+    }
+    api
+      .draft(leagueId, username)
+      .then(setDraftTurn)
+      // Same posture as the offers badge: a nav pill is not worth an error
+      // banner, and the room itself will report anything real.
+      .catch(() => setDraftTurn(null));
+  }, [leagueId, username, draftRunning, tab]);
+
+  const isMyDraftTurn = draftTurn?.isMyTurn === true;
 
   // Same shape as the offers badge above, for the same reason. While a live
   // connection is up the sheet keeps this current by calling refreshUnread
@@ -287,6 +323,7 @@ export default function App() {
           />
         )}
         {league && tab === "trades" && <Trades league={league} username={username} />}
+        {league && tab === "draft" && <DraftRoom league={league} username={username} />}
       </main>
 
       <NewsTicker leagueId={leagueId} league={league} username={username} />
@@ -343,9 +380,31 @@ export default function App() {
           </span>
           Trades
         </button>
+        {/* Only while a draft is actually running. A permanent tab leading to
+            "no draft is running" would be a dead destination in a bar that is
+            already full. */}
+        {draftRunning && (
+          <button
+            className={`nav-tab${tab === "draft" ? " active" : ""}${
+              isMyDraftTurn ? " nav-tab-awaiting" : ""
+            }`}
+            onClick={() => setTab("draft")}
+            aria-current={tab === "draft" ? "page" : undefined}
+            aria-label={isMyDraftTurn ? "Draft, you are on the clock" : "Draft, live"}
+          >
+            <span className="nav-tab-icon">
+              <ListOrderedIcon size={22} />
+              <span className="nav-tab-pill" aria-hidden="true">
+                LIVE
+              </span>
+            </span>
+            Draft
+          </button>
+        )}
       </nav>
 
       <UnreadBridge username={username} onIncoming={refreshUnread} />
+      {draftRunning && <DraftBridge onDraft={setDraftTurn} />}
 
       <ToastHost />
 

@@ -1,14 +1,17 @@
 # Le concept de saison, et le cycle de vie d'une saison
 
-> **Statut : la fondation est construite (2026-08-25) — §§1-8 sont faits.**
+> **Statut : §§1-8 sont faits, et le repêchage aussi (2026-08-25).**
 > `Season` (Core), `LeagueSeasons`, les phases, le gel des échanges, le
-> correctif des deux vues et le palmarès sont en place et déployés. **Ce qui
-> reste proposé** : les mécaniques de protection/vol elles-mêmes (§9 points
-> 6-7) — pas de screen de sélection des protégés, pas de rondes de vol, parce
-> que les chiffres qui les gouvernent (combien de places, combien de pertes
-> max par équipe) ne sont toujours pas fixés (§10), et que la liste de
-> protection est un écran-liste-de-joueurs qui doit d'abord répondre à la
-> convention player-row de `CLAUDE.md`.
+> correctif des deux vues et le palmarès sont en place et déployés. **La salle
+> de repêchage tourne** (§9 point 7) : deux segments enchaînés dans `Drafting`,
+> sans horloge, avec `DraftSelections` comme journal des tours — détaillée dans
+> [scoring-model.md](scoring-model.md) §11. `StealRounds = 2` et
+> `MaxLossesPerTeam = 2` sont fixés (§10).
+>
+> **Ce qui reste proposé** : l'écran de sélection des protégés (§9 point 6).
+> Rien ne peut encore écrire `Protected`, `ProtectionSlots` n'a toujours pas de
+> chiffre, et cette liste est un écran-liste-de-joueurs qui doit d'abord
+> répondre à la convention player-row de `CLAUDE.md`.
 >
 > Idée de Nick, 2026-08-25 ; modélisation reprise le même jour après sa
 > question — « c'est une seule colonne sur ligue ? quelle est sa valeur ? ça
@@ -355,7 +358,7 @@ puisqu'aucune ligue n'a encore atteint une deuxième saison.
 4. ⬜ `period-init --season 20262027` — **pas fait** : aucun match `20262027` n'est encore en base (`Games`), le job refuserait honnêtement de tourner. Rien à faire tant que le calendrier 2026-27 n'existe pas.
 5. ✅ Les phases : `SeasonPhaseRules` + `SeasonPhaseJob` + gel dans `TradeEndpoints`.
 6. ⬜ `Protecting` : écran de sélection, verrouillage, auto-remplissage — **en attente** : `RuleConfig.ProtectionSlots` existe (nullable, non fixé) mais l'écran est une liste de joueurs et doit d'abord répondre à la convention player-row.
-7. ⬜ `Drafting` : ordre, vols, quotas — **en attente** des deux chiffres du §10 et d'une décision d'écran/navigation.
+7. ✅ `Drafting` : ordre, vols, quotas — **fait le 2026-08-25**. Deux segments (vol puis recrue/autonome), sans horloge, `DraftSelections` comme journal, écran `DraftRoom` avec un onglet qui n'existe que pendant le repêchage.
 8. ✅ `SeasonPhaseJob --to InSeason/Complete` : `Leagues.Season` bascule, `protection-reset` tourne, `ChampionTeamId` s'écrit. **Jamais exécuté sur une vraie ligue.**
 9. ✅ **Le palmarès** (§7) — `GET .../seasons` + `Palmares.tsx`, déployé.
 
@@ -375,10 +378,11 @@ puisqu'aucune ligue n'a encore atteint une deuxième saison.
 - **Les règles de la saison 2, c'était quoi ?** Le barème vit sur `League` et
   change en place. Un pool à vie finira par vouloir le figer par saison. Pas
   aujourd'hui — mais `LeagueSeasons` est l'endroit où ça atterrira.
-- **Combien de joueurs protégeables par DG**, et **combien de pertes maximum par
-  équipe** ([mordus-pool.md](mordus-pool.md)). `RuleConfig.ProtectionSlots`
-  existe déjà et attend le premier chiffre ; le second n'a même pas encore de
-  colonne.
+- ~~**Combien de pertes maximum par équipe**~~ — **2** (Nick, 2026-08-25),
+  colonne `League.MaxLossesPerTeam`, avec `League.StealRounds = 2` à côté.
+- **Combien de joueurs protégeables par DG** reste ouvert.
+  `RuleConfig.ProtectionSlots` attend toujours son chiffre. Le repêchage tourne
+  sans lui : tout le monde est `Unprotected` et seule l'auto-protection filtre.
 - **Qui déclenche une transition ?** Le commissaire à la main
   (`season-phase --to <Phase>`, construit) ou le job nocturne quand la dernière
   semaine banque. La main est plus simple et plus sûre pour une première saison,
@@ -392,6 +396,10 @@ puisqu'aucune ligue n'a encore atteint une deuxième saison.
   mécanique serait simple à câbler sur ce qui existe déjà
   (`RosterSpots.ProtectionStatus`, `ProtectionRules.IsAutoProtected`,
   `RosterChange.ApplyAsync` avec `startReason: Draft`).
-- **La barre de navigation du bas reste pleine.** Palmarès a trouvé sa place
-  dans Standings ; Protection et Draft devront trouver la leur sans ajouter de
-  destination en double.
+- ~~**La barre de navigation du bas reste pleine.**~~ — réglé pour le Draft
+  (2026-08-25) : son onglet **n'existe que pendant la phase `Drafting`**, avec
+  une pastille glace « LIVE » et l'onglet en or quand c'est ton tour. Une
+  destination qui apparaît puis disparaît ne prend pas de place le reste de
+  l'année, et les trois volets de la salle (bassin, piges, équipes) vivent dans
+  l'écran plutôt que dans la barre. **Protection devra encore trouver la
+  sienne.**

@@ -688,6 +688,34 @@
   margin-top: 0.3rem;
 }
 
+/* The "live" pill on the Draft tab. Ice, not gold: gold already means "an
+   action is waiting on you" and the tab uses .nav-tab-awaiting for exactly
+   that when it is your turn. Ice means "this is happening" — the same sense it
+   carries on the topbar's unread badge.
+
+   Static, like every other standing state in this app. The news ticker is the
+   only thing that pulses, and it pulses because it is transient; a draft turn
+   sits there until someone acts on it, and a throbbing tab would nag. */
+.nav-tab-pill {
+  position: absolute;
+  top: -7px;
+  right: -14px;
+  padding: 1px 4px;
+  border-radius: 999px;
+  background: var(--ice);
+  color: #0a0e1a;
+  font-size: 0.44rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.35;
+}
+
+/* When it is your turn the whole tab is gold, so a cyan chip on it would fight
+   the signal rather than add to it. */
+.nav-tab-awaiting .nav-tab-pill {
+  background: var(--gold);
+}
+
 .nav-tab-badge {
   position: absolute;
   top: -5px;

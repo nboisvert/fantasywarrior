@@ -41,6 +41,7 @@ import {
   type ReactNode,
 } from "react";
 import { HubConnectionBuilder, type HubConnection } from "@microsoft/signalr";
+import type { DraftState } from "../api";
 import { API_BASE, type LiveMessage, type MemberPresence } from "../api";
 
 const HIDDEN_GRACE_MS = 60_000;
@@ -77,6 +78,10 @@ interface LiveContextValue {
   presenceOf: (username: string) => MemberPresence;
   onMessage: (handler: (m: LiveMessage) => void) => () => void;
   onNotice: (handler: (n: LiveNotice) => void) => () => void;
+  /** The draft board, pushed whole rather than as a delta: a client that just
+   * reconnected needs all of it anyway, applying it twice changes nothing, and
+   * a missed push is repaired by the next one. */
+  onDraft: (handler: (s: DraftState) => void) => () => void;
 }
 
 const LiveContext = createContext<LiveContextValue | null>(null);
@@ -99,6 +104,7 @@ const INERT: LiveContextValue = {
   presenceOf: UNKNOWN,
   onMessage: () => () => {},
   onNotice: () => () => {},
+  onDraft: () => () => {},
 };
 
 export function useLive(): LiveContextValue {
@@ -127,6 +133,7 @@ export function LiveProvider({
 
   const messageHandlers = useRef(new Set<(m: LiveMessage) => void>());
   const noticeHandlers = useRef(new Set<(n: LiveNotice) => void>());
+  const draftHandlers = useRef(new Set<(s: DraftState) => void>());
 
   const onMessage = useCallback((handler: (m: LiveMessage) => void) => {
     messageHandlers.current.add(handler);
@@ -139,6 +146,13 @@ export function LiveProvider({
     noticeHandlers.current.add(handler);
     return () => {
       noticeHandlers.current.delete(handler);
+    };
+  }, []);
+
+  const onDraft = useCallback((handler: (s: DraftState) => void) => {
+    draftHandlers.current.add(handler);
+    return () => {
+      draftHandlers.current.delete(handler);
     };
   }, []);
 
@@ -193,6 +207,10 @@ export function LiveProvider({
     connection.on("presence", (p: OnlinePayload) => setOnline(new Set(p.online)));
     connection.on("notice", (n: LiveNotice) => {
       for (const handler of noticeHandlers.current) handler(n);
+    });
+
+    connection.on("draft", (s: DraftState) => {
+      for (const handler of draftHandlers.current) handler(s);
     });
 
     connection.onreconnecting(() => setStatus("connecting"));
@@ -273,8 +291,8 @@ export function LiveProvider({
   }, [username, leagueId, start, stop]);
 
   const value = useMemo<LiveContextValue>(
-    () => ({ status, online, roster, setRoster, presenceOf, onMessage, onNotice }),
-    [status, online, roster, presenceOf, onMessage, onNotice],
+    () => ({ status, online, roster, setRoster, presenceOf, onMessage, onNotice, onDraft }),
+    [status, online, roster, presenceOf, onMessage, onNotice, onDraft],
   );
 
   return <LiveContext.Provider value={value}>{children}</LiveContext.Provider>;

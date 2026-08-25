@@ -248,8 +248,57 @@ Un backfill de saison complète est redevenu une opération ordinaire depuis le 
   Leur nombre voyage avec le total (`UnknownContracts`) : on ne peut toujours pas
   valider un salaire que personne n'a au dossier, on refuse simplement de faire
   comme s'il était nul. Chez Les Mordus, 30 joueurs sont dans ce cas.
-- Le repêchage lui-même n'existe pas. Les choix se créent et s'échangent ; rien
-  ne les convertit encore en joueurs (`DraftPick.UsedUtc` n'est jamais écrit).
+- ~~Le repêchage lui-même n'existe pas~~ — **fait le 2026-08-25**. La salle de
+  repêchage tourne : deux segments enchaînés dans la phase `Drafting` (2 rondes
+  de vol, puis les rondes recrue/autonome qui dépensent enfin les `DraftPick`),
+  un tour à la fois, **sans horloge**. `DraftPick.UsedUtc` et
+  `RosterSpot.StartDraftPickId` sont écrits pour la première fois. Voir
+  [season-lifecycle.md](season-lifecycle.md) §9.
+
+### Le repêchage — construit le 2026-08-25
+
+La phase `Drafting` contient **deux repêchages qui s'enchaînent**, dans une
+seule salle :
+
+| | Segment vol | Segment recrue/autonome |
+|---|---|---|
+| Tours | 2 rondes × équipes, **dérivés** | les lignes `DraftPicks`, **échangeables** |
+| Ordre | classement inversé, linéaire | `DraftPick.CurrentTeamId` |
+| Bassin | les exposés des **autres** équipes | les joueurs non repêchés |
+| Consomme | rien | un `DraftPick` |
+
+**Pas d'horloge** (Nick, 2026-08-25). Le DG au bâton pige quand il veut,
+personne n'est expulsé du tour et rien ne pige automatiquement. C'est une
+décision de produit, et c'est aussi ce qui laisse tout le repêchage dans le
+traitement des requêtes : aucun service de fond, aucun minuteur, et le Container
+App continue de tomber à zéro entre deux piges.
+
+**Les tours de vol ne s'échangent pas**, donc ils n'ont aucune ligne
+d'habilitation. C'est précisément ce qui rend `DraftSelections` nécessaire et
+non pas confortable : sans rien à réclamer, l'index unique
+`(LeagueSeasonId, OverallIndex)` est la **seule** chose qui empêche deux DG de
+prendre le tour 7. Déduire l'historique des `RosterSpots` portant
+`StartReason = Draft` était impossible de toute façon — `SeedMordusJob` a ouvert
+les 418 spots de l'import avec exactement cette raison.
+
+**`RosterMin` n'est délibérément pas appliqué** à une pige : `PreSeason` existe
+justement pour qu'une équipe sortie du repêchage sous le minimum puisse se
+réparer. L'imposer ici rendrait cette fenêtre inatteignable. Un test porte ce nom.
+
+**Un tour peut être passé.** 14 équipes × 2 pertes, c'est exactement les 28 tours
+du segment de vol : un DG tard dans l'ordre peut réellement faire face à un
+bassin vide, et sans moyen d'enregistrer un tour qui ne prend personne il
+bloquerait tout le repêchage.
+
+**Un joueur ne bouge qu'une fois par repêchage** — index unique, et la règle est
+aussi dans `DraftPool` pour que le bassin ne propose jamais une rangée que la
+base refusera ensuite.
+
+Ce qui reste : `Players.CareerNhlGames` n'est toujours pas **gelé** le jour du
+repêchage. Hors saison aucun match ne se joue, donc le total ne bouge pas ; le
+risque réel est un repêchage tenu pendant une simulation, où `sim-advance`
+avance les jours vite. Correctif si ça mord : une borne `Season <= <date>` sur
+`PlayerCareerSeasonStats` et une colonne sur `LeagueSeasons`.
 
 ### La protection d'entre-saison — la fondation seulement (2026-08-25)
 
@@ -287,10 +336,11 @@ synchro a échoué.
 `TradeEndpoints` pour toute ligue dont la saison active est en `Protecting`
 ou `Drafting`, et `LeagueSeasons.Phase` est l'endroit qui décide de la fenêtre.
 
-Ce qui reste devant, quand le repêchage arrivera : geler le calcul de
-`CareerNhlGames` le jour même (un joueur qui dispute son 100e match entre deux
-rondes changerait de catégorie), exclure le slot `T` des volables, et
-construire l'écran de sélection et les rondes elles-mêmes — les deux étant des
-listes de joueurs qui doivent d'abord répondre à la convention player-row de
-CLAUDE.md. Le vol lui-même est déjà écrit : c'est `RosterChange.ApplyAsync`
-avec `startReason: Draft`.
+**Le repêchage est construit depuis** (voir la section précédente) : le slot `T`
+est exclu des volables, les rondes existent, et le vol passe bien par
+`RosterChange.ApplyAsync` avec `startReason: Draft`. Ce qui reste ici, c'est
+**l'écran de protection** — rien ne peut encore écrire `Protected`, donc au
+premier repêchage seule l'auto-protection filtre. C'est une liste de joueurs :
+elle doit d'abord répondre à la convention player-row de CLAUDE.md, et
+`ProtectionSlots` attend toujours son chiffre. Le gel de `CareerNhlGames` reste
+lui aussi ouvert.

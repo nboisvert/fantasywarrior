@@ -64,8 +64,8 @@ rondes de vol**.
 | Auto-protégé, gardien | **≤ 50** matchs LNH en carrière |
 | Auto-protégé, patineur | **≤ 100** matchs LNH en carrière |
 | L'auto-protection consomme une place | **Non**, elle est gratuite |
-| Rondes de vol | **2**, donc **2 vols par équipe** |
-| Pertes maximales par équipe | Plafonné aussi — **chiffre à fixer** |
+| Rondes de vol | **2**, donc **2 vols par équipe** — `League.StealRounds` |
+| Pertes maximales par équipe | **2** (Nick, 2026-08-25) — `League.MaxLossesPerTeam` |
 | Joueurs exposés non réclamés | Restent à leur équipe (ils n'ont jamais bougé) |
 
 Deux seuils et non un seul parce qu'un gardien joue environ la moitié des matchs
@@ -73,11 +73,11 @@ de son club : mesuré à la barre des patineurs, il resterait intouchable deux f
 plus longtemps. Sur les 1 597 joueurs en base, ça donne 763 patineurs et 98
 gardiens auto-protégés, 725 repêchables, 11 inconnus (jamais synchronisés).
 
-**Livré au 2026-08-25** : la colonne `RosterSpots.ProtectionStatus` (tout le monde
+**Livré au 2026-08-25** : la salle de repêchage (les deux segments, sans horloge — voir [scoring-model.md](scoring-model.md) §11), la colonne `RosterSpots.ProtectionStatus` (tout le monde
 à `Unprotected`), `Players.CareerNhlGames`, la règle `ProtectionRules`, la pastille
-`AUTO` sur la carte joueur, et `protection-reset`. **Le repêchage lui-même n'est
-pas construit** — rien ne peut encore écrire `Protected`, et rien ne vole
-personne. Voir [scoring-model.md](scoring-model.md) §11.
+`AUTO` sur la carte joueur, et `protection-reset`. **L'écran de protection n'est pas construit** — rien ne peut
+encore écrire `Protected`, donc au premier repêchage seule l'auto-protection
+filtre (725 repêchables). Voir [scoring-model.md](scoring-model.md) §11.
 
 **Livré le même jour, la fondation « saison »** ([season-lifecycle.md](season-lifecycle.md)) :
 Les Mordus a maintenant une ligne `LeagueSeasons` — `Number = 3`, confirmé par

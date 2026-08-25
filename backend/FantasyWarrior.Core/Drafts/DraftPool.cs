@@ -13,6 +13,11 @@ namespace FantasyWarrior.Core.Drafts;
 /// His GM spent a protection slot on him. Distinct from auto-protection, which
 /// is free and derived — see <see cref="ProtectionRules"/>.
 /// </param>
+/// <param name="AlreadyTakenThisDraft">
+/// He has already changed hands in this draft. Enforced by a unique index too,
+/// but it belongs here as well: without it the pool would offer a row that the
+/// database then refuses, and a GM would be told "no" only after tapping.
+/// </param>
 /// <param name="OwnerLossesSoFar">
 /// How many players his team has already lost in this draft. It is on the
 /// candidate rather than passed alongside because the quota closes the pool
@@ -25,7 +30,8 @@ public sealed record DraftCandidate(
     int? CareerNhlGames,
     int? OwnerTeamId,
     bool ProtectedByGm,
-    int OwnerLossesSoFar);
+    int OwnerLossesSoFar,
+    bool AlreadyTakenThisDraft = false);
 
 /// <summary>
 /// Who may be taken, and why not. <b>This is the class that makes the draft
@@ -56,6 +62,12 @@ public static class DraftPool
         // exclusion as a thing the draft owes.
         if (candidate.PositionGroup == "T")
             return "A franchise cannot be drafted.";
+
+        // A player moves at most once per draft, in either segment. The unique
+        // index on (LeagueSeasonId, PlayerId) enforces it; saying so here is
+        // what keeps him off the list in the first place.
+        if (candidate.AlreadyTakenThisDraft)
+            return "He has already been drafted this off-season.";
 
         return segment switch
         {

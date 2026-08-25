@@ -303,6 +303,13 @@ public static class LeagueEndpoints
                 league.Season,
                 league.CapAmount,
                 commissionerUsername = (await db.Users.FindAsync(league.CommissionerUserId))?.Username ?? "",
+                // What phase this league's current season sits in. Here rather
+                // than on its own route because it decides whether the Draft
+                // tab exists at all, and the nav must not need a second request
+                // to draw itself.
+                activeSeason = await Queries.ActiveLeagueSeasonAsync(db, league.LeagueId) is { } active
+                    ? new { number = active.Number, season = active.Season, phase = active.Phase.ToString() }
+                    : null,
                 ruleConfig = Dtos.RuleConfig(league, await Queries.ScaleAsync(db, league.LeagueId)),
                 members = await db.LeagueMembers
                     .Where(m => m.LeagueId == league.LeagueId)
