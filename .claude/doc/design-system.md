@@ -70,6 +70,26 @@ ressemblaient. Dans le menu, la liste des GMs passe avant Settings/Log out, qui
 deviennent un pied de menu compact (36 px, sous la cible habituelle de 44 px,
 assumé).
 
+**Grille de la page Team — un bloc de stats par swipe (2026-08-25).** Les
+vingt colonnes chiffrées défilent horizontalement sous la colonne collante du
+nom, et elles s'arrêtent maintenant **bloc par bloc**, jamais à cheval sur deux
+catégories : Fantasy point, Record, NHL, Extra, Cap hit. C'est du `scroll-snap`
+CSS, pas du JavaScript — `scroll-snap-type: x mandatory` sur
+`.stats-grid-scroll` garantit le point d'arrêt, `scroll-snap-stop: always` sur
+`.stats-group-start` fait qu'un geste avance **exactement un** bloc plutôt que
+le nombre que son élan porterait. Le `scroll-padding-left` vaut la largeur de la
+colonne du nom, sinon le bloc atterrirait dessous; les deux partagent la
+variable `--stats-player-col` pour ne pas dériver. Aucun balisage nouveau : la
+classe `.stats-group-start` marquait déjà la première colonne de chaque groupe
+dans l'en-tête, chaque rangée et le pied.
+
+**Contrepartie à connaître** : sous `mandatory`, on ne peut se poser qu'au début
+d'un bloc. Un groupe plus large que l'espace visible (l'écran moins la colonne
+du nom) verrait donc sa dernière colonne inatteignable au repos. `Extra`
+(+/-, PIM, SOG, GAA, SV%) est le plus large et c'est lui qu'il faut surveiller
+si une colonne s'ajoute. Le repli tient en un mot : `mandatory` → `proximity`,
+qui laisse se poser entre deux blocs.
+
 ## Messagerie (2026-08-03)
 
 Les DMs vivent dans une **feuille plein écran**, préfixe `chat-`

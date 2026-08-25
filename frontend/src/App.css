@@ -1668,6 +1668,22 @@
    stickiness measured against. */
 .stats-grid-scroll {
   overflow-x: auto;
+
+  /* One stat block per swipe, never a resting place straddling two of them
+     (Nick, 2026-08-25). `mandatory` is what guarantees it: the grid always
+     comes to rest with a group's first column flush against the sticky player
+     name, and the half-and-half view was the actual complaint. The
+     `scroll-snap-stop: always` below is the other half — without it a fling
+     crosses however many blocks its momentum carries; with it one gesture
+     advances exactly one block.
+
+     The padding is what makes a block land *beside* the sticky column rather
+     than underneath it: the snapport has to begin where the scrollable content
+     visually begins, which is exactly the player column's width. Hence the
+     shared custom property — those two numbers must never drift apart. */
+  --stats-player-col: 9.5rem;
+  scroll-snap-type: x mandatory;
+  scroll-padding-left: var(--stats-player-col);
   border: 1px solid var(--border);
   border-radius: 16px;
   background: var(--surface);
@@ -1724,6 +1740,13 @@
    with it since both groups start at the same column. */
 .stats-grid .stats-group-start {
   border-left: 1px solid var(--border);
+
+  /* The same class already marks the first column of every group in the header
+     row, in every body row and in the footer. They all sit at one x, so the
+     browser reads them as a single snap position per group rather than one per
+     row — which is why snapping needed no new markup at all. */
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
 }
 
 /* The one column that's the actual headline number (Pool PTS) gets a
@@ -1779,7 +1802,7 @@
   align-items: center;
   gap: 0.45rem;
   text-align: left;
-  min-width: 9.5rem;
+  min-width: var(--stats-player-col, 9.5rem);
   background: var(--bg-elevated);
 }
 
