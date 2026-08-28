@@ -358,3 +358,19 @@
   flex: 1;
   min-height: 44px;
 }
+
+/* The commissioner's pre-open panel: what the pool looks like, then the two
+   buttons that act on it. */
+.draft-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0 0.2rem;
+}
+
+.draft-setup-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}

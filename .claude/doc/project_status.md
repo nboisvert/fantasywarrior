@@ -1,7 +1,7 @@
 # Fantasy Warrior — Project Status
 
 > **Read at the start of every session, and keep updated along the way.**
-> Last updated: 2026-08-25.
+> Last updated: 2026-08-28.
 >
 > This file holds the **current state and the decisions behind it**. It is not a
 > changelog — `git log` is, and the commit messages in this repo are detailed.
@@ -57,7 +57,7 @@ screens, the news ticker, per-player news and injury status.
 | Draft picks — tradable, one year ahead | **Done** (the draft itself is not) |
 | Real authentication | Todo |
 | Free agency | Todo |
-| Off-season protection & steal draft | **Draft done** (2026-08-25) — the room runs both segments, no clock, verified end to end. **The protection screen is not built**: nothing writes `Protected` yet, so the first draft filters on auto-protection alone. It needs the CLAUDE.md player-row ask and `ProtectionSlots`. |
+| Off-season protection & steal draft | **Draft done** (2026-08-25); **protections now write** (2026-08-28) — `ProtectionSlots = 9` and an autofill that protects each roster's nine best from last season. **The protection *screen* is still not built**: a GM cannot yet contradict the default. It needs the CLAUDE.md player-row ask. |
 | 🏁 **Season-tracking MVP in prod for early October 2026** (NHL 2026-27) | — |
 | Interactive live draft | **Done** (2026-08-25) — brought forward from its 2027-28 target. Asynchronous and turn-based; a clock was considered and refused. |
 
@@ -70,6 +70,52 @@ older entries (back to 2026-07-22) are in
 
 ### Architecture
 
+- **2026-08-28 — Protections can be written, but only as a default nobody
+  chose.** Les Mordus is settled at **`ProtectionSlots = 9`** (Nick), the last
+  open number of the off-season rules. What fills them is
+  `POST /api/leagues/{id}/protections/autofill`: each GM's nine best from last
+  season. It exists because the protection *screen* still does not, and a draft
+  held without it filters on auto-protection alone — every veteran in the league
+  exposed, which is not a pool worth judging the room against. It is explicitly
+  **a default and not a decision**; the screen is what a GM who disagrees will
+  use, and it still owes the CLAUDE.md player-row ask.
+  **Ranked through the league's own scale, never raw NHL points** — the same
+  argument `FreeAgentRanking` already makes: on goals and assists alone a
+  goalie's season is zero and no GM would ever protect one. **Bounded to the
+  simulated day**, because the database holds the whole 2025-26 schedule while
+  the replay sits in December; unbounded, the ranking would read games nobody
+  has played. **A slot is only spent on someone the draft could actually take**:
+  an auto-protected prospect is out of reach for free and an unsynced player is
+  refused by `DraftPool` anyway, so neither is a candidate and neither is marked
+  — spending a slot on either would throw it away and expose the veteran it
+  would have covered. Ties break on `PlayerId` so two runs choose the same men:
+  the endpoint clears and rewrites the whole league every press, and a
+  non-reproducible run would silently reshuffle who is exposed each time.
+  It lives in the API rather than a job because it needs three things only the
+  API has wired — `Queries.SeasonTotalsAsync`, `Queries.ScaleAsync` and
+  `SimulationClockService` — and `FantasyWarrior.Api` references
+  `FantasyWarrior.Jobs`, never the reverse.
+- **2026-08-28 — Fixed: the draft room had no door.** The Draft tab rendered
+  only while the phase was `Drafting`, but `POST /draft/open` — the sole path
+  into `Drafting`, and the only thing that freezes `DraftPick.PickInRound` from
+  the reversed standings — is reached from a button *inside* the room's
+  `Protecting` branch. The commissioner could therefore never open a draft from
+  the app at all. The tab now also appears in `Protecting`, **for the
+  commissioner alone**, without the LIVE pill: the pill states a fact, and there
+  is nothing live before the room opens. `season-phase --to Drafting` is not a
+  substitute and must not be used — it would set the phase while leaving every
+  `PickInRound` null.
+- **2026-08-28 — There is no way back from the off-season, and there will not
+  be a job for it.** `Drafting → PreSeason → InSeason` does not return a league
+  to the season it was playing: entering `InSeason` points `Leagues.Season` at
+  the *prepared* season, which has no `Games` and no `Periods` until the NHL
+  publishes that schedule, so the standings would empty. Returning is SQL, not a
+  transition. Nick chose to repair by hand rather than build a rewind job, so
+  the undo is **written down in advance** in
+  [deployment.md](deployment.md) instead of improvised on a live league. Its one
+  sharp edge is recorded there too: `StartReason = Draft` cannot distinguish a
+  pick from a spot `seed-mordus` opened in October, so deleting draft-opened
+  spots must be bounded by date.
 - **2026-08-25 — The draft room is built, and it has no clock.** The `Drafting`
   phase runs **two drafts back to back in one room**: 2 steal rounds, then the
   rookie / free-agent rounds that finally spend the `DraftPick` rows nothing had

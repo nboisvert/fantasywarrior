@@ -5,13 +5,15 @@
 > correctif des deux vues et le palmarès sont en place et déployés. **La salle
 > de repêchage tourne** (§9 point 7) : deux segments enchaînés dans `Drafting`,
 > sans horloge, avec `DraftSelections` comme journal des tours — détaillée dans
-> [scoring-model.md](scoring-model.md) §11. `StealRounds = 2` et
-> `MaxLossesPerTeam = 2` sont fixés (§10).
+> [scoring-model.md](scoring-model.md) §11. `StealRounds = 2`,
+> `MaxLossesPerTeam = 2` et `ProtectionSlots = 9` sont fixés (§10).
 >
-> **Ce qui reste proposé** : l'écran de sélection des protégés (§9 point 6).
-> Rien ne peut encore écrire `Protected`, `ProtectionSlots` n'a toujours pas de
-> chiffre, et cette liste est un écran-liste-de-joueurs qui doit d'abord
-> répondre à la convention player-row de `CLAUDE.md`.
+> **Les protections s'écrivent depuis le 2026-08-28**, mais par un
+> auto-remplissage et non par un choix : `POST .../protections/autofill` protège
+> les 9 meilleurs de chaque roster d'après la saison écoulée. **Ce qui reste
+> proposé** : l'écran de sélection lui-même (§9 point 6), un
+> écran-liste-de-joueurs qui doit d'abord répondre à la convention player-row de
+> `CLAUDE.md`. Tant qu'il manque, aucun DG ne peut contredire le défaut.
 >
 > Idée de Nick, 2026-08-25 ; modélisation reprise le même jour après sa
 > question — « c'est une seule colonne sur ligue ? quelle est sa valeur ? ça
@@ -357,7 +359,13 @@ puisqu'aucune ligue n'a encore atteint une deuxième saison.
 3. ✅ **`LeagueSeasons`** + backfill — une ligne par ligue existante (`Number = 3` pour Les Mordus, `Phase = InSeason`). Déployé.
 4. ⬜ `period-init --season 20262027` — **pas fait** : aucun match `20262027` n'est encore en base (`Games`), le job refuserait honnêtement de tourner. Rien à faire tant que le calendrier 2026-27 n'existe pas.
 5. ✅ Les phases : `SeasonPhaseRules` + `SeasonPhaseJob` + gel dans `TradeEndpoints`.
-6. ⬜ `Protecting` : écran de sélection, verrouillage, auto-remplissage — **en attente** : `RuleConfig.ProtectionSlots` existe (nullable, non fixé) mais l'écran est une liste de joueurs et doit d'abord répondre à la convention player-row.
+6. 🟨 `Protecting` : **l'auto-remplissage est fait** (2026-08-28) —
+   `ProtectionSlots = 9`, `ProtectionAutofill` (Core, pur, 9 tests) et
+   `POST .../protections/autofill` protègent les 9 meilleurs de chaque roster
+   d'après la saison écoulée, au barème de la ligue. **L'écran de sélection
+   reste à faire** : c'est une liste de joueurs et il doit d'abord répondre à la
+   convention player-row. Tant qu'il n'existe pas, un DG ne peut pas contredire
+   le défaut.
 7. ✅ `Drafting` : ordre, vols, quotas — **fait le 2026-08-25**. Deux segments (vol puis recrue/autonome), sans horloge, `DraftSelections` comme journal, écran `DraftRoom` avec un onglet qui n'existe que pendant le repêchage.
 8. ✅ `SeasonPhaseJob --to InSeason/Complete` : `Leagues.Season` bascule, `protection-reset` tourne, `ChampionTeamId` s'écrit. **Jamais exécuté sur une vraie ligue.**
 9. ✅ **Le palmarès** (§7) — `GET .../seasons` + `Palmares.tsx`, déployé.
@@ -380,9 +388,15 @@ puisqu'aucune ligue n'a encore atteint une deuxième saison.
   aujourd'hui — mais `LeagueSeasons` est l'endroit où ça atterrira.
 - ~~**Combien de pertes maximum par équipe**~~ — **2** (Nick, 2026-08-25),
   colonne `League.MaxLossesPerTeam`, avec `League.StealRounds = 2` à côté.
-- **Combien de joueurs protégeables par DG** reste ouvert.
-  `RuleConfig.ProtectionSlots` attend toujours son chiffre. Le repêchage tourne
-  sans lui : tout le monde est `Unprotected` et seule l'auto-protection filtre.
+- ~~**Combien de joueurs protégeables par DG**~~ — **9** (Nick, 2026-08-28),
+  `League.ProtectionSlots`. Écrit par le panneau Règles ; l'auto-remplissage le
+  consomme.
+- **Il n'y a aucun retour en arrière.** `Drafting → PreSeason → InSeason`
+  bascule `Leagues.Season` sur la saison préparée — qui n'a ni `Games` ni
+  `Periods` tant que la LNH n'a pas publié son calendrier — donc le classement
+  se viderait. Revenir à la saison qu'on jouait est du SQL, pas une transition.
+  Décision de Nick (2026-08-28) : pas de job de rembobinage ; le SQL est écrit
+  d'avance dans [deployment.md](deployment.md) plutôt qu'improvisé.
 - **Qui déclenche une transition ?** Le commissaire à la main
   (`season-phase --to <Phase>`, construit) ou le job nocturne quand la dernière
   semaine banque. La main est plus simple et plus sûre pour une première saison,

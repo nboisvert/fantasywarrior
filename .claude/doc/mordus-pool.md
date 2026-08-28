@@ -60,7 +60,7 @@ rondes de vol**.
 
 | Règle | Valeur |
 |---|---|
-| Joueurs protégeables par DG | Paramétrable par ligue — **chiffre à fixer** |
+| Joueurs protégeables par DG | **9** (Nick, 2026-08-28) — `League.ProtectionSlots` |
 | Auto-protégé, gardien | **≤ 50** matchs LNH en carrière |
 | Auto-protégé, patineur | **≤ 100** matchs LNH en carrière |
 | L'auto-protection consomme une place | **Non**, elle est gratuite |
@@ -73,11 +73,19 @@ de son club : mesuré à la barre des patineurs, il resterait intouchable deux f
 plus longtemps. Sur les 1 597 joueurs en base, ça donne 763 patineurs et 98
 gardiens auto-protégés, 725 repêchables, 11 inconnus (jamais synchronisés).
 
+Avec 9 places sur un roster moyen de 29, l'auto-protection ne comptant pas, un
+DG expose une bonne moitié de sa profondeur. C'est le chiffre de la ligue, pas
+un réglage de confort.
+
 **Livré au 2026-08-25** : la salle de repêchage (les deux segments, sans horloge — voir [scoring-model.md](scoring-model.md) §11), la colonne `RosterSpots.ProtectionStatus` (tout le monde
 à `Unprotected`), `Players.CareerNhlGames`, la règle `ProtectionRules`, la pastille
-`AUTO` sur la carte joueur, et `protection-reset`. **L'écran de protection n'est pas construit** — rien ne peut
-encore écrire `Protected`, donc au premier repêchage seule l'auto-protection
-filtre (725 repêchables). Voir [scoring-model.md](scoring-model.md) §11.
+`AUTO` sur la carte joueur, et `protection-reset`.
+
+**Livré le 2026-08-28** : `POST /api/leagues/{id}/protections/autofill`, qui
+protège les 9 meilleurs de chaque équipe d'après la saison écoulée. C'est un
+**défaut, pas une décision** : il tient lieu d'écran de protection le temps que
+celui-ci existe. **L'écran de sélection n'est toujours pas construit** — un DG ne
+peut pas encore choisir lui-même. Voir [scoring-model.md](scoring-model.md) §11.
 
 **Livré le même jour, la fondation « saison »** ([season-lifecycle.md](season-lifecycle.md)) :
 Les Mordus a maintenant une ligne `LeagueSeasons` — `Number = 3`, confirmé par

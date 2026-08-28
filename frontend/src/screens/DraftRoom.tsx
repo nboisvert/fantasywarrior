@@ -19,6 +19,7 @@ import {
   api,
   formatCapCompact,
   posGroupClass,
+  type AutofillResult,
   type DraftCandidate,
   type DraftState,
   type LeagueDetail,
@@ -50,6 +51,9 @@ export default function DraftRoom({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // What the last autofill did, so the commissioner sees the size of the pool
+  // he is about to draft from before he opens the room.
+  const [autofill, setAutofill] = useState<AutofillResult | null>(null);
 
   const isCommissioner = league.commissionerUsername === username;
 
@@ -148,9 +152,37 @@ export default function DraftRoom({
           No draft is running. This league is <strong>{state?.phase ?? "not in a season"}</strong>.
         </p>
         {isCommissioner && state?.phase === "Protecting" && (
-          <button className="btn-primary" disabled={busy} onClick={() => command(() => api.openDraft(league.id, username))}>
-            Open the draft
-          </button>
+          <div className="draft-setup">
+            <p className="draft-setup-note">
+              {autofill
+                ? `${autofill.protectedCount} protected, ${autofill.slots} per team. ` +
+                  `${autofill.freeCount} are safe already on NHL experience, ` +
+                  `${autofill.exposedCount} are exposed.`
+                : "Nobody is protected yet, so every veteran in the league is exposed."}
+            </p>
+            <div className="draft-commissioner">
+              {/* .btn-outline, not .btn-ghost: it is the paired secondary of
+                  "Open the draft" and has to hold its own weight. */}
+              <button
+                className="btn-outline"
+                disabled={busy}
+                onClick={() =>
+                  command(async () => {
+                    setAutofill(await api.autofillProtections(league.id, username));
+                  })
+                }
+              >
+                Auto-protect each roster
+              </button>
+              <button
+                className="btn-primary"
+                disabled={busy}
+                onClick={() => command(() => api.openDraft(league.id, username))}
+              >
+                Open the draft
+              </button>
+            </div>
+          </div>
         )}
         {error && <p className="error-banner">{error}</p>}
       </div>

@@ -164,6 +164,116 @@ public static class DraftEndpoints
             return await CommitAsync(db, hub, logs, ctx, me, turn, playerId, victimTeamId, today, chosen);
         });
 
+        // Commissioner: fill every GM's protection slate with his best players.
+        //
+        // A stand-in for the protection screen, which is not built. Without it a
+        // draft filters on auto-protection alone and the steal pool is every
+        // veteran in the league — which is not what the room is meant to be
+        // judged against. It is a default, not a decision: the real screen is
+        // what a GM who disagrees will use.
+        app.MapPost("/api/leagues/{leagueId}/protections/autofill", async (
+            string leagueId, bool? preview, DraftCommandRequest req,
+            FantasyWarriorDbContext db, SimulationClockService clock,
+            IHubContext<LiveHub> hub, ILoggerFactory logs) =>
+        {
+            var guard = await CommissionerAsync(db, leagueId, req.Username);
+            if (guard.Error is not null) return guard.Error;
+            var league = guard.League!;
+
+            var season = await Queries.ActiveLeagueSeasonAsync(db, league.LeagueId);
+            if (season is null) return Results.BadRequest(new { error = "This league has no active season." });
+
+            // Protections are worth exactly one off-season and are wiped on the
+            // way into InSeason, so writing them at any other time would be
+            // writing something the next phase transition erases.
+            if (season.Phase != LeagueSeasonPhase.Protecting)
+                return Results.BadRequest(new
+                {
+                    error = $"Protections are set during Protecting, not {season.Phase}.",
+                });
+
+            if (league.ProtectionSlots is not { } slots)
+                return Results.BadRequest(new
+                {
+                    error = "Set the league's protection slots first, in the rules panel.",
+                });
+
+            // The same filter the steal pool uses (DraftContextLoader), so what
+            // gets protected is exactly what would otherwise be takeable.
+            // PlayerId != null drops the franchise slots.
+            var held = await db.RosterSpots
+                .AsNoTracking()
+                .Where(s => s.LeagueId == league.LeagueId && s.PlayerId != null)
+                .Where(RosterWindow.Committed())
+                .Select(s => new
+                {
+                    s.RosterSpotId,
+                    s.TeamId,
+                    PlayerId = s.PlayerId!.Value,
+                    s.Player!.PositionGroup,
+                    s.Player.CareerNhlGames,
+                })
+                .ToListAsync();
+
+            // The season that just ended, derived rather than hardcoded:
+            // Leagues.Season still points at it, but the prepared row is the one
+            // that says which off-season this is.
+            var lastSeason = Season.Previous(season.Season);
+
+            // Bounded to the simulated day like every other season total. The
+            // database holds the whole 2025-26 schedule; unbounded, a replay
+            // sitting in December would rank players on games nobody has played.
+            var asOf = (await clock.StateAsync())?.AsOfDate;
+
+            var totals = await Queries.SeasonTotalsAsync(
+                db, lastSeason, held.Select(h => h.PlayerId).Distinct().ToList(), asOf);
+            var scale = await Queries.ScaleAsync(db, league.LeagueId);
+
+            var candidates = held
+                .Select(h => new ProtectionCandidate(
+                    h.RosterSpotId, h.TeamId, h.PlayerId, h.PositionGroup, h.CareerNhlGames,
+                    // Absent from the totals means he did not play: a real zero,
+                    // not a gap. StatLine.Empty scores 0 under any scale.
+                    Points: totals.TryGetValue(h.PlayerId, out var t)
+                        ? StatColumns.ToStatLine(t).Score(scale)
+                        : 0d))
+                .ToList();
+
+            var chosen = ProtectionAutofill.Choose(candidates, slots);
+
+            var free = candidates.Count(c => !ProtectionAutofill.NeedsASlot(c));
+            var body = new
+            {
+                ok = true,
+                slots,
+                teams = held.Select(h => h.TeamId).Distinct().Count(),
+                protectedCount = chosen.Count,
+                freeCount = free,
+                exposedCount = candidates.Count - free - chosen.Count,
+            };
+
+            if (preview == true) return Results.Ok(body);
+
+            // Clear and rewrite rather than diff: the slate is one summer's
+            // worth of state, and a run that only added would leave yesterday's
+            // choices behind when the slot count changes.
+            await db.RosterSpots
+                .Where(s => s.LeagueId == league.LeagueId
+                            && s.ProtectionStatus != RosterProtectionStatus.Unprotected)
+                .ExecuteUpdateAsync(u =>
+                    u.SetProperty(s => s.ProtectionStatus, RosterProtectionStatus.Unprotected));
+
+            await db.RosterSpots
+                .Where(s => chosen.Contains(s.RosterSpotId))
+                .ExecuteUpdateAsync(u =>
+                    u.SetProperty(s => s.ProtectionStatus, RosterProtectionStatus.Protected));
+
+            await PushAsync(hub, logs, league, null,
+                $"{chosen.Count} players protected, {slots} per team.");
+
+            return Results.Ok(body);
+        });
+
         // Commissioner: freeze the order and open the room.
         app.MapPost("/api/leagues/{leagueId}/draft/open", async (
             string leagueId, DraftCommandRequest req, FantasyWarriorDbContext db,

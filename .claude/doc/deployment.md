@@ -188,6 +188,93 @@ needed: every player in this situation still has an NHL id.
 leaving players, contracts, games and game lines alone — that half costs hours
 to rebuild and is identical for everyone.
 
+## Putting a league into the off-season draft, and getting it back out
+
+Nick's rehearsal of 2026-08-28: drive Les Mordus (`TKW6UR`) into `Drafting`
+mid-replay to see the room against real rosters, then return it to the season
+it was playing.
+
+**Every `season-phase` step takes `--dry-run`. Run it that way first.**
+
+```powershell
+# 1. the number the draft needs, via Settings > Rules > Off-season protection
+#    (PATCH /api/leagues/TKW6UR/rules) — 9 for Les Mordus
+# 2. close the season being played; this writes a champion off today's standings
+dotnet run --project backend/FantasyWarrior.Jobs -- season-phase --league TKW6UR --to Complete
+# 3. open the next one (Number + 1, Season.Next)
+dotnet run --project backend/FantasyWarrior.Jobs -- season-phase --league TKW6UR --to Preparing
+# 4. trades freeze here
+dotnet run --project backend/FantasyWarrior.Jobs -- season-phase --league TKW6UR --to Protecting
+# 5. the rookie segment's entitlements — year defaults to the right one
+dotnet run --project backend/FantasyWarrior.Jobs -- draft-picks-init --league TKW6UR
+# 6-8. in the app, as commissioner: the Draft tab appears in Protecting.
+#      "Auto-protect each roster", then "Open the draft".
+```
+
+Three things that will bite otherwise:
+
+- **Step 5 is not optional.** `draft/open` refuses unless the pick count is
+  exactly `teams × DraftRounds` (14 × 3 = 42 for Les Mordus), and says so.
+- **Never `season-phase --to Drafting`.** Only `POST /draft/open` freezes
+  `DraftPick.PickInRound` from the reversed standings. The job would set the
+  phase alone and the rookie segment would read nulls.
+- **Call the autofill with `?preview=true` first** on a live league. It returns
+  the same counts and writes nothing.
+
+### What the league sees while this runs
+
+Trades are frozen (`SeasonPhaseRules.CanTrade`), a Draft tab with a LIVE pill
+appears for everyone once the room opens, and the palmarès reports a champion
+for a season that was not finished. What does **not** move: `Leagues.Season`
+stays on the season being played until `InSeason`, so standings, lineups and
+scoring carry on, and the nightly keeps banking weeks underneath.
+
+### Coming back — there is no forward path
+
+`Drafting → PreSeason → InSeason` does **not** return to the season you were
+playing: entering `InSeason` points `Leagues.Season` at the prepared season,
+which has no `Games` and no `Periods` until the NHL publishes its schedule, and
+the standings would empty. Nick chose (2026-08-28) not to build a rewind job, so
+the undo is this, written down before it is needed rather than improvised.
+
+`@l` = the league's `LeagueId`, `@s3`/`@s4` = the two `LeagueSeasonId`s,
+`@d` = the simulated date the rehearsal started on.
+
+```sql
+BEGIN TRAN;
+-- 1. the turn log
+DELETE FROM DraftSelections WHERE LeagueSeasonId = @s4;
+
+-- 2. spots a pick opened. Bounded by DATE, never by reason alone: seed-mordus
+--    opened all 418 original spots with StartReason = Draft too.
+DELETE FROM RosterSpots
+ WHERE LeagueId = @l AND StartReason = 1 AND StartDate > @d;
+
+-- 3. spots a steal closed
+UPDATE RosterSpots SET EndDate = NULL, EndReason = NULL
+ WHERE LeagueId = @l AND EndReason = 2;
+
+-- 4. spent entitlements and the frozen order
+UPDATE DraftPicks SET UsedUtc = NULL, PickInRound = NULL
+ WHERE LeagueId = @l AND Year = @draftYear;
+
+-- 5. the prepared season goes away, the played one resumes
+DELETE FROM LeagueSeasons WHERE LeagueSeasonId = @s4;
+UPDATE LeagueSeasons
+   SET Phase = 4, ChampionTeamId = NULL, CompletedUtc = NULL   -- 4 = InSeason
+ WHERE LeagueSeasonId = @s3;
+COMMIT;
+```
+
+Then `protection-reset --league TKW6UR` for the slate, and confirm
+`Leagues.Season` never moved — it only changes on the way into `InSeason`, which
+a rehearsal never reaches.
+
+**Step 2 is the dangerous one.** `StartReason = Draft` cannot tell today's pick
+from a spot seeded in October; the `StartDate > @d` bound is the only thing that
+makes the delete safe. Run it as a `SELECT COUNT(*)` first and check the number
+against how many picks were actually made.
+
 ## Troubleshooting log
 
 - **"Database is not currently available. Please retry the connection later."**

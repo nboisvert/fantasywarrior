@@ -315,7 +315,9 @@ Ce qui existe aujourd'hui :
 
 | | |
 |---|---|
-| `RosterSpots.ProtectionStatus` | La décision du DG. `Unprotected` pour tout le monde ; **rien ne peut encore écrire `Protected`.** |
+| `RosterSpots.ProtectionStatus` | La décision du DG. Écrit depuis le 2026-08-28 — mais par un **auto-remplissage**, pas par un choix. |
+| `League.ProtectionSlots` | **9** chez Les Mordus (Nick, 2026-08-28). |
+| `ProtectionAutofill` + `POST .../protections/autofill` | Protège les 9 meilleurs de chaque roster d'après la saison écoulée, **au barème de la ligue** — aux points LNH bruts aucun gardien ne serait jamais protégé. Borné à la date simulée. |
 | `Players.CareerNhlGames` | Matchs LNH en carrière, écrit par `career-sync`. |
 | `ProtectionRules.IsAutoProtected` | Le verdict : gardien ≤ 50 matchs, patineur ≤ 100 → intouchable, **gratuitement** (ça ne consomme aucune place). |
 | `protection-reset --league` | Efface l'ardoise. Une protection ne vaut qu'un été. |
@@ -338,9 +340,17 @@ ou `Drafting`, et `LeagueSeasons.Phase` est l'endroit qui décide de la fenêtre
 
 **Le repêchage est construit depuis** (voir la section précédente) : le slot `T`
 est exclu des volables, les rondes existent, et le vol passe bien par
-`RosterChange.ApplyAsync` avec `startReason: Draft`. Ce qui reste ici, c'est
-**l'écran de protection** — rien ne peut encore écrire `Protected`, donc au
-premier repêchage seule l'auto-protection filtre. C'est une liste de joueurs :
-elle doit d'abord répondre à la convention player-row de CLAUDE.md, et
-`ProtectionSlots` attend toujours son chiffre. Le gel de `CareerNhlGames` reste
-lui aussi ouvert.
+`RosterChange.ApplyAsync` avec `startReason: Draft`.
+
+**Une place ne se dépense que sur quelqu'un que le repêchage peut réellement
+prendre.** L'auto-protégé est déjà hors d'atteinte gratuitement, et un joueur
+dont les matchs en carrière n'ont jamais été synchronisés est refusé par
+`DraftPool` de toute façon : ni l'un ni l'autre n'est candidat, ni l'un ni
+l'autre n'est marqué. Y brûler une place la gaspillerait et exposerait le
+vétéran qu'elle aurait couvert.
+
+Ce qui reste ici, c'est **l'écran de protection** : l'auto-remplissage est un
+défaut, pas un choix, et tant que l'écran n'existe pas **aucun DG ne peut le
+contredire**. C'est une liste de joueurs — elle doit d'abord répondre à la
+convention player-row de CLAUDE.md. Le gel de `CareerNhlGames` reste lui aussi
+ouvert.

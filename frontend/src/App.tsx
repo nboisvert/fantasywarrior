@@ -137,7 +137,15 @@ export default function App() {
   // Whether the Draft tab exists at all, and whether it is your turn. Guarded
   // by the phase the league already reports, so this costs nothing the eleven
   // months of the year when nobody is drafting.
-  const draftRunning = league?.activeSeason?.phase === "Drafting";
+  const draftPhase = league?.activeSeason?.phase;
+  const draftRunning = draftPhase === "Drafting";
+  // The commissioner needs a door before the room opens: "Open the draft" is
+  // the only thing that freezes the pick order, and it lives *inside*
+  // DraftRoom's Protecting branch. Without this the tab appeared only once the
+  // draft was already running, so nobody could ever reach the button.
+  const draftTabVisible =
+    draftRunning ||
+    (draftPhase === "Protecting" && league?.commissionerUsername === username);
   const [draftTurn, setDraftTurn] = useState<DraftState | null>(null);
 
   useEffect(() => {
@@ -380,23 +388,34 @@ export default function App() {
           </span>
           Trades
         </button>
-        {/* Only while a draft is actually running. A permanent tab leading to
-            "no draft is running" would be a dead destination in a bar that is
-            already full. */}
-        {draftRunning && (
+        {/* Only while a draft is running, plus the commissioner's one-phase
+            preview of it in Protecting — he has to get in to open it. A
+            permanent tab leading to "no draft is running" would be a dead
+            destination in a bar that is already full. */}
+        {draftTabVisible && (
           <button
             className={`nav-tab${tab === "draft" ? " active" : ""}${
               isMyDraftTurn ? " nav-tab-awaiting" : ""
             }`}
             onClick={() => setTab("draft")}
             aria-current={tab === "draft" ? "page" : undefined}
-            aria-label={isMyDraftTurn ? "Draft, you are on the clock" : "Draft, live"}
+            aria-label={
+              !draftRunning
+                ? "Draft, not open yet"
+                : isMyDraftTurn
+                  ? "Draft, you are on the clock"
+                  : "Draft, live"
+            }
           >
             <span className="nav-tab-icon">
               <ListOrderedIcon size={22} />
-              <span className="nav-tab-pill" aria-hidden="true">
-                LIVE
-              </span>
+              {/* The pill states a fact. Before the room opens there is nothing
+                  live to announce. */}
+              {draftRunning && (
+                <span className="nav-tab-pill" aria-hidden="true">
+                  LIVE
+                </span>
+              )}
             </span>
             Draft
           </button>

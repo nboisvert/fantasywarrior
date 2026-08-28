@@ -262,6 +262,20 @@ export interface LeagueDetail {
  * rounds and then the rookie / free-agent rounds, back to back in one room. */
 export type DraftSegment = "steal" | "rookie";
 
+/**
+ * What a protection autofill did, or would do. `freeCount` is the players who
+ * need no slot at all — auto-protected on NHL experience, or never synced —
+ * which is why protected + exposed never adds up to the whole roster.
+ */
+export interface AutofillResult {
+  ok: boolean;
+  slots: number;
+  teams: number;
+  protectedCount: number;
+  freeCount: number;
+  exposedCount: number;
+}
+
 export interface DraftPlayerRef {
   playerId: number;
   /** Already truncated by the server ("N. MacKinnon") — the two halves of the
@@ -668,6 +682,16 @@ export const api = {
       body: JSON.stringify({ username, playerId, expectedOverallIndex }),
     }),
   /** Commissioner: freeze the reverse-standings order and open the room. */
+  /**
+   * Commissioner: protect each GM's best players from last season, in place of
+   * the protection screen that is not built. `preview` reports what it would do
+   * without writing — the safe first call on a live league.
+   */
+  autofillProtections: (leagueId: string, username: string, preview = false) =>
+    request<AutofillResult>(
+      `/api/leagues/${encodeURIComponent(leagueId)}/protections/autofill${preview ? "?preview=true" : ""}`,
+      { method: "POST", body: JSON.stringify({ username }) },
+    ),
   openDraft: (leagueId: string, username: string) =>
     request<{ ok: boolean; year: number; order: string[] }>(
       `/api/leagues/${encodeURIComponent(leagueId)}/draft/open`,
