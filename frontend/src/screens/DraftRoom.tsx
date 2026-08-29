@@ -22,13 +22,22 @@ import {
   type AutofillResult,
   type DraftCandidate,
   type DraftState,
+  type DraftTurnRow,
   type LeagueDetail,
+  type ProtectionBoard,
 } from "../api";
 import { useLive } from "../live/LiveProvider";
 import { ListOrderedIcon } from "../components/Icons";
 import "./DraftRoom.css";
 
-type Pane = "available" | "history" | "teams";
+type Pane = "available" | "board" | "teams" | "protections";
+
+/** "S1.4", "R2.11" — the segment, its round, and the slot inside that round.
+ * Steal and rookie rounds are numbered independently, so the letter is not
+ * decoration: S2.1 and R2.1 are two different turns. */
+function turnLabel(t: DraftTurnRow): string {
+  return `${t.segment === "steal" ? "S" : "R"}${t.round}.${t.pickInRound}`;
+}
 
 const POSITIONS = ["ALL", "F", "D", "G"] as const;
 
@@ -54,6 +63,11 @@ export default function DraftRoom({
   // What the last autofill did, so the commissioner sees the size of the pool
   // he is about to draft from before he opens the room.
   const [autofill, setAutofill] = useState<AutofillResult | null>(null);
+  // Every team's slate, fetched once when the pane is first opened. It does not
+  // move during a draft — a steal only ever takes an exposed player, and nobody
+  // exposed is in this list.
+  const [protections, setProtections] = useState<ProtectionBoard | null>(null);
+  const [protectionsTeam, setProtectionsTeam] = useState<string | null>(null);
 
   const isCommissioner = league.commissionerUsername === username;
 
@@ -105,6 +119,32 @@ export default function DraftRoom({
   useEffect(() => {
     if (status === "connected") void refreshState();
   }, [status, refreshState]);
+
+  // Fetched on first open rather than with the board: it is a whole league's
+  // rosters, it never changes while the room is running, and eleven twelfths of
+  // the visits to this screen never open the pane at all.
+  useEffect(() => {
+    if (pane !== "protections" || protections) return;
+    let cancelled = false;
+    void api
+      .draftProtections(league.id)
+      .then((board) => {
+        if (cancelled) return;
+        setProtections(board);
+        setProtectionsTeam(
+          (current) =>
+            current ??
+            // Yours first: it is the one you came to check.
+            board.teams.find((t) => t.ownerUsername === username)?.teamName ??
+            board.teams[0]?.teamName ??
+            null,
+        );
+      })
+      .catch((e) => !cancelled && setError((e as Error).message));
+    return () => {
+      cancelled = true;
+    };
+  }, [pane, protections, league.id, username]);
 
   const select = async (playerId: number | null) => {
     if (!state?.onTheClock) return;
@@ -240,7 +280,7 @@ export default function DraftRoom({
       )}
 
       <div className="draft-panes" role="tablist" aria-label="Draft room sections">
-        {(["available", "history", "teams"] as Pane[]).map((p) => (
+        {(["available", "board", "teams", "protections"] as Pane[]).map((p) => (
           <button
             key={p}
             role="tab"
@@ -248,7 +288,13 @@ export default function DraftRoom({
             className={`draft-pane-btn${pane === p ? " active" : ""}`}
             onClick={() => setPane(p)}
           >
-            {p === "available" ? "Available" : p === "history" ? "Picks" : "Teams"}
+            {p === "available"
+              ? "Available"
+              : p === "board"
+                ? "Picks"
+                : p === "teams"
+                  ? "Teams"
+                  : "Protections"}
           </button>
         ))}
       </div>
@@ -323,26 +369,43 @@ export default function DraftRoom({
         </>
       )}
 
-      {pane === "history" && (
-        <ul className="draft-feed">
-          {(state.history ?? []).length === 0 && <li className="empty-state">No picks yet.</li>}
-          {(state.history ?? []).map((s) => (
-            <li key={s.overallIndex} className="draft-feed-row">
-              <span className="draft-feed-index">{s.overallIndex + 1}</span>
-              {s.passed ? (
-                <span className="draft-feed-text">
-                  <strong>{s.byTeamName}</strong> passed
-                </span>
-              ) : (
-                <span className="draft-feed-text">
-                  <strong>{s.byTeamName}</strong> took{" "}
-                  <span className={`pos-compact-${posGroupClass(s.player?.position ?? "")}`}>
-                    {s.player?.positionGroup}
-                  </span>{" "}
-                  {s.player?.shortName}
-                  {s.fromTeamName && <> from {s.fromTeamName}</>}
-                </span>
-              )}
+      {/* The whole board, taken turns and coming ones in one continuous list
+          (Nick, 2026-08-29). The label — S1.4, R2.11 — is on every row rather
+          than in round headers, so a row read on its own still says where in
+          the draft it sits. */}
+      {pane === "board" && (
+        <ul className="draft-board">
+          {(state.board ?? []).length === 0 && <li className="empty-state">No turns yet.</li>}
+          {(state.board ?? []).map((t) => (
+            <li
+              key={t.overallIndex}
+              className={`draft-board-row${t.done ? "" : " upcoming"}${
+                t.overallIndex === turn?.overallIndex ? " onclock" : ""
+              }`}
+              aria-current={t.overallIndex === turn?.overallIndex ? "step" : undefined}
+            >
+              <span className="draft-board-index">{t.overallIndex + 1}</span>
+              <span className="draft-board-slot">{turnLabel(t)}</span>
+              <span className="draft-board-team">{t.byTeamName}</span>
+              <span className="draft-board-outcome">
+                {t.overallIndex === turn?.overallIndex ? (
+                  <span className="draft-board-clock">On the clock</span>
+                ) : !t.done ? (
+                  ""
+                ) : t.passed ? (
+                  <span className="draft-board-passed">Passed</span>
+                ) : (
+                  <>
+                    <span className={`pos-compact-${posGroupClass(t.player?.position ?? "")}`}>
+                      {t.player?.positionGroup}
+                    </span>{" "}
+                    {t.player?.shortName}
+                    {t.fromTeamName && (
+                      <span className="draft-board-from"> ← {t.fromTeamName}</span>
+                    )}
+                  </>
+                )}
+              </span>
             </li>
           ))}
         </ul>
@@ -365,6 +428,82 @@ export default function DraftRoom({
             </li>
           ))}
         </ul>
+      )}
+
+      {/* One team at a time, chosen from a dropdown (Nick, 2026-08-29). Fourteen
+          slates at once would be 300 rows of nothing anyone asked for; the
+          question a GM actually has is about one rival. */}
+      {pane === "protections" && (
+        <div className="draft-protections">
+          {!protections ? (
+            <p className="empty-state">Loading the protection lists…</p>
+          ) : (
+            <>
+              <label className="draft-team-picker">
+                <span className="draft-team-picker-label">Team</span>
+                <select
+                  value={protectionsTeam ?? ""}
+                  onChange={(e) => setProtectionsTeam(e.target.value)}
+                >
+                  {protections.teams.map((t) => (
+                    <option key={t.teamName} value={t.teamName}>
+                      {t.teamName}
+                      {t.ownerUsername ? ` · ${t.ownerUsername}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {(() => {
+                const team = protections.teams.find((t) => t.teamName === protectionsTeam);
+                if (!team) return <p className="empty-state">Pick a team.</p>;
+                return (
+                  <>
+                    <p className="draft-protections-summary">
+                      <span>
+                        <strong>{team.protectedCount}</strong>
+                        {protections.slots != null ? ` of ${protections.slots}` : ""} protected
+                      </span>
+                      <span>
+                        <strong>{team.autoCount}</strong> safe for free
+                      </span>
+                      <span>
+                        <strong>{team.exposedCount}</strong> exposed
+                      </span>
+                    </p>
+                    {team.players.length === 0 ? (
+                      <p className="empty-state">
+                        Nobody is protected. Every veteran on this roster is takeable.
+                      </p>
+                    ) : (
+                      <ul className="draft-protection-list">
+                        {team.players.map((p) => (
+                          <li key={p.playerId} className="draft-protection-row">
+                            <span className={`pos-compact-${posGroupClass(p.position)}`}>
+                              {p.positionGroup}
+                            </span>
+                            <span className="draft-protection-name">{p.shortName}</span>
+                            <span className="draft-protection-cap">{formatCapCompact(p.capHit)}</span>
+                            {/* "Auto" is free and nobody chose it; "protected"
+                                cost a slot. Collapsing them would hide the one
+                                thing worth arguing about — a slot spent on
+                                someone who was already safe. */}
+                            <span className={`draft-protection-tag ${p.status}`}>
+                              {p.status === "protected"
+                                ? "Protected"
+                                : p.status === "auto"
+                                  ? "Auto"
+                                  : "No NHL data"}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
+                );
+              })()}
+            </>
+          )}
+        </div>
       )}
 
       {isCommissioner && (

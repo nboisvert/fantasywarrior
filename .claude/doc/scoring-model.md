@@ -1,7 +1,7 @@
 # Modèle de pointage — référence
 
 > La référence pour toute règle de pointage. Si le code et ce document divergent, l'un des deux est un bug.
-> Dernière mise à jour : 2026-08-25 (protection d'entre-saison, §11).
+> Dernière mise à jour : 2026-08-29 (tableau complet des piges et onglet Protections, §11).
 
 ## En une phrase
 
@@ -294,6 +294,17 @@ bloquerait tout le repêchage.
 aussi dans `DraftPool` pour que le bassin ne propose jamais une rangée que la
 base refusera ensuite.
 
+**Le tableau montre tous les tours, faits ou non** (Nick, 2026-08-29). L'onglet
+Piges était un fil des 12 dernières sélections : il répondait « qu'est-ce qui
+vient d'arriver » et jamais « qu'est-ce qui s'en vient ». Les deux questions sont
+la même liste lue par un bout ou par l'autre, donc il n'y en a plus qu'une —
+`DraftOrder.Remaining` (pur, testé) déroule les tours restants et l'API les
+concatène aux sélections faites. `TurnsUntil` est devenu un index dans cette
+liste plutôt qu'une deuxième marche en avant ; un test l'affirme, parce que deux
+marches qui divergent diraient « tu piges dans 3 » avant de ne pas être ton tour.
+Un tour non fait est une **projection** : une pige recrue échangée en cours de
+repêchage change de main. Le segment de vol, lui, ne peut pas bouger.
+
 Ce qui reste : `Players.CareerNhlGames` n'est toujours pas **gelé** le jour du
 repêchage. Hors saison aucun match ne se joue, donc le total ne bouge pas ; le
 risque réel est un repêchage tenu pendant une simulation, où `sim-advance`
@@ -321,7 +332,24 @@ Ce qui existe aujourd'hui :
 | `Players.CareerNhlGames` | Matchs LNH en carrière, écrit par `career-sync`. |
 | `ProtectionRules.IsAutoProtected` | Le verdict : gardien ≤ 50 matchs, patineur ≤ 100 → intouchable, **gratuitement** (ça ne consomme aucune place). |
 | `protection-reset --league` | Efface l'ardoise. Une protection ne vaut qu'un été. |
-| La pastille `AUTO` | Sur la carte joueur, et seulement là. |
+| La pastille `AUTO` | Sur la carte joueur, et sur l'onglet Protections. |
+| `ProtectionRules.KindOf` | Sous quel abri un joueur se tient : `ByGm`, `Auto`, `Unknown`, ou `Exposed`. Miroir des trois branches intouchables de `DraftPool.StealReason` — un test croisé affirme qu'ils ne peuvent pas diverger. |
+| `GET .../protections` + l'onglet Protections | L'ardoise de chaque équipe, une à la fois (menu déroulant). **Publique pour toute la ligue** (Nick, 2026-08-29). |
+
+**`Unknown` n'est pas `Auto`.** Un joueur dont les matchs en carrière n'ont jamais
+été synchronisés est tout aussi intouchable — `DraftPool` le refuse explicitement
+— mais l'appeler « auto-protégé » présenterait un trou dans nos données comme une
+règle du pool. Trois abris, trois réponses.
+
+**La liste est publique** — c'était une question de produit ouverte
+([season-lifecycle.md](season-lifecycle.md) §10), tranchée le 2026-08-29. La
+cacher n'achetait rien : le bassin de vol la donne déjà par omission, puisqu'un
+vétéran absent de la liste des disponibles est un vétéran que quelqu'un a
+protégé. La rendre explicite ne coûte aucun secret et donne au pool de quoi
+jaser, ce qui est le but.
+
+**Un exposé est l'absence d'une protection**, donc il est un compte et non une
+rangée : l'écran liste les intouchables et affiche « 13 exposés » à côté.
 
 **On stocke la mesure, on dérive le verdict.** Le nombre de matchs est une donnée
 de référence à un seul écrivain ; l'auto-protection est une comparaison à un

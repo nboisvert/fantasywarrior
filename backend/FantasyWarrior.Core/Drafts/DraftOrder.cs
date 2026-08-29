@@ -129,6 +129,51 @@ public static class DraftOrder
     }
 
     /// <summary>
+    /// Every turn still to come, in order, starting with the one on the clock.
+    /// Empty once the draft is finished.
+    ///
+    /// <b>Walked forward, not computed.</b> The two segments index differently
+    /// and the rookie one consumes an entitlement per turn, so a closed-form
+    /// expression spanning the boundary would be arithmetic nobody can check by
+    /// reading. Walking it costs one pass over at most a few dozen turns.
+    ///
+    /// <b>A projection, not a promise.</b> A rookie pick traded mid-draft moves
+    /// its turn to another GM, so this is "who picks next if nothing changes" —
+    /// which is exactly what a draft board is. The steal half cannot move: those
+    /// turns are not tradable.
+    /// </summary>
+    public static IReadOnlyList<DraftTurn> Remaining(
+        IReadOnlyList<int> orderedTeamIds,
+        int stealRounds,
+        IEnumerable<PickSlot> picks,
+        int selectionsMade)
+    {
+        var remaining = picks.Where(p => !p.Used).ToList();
+        var stealTurns = DraftSegments.StealTurnCount(orderedTeamIds.Count, stealRounds);
+
+        var plan = new List<DraftTurn>();
+        var cursor = Math.Max(selectionsMade, 0);
+        var total = stealTurns + remaining.Count;
+
+        while (cursor < total)
+        {
+            var turn = OnTheClock(orderedTeamIds, stealRounds, remaining, cursor);
+            if (turn is null) break;
+
+            plan.Add(turn);
+
+            // Spent, so the next walk step sees the entitlement after it. Steal
+            // turns consume nothing, which is why only this branch removes.
+            if (turn.Segment == DraftSegment.Rookie)
+                remaining.RemoveAll(p => p.DraftPickId == turn.DraftPickId);
+
+            cursor++;
+        }
+
+        return plan;
+    }
+
+    /// <summary>
     /// How many turns until this team picks again — 0 when it is their turn
     /// right now, null when they have none left.
     ///
@@ -143,26 +188,9 @@ public static class DraftOrder
         int selectionsMade,
         int teamId)
     {
-        var remaining = picks.Where(p => !p.Used).ToList();
-        var stealTurns = DraftSegments.StealTurnCount(orderedTeamIds.Count, stealRounds);
-
-        // Walking the plan forward rather than computing an offset: the two
-        // segments index differently, and a closed-form expression spanning the
-        // boundary would be the kind of arithmetic nobody can check by reading.
-        var cursor = selectionsMade;
-        var total = stealTurns + remaining.Count;
-
-        while (cursor < total)
-        {
-            var turn = OnTheClock(orderedTeamIds, stealRounds, remaining, cursor);
-            if (turn is null) return null;
-            if (turn.TeamId == teamId) return cursor - selectionsMade;
-
-            if (turn.Segment == DraftSegment.Rookie)
-                remaining.RemoveAll(p => p.DraftPickId == turn.DraftPickId);
-
-            cursor++;
-        }
+        var plan = Remaining(orderedTeamIds, stealRounds, picks, selectionsMade);
+        for (var i = 0; i < plan.Count; i++)
+            if (plan[i].TeamId == teamId) return i;
 
         return null;
     }

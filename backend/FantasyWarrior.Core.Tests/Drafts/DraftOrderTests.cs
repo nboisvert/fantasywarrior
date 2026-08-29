@@ -193,4 +193,68 @@ public class DraftOrderTests
         var noPicks = new List<PickSlot>();
         Assert.Null(DraftOrder.TurnsUntil(Order, 2, noPicks, selectionsMade: 6, teamId: 33));
     }
+
+    // --- the board: every turn still to come ---
+
+    [Fact]
+    public void Remaining_FromTheStart_IsTheWholeDraftInOrder()
+    {
+        var plan = DraftOrder.Remaining(Order, stealRounds: 2, Picks(), selectionsMade: 0);
+
+        // 3 teams x 2 steal rounds, then 6 entitlements.
+        Assert.Equal(12, plan.Count);
+        Assert.Equal(Enumerable.Range(0, 12), plan.Select(t => t.OverallIndex));
+
+        // Linear, not a snake: round 2 repeats round 1's order.
+        Assert.Equal([33, 32, 31, 33, 32, 31], plan.Take(6).Select(t => t.TeamId));
+        Assert.All(plan.Take(6), t => Assert.Equal(DraftSegment.Steal, t.Segment));
+        Assert.All(plan.Skip(6), t => Assert.Equal(DraftSegment.Rookie, t.Segment));
+    }
+
+    [Fact]
+    public void Remaining_StartsOnTheClock_AndDropsWhatIsDone()
+    {
+        var plan = DraftOrder.Remaining(Order, stealRounds: 2, Picks(), selectionsMade: 4);
+
+        Assert.Equal(8, plan.Count);
+        Assert.Equal(4, plan[0].OverallIndex);
+        Assert.Equal(DraftOrder.OnTheClock(Order, 2, Picks(), 4)!.TeamId, plan[0].TeamId);
+    }
+
+    [Fact]
+    public void Remaining_SkipsSpentEntitlements()
+    {
+        // Team 33's first-round pick was already used, so the rookie segment
+        // opens on team 32 rather than replaying a turn nobody still holds.
+        var picks = Picks().Select(p => p.DraftPickId == 1 ? p with { Used = true } : p).ToList();
+
+        var plan = DraftOrder.Remaining(Order, stealRounds: 2, picks, selectionsMade: 6);
+
+        Assert.Equal(5, plan.Count);
+        Assert.Equal(32, plan[0].TeamId);
+        Assert.DoesNotContain(plan, t => t.DraftPickId == 1);
+    }
+
+    [Fact]
+    public void Remaining_IsEmptyOnceTheDraftIsFinished()
+    {
+        var spent = Picks().Select(p => p with { Used = true }).ToList();
+        Assert.Empty(DraftOrder.Remaining(Order, 2, spent, selectionsMade: 12));
+    }
+
+    [Fact]
+    public void Remaining_AndTurnsUntil_TellTheSameStory()
+    {
+        // TurnsUntil is now an index into this list; if they ever disagreed, the
+        // board would say "you pick in 3" and then not be your turn.
+        var plan = DraftOrder.Remaining(Order, 2, Picks(), selectionsMade: 1);
+
+        foreach (var teamId in Order)
+        {
+            var expected = plan.Select((t, i) => (t, i)).FirstOrDefault(x => x.t.TeamId == teamId);
+            Assert.Equal(
+                expected.t is null ? null : expected.i,
+                DraftOrder.TurnsUntil(Order, 2, Picks(), selectionsMade: 1, teamId));
+        }
+    }
 }

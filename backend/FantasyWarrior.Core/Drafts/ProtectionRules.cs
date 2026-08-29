@@ -20,6 +20,33 @@ namespace FantasyWarrior.Core.Drafts;
 /// team's games, so measuring him against a skater's bar would keep him
 /// untouchable for twice as many seasons.
 /// </summary>
+/// <summary>
+/// Why a rostered player is out of a steal draft's reach — or that he is not.
+///
+/// Three ways to be safe, and they are not interchangeable: one was bought with
+/// a slot, one is free, and one is an absence of data. A screen that collapsed
+/// them would tell a GM his prospect was protected when in fact nobody spent
+/// anything on him.
+/// </summary>
+public enum ProtectionKind : byte
+{
+    /// <summary>Takeable. Nothing is standing between him and a rival GM.</summary>
+    Exposed = 0,
+
+    /// <summary>His GM spent one of the league's protection slots on him.</summary>
+    ByGm = 1,
+
+    /// <summary>Too few career NHL games — free, and nobody chose it.</summary>
+    Auto = 2,
+
+    /// <summary>
+    /// His career total was never synced. <c>DraftPool</c> refuses to draft him
+    /// on exactly this ground, so he is safe — but calling that "protected"
+    /// would be reporting a gap in our data as a rule of the pool.
+    /// </summary>
+    Unknown = 3,
+}
+
 public static class ProtectionRules
 {
     /// <summary>A goalie at or under this many career NHL games cannot be drafted away.</summary>
@@ -51,4 +78,30 @@ public static class ProtectionRules
             "G" => careerNhlGames <= MaxCareerGamesGoalie,
             _ => careerNhlGames <= MaxCareerGamesSkater,
         };
+
+    /// <summary>
+    /// Which of the three shelters a rostered player is standing under, if any.
+    ///
+    /// <b>Deliberately mirrors the three untouchable branches of
+    /// <c>DraftPool.StealReason</c></b>, in the same order — a GM's slot first,
+    /// then unknown experience, then the auto bar. <c>DraftPoolTests</c> asserts
+    /// the two agree, because a screen that said "exposed" about a man the pool
+    /// then refused to hand over would be worse than no screen.
+    ///
+    /// It answers only about a player on a roster. An unrostered player belongs
+    /// to the rookie rounds, where none of this applies.
+    /// </summary>
+    public static ProtectionKind KindOf(
+        string positionGroup, int? careerNhlGames, bool protectedByGm)
+    {
+        // A franchise cannot be drafted at all, and no slot was spent saying so.
+        if (positionGroup == "T") return ProtectionKind.Auto;
+
+        if (protectedByGm) return ProtectionKind.ByGm;
+        if (careerNhlGames is not { } games) return ProtectionKind.Unknown;
+
+        return IsAutoProtected(positionGroup, games)
+            ? ProtectionKind.Auto
+            : ProtectionKind.Exposed;
+    }
 }

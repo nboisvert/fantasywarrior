@@ -286,18 +286,30 @@ export interface DraftPlayerRef {
   positionGroup: PosGroup;
 }
 
-/** One selection that has already happened. `passed` means the GM took nobody,
- * which a GM facing an empty pool has to be able to do. */
-export interface DraftSelectionDto {
+/** One turn of the draft — taken or still to come.
+ *
+ * The board is a single list of these (Nick, 2026-08-29): a room that only
+ * showed the last dozen picks answered "what just happened" and never "what is
+ * coming". `done` is the only thing separating the two halves, so no screen has
+ * to branch on which end of the list it is reading.
+ *
+ * An undone row is a **projection**: a rookie pick traded mid-draft moves its
+ * turn to another GM. The steal half cannot move — those turns are not tradable.
+ */
+export interface DraftTurnRow {
   overallIndex: number;
   segment: DraftSegment;
   round: number;
+  pickInRound: number;
+  /** Who picks. On an undone row, who is projected to. */
   byTeamName: string;
-  /** The robbed team; null outside the steal rounds. */
+  /** The robbed team; null outside the steal rounds and on undone rows. */
   fromTeamName: string | null;
+  done: boolean;
+  /** The GM took nobody — which a GM facing an empty pool has to be able to do. */
   passed: boolean;
   player: DraftPlayerRef | null;
-  madeUtc: string;
+  madeUtc: string | null;
 }
 
 export interface DraftTeamRow {
@@ -336,7 +348,37 @@ export interface DraftState {
   turnsUntilMine?: number | null;
   myTeam?: { teamName: string; losses: number; takes: number } | null;
   teams?: DraftTeamRow[];
-  history?: DraftSelectionDto[];
+  /** Every turn, made and unmade, in order. See {@link DraftTurnRow}. */
+  board?: DraftTurnRow[];
+}
+
+/** Why a rostered player is out of a steal draft's reach.
+ *
+ * `unknown` is not `auto`: he is equally untouchable, but his career games were
+ * never synced, and calling that "auto-protected" would report a hole in our
+ * data as a rule of the pool. */
+export type ProtectionStatus = "protected" | "auto" | "unknown";
+
+export interface ProtectedPlayer extends DraftPlayerRef {
+  capHit: number | null;
+  status: ProtectionStatus;
+}
+
+/** One team's slate. `players` holds everyone out of reach — an exposed player
+ * is the *absence* of a protection, so he is a count and not a row. */
+export interface ProtectionTeam {
+  teamName: string;
+  ownerUsername: string | null;
+  protectedCount: number;
+  autoCount: number;
+  exposedCount: number;
+  players: ProtectedPlayer[];
+}
+
+export interface ProtectionBoard {
+  /** The league's protection slots, or null if the rule was never set. */
+  slots: number | null;
+  teams: ProtectionTeam[];
 }
 
 export interface DraftCandidate extends DraftPlayerRef {
@@ -681,6 +723,12 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ username, playerId, expectedOverallIndex }),
     }),
+  /** Every team's protection slate. Public to the whole league (Nick,
+   * 2026-08-29) — the steal pool gives it away by omission anyway, and a pool
+   * that can see it has something to argue about. Stable during the draft: a
+   * steal only ever takes an exposed player, so nothing in here moves. */
+  draftProtections: (leagueId: string) =>
+    request<ProtectionBoard>(`/api/leagues/${encodeURIComponent(leagueId)}/protections`),
   /** Commissioner: freeze the reverse-standings order and open the room. */
   /**
    * Commissioner: protect each GM's best players from last season, in place of

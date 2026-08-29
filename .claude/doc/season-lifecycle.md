@@ -401,8 +401,14 @@ puisqu'aucune ligue n'a encore atteint une deuxième saison.
   (`season-phase --to <Phase>`, construit) ou le job nocturne quand la dernière
   semaine banque. La main est plus simple et plus sûre pour une première saison,
   et c'est ce qui est construit — rien n'appelle `SeasonPhaseJob` automatiquement.
-- **Les listes de protection sont-elles publiques** avant le repêchage ? Décision
-  de produit, pas de modèle, et elle change beaucoup l'ambiance.
+- ~~**Les listes de protection sont-elles publiques** avant le repêchage ?~~ —
+  **oui, pour toute la ligue** (Nick, 2026-08-29). `GET .../protections` et
+  l'onglet **Protections** de la salle montrent l'ardoise de n'importe quelle
+  équipe, une à la fois. Les cacher n'achetait rien : le bassin de vol les donne
+  déjà par omission — un vétéran absent des disponibles est un vétéran que
+  quelqu'un a protégé. L'onglet n'est pas verrouillé par phase, parce qu'il sert
+  surtout pendant `Protecting`, et il reste juste pendant `Drafting` : un vol ne
+  prend qu'un exposé, donc rien de ce qu'il affiche ne bouge.
 - **L'écran de protection et l'écran de vol** sont des listes de joueurs.
   `CLAUDE.md` demande de demander — combien de lignes, nom tronqué ou pas, quoi
   à droite — avant de construire n'importe quel écran-liste-de-joueurs ; ça n'a

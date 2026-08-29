@@ -74,6 +74,33 @@ older entries (back to 2026-07-22) are in
 
 ### Architecture
 
+- **2026-08-29 — La salle de repêchage montre le tableau complet, et les
+  protections de tout le monde.** Deux demandes de Nick, deux listes de joueurs,
+  donc deux fois la question de la convention player-row avant d'écrire une
+  ligne.
+  **L'onglet Piges devient le tableau.** Il montrait les 12 dernières
+  sélections ; il montre maintenant les 70 tours, faits et à venir, en une liste
+  continue — une ligne par tour, étiquetée `S1.4` / `R2.11`, l'équipe, puis le
+  joueur pris ou rien. « Qu'est-ce qui vient d'arriver » et « qu'est-ce qui s'en
+  vient » sont la même liste lue par un bout ou par l'autre, donc il n'y en a
+  qu'une. `DraftOrder.Remaining` (pur, testé) déroule la suite, et `TurnsUntil`
+  est devenu un index dans cette liste au lieu d'une deuxième marche en avant :
+  deux marches qui divergent diraient « tu piges dans 3 » avant de ne pas être
+  ton tour.
+  **Un 4e onglet, Protections**, avec un menu déroulant d'équipe — une ardoise à
+  la fois, parce que 14 d'un coup font 300 rangées que personne n'a demandées.
+  Position, nom tronqué, masse salariale, puis pourquoi il est à l'abri.
+  **Trois abris, pas deux** : `ProtectionRules.KindOf` distingue `ByGm` (une
+  place dépensée), `Auto` (gratuit, personne ne l'a choisi) et `Unknown` (ses
+  matchs en carrière n'ont jamais été synchronisés — tout aussi intouchable,
+  mais c'est un trou dans nos données, pas une règle du pool). Un test croisé
+  affirme que `KindOf` et `DraftPool.StealReason` ne peuvent pas diverger : un
+  écran qui dirait « exposé » d'un homme que le bassin refuse ensuite serait pire
+  que pas d'écran.
+  **Publiques pour toute la ligue** — question de produit ouverte depuis le
+  2026-08-25, tranchée. Le bassin de vol les donne déjà par omission ; les
+  rendre explicites ne coûte aucun secret et donne au pool de quoi jaser.
+
 - **2026-08-29 — The off-season is rehearsed on a copy, not on the live pool.**
   `clone-league --from <code> --name <name> [--drafting]` duplicates a league's
   **rules and rosters and nothing else** — no weeks, no lineups, no trades, no

@@ -27,9 +27,6 @@ namespace FantasyWarrior.Api;
 /// </summary>
 public static class DraftEndpoints
 {
-    /// <summary>How many recent selections the room shows in its feed.</summary>
-    private const int FeedLength = 12;
-
     /// <summary>Rows returned by the available list unless asked otherwise.</summary>
     private const int DefaultLimit = 200;
 
@@ -229,6 +226,108 @@ public static class DraftEndpoints
                 $"{slate.Protected} players protected, {slots} per team.");
 
             return Results.Ok(body);
+        });
+
+        // Every team's protection slate — the room's Protections pane.
+        //
+        // **Public to the whole league** (Nick, 2026-08-29). It was an open
+        // product question in season-lifecycle.md §10, and hiding it buys
+        // nothing: the steal pool already gives it away by omission, since a
+        // veteran who is missing from the available list is a veteran somebody
+        // protected. Making it explicit costs no secrecy and gives the pool
+        // something to argue about, which is the point of the feature.
+        //
+        // **Not phase-gated.** It is most useful during Protecting, before the
+        // room opens, and it stays honest afterwards because a steal only ever
+        // takes an exposed player — nothing here changes once the draft starts.
+        app.MapGet("/api/leagues/{leagueId}/protections", async (
+            string leagueId, FantasyWarriorDbContext db) =>
+        {
+            var league = await Queries.LeagueByCodeAsync(db, leagueId);
+            if (league is null) return Results.NotFound(new { error = "League not found." });
+
+            // Same filter as the autofill and the steal pool: held spots,
+            // players only — a franchise is not draftable and needs no shelter.
+            var held = await db.RosterSpots
+                .AsNoTracking()
+                .Where(s => s.LeagueId == league.LeagueId && s.PlayerId != null)
+                .Where(RosterWindow.Committed())
+                .Select(s => new
+                {
+                    s.TeamId,
+                    PlayerId = s.PlayerId!.Value,
+                    s.ProtectionStatus,
+                    s.Player!.FirstName,
+                    s.Player.LastName,
+                    s.Player.Position,
+                    s.Player.PositionGroup,
+                    s.Player.CareerNhlGames,
+                })
+                .ToListAsync();
+
+            var caps = await Queries.CapHitsAsync(
+                db, league.Season, held.Select(h => h.PlayerId).Distinct().ToList());
+
+            var teams = await db.Teams
+                .AsNoTracking()
+                .Where(t => t.LeagueId == league.LeagueId)
+                .Include(t => t.Owner)
+                .ToListAsync();
+
+            var byTeam = held
+                .Select(h => new
+                {
+                    h.TeamId,
+                    h.PlayerId,
+                    ShortName = DraftFormat.ShortName(h.FirstName, h.LastName),
+                    h.Position,
+                    h.PositionGroup,
+                    CapHit = caps.TryGetValue(h.PlayerId, out var cap) ? cap : league.DefaultCapHit,
+                    Kind = ProtectionRules.KindOf(
+                        h.PositionGroup, h.CareerNhlGames,
+                        h.ProtectionStatus == RosterProtectionStatus.Protected),
+                })
+                .ToLookup(h => h.TeamId);
+
+            return Results.Ok(new
+            {
+                slots = league.ProtectionSlots,
+                teams = teams
+                    .OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
+                    .Select(t =>
+                    {
+                        var roster = byTeam[t.TeamId].ToList();
+                        return new
+                        {
+                            teamName = t.Name,
+                            ownerUsername = t.Owner?.Username,
+                            protectedCount = roster.Count(r => r.Kind == ProtectionKind.ByGm),
+                            autoCount = roster.Count(r => r.Kind is ProtectionKind.Auto or ProtectionKind.Unknown),
+                            exposedCount = roster.Count(r => r.Kind == ProtectionKind.Exposed),
+                            // The slate itself: everyone out of reach, the GM's
+                            // own picks first. An exposed player is the absence
+                            // of a protection, so he is a count, not a row.
+                            players = roster
+                                .Where(r => r.Kind != ProtectionKind.Exposed)
+                                .OrderBy(r => r.Kind == ProtectionKind.ByGm ? 0 : 1)
+                                .ThenByDescending(r => r.CapHit)
+                                .Select(r => new
+                                {
+                                    playerId = r.PlayerId,
+                                    shortName = r.ShortName,
+                                    position = r.Position,
+                                    positionGroup = r.PositionGroup,
+                                    capHit = r.CapHit,
+                                    status = r.Kind switch
+                                    {
+                                        ProtectionKind.ByGm => "protected",
+                                        ProtectionKind.Unknown => "unknown",
+                                        _ => "auto",
+                                    },
+                                }),
+                        };
+                    }),
+            });
         });
 
         // Commissioner: freeze the order and open the room.
@@ -447,10 +546,17 @@ public static class DraftEndpoints
 
         var players = await PlayerRefsAsync(db, ctx);
 
-        var history = ctx.Selections
-            .OrderByDescending(s => s.OverallIndex)
-            .Take(FeedLength)
+        // The whole board, made turns and unmade ones together (Nick,
+        // 2026-08-29). A feed of the last dozen picks answered "what just
+        // happened"; a pool also wants "what is coming" — whose turn is three
+        // from now, and how long until mine. Both questions are the same list
+        // read from different ends, so there is one list.
+        var board = ctx.Selections
+            .OrderBy(s => s.OverallIndex)
             .Select(s => Selection(ctx, s, players))
+            .Concat(DraftOrder
+                .Remaining(ctx.OrderedTeamIds, ctx.StealRounds, ctx.Picks, ctx.SelectionsMade)
+                .Select(t => Upcoming(ctx, t)))
             .ToList();
 
         return new
@@ -495,7 +601,7 @@ public static class DraftEndpoints
                     takes = ctx.TakesOf(t.TeamId),
                 })
                 .OrderBy(t => t.teamName, StringComparer.OrdinalIgnoreCase),
-            history,
+            board,
         };
     }
 
@@ -517,6 +623,11 @@ public static class DraftEndpoints
             p => (DraftFormat.ShortName(p.FirstName, p.LastName), p.Position, p.PositionGroup));
     }
 
+    /// <summary>
+    /// A turn already taken. Same shape as <see cref="Upcoming"/> — the board is
+    /// one list and a row's only difference is whether <c>done</c> is set, so a
+    /// screen never has to branch on which half it is reading.
+    /// </summary>
     private static object Selection(
         DraftContext ctx, DraftSelection s,
         IReadOnlyDictionary<long, (string Short, string Position, string Group)> players) => new
@@ -524,14 +635,40 @@ public static class DraftEndpoints
             overallIndex = s.OverallIndex,
             segment = s.Segment.ToString().ToLowerInvariant(),
             round = s.Round,
+            // Not stored on the selection: a steal's position in its round is
+            // arithmetic on the overall index, and a rookie's comes from the
+            // entitlement it spent. Recovering it here keeps the board's
+            // "S1.4" label the same label on both halves of the list.
+            pickInRound = PickInRoundOf(ctx, s),
             byTeamName = ctx.TeamName(s.TeamId),
             fromTeamName = s.StolenFromTeamId is { } v ? ctx.TeamName(v) : null,
+            done = true,
             passed = s.PlayerId is null,
             player = s.PlayerId is { } id && players.TryGetValue(id, out var p)
                 ? new { playerId = id, shortName = p.Short, position = p.Position, positionGroup = p.Group }
                 : null,
-            madeUtc = s.MadeUtc,
+            madeUtc = (DateTime?)s.MadeUtc,
         };
+
+    /// <summary>A turn nobody has taken yet — who is projected to hold it.</summary>
+    private static object Upcoming(DraftContext ctx, DraftTurn t) => new
+    {
+        overallIndex = t.OverallIndex,
+        segment = t.Segment.ToString().ToLowerInvariant(),
+        round = t.Round,
+        pickInRound = t.PickInRound,
+        byTeamName = ctx.TeamName(t.TeamId),
+        fromTeamName = (string?)null,
+        done = false,
+        passed = false,
+        player = (object?)null,
+        madeUtc = (DateTime?)null,
+    };
+
+    private static int PickInRoundOf(DraftContext ctx, DraftSelection s) =>
+        s.Segment == DraftSegment.Steal
+            ? DraftSegments.StealPickInRound(s.OverallIndex, ctx.OrderedTeamIds.Count)
+            : ctx.Picks.FirstOrDefault(p => p.DraftPickId == s.DraftPickId)?.PickInRound ?? 0;
 
     private static object Row(DraftPoolRow r) => new
     {
