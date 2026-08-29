@@ -147,8 +147,7 @@ public static class DraftEndpoints
                     pickerCountBefore: await CountOfAsync(db, me.TeamId),
                     incomingCapHit: chosen.CapHit,
                     defaultCapHit: league.DefaultCapHit,
-                    capAmount: league.CapAmount,
-                    rosterMax: league.RosterMax)
+                    capAmount: league.CapAmount)
                 .ToList();
 
             if (victimTeamId is { } victim)

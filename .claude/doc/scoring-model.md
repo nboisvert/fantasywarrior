@@ -1,7 +1,7 @@
 # Modèle de pointage — référence
 
 > La référence pour toute règle de pointage. Si le code et ce document divergent, l'un des deux est un bug.
-> Dernière mise à jour : 2026-08-29 (tableau complet des piges et onglet Protections, §11).
+> Dernière mise à jour : 2026-08-29 (tableau complet des piges, onglet Protections, `RosterMax` non appliqué à une pige, §11).
 
 ## En une phrase
 
@@ -281,9 +281,20 @@ prendre le tour 7. Déduire l'historique des `RosterSpots` portant
 `StartReason = Draft` était impossible de toute façon — `SeedMordusJob` a ouvert
 les 418 spots de l'import avec exactement cette raison.
 
-**`RosterMin` n'est délibérément pas appliqué** à une pige : `PreSeason` existe
-justement pour qu'une équipe sortie du repêchage sous le minimum puisse se
-réparer. L'imposer ici rendrait cette fenêtre inatteignable. Un test porte ce nom.
+**Ni `RosterMin` ni `RosterMax` ne sont appliqués** à une pige (le max a
+rejoint le min le 2026-08-29) : `PreSeason` existe justement pour qu'une
+équipe sortie du repêchage hors bornes, dans un sens comme dans l'autre,
+puisse se réparer par échange avant que les alignements comptent à nouveau.
+Une pige ne tourne que pendant `Drafting`, jamais `InSeason` — la règle de
+roster n'a donc de sens qu'une fois la saison reprise, ce que `PreSeason`
+précède toujours. Sans ça, une équipe déjà à `RosterMax` avant son tour de
+vol — un état réel, constaté sur Mordus2, pas une hypothèse — ne pourrait
+jamais rien prendre, faute d'un moyen de libérer une place pendant le
+repêchage lui-même. **Le plafond salarial reste appliqué** : c'est une règle
+différente, et la demande de Nick portait sur la taille du roster, pas sur
+la masse salariale. Les échanges, eux, appliquent toujours les deux bornes
+sans condition — cet assouplissement ne vaut que pour le repêchage, pour
+l'instant. Deux tests portent ces noms.
 
 **Un tour peut être passé.** 14 équipes × 2 pertes, c'est exactement les 28 tours
 du segment de vol : un DG tard dans l'ordre peut réellement faire face à un

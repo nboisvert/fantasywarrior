@@ -17,14 +17,23 @@ public static class DraftRules
     /// <summary>
     /// Why the picking team may not take this player; empty means it is fine.
     ///
-    /// <b><paramref name="rosterMin"/> is deliberately absent, and must stay
-    /// absent.</b> Passing the league's real minimum to
-    /// <see cref="TradeRules.Validate"/> would refuse exactly the situation the
-    /// phase model was designed around: <c>season-lifecycle.md</c> §5 says
-    /// <c>PreSeason</c> exists <i>because</i> a team can come out of the draft
-    /// under <c>RosterMin</c> — two players lost, one drafted back — and needs a
-    /// window to repair itself before lineups matter again. Enforcing the
-    /// minimum during the draft would make that window unreachable.
+    /// <b>Neither <c>RosterMin</c> nor <c>RosterMax</c> is enforced here, and
+    /// both must stay absent</b> (Nick, 2026-08-29 — the max joined the min).
+    /// Roster-size bounds are trade rules; a draft selection is off-season by
+    /// construction — this only ever runs while a <c>LeagueSeason</c> is
+    /// <c>Drafting</c>, which is never <c>InSeason</c> — and
+    /// <c>season-lifecycle.md</c> §5 says <c>PreSeason</c> exists precisely so a
+    /// roster coming out of the draft can be out of bounds in either direction
+    /// and still have a window to trade itself back into shape before lineups
+    /// matter again. A team already sitting at <c>RosterMax</c> before its steal
+    /// turn — a real state, not a hypothetical one — could otherwise never take
+    /// anyone, with no way inside the draft to shed a player first.
+    ///
+    /// <b>The salary cap is a different rule and keeps applying.</b> Nick's ask
+    /// was roster *size*, not the cap; <paramref name="capAmount"/> is
+    /// unchanged and still refused over. Trades are unaffected either way —
+    /// this method, not <see cref="TradeRules.Validate"/> itself, is what a
+    /// draft calls, so nothing here loosens what a trade enforces.
     /// </summary>
     public static IReadOnlyList<string> ValidateSelection(
         string pickerTeamName,
@@ -32,8 +41,7 @@ public static class DraftRules
         int pickerCountBefore,
         long? incomingCapHit,
         long defaultCapHit,
-        long? capAmount,
-        int? rosterMax)
+        long? capAmount)
     {
         var impact = TradeRules.Impact(
             teamName: pickerTeamName,
@@ -43,7 +51,7 @@ public static class DraftRules
             incoming: [incomingCapHit],
             defaultCapHit: defaultCapHit);
 
-        return TradeRules.Validate(impact, capAmount, rosterMin: null, rosterMax: rosterMax);
+        return TradeRules.Validate(impact, capAmount, rosterMin: null, rosterMax: null);
     }
 
     /// <summary>

@@ -220,13 +220,19 @@ Le classement à l'écran est encore celui de la saison 3, parce que
 | `Preparing` | rien | tout — l'état de départ |
 | `Protecting` | Le DG choisit ses protégés | **Échanges gelés** |
 | `Drafting` | Les vols, à tour de rôle | Échanges, protections |
-| `PreSeason` | Échanges, réparation du roster sous le minimum | Alignements |
+| `PreSeason` | Échanges, réparation du roster hors bornes | Alignements |
 | `InSeason` | Alignements hebdo, échanges, pointage | Protections, repêchage |
 | `Complete` | rien | tout — lecture seule pour toujours |
 
-`PreSeason` existe parce qu'une équipe peut sortir du repêchage sous
-`RosterMin` — deux joueurs perdus, un seul repêché — et qu'il lui faut une
-fenêtre pour se remettre en règle avant que le pointage reprenne.
+`PreSeason` existe parce qu'une équipe peut sortir du repêchage hors bornes,
+dans un sens comme dans l'autre — sous `RosterMin` (deux joueurs perdus, un
+seul repêché) ou au-dessus de `RosterMax` (une équipe déjà pleine qui vole
+sans jamais lâcher personne, comme Ottawa chez Les Mordus, pile à 35 avant
+même que le repêchage commence) — et qu'il lui faut une fenêtre pour se
+remettre en règle avant que le pointage reprenne. Les deux bornes sont donc
+absentes de `DraftRules.ValidateSelection` (Nick, 2026-08-29 — le max a
+rejoint le min ; voir [scoring-model.md](scoring-model.md) §11), et
+seulement là : les échanges continuent d'appliquer les deux sans condition.
 
 ### Où chaque contrôle se branche
 

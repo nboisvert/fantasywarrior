@@ -1,7 +1,7 @@
 # Fantasy Warrior — Project Status
 
 > **Read at the start of every session, and keep updated along the way.**
-> Last updated: 2026-08-28.
+> Last updated: 2026-08-29.
 >
 > This file holds the **current state and the decisions behind it**. It is not a
 > changelog — `git log` is, and the commit messages in this repo are detailed.
@@ -73,6 +73,28 @@ older entries (back to 2026-07-22) are in
 [decisions-archive.md](decisions-archive.md), same format, nothing dropped.
 
 ### Architecture
+
+- **2026-08-29 — Le bouton Confirm de la salle de repêchage était cassé, et
+  `RosterMax` bloquait des équipes qui ne pouvaient déjà plus rien y faire.**
+  Deux bugs signalés par Nick sur le même bouton, corrigés ensemble.
+  **Le style** : `.btn-primary` n'existait dans aucune feuille de style —
+  DraftRoom.tsx était le seul fichier à l'utiliser, et le bouton retombait sur
+  le défaut du navigateur. Remplacé par `.btn`, la vraie classe primaire
+  glace-cyan utilisée partout ailleurs. **Le clic silencieux** : Ottawa, dans
+  Mordus2, est déjà à `RosterMax = 35` ; prendre qui que ce soit l'aurait mis
+  à 36, et `DraftRules.ValidateSelection` refusait à raison — mais le message
+  s'affichait derrière le fond assombri de la fenêtre de confirmation,
+  invisible. L'erreur vit maintenant **dans** la fenêtre elle-même.
+  **En creusant, Nick a demandé la vraie correction** : hors saison,
+  `RosterMax` ne devrait pas s'appliquer à une pige, seulement aux échanges,
+  pour l'instant. Fait — `DraftRules.ValidateSelection` n'accepte plus de
+  `rosterMax` du tout, symétrique au traitement déjà fait à `RosterMin`
+  (§11 de [scoring-model.md](scoring-model.md)) : une pige ne tourne que
+  pendant `Drafting`, jamais `InSeason`, et `PreSeason` existe justement pour
+  qu'un roster sorti hors bornes se répare par échange. Le plafond salarial,
+  lui, reste appliqué — la demande portait sur la taille du roster, pas sur
+  l'argent. `TradeValidation` n'a pas bougé : les échanges continuent
+  d'appliquer les deux bornes sans condition.
 
 - **2026-08-29 — La salle de repêchage montre le tableau complet, et les
   protections de tout le monde.** Deux demandes de Nick, deux listes de joueurs,
