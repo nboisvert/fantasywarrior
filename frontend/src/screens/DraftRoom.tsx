@@ -28,6 +28,7 @@ import {
 } from "../api";
 import { useLive } from "../live/LiveProvider";
 import { ListOrderedIcon } from "../components/Icons";
+import { PositionFilterControl, type PositionFilter } from "./Stats";
 import "./DraftRoom.css";
 
 type Pane = "available" | "board" | "teams" | "protections";
@@ -38,8 +39,6 @@ type Pane = "available" | "board" | "teams" | "protections";
 function turnLabel(t: DraftTurnRow): string {
   return `${t.segment === "steal" ? "S" : "R"}${t.round}.${t.pickInRound}`;
 }
-
-const POSITIONS = ["ALL", "F", "D", "G"] as const;
 
 export default function DraftRoom({
   league,
@@ -54,7 +53,7 @@ export default function DraftRoom({
   const [pool, setPool] = useState<DraftCandidate[]>([]);
   const [pane, setPane] = useState<Pane>("available");
   const [search, setSearch] = useState("");
-  const [pos, setPos] = useState<string>("ALL");
+  const [pos, setPos] = useState<PositionFilter>("ALL");
   const [confirming, setConfirming] = useState<DraftCandidate | null>(null);
   const [passing, setPassing] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -239,11 +238,6 @@ export default function DraftRoom({
           <ListOrderedIcon size={18} />
           {state.year} draft
         </h2>
-        <p className="draft-sub">
-          {state.segment === "steal" ? "Steal round" : "Rookie &amp; free agents, round"}{" "}
-          {state.round} of {state.segment === "steal" ? state.stealRounds : state.draftRounds}
-          {progress && <span className="draft-progress"> · pick {progress}</span>}
-        </p>
       </header>
 
       {/* Not shown while a sheet is open (Nick, 2026-08-29): a rejected pick
@@ -253,6 +247,9 @@ export default function DraftRoom({
           it. It now shows inside the sheet itself instead. */}
       {error && !confirming && !passing && <p className="error-banner">{error}</p>}
 
+      {/* The round/pick line used to be the header's own subtitle, floating
+          above an unrelated card. It belongs to the turn it describes, so it
+          now lives inside the on-the-clock card itself (Nick, 2026-08-29). */}
       <section className={`draft-clock${mine ? " mine" : ""}`} aria-live="polite">
         {turn ? (
           <>
@@ -266,6 +263,11 @@ export default function DraftRoom({
             {!mine && state.turnsUntilMine == null && (
               <span className="draft-clock-wait">You have no turns left</span>
             )}
+            <span className="draft-clock-progress">
+              {state.segment === "steal" ? "Steal round" : "Rookie & free agents, round"}{" "}
+              {state.round} of {state.segment === "steal" ? state.stealRounds : state.draftRounds}
+              {progress && <> · pick {progress}</>}
+            </span>
           </>
         ) : (
           <span className="draft-clock-label">Every turn is used.</span>
@@ -306,6 +308,9 @@ export default function DraftRoom({
 
       {pane === "available" && (
         <>
+          {/* Search and the position filter on one line (Nick, 2026-08-29),
+              and the filter itself is Team's PositionFilterControl, not a
+              second control that happens to look similar. */}
           <div className="draft-filters">
             <input
               className="draft-search"
@@ -315,18 +320,7 @@ export default function DraftRoom({
               aria-label="Search available players"
               onChange={(e) => setSearch(e.target.value)}
             />
-            <div className="draft-pos-filter">
-              {POSITIONS.map((p) => (
-                <button
-                  key={p}
-                  className={`draft-pos-chip${pos === p ? " active" : ""}`}
-                  aria-pressed={pos === p}
-                  onClick={() => setPos(p)}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
+            <PositionFilterControl value={pos} onChange={setPos} />
           </div>
 
           {pool.length === 0 ? (

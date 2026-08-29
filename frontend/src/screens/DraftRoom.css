@@ -24,16 +24,6 @@
   color: var(--text);
 }
 
-.draft-sub {
-  margin: 0;
-  font-size: 0.82rem;
-  color: var(--text-muted);
-}
-
-.draft-progress {
-  color: var(--text-muted);
-}
-
 /* Who is picking. The gold state is the whole of the app's urgency signal:
    with no clock, nothing else tells a GM to move. */
 .draft-clock {
@@ -74,6 +64,16 @@
 
 .draft-clock-wait {
   font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* "Steal round 1 of 2 · pick 3 of 70" — moved into this card from the header
+   (Nick, 2026-08-29): it describes the turn above it, not the room itself.
+   `width: 100%` forces its own row under the team name/wait text, the same
+   trick `.draft-clock-label` already uses to sit above them. */
+.draft-clock-progress {
+  width: 100%;
+  font-size: 0.74rem;
   color: var(--text-muted);
 }
 
@@ -122,13 +122,19 @@
   outline-offset: 2px;
 }
 
+/* Search and the position filter on one line (Nick, 2026-08-29). The filter
+   is `.stats-position-filter` — Team's own control, imported rather than
+   rebuilt — so it keeps its fixed, content-sized width; the search field
+   takes whatever is left. */
 .draft-filters {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 0.5rem;
 }
 
 .draft-search {
+  flex: 1 1 auto;
+  min-width: 0;
   min-height: 44px;
   padding: 0.5rem 0.7rem;
   border: 1px solid var(--border);
@@ -141,33 +147,6 @@
 .draft-search:focus-visible {
   outline: 2px solid var(--ice);
   outline-offset: 1px;
-}
-
-.draft-pos-filter {
-  display: flex;
-  gap: 0.35rem;
-}
-
-.draft-pos-chip {
-  flex: 1;
-  min-height: 34px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 0.78rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.draft-pos-chip.active {
-  border-color: rgba(56, 189, 248, 0.4);
-  color: var(--ice);
-}
-
-.draft-pos-chip:focus-visible {
-  outline: 2px solid var(--ice);
-  outline-offset: 2px;
 }
 
 /* The player row. One line (Nick, 2026-08-25): compact position letter, short

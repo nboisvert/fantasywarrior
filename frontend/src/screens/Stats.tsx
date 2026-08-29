@@ -596,7 +596,7 @@ function useSharedPlayerColumnWidth(deps: readonly unknown[]) {
 /** The four things `.stats-position-filter` can be set to — "ALL" plus the
  * three real position groups. The franchise slot ("T") is deliberately not a
  * choice: it isn't a position a GM would filter for. */
-type PositionFilter = "ALL" | "F" | "D" | "G";
+export type PositionFilter = "ALL" | "F" | "D" | "G";
 
 /** "No forwards on this list." — the empty state a position filter can reach
  * that `emptyLabel` can't: the grid has players, just none in this group. */
@@ -612,8 +612,12 @@ function positionFilterEmptyLabel(filter: PositionFilter): string {
  * position borrows its colour straight from `.roster-pos-pill`/
  * `.pos-compact` (ice/violet/gold) so "you're looking at defense" reads the
  * same way a defenceman's own position marker already does everywhere else
- * in the app — never a new colour meaning to learn. */
-function PositionFilterControl({
+ * in the app — never a new colour meaning to learn.
+ *
+ * Exported and reused verbatim by DraftRoom's Available pane (Nick,
+ * 2026-08-29 — "ça aurait dû être fait comme ça dès le départ"): one filter
+ * control in the app, not a second one that happens to look similar. */
+export function PositionFilterControl({
   value, onChange,
 }: {
   value: PositionFilter;
