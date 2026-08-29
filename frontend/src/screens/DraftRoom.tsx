@@ -215,7 +215,7 @@ export default function DraftRoom({
                 Auto-protect each roster
               </button>
               <button
-                className="btn-primary"
+                className="btn"
                 disabled={busy}
                 onClick={() => command(() => api.openDraft(league.id, username))}
               >
@@ -246,7 +246,12 @@ export default function DraftRoom({
         </p>
       </header>
 
-      {error && <p className="error-banner">{error}</p>}
+      {/* Not shown while a sheet is open (Nick, 2026-08-29): a rejected pick
+          used to land here, behind the confirm overlay's dim backdrop — a GM
+          who tapped Confirm on an over-max roster saw the sheet just sit
+          there, because the reason was rendered somewhere he could not read
+          it. It now shows inside the sheet itself instead. */}
+      {error && !confirming && !passing && <p className="error-banner">{error}</p>}
 
       <section className={`draft-clock${mine ? " mine" : ""}`} aria-live="polite">
         {turn ? (
@@ -536,6 +541,7 @@ export default function DraftRoom({
           }
           confirmLabel={busy ? "Working…" : "Confirm"}
           busy={busy}
+          error={error}
           onCancel={() => setConfirming(null)}
           onConfirm={() => void select(confirming.playerId)}
         />
@@ -547,6 +553,7 @@ export default function DraftRoom({
           body={<p className="draft-confirm-detail">You will take nobody and the draft moves on.</p>}
           confirmLabel={busy ? "Working…" : "Pass"}
           busy={busy}
+          error={error}
           onCancel={() => setPassing(false)}
           onConfirm={() => void select(null)}
         />
@@ -563,6 +570,7 @@ function ConfirmSheet({
   body,
   confirmLabel,
   busy,
+  error,
   onCancel,
   onConfirm,
 }: {
@@ -570,6 +578,11 @@ function ConfirmSheet({
   body: React.ReactNode;
   confirmLabel: string;
   busy: boolean;
+  /** A rejected attempt from the same sheet — a cap or roster-size rule, most
+   * often. Shown inside the sheet rather than as the room's own banner: that
+   * banner sits behind this overlay's dimmed backdrop, which used to make a
+   * declined pick look like the Confirm button had done nothing at all. */
+  error?: string | null;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -578,11 +591,12 @@ function ConfirmSheet({
       <div className="pc-sheet draft-confirm">
         <h3 className="draft-confirm-title">{title}</h3>
         {body}
+        {error && <p className="error-banner">{error}</p>}
         <div className="draft-confirm-actions">
           <button className="btn-outline" onClick={onCancel} disabled={busy}>
             Cancel
           </button>
-          <button className="btn-primary" onClick={onConfirm} disabled={busy}>
+          <button className="btn" onClick={onConfirm} disabled={busy}>
             {confirmLabel}
           </button>
         </div>
