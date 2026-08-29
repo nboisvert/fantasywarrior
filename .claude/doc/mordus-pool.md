@@ -68,6 +68,14 @@ rondes de vol**.
 | Pertes maximales par équipe | **2** (Nick, 2026-08-25) — `League.MaxLossesPerTeam` |
 | Joueurs exposés non réclamés | Restent à leur équipe (ils n'ont jamais bougé) |
 
+> ⚠️ **Aucune des trois n'est écrite dans la base** (constaté le 2026-08-29 en
+> clonant la ligue) : `ProtectionSlots`, `StealRounds` et `MaxLossesPerTeam` sont
+> encore `NULL` sur la ligne `Leagues` des Mordus. Elles ont été décidées, pas
+> saisies. Conséquence concrète : **Les Mordus ne peut pas ouvrir un repêchage
+> aujourd'hui** — l'auto-remplissage et `draft/open` refusent tous les deux sans
+> `ProtectionSlots`. Le panneau Règles les écrit ; `clone-league` les prend en
+> paramètre pour la copie et ne touche jamais à la vraie ligue.
+
 Deux seuils et non un seul parce qu'un gardien joue environ la moitié des matchs
 de son club : mesuré à la barre des patineurs, il resterait intouchable deux fois
 plus longtemps. Sur les 1 597 joueurs en base, ça donne 763 patineurs et 98

@@ -21,6 +21,10 @@
 - **Reference data**: 1 586 players, the full 2025-26 regular season (1 312 games —
   32 teams × 82, confirmed against the NHL's published schedule — ~51 k
   player-game lines, 2025-10-07 → 2026-04-16), contracts scraped from CapWages.
+- **Mordus2** is a throwaway copy of Les Mordus — join code `6HEURH`, created
+  2026-08-29 by `clone-league`, sitting in `Drafting` for season 4 (`20262027`).
+  Same rules, same rosters, **no history**. Delete it whenever; the SQL is in
+  [deployment.md](deployment.md).
 - **Les Mordus** is the live league — join code `TKW6UR`, season `20252026`,
   14 GMs, **404 players plus one NHL franchise each (418 roster spots)**,
   9F/4D/1G active plus the Équipe slot, 23-35 roster, **$134M cap**, scoring
@@ -69,6 +73,32 @@ older entries (back to 2026-07-22) are in
 [decisions-archive.md](decisions-archive.md), same format, nothing dropped.
 
 ### Architecture
+
+- **2026-08-29 — The off-season is rehearsed on a copy, not on the live pool.**
+  `clone-league --from <code> --name <name> [--drafting]` duplicates a league's
+  **rules and rosters and nothing else** — no weeks, no lineups, no trades, no
+  season history — then opens a draft on it. It replaces the 2026-08-28 runbook
+  that walked Les Mordus itself through `Complete → Preparing → Protecting →
+  Drafting` and needed a hand-written SQL unwind to come back: there is now
+  nothing to unwind, because the real league never moved.
+  **The copy borrows one thing from the past: the draft order.** Having never
+  played, it has no standings of its own, so `--drafting` freezes the *source*
+  league's reverse standings onto its picks. An order of "whatever sequence the
+  teams were created in" would make the rehearsal worthless for the one thing a
+  pool argues about most.
+  **The protections come from shared code, not a second implementation**
+  (`ProtectionSlate` in `Data`, now behind the commissioner's button too). A
+  sandbox protected by a different rule would be rehearsing a draft nobody will
+  ever run.
+  **The three off-season rules had to be passed as flags**, and that is the
+  finding: `mordus-pool.md` records 9 protections / 2 steal rounds / 2 max
+  losses as settled, but none of the three has ever been written to the
+  `Leagues` row. **Les Mordus could not open a draft today** — `draft/open` and
+  the autofill both refuse without `ProtectionSlots`. The job overrides them on
+  the copy only; it will not edit a live league to unblock itself.
+  **Mordus2 exists**: join code `6HEURH`, 14 teams, 404 players + 14 franchise
+  slots, 126 protected / 130 free / 148 exposed, 70 turns, all 14 GMs joined at
+  Nick's call.
 
 - **2026-08-28 — Protections can be written, but only as a default nobody
   chose.** Les Mordus is settled at **`ProtectionSlots = 9`** (Nick), the last

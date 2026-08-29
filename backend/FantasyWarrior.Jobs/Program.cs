@@ -79,6 +79,16 @@ using FantasyWarrior.Jobs.Sql;
 //     PDF. --no-opening-lineup leaves week 1 to be auto-filled, which is what
 //     the Firestore build did and the only setting under which a replay can be
 //     compared against golden-scores-preSql.json.
+//   clone-league --from <joinCode> --name <name> [--drafting] [--commissioner-only]
+//               [--protection-slots N] [--steal-rounds N] [--max-losses N] [--dry-run]
+//     Copies a league's rules and rosters into a new one -- and nothing else.
+//     No weeks, no lineups, no trades, no history: the copy has never played a
+//     game. --drafting takes it straight to the draft room (protections
+//     auto-filled, order frozen off the SOURCE league's standings, since the
+//     copy has none of its own). --commissioner-only keeps it out of the other
+//     GMs' league lists, which is the difference between a sandbox and an
+//     announcement. The three rule flags override the copy's off-season rules
+//     only -- never the source's, which is a live pool.
 //   wipe-pools [--dry-run]
 //     Deletes pool data and un-banks every week. NHL reference data is
 //     untouched -- that is the expensive half to rebuild.
@@ -268,6 +278,22 @@ switch (job)
             capAmount: long.TryParse(GetOption(args, "--cap"), out var cap) ? cap : 134_000_000,
             dryRun: dryRun,
             openingLineup: !args.Contains("--no-opening-lineup"));
+    }
+
+    case "clone-league":
+    {
+        await using var db = DataServiceCollectionExtensions.CreateContext();
+        static int? Number(string[] args, string name) =>
+            int.TryParse(GetOption(args, name), out var n) ? n : null;
+        return await new CloneLeagueJob(db).RunAsync(
+            sourceCode: GetOption(args, "--from"),
+            name: GetOption(args, "--name"),
+            drafting: args.Contains("--drafting"),
+            everyOwnerJoins: !args.Contains("--commissioner-only"),
+            protectionSlots: Number(args, "--protection-slots"),
+            stealRounds: Number(args, "--steal-rounds"),
+            maxLosses: Number(args, "--max-losses"),
+            dryRun: dryRun);
     }
 
     case "wipe-pools":

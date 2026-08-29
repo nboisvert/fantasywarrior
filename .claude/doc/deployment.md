@@ -188,11 +188,83 @@ needed: every player in this situation still has an NHL id.
 leaving players, contracts, games and game lines alone — that half costs hours
 to rebuild and is identical for everyone.
 
+## Rehearsing the off-season on a copy — `clone-league`
+
+**The way to do it.** Everything below this section drives a *live* league into
+`Drafting` and needs hand-written SQL to come back. `clone-league` copies the
+rules and the rosters into a brand new league and leaves the original untouched,
+so there is nothing to undo — throw the copy away instead.
+
+```powershell
+dotnet run --project backend/FantasyWarrior.Jobs -- clone-league `
+  --from TKW6UR --name Mordus2 --drafting `
+  --protection-slots 9 --steal-rounds 2 --max-losses 2 --dry-run
+```
+
+Drop `--dry-run` to write. In one pass it copies the league's rules, its teams
+(the same GM accounts — a `User` is global) and its **open** roster spots, opens
+a `LeagueSeason` for the season after the one being played, generates the
+rookie-segment picks, auto-fills the protections and freezes the order.
+
+Four things worth knowing:
+
+- **The weeks are not copied** — no assignments, no lineups, no trades, no
+  season history. The copy has never played a game, so its standings are empty
+  by design.
+- **Which is why the order is borrowed.** With no standings of its own the copy
+  has no reverse-standings order, so `--drafting` freezes **the source league's**
+  onto it. That is the one thing the copy takes from the past.
+- **The three rule flags apply to the copy only.** Les Mordus' 9 protections /
+  2 steal rounds / 2 max losses are in `mordus-pool.md` but have never been
+  written to its row, and this job will not write them there to unblock itself.
+- **`--commissioner-only`** keeps the copy out of the other GMs' league lists.
+  Without it, every owner gets a membership row and sees the new league appear.
+
+**Done 2026-08-29**: `Mordus2`, join code `6HEURH` — 14 teams, 404 players plus
+14 franchise slots, 126 protected / 130 free / 148 exposed, 70 turns, all 14 GMs
+joined.
+
+### The nightly still scores a copy
+
+`period-rollup` iterates every league and knows nothing about phases, so a copy
+sitting in `Drafting` gets this week auto-filled and scored like any other
+league. Harmless — the draft order was frozen at creation and does not move —
+but its standings will not stay at zero. Weeks already banked are not re-scored
+(`Periods.FinalizedUtc` is global), so a copy only ever accrues from the week it
+was created in. **Open**: the rollup arguably should skip a league whose active
+season is not `InSeason`, which is what `season-lifecycle.md` §5 says.
+
+### Throwing a copy away
+
+`@l` = its `LeagueId`. It owns no banked history worth keeping, so this is a
+plain delete rather than an unwind — nothing here is safe to run against a league
+you did not clone.
+
+```sql
+BEGIN TRAN;
+DELETE FROM DraftSelections   WHERE LeagueSeasonId IN (SELECT LeagueSeasonId FROM LeagueSeasons WHERE LeagueId = @l);
+DELETE FROM RosterAssignments WHERE RosterSpotId IN (SELECT RosterSpotId FROM RosterSpots WHERE LeagueId = @l);
+DELETE FROM TeamPeriodLineups WHERE TeamId IN (SELECT TeamId FROM Teams WHERE LeagueId = @l);
+DELETE FROM RosterSpots       WHERE LeagueId = @l;
+DELETE FROM TradeVotes        WHERE TradeId IN (SELECT TradeId FROM Trades WHERE LeagueId = @l);
+DELETE FROM TradeAssets       WHERE TradeId IN (SELECT TradeId FROM Trades WHERE LeagueId = @l);
+DELETE FROM Trades            WHERE LeagueId = @l;
+DELETE FROM Messages          WHERE LeagueId = @l;
+DELETE FROM DraftPicks        WHERE LeagueId = @l;
+DELETE FROM LeagueScoringRules WHERE LeagueId = @l;
+DELETE FROM LeagueMembers     WHERE LeagueId = @l;
+DELETE FROM LeagueSeasons     WHERE LeagueId = @l;
+DELETE FROM Teams             WHERE LeagueId = @l;
+DELETE FROM Leagues           WHERE LeagueId = @l;
+COMMIT;
+```
+
 ## Putting a league into the off-season draft, and getting it back out
 
 Nick's rehearsal of 2026-08-28: drive Les Mordus (`TKW6UR`) into `Drafting`
 mid-replay to see the room against real rosters, then return it to the season
-it was playing.
+it was playing. **Prefer `clone-league` above** — this path is what you use when
+the *real* league genuinely has to move.
 
 **Every `season-phase` step takes `--dry-run`. Run it that way first.**
 

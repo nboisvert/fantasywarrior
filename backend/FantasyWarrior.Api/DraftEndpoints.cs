@@ -198,23 +198,6 @@ public static class DraftEndpoints
                     error = "Set the league's protection slots first, in the rules panel.",
                 });
 
-            // The same filter the steal pool uses (DraftContextLoader), so what
-            // gets protected is exactly what would otherwise be takeable.
-            // PlayerId != null drops the franchise slots.
-            var held = await db.RosterSpots
-                .AsNoTracking()
-                .Where(s => s.LeagueId == league.LeagueId && s.PlayerId != null)
-                .Where(RosterWindow.Committed())
-                .Select(s => new
-                {
-                    s.RosterSpotId,
-                    s.TeamId,
-                    PlayerId = s.PlayerId!.Value,
-                    s.Player!.PositionGroup,
-                    s.Player.CareerNhlGames,
-                })
-                .ToListAsync();
-
             // The season that just ended, derived rather than hardcoded:
             // Leagues.Season still points at it, but the prepared row is the one
             // that says which off-season this is.
@@ -225,51 +208,25 @@ public static class DraftEndpoints
             // sitting in December would rank players on games nobody has played.
             var asOf = (await clock.StateAsync())?.AsOfDate;
 
-            var totals = await Queries.SeasonTotalsAsync(
-                db, lastSeason, held.Select(h => h.PlayerId).Distinct().ToList(), asOf);
-            var scale = await Queries.ScaleAsync(db, league.LeagueId);
+            // The reading, the ranking and the write all live in ProtectionSlate
+            // so that clone-league produces the same slate this button does.
+            var slate = await ProtectionSlate.AutofillAsync(
+                db, league.LeagueId, lastSeason, slots, asOf, write: preview != true);
 
-            var candidates = held
-                .Select(h => new ProtectionCandidate(
-                    h.RosterSpotId, h.TeamId, h.PlayerId, h.PositionGroup, h.CareerNhlGames,
-                    // Absent from the totals means he did not play: a real zero,
-                    // not a gap. StatLine.Empty scores 0 under any scale.
-                    Points: totals.TryGetValue(h.PlayerId, out var t)
-                        ? StatColumns.ToStatLine(t).Score(scale)
-                        : 0d))
-                .ToList();
-
-            var chosen = ProtectionAutofill.Choose(candidates, slots);
-
-            var free = candidates.Count(c => !ProtectionAutofill.NeedsASlot(c));
             var body = new
             {
                 ok = true,
                 slots,
-                teams = held.Select(h => h.TeamId).Distinct().Count(),
-                protectedCount = chosen.Count,
-                freeCount = free,
-                exposedCount = candidates.Count - free - chosen.Count,
+                teams = slate.Teams,
+                protectedCount = slate.Protected,
+                freeCount = slate.Free,
+                exposedCount = slate.Exposed,
             };
 
             if (preview == true) return Results.Ok(body);
 
-            // Clear and rewrite rather than diff: the slate is one summer's
-            // worth of state, and a run that only added would leave yesterday's
-            // choices behind when the slot count changes.
-            await db.RosterSpots
-                .Where(s => s.LeagueId == league.LeagueId
-                            && s.ProtectionStatus != RosterProtectionStatus.Unprotected)
-                .ExecuteUpdateAsync(u =>
-                    u.SetProperty(s => s.ProtectionStatus, RosterProtectionStatus.Unprotected));
-
-            await db.RosterSpots
-                .Where(s => chosen.Contains(s.RosterSpotId))
-                .ExecuteUpdateAsync(u =>
-                    u.SetProperty(s => s.ProtectionStatus, RosterProtectionStatus.Protected));
-
             await PushAsync(hub, logs, league, null,
-                $"{chosen.Count} players protected, {slots} per team.");
+                $"{slate.Protected} players protected, {slots} per team.");
 
             return Results.Ok(body);
         });
