@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import type { ClockStatus } from "../api";
+import { useLanguage } from "../i18n/LanguageContext";
 
 /**
  * Nick-only. Runs the sim-advance job from the phone instead of a PowerShell
@@ -15,6 +16,7 @@ export function TestModePanel({
   username: string;
   onClose: () => void;
 }) {
+  const { t } = useLanguage();
   const [clock, setClock] = useState<ClockStatus | null>(null);
   const [to, setTo] = useState("");
   const [dryRun, setDryRun] = useState(false);
@@ -59,19 +61,19 @@ export function TestModePanel({
 
   return (
     <form onSubmit={advance} className="card fade-in" style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-      <span className="section-title">Advance the test season</span>
+      <span className="section-title">{t("testModePanel.title")}</span>
       {error && <p className="error-banner">{error}</p>}
 
       <small className="muted">
         {clock === null
-          ? "Loading…"
+          ? t("testModePanel.loadingClock")
           : clock.simulated
-            ? `Simulated — cursor at ${clock.asOfDate}`
-            : "Real time — not simulated"}
+            ? t("testModePanel.simulatedStatus", { date: clock.asOfDate })
+            : t("testModePanel.realTime")}
       </small>
 
       <label>
-        Advance to
+        {t("testModePanel.advanceTo")}
         <input
           type="date"
           className="field"
@@ -93,29 +95,19 @@ export function TestModePanel({
             setConfirming(false);
           }}
         />
-        Preview only (dry run) — don't bank or execute anything
+        {t("testModePanel.previewOnly")}
       </label>
 
-      <small className="muted">
-        Advances only move forward — there is no undo. A week banks one day after
-        it ends (the grace day). Jumping more than one week executes every trade
-        accepted in between at the first week boundary crossed, not spread across
-        them.
-      </small>
+      <small className="muted">{t("testModePanel.advanceNote")}</small>
 
-      {confirming && (
-        <p className="error-banner">
-          This jumps more than a week — trades will execute at the first boundary
-          crossed. Tap Advance again to confirm.
-        </p>
-      )}
+      {confirming && <p className="error-banner">{t("testModePanel.confirmJumpWarning")}</p>}
 
       <div style={{ display: "flex", gap: "0.6rem" }}>
         <button type="submit" className="btn" disabled={busy || !to} style={{ flex: 1 }}>
-          {busy ? "Advancing…" : confirming ? "Confirm advance" : "Advance"}
+          {busy ? t("testModePanel.advancing") : confirming ? t("testModePanel.confirmAdvance") : t("testModePanel.advance")}
         </button>
         <button type="button" className="btn-ghost" onClick={onClose}>
-          Close
+          {t("common.close")}
         </button>
       </div>
 

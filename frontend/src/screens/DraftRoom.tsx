@@ -27,6 +27,7 @@ import {
   type ProtectionBoard,
 } from "../api";
 import { useLive } from "../live/LiveProvider";
+import { useLanguage } from "../i18n/LanguageContext";
 import { ListOrderedIcon } from "../components/Icons";
 import { PositionFilterControl, type PositionFilter } from "./Stats";
 import "./DraftRoom.css";
@@ -48,6 +49,7 @@ export default function DraftRoom({
   username: string;
 }) {
   const { onDraft, status } = useLive();
+  const { t } = useLanguage();
 
   const [state, setState] = useState<DraftState | null>(null);
   const [pool, setPool] = useState<DraftCandidate[]>([]);
@@ -179,25 +181,28 @@ export default function DraftRoom({
 
   const progress = useMemo(() => {
     if (!state?.totalTurns) return null;
-    return `${state.turnsMade ?? 0} of ${state.totalTurns}`;
+    return { made: state.turnsMade ?? 0, total: state.totalTurns };
   }, [state]);
 
-  if (loading) return <p className="empty-state">Loading the draft room…</p>;
+  if (loading) return <p className="empty-state">{t("draftRoom.loadingRoom")}</p>;
 
   if (!state?.running) {
     return (
       <div className="draft-room">
         <p className="empty-state">
-          No draft is running. This league is <strong>{state?.phase ?? "not in a season"}</strong>.
+          {t("draftRoom.notRunningPrefix")} <strong>{state?.phase ?? t("draftRoom.notInSeason")}</strong>.
         </p>
         {isCommissioner && state?.phase === "Protecting" && (
           <div className="draft-setup">
             <p className="draft-setup-note">
               {autofill
-                ? `${autofill.protectedCount} protected, ${autofill.slots} per team. ` +
-                  `${autofill.freeCount} are safe already on NHL experience, ` +
-                  `${autofill.exposedCount} are exposed.`
-                : "Nobody is protected yet, so every veteran in the league is exposed."}
+                ? t("draftRoom.autofillSummary", {
+                    protectedCount: autofill.protectedCount,
+                    slots: autofill.slots,
+                    freeCount: autofill.freeCount,
+                    exposedCount: autofill.exposedCount,
+                  })
+                : t("draftRoom.autofillEmpty")}
             </p>
             <div className="draft-commissioner">
               {/* .btn-outline, not .btn-ghost: it is the paired secondary of
@@ -211,14 +216,14 @@ export default function DraftRoom({
                   })
                 }
               >
-                Auto-protect each roster
+                {t("draftRoom.autoProtect")}
               </button>
               <button
                 className="btn"
                 disabled={busy}
                 onClick={() => command(() => api.openDraft(league.id, username))}
               >
-                Open the draft
+                {t("draftRoom.openDraft")}
               </button>
             </div>
           </div>
@@ -236,7 +241,7 @@ export default function DraftRoom({
       <header className="draft-head">
         <h2 className="draft-title">
           <ListOrderedIcon size={18} />
-          {state.year} draft
+          {t("draftRoom.title", { year: state.year })}
         </h2>
       </header>
 
@@ -253,40 +258,44 @@ export default function DraftRoom({
       <section className={`draft-clock${mine ? " mine" : ""}`} aria-live="polite">
         {turn ? (
           <>
-            <span className="draft-clock-label">{mine ? "You're on the clock" : "On the clock"}</span>
+            <span className="draft-clock-label">{mine ? t("draftRoom.yourClock") : t("draftRoom.onClock")}</span>
             <span className="draft-clock-team">{turn.teamName}</span>
             {!mine && state.turnsUntilMine != null && (
               <span className="draft-clock-wait">
-                {state.turnsUntilMine === 0 ? "" : `You pick in ${state.turnsUntilMine}`}
+                {state.turnsUntilMine === 0 ? "" : t("draftRoom.turnsUntilMine", { count: state.turnsUntilMine })}
               </span>
             )}
             {!mine && state.turnsUntilMine == null && (
-              <span className="draft-clock-wait">You have no turns left</span>
+              <span className="draft-clock-wait">{t("draftRoom.noTurnsLeft")}</span>
             )}
             <span className="draft-clock-progress">
-              {state.segment === "steal" ? "Steal round" : "Rookie & free agents, round"}{" "}
-              {state.round} of {state.segment === "steal" ? state.stealRounds : state.draftRounds}
-              {progress && <> · pick {progress}</>}
+              {state.segment === "steal" ? t("draftRoom.segmentSteal") : t("draftRoom.segmentRookie")}{" "}
+              {t("draftRoom.roundOf", {
+                round: state.round,
+                total: state.segment === "steal" ? state.stealRounds : state.draftRounds,
+              })}
+              {progress && <> · {t("draftRoom.pickOf", progress)}</>}
             </span>
           </>
         ) : (
-          <span className="draft-clock-label">Every turn is used.</span>
+          <span className="draft-clock-label">{t("draftRoom.everyTurnUsed")}</span>
         )}
       </section>
 
       {state.myTeam && (
         <p className="draft-quota">
           <span>
-            <strong>{state.myTeam.takes}</strong> taken
+            <strong>{state.myTeam.takes}</strong> {t("draftRoom.taken")}
           </span>
           <span>
             <strong>{state.myTeam.losses}</strong>
-            {state.maxLossesPerTeam != null ? ` of ${state.maxLossesPerTeam}` : ""} lost
+            {state.maxLossesPerTeam != null ? t("draftRoom.lostOfMax", { max: state.maxLossesPerTeam }) : ""}{" "}
+            {t("draftRoom.lost")}
           </span>
         </p>
       )}
 
-      <div className="draft-panes" role="tablist" aria-label="Draft room sections">
+      <div className="draft-panes" role="tablist" aria-label={t("draftRoom.tabsAriaLabel")}>
         {(["available", "board", "teams", "protections"] as Pane[]).map((p) => (
           <button
             key={p}
@@ -296,12 +305,12 @@ export default function DraftRoom({
             onClick={() => setPane(p)}
           >
             {p === "available"
-              ? "Available"
+              ? t("draftRoom.paneAvailable")
               : p === "board"
-                ? "Picks"
+                ? t("draftRoom.paneBoard")
                 : p === "teams"
-                  ? "Teams"
-                  : "Protections"}
+                  ? t("draftRoom.paneTeams")
+                  : t("draftRoom.paneProtections")}
           </button>
         ))}
       </div>
@@ -316,8 +325,8 @@ export default function DraftRoom({
               className="draft-search"
               type="search"
               value={search}
-              placeholder="Search a name"
-              aria-label="Search available players"
+              placeholder={t("draftRoom.searchPlaceholder")}
+              aria-label={t("draftRoom.searchAria")}
               onChange={(e) => setSearch(e.target.value)}
             />
             <PositionFilterControl value={pos} onChange={setPos} />
@@ -326,13 +335,12 @@ export default function DraftRoom({
           {pool.length === 0 ? (
             <div className="draft-empty">
               <p className="empty-state">
-                Nobody is available to take.
-                {state.segment === "steal" &&
-                  " Every remaining player is protected, auto-protected, or on a team that has already lost its limit."}
+                {t("draftRoom.nobodyAvailable")}
+                {state.segment === "steal" && t("draftRoom.stealExhausted")}
               </p>
               {mine && (
                 <button className="btn-outline" disabled={busy} onClick={() => setPassing(true)}>
-                  Pass the turn
+                  {t("draftRoom.passTurn")}
                 </button>
               )}
             </div>
@@ -344,11 +352,11 @@ export default function DraftRoom({
                     className="draft-row"
                     disabled={!mine || busy}
                     aria-disabled={!mine}
-                    aria-label={
-                      `Draft ${c.shortName}` +
-                      (c.ownerTeamName ? ` from ${c.ownerTeamName}` : "") +
-                      `, ${formatCapCompact(c.capHit)}`
-                    }
+                    aria-label={t("draftRoom.draftRowAria", {
+                      name: c.shortName,
+                      from: c.ownerTeamName ?? undefined,
+                      cap: formatCapCompact(c.capHit),
+                    })}
                     onClick={() => mine && setConfirming(c)}
                   >
                     <span className={`draft-row-pos pos-compact-${posGroupClass(c.position)}`}>
@@ -374,33 +382,33 @@ export default function DraftRoom({
           the draft it sits. */}
       {pane === "board" && (
         <ul className="draft-board">
-          {(state.board ?? []).length === 0 && <li className="empty-state">No turns yet.</li>}
-          {(state.board ?? []).map((t) => (
+          {(state.board ?? []).length === 0 && <li className="empty-state">{t("draftRoom.noTurnsYet")}</li>}
+          {(state.board ?? []).map((row) => (
             <li
-              key={t.overallIndex}
-              className={`draft-board-row${t.done ? "" : " upcoming"}${
-                t.overallIndex === turn?.overallIndex ? " onclock" : ""
+              key={row.overallIndex}
+              className={`draft-board-row${row.done ? "" : " upcoming"}${
+                row.overallIndex === turn?.overallIndex ? " onclock" : ""
               }`}
-              aria-current={t.overallIndex === turn?.overallIndex ? "step" : undefined}
+              aria-current={row.overallIndex === turn?.overallIndex ? "step" : undefined}
             >
-              <span className="draft-board-index">{t.overallIndex + 1}</span>
-              <span className="draft-board-slot">{turnLabel(t)}</span>
-              <span className="draft-board-team">{t.byTeamName}</span>
+              <span className="draft-board-index">{row.overallIndex + 1}</span>
+              <span className="draft-board-slot">{turnLabel(row)}</span>
+              <span className="draft-board-team">{row.byTeamName}</span>
               <span className="draft-board-outcome">
-                {t.overallIndex === turn?.overallIndex ? (
-                  <span className="draft-board-clock">On the clock</span>
-                ) : !t.done ? (
+                {row.overallIndex === turn?.overallIndex ? (
+                  <span className="draft-board-clock">{t("draftRoom.onClock")}</span>
+                ) : !row.done ? (
                   ""
-                ) : t.passed ? (
-                  <span className="draft-board-passed">Passed</span>
+                ) : row.passed ? (
+                  <span className="draft-board-passed">{t("draftRoom.passedLabel")}</span>
                 ) : (
                   <>
-                    <span className={`pos-compact-${posGroupClass(t.player?.position ?? "")}`}>
-                      {t.player?.positionGroup}
+                    <span className={`pos-compact-${posGroupClass(row.player?.position ?? "")}`}>
+                      {row.player?.positionGroup}
                     </span>{" "}
-                    {t.player?.shortName}
-                    {t.fromTeamName && (
-                      <span className="draft-board-from"> ← {t.fromTeamName}</span>
+                    {row.player?.shortName}
+                    {row.fromTeamName && (
+                      <span className="draft-board-from"> ← {row.fromTeamName}</span>
                     )}
                   </>
                 )}
@@ -435,11 +443,11 @@ export default function DraftRoom({
       {pane === "protections" && (
         <div className="draft-protections">
           {!protections ? (
-            <p className="empty-state">Loading the protection lists…</p>
+            <p className="empty-state">{t("draftRoom.loadingProtections")}</p>
           ) : (
             <>
               <label className="draft-team-picker">
-                <span className="draft-team-picker-label">Team</span>
+                <span className="draft-team-picker-label">{t("draftRoom.teamPickerLabel")}</span>
                 <select
                   value={protectionsTeam ?? ""}
                   onChange={(e) => setProtectionsTeam(e.target.value)}
@@ -453,26 +461,24 @@ export default function DraftRoom({
                 </select>
               </label>
               {(() => {
-                const team = protections.teams.find((t) => t.teamName === protectionsTeam);
-                if (!team) return <p className="empty-state">Pick a team.</p>;
+                const team = protections.teams.find((tm) => tm.teamName === protectionsTeam);
+                if (!team) return <p className="empty-state">{t("draftRoom.pickATeam")}</p>;
                 return (
                   <>
                     <p className="draft-protections-summary">
                       <span>
                         <strong>{team.protectedCount}</strong>
-                        {protections.slots != null ? ` of ${protections.slots}` : ""} protected
+                        {t("draftRoom.protectedSuffix", { slots: protections.slots })}
                       </span>
                       <span>
-                        <strong>{team.autoCount}</strong> safe for free
+                        <strong>{team.autoCount}</strong> {t("draftRoom.safeForFree")}
                       </span>
                       <span>
-                        <strong>{team.exposedCount}</strong> exposed
+                        <strong>{team.exposedCount}</strong> {t("draftRoom.exposedLabel")}
                       </span>
                     </p>
                     {team.players.length === 0 ? (
-                      <p className="empty-state">
-                        Nobody is protected. Every veteran on this roster is takeable.
-                      </p>
+                      <p className="empty-state">{t("draftRoom.nobodyProtectedFull")}</p>
                     ) : (
                       <ul className="draft-protection-list">
                         {team.players.map((p) => (
@@ -488,10 +494,10 @@ export default function DraftRoom({
                                 someone who was already safe. */}
                             <span className={`draft-protection-tag ${p.status}`}>
                               {p.status === "protected"
-                                ? "Protected"
+                                ? t("draftRoom.protectedTag")
                                 : p.status === "auto"
-                                  ? "Auto"
-                                  : "No NHL data"}
+                                  ? t("draftRoom.autoTag")
+                                  : t("draftRoom.noNhlDataTag")}
                             </span>
                           </li>
                         ))}
@@ -508,14 +514,14 @@ export default function DraftRoom({
       {isCommissioner && (
         <div className="draft-commissioner">
           <button className="btn-outline" disabled={busy} onClick={() => command(() => api.closeDraft(league.id, username))}>
-            Close the draft
+            {t("draftRoom.closeDraft")}
           </button>
         </div>
       )}
 
       {confirming && (
         <ConfirmSheet
-          title={state.segment === "steal" ? "Take this player?" : "Draft this player?"}
+          title={state.segment === "steal" ? t("draftRoom.confirmTitleSteal") : t("draftRoom.confirmTitleDraft")}
           body={
             <>
               <p className="draft-confirm-name">
@@ -526,14 +532,14 @@ export default function DraftRoom({
               </p>
               <p className="draft-confirm-detail">
                 {confirming.ownerTeamName
-                  ? `Taken from ${confirming.ownerTeamName}.`
-                  : `Unrostered${confirming.nhlTeam ? ` · ${confirming.nhlTeam}` : ""}.`}{" "}
-                Cap hit {formatCapCompact(confirming.capHit)}.
+                  ? t("draftRoom.takenFrom", { team: confirming.ownerTeamName })
+                  : t("draftRoom.unrostered", { team: confirming.nhlTeam ?? undefined })}{" "}
+                {t("draftRoom.capHit", { cap: formatCapCompact(confirming.capHit) })}
               </p>
-              <p className="draft-confirm-warn">This cannot be undone.</p>
+              <p className="draft-confirm-warn">{t("draftRoom.cannotUndo")}</p>
             </>
           }
-          confirmLabel={busy ? "Working…" : "Confirm"}
+          confirmLabel={busy ? t("draftRoom.working") : t("draftRoom.confirm")}
           busy={busy}
           error={error}
           onCancel={() => setConfirming(null)}
@@ -543,9 +549,9 @@ export default function DraftRoom({
 
       {passing && (
         <ConfirmSheet
-          title="Pass your turn?"
-          body={<p className="draft-confirm-detail">You will take nobody and the draft moves on.</p>}
-          confirmLabel={busy ? "Working…" : "Pass"}
+          title={t("draftRoom.passTitle")}
+          body={<p className="draft-confirm-detail">{t("draftRoom.passBody")}</p>}
+          confirmLabel={busy ? t("draftRoom.working") : t("draftRoom.passAction")}
           busy={busy}
           error={error}
           onCancel={() => setPassing(false)}
@@ -580,6 +586,7 @@ function ConfirmSheet({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const { t } = useLanguage();
   return (
     <div className="pc-overlay" role="dialog" aria-modal="true" aria-label={title}>
       <div className="pc-sheet draft-confirm">
@@ -588,7 +595,7 @@ function ConfirmSheet({
         {error && <p className="error-banner">{error}</p>}
         <div className="draft-confirm-actions">
           <button className="btn-outline" onClick={onCancel} disabled={busy}>
-            Cancel
+            {t("common.cancel")}
           </button>
           <button className="btn" onClick={onConfirm} disabled={busy}>
             {confirmLabel}

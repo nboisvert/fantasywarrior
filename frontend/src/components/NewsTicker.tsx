@@ -30,6 +30,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, topPlayersByNhlPoints } from "../api";
 import type { LeagueDetail, NewsArticle, Trade, TradePlayer } from "../api";
+import { useLanguage } from "../i18n/LanguageContext";
 import { ArrowLeftRightIcon, NewspaperIcon } from "./Icons";
 
 const HOT_WINDOW_MS = 30 * 60 * 1000;
@@ -40,14 +41,14 @@ const LOOP_SECONDS = 60;
 
 /** Small local helper, not shared — same "duplicated per file" convention as
  * formatMoneyCompact in Stats.tsx. */
-function timeAgo(dateUtc: string): string {
+function timeAgo(dateUtc: string, t: (key: string, vars?: Record<string, string | number>) => string): string {
   const ms = Date.now() - new Date(dateUtc).getTime();
   const minutes = Math.floor(ms / 60_000);
-  if (minutes < 1) return "now";
-  if (minutes < 60) return `${minutes}m`;
+  if (minutes < 1) return t("newsTicker.timeNow");
+  if (minutes < 60) return t("newsTicker.timeMinutes", { n: minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
-  return `${Math.floor(hours / 24)}d`;
+  if (hours < 24) return t("newsTicker.timeHours", { n: hours });
+  return t("newsTicker.timeDays", { n: Math.floor(hours / 24) });
 }
 
 /** Mirrors the reduced-motion hook the old (removed) Dashboard ticker used —
@@ -74,8 +75,8 @@ type NewsItem =
  * (a proxy for "the name worth putting in the ticker" — the trade endpoint
  * doesn't carry stats itself, so this looks the players up in the league's
  * already-loaded roster data instead of adding a new backend field). */
-function tradeSideLabel(players: TradePlayer[], pointsById: Map<number, number>): string {
-  if (players.length === 0) return "nothing";
+function tradeSideLabel(players: TradePlayer[], pointsById: Map<number, number>, nothing: string): string {
+  if (players.length === 0) return nothing;
   const [top] = topPlayersByNhlPoints(players, pointsById, 1);
   return players.length > 1 ? `${top.name} (+${players.length - 1})` : top.name;
 }
@@ -84,8 +85,8 @@ function tradeSideLabel(players: TradePlayer[], pointsById: Map<number, number>)
  * convention as Trades.tsx/Dashboard's "To {team}" columns (2026-08-03, per
  * Nick), so the ticker doesn't read backwards next to every other trade
  * display in the app. */
-function tradeLabel(trade: Trade, pointsById: Map<number, number>): string {
-  return `${trade.proposerTeamName}: ${tradeSideLabel(trade.playersFromCounterparty, pointsById)} ⇄ ${trade.counterpartyTeamName}: ${tradeSideLabel(trade.playersFromProposer, pointsById)}`;
+function tradeLabel(trade: Trade, pointsById: Map<number, number>, nothing: string): string {
+  return `${trade.proposerTeamName}: ${tradeSideLabel(trade.playersFromCounterparty, pointsById, nothing)} ⇄ ${trade.counterpartyTeamName}: ${tradeSideLabel(trade.playersFromProposer, pointsById, nothing)}`;
 }
 
 export function NewsTicker({
@@ -97,6 +98,7 @@ export function NewsTicker({
   league: LeagueDetail | null;
   username: string;
 }) {
+  const { t } = useLanguage();
   const [items, setItems] = useState<NewsItem[]>([]);
   const reducedMotion = usePrefersReducedMotion();
   const tickerRef = useRef<HTMLDivElement>(null);
@@ -139,6 +141,8 @@ export function NewsTicker({
         // essentially the same "just synced" timestamp. Without this cap,
         // that burst wins every slot in the ts-sorted top-16 and trades
         // vanish from the ticker entirely.
+        const nothingLabel = t("newsTicker.nothing");
+        const agreedPrefix = t("newsTicker.agreedPrefix");
         const articles: NewsItem[] = news
           .slice(0, 10)
           .map((a) => ({
@@ -146,27 +150,27 @@ export function NewsTicker({
             key: `nw-${a.id}`,
             ts: new Date(a.publishedUtc).getTime(),
             source: a.source,
-            text: `${a.headline} · ${timeAgo(a.publishedUtc)}`,
+            text: `${a.headline} · ${timeAgo(a.publishedUtc, t)}`,
           }));
         const processed: NewsItem[] = trades
-          .filter((t): t is Trade & { processedUtc: string } => t.status === "processed" && t.processedUtc != null)
-          .map((t) => ({
+          .filter((tr): tr is Trade & { processedUtc: string } => tr.status === "processed" && tr.processedUtc != null)
+          .map((tr) => ({
             kind: "trade",
-            key: `tr-${t.id}-processed`,
-            ts: new Date(t.processedUtc).getTime(),
-            label: tradeLabel(t, pointsById),
+            key: `tr-${tr.id}-processed`,
+            ts: new Date(tr.processedUtc).getTime(),
+            label: tradeLabel(tr, pointsById, nothingLabel),
             status: "processed",
           }));
         // Accepted-but-not-yet-processed trades (the nightly process-trades
         // job hasn't swapped the rosters yet) — still newsworthy the moment
         // both sides agree, not just once it actually executes.
         const accepted: NewsItem[] = trades
-          .filter((t): t is Trade & { respondedUtc: string } => t.status === "accepted" && t.respondedUtc != null)
-          .map((t) => ({
+          .filter((tr): tr is Trade & { respondedUtc: string } => tr.status === "accepted" && tr.respondedUtc != null)
+          .map((tr) => ({
             kind: "trade",
-            key: `tr-${t.id}-accepted`,
-            ts: new Date(t.respondedUtc).getTime(),
-            label: `Agreed — ${tradeLabel(t, pointsById)}`,
+            key: `tr-${tr.id}-accepted`,
+            ts: new Date(tr.respondedUtc).getTime(),
+            label: `${agreedPrefix}${tradeLabel(tr, pointsById, nothingLabel)}`,
             status: "accepted",
           }));
         setItems([...articles, ...processed, ...accepted].sort((a, b) => b.ts - a.ts).slice(0, 16));
@@ -177,7 +181,7 @@ export function NewsTicker({
     return () => {
       ignore = true;
     };
-  }, [leagueId, pointsById, username]);
+  }, [leagueId, pointsById, username, t]);
 
   // Which trades currently qualify as "hot" — a plain string so the effect
   // below only re-runs when the actual set changes, not on every 30s tick.
@@ -298,11 +302,11 @@ export function NewsTicker({
     <div
       ref={tickerRef}
       className={`news-ticker${alertActive ? " alert" : ""}`}
-      aria-label="NHL news and league trades"
+      aria-label={t("newsTicker.ariaLabel")}
     >
       {alertActive && (
         <span className="news-ticker-alert-label">
-          <span className="news-ticker-alert-label-text">Trade Alert</span>
+          <span className="news-ticker-alert-label-text">{t("newsTicker.tradeAlert")}</span>
         </span>
       )}
       <div className="news-ticker-track">

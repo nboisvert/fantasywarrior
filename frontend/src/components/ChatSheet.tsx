@@ -18,6 +18,7 @@ import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent
 import { api, initials } from "../api";
 import type { ChatMessage, Conversation } from "../api";
 import { useLive } from "../live/LiveProvider";
+import { useLanguage } from "../i18n/LanguageContext";
 import { ArrowLeftIcon, MessageSquareIcon, SendIcon, XIcon } from "./Icons";
 import "./ChatSheet.css";
 
@@ -57,6 +58,7 @@ export function ChatSheet({
   /** Lets the topbar badge settle without waiting for the next tab change. */
   onUnreadChanged: () => void;
 }) {
+  const { t } = useLanguage();
   const { presenceOf, setRoster, onMessage, status } = useLive();
   // Named apart from the row's own fetched fields: the live set decides the
   // dot, the fetched row only supplied the wording.
@@ -236,7 +238,7 @@ export function ChatSheet({
         className="chat-sheet"
         role="dialog"
         aria-modal="true"
-        aria-label={peer ? `Conversation with ${peer}` : "Messages"}
+        aria-label={peer ? t("chatSheet.conversationWith", { peer }) : t("chatSheet.messages")}
         onKeyDown={trapFocus}
       >
         <header className="chat-header">
@@ -245,12 +247,12 @@ export function ChatSheet({
               ref={firstFocusRef}
               className="chat-icon-btn"
               onClick={() => setPeer(null)}
-              aria-label="Back to conversations"
+              aria-label={t("chatSheet.backToConversations")}
             >
               <ArrowLeftIcon size={20} />
             </button>
           ) : (
-            <button ref={firstFocusRef} className="chat-icon-btn" onClick={onClose} aria-label="Close messages">
+            <button ref={firstFocusRef} className="chat-icon-btn" onClick={onClose} aria-label={t("chatSheet.closeMessages")}>
               <XIcon size={20} />
             </button>
           )}
@@ -266,11 +268,11 @@ export function ChatSheet({
               </span>
             </span>
           ) : (
-            <span className="chat-header-title">Messages</span>
+            <span className="chat-header-title">{t("chatSheet.messages")}</span>
           )}
 
           {peer && !initialPeer && (
-            <button className="chat-icon-btn chat-header-close" onClick={onClose} aria-label="Close messages">
+            <button className="chat-icon-btn chat-header-close" onClick={onClose} aria-label={t("chatSheet.closeMessages")}>
               <XIcon size={20} />
             </button>
           )}
@@ -278,15 +280,15 @@ export function ChatSheet({
 
         {error && <p className="error-banner chat-error">{error}</p>}
         {status === "connecting" && (
-          <p className="chat-status muted">Connecting…</p>
+          <p className="chat-status muted">{t("chatSheet.connecting")}</p>
         )}
 
         {!peer && (
           <ul className="chat-list">
             {conversations === null ? (
-              <li className="chat-empty muted">Loading…</li>
+              <li className="chat-empty muted">{t("chatSheet.loading")}</li>
             ) : conversations.length === 0 ? (
-              <li className="chat-empty muted">No other GMs in this league yet.</li>
+              <li className="chat-empty muted">{t("chatSheet.noOtherGms")}</li>
             ) : (
               conversations.map((row) => {
                 const p = livePresence(row);
@@ -299,7 +301,7 @@ export function ChatSheet({
                         </span>
                         <span
                           className={`chat-dot${p.online ? " online" : ""}`}
-                          aria-label={p.online ? "Online" : p.label}
+                          aria-label={p.online ? t("chatSheet.online") : p.label}
                         />
                       </span>
 
@@ -313,11 +315,11 @@ export function ChatSheet({
                         <span className="chat-row-bottom">
                           <span className={`chat-row-preview muted${row.unreadCount > 0 ? " unread" : ""}`}>
                             {row.preview
-                              ? `${row.lastFromMe ? "You: " : ""}${row.preview}`
-                              : "No messages yet"}
+                              ? `${row.lastFromMe ? t("chatSheet.youPrefix") : ""}${row.preview}`
+                              : t("chatSheet.noMessagesYet")}
                           </span>
                           {row.unreadCount > 0 && (
-                            <span className="chat-row-badge" aria-label={`${row.unreadCount} unread`}>
+                            <span className="chat-row-badge" aria-label={t("chatSheet.unreadAria", { count: row.unreadCount })}>
                               {row.unreadCount > 9 ? "9+" : row.unreadCount}
                             </span>
                           )}
@@ -335,10 +337,10 @@ export function ChatSheet({
           <>
             <ul ref={threadRef} className="chat-thread">
               {thread === null ? (
-                <li className="chat-empty muted">Loading…</li>
+                <li className="chat-empty muted">{t("chatSheet.loading")}</li>
               ) : thread.length === 0 ? (
                 <li className="chat-empty muted">
-                  <MessageSquareIcon size={18} className="inline-icon" /> Say something to {peer}.
+                  <MessageSquareIcon size={18} className="inline-icon" /> {t("chatSheet.sayToPeer", { peer })}
                 </li>
               ) : (
                 thread.map((m) => (
@@ -353,7 +355,7 @@ export function ChatSheet({
             <div className="chat-composer">
               <input
                 className="field chat-input"
-                placeholder={`Message ${peer}…`}
+                placeholder={t("chatSheet.messagePlaceholder", { peer })}
                 value={draft}
                 maxLength={1000}
                 onChange={(e) => setDraft(e.target.value)}
@@ -365,7 +367,7 @@ export function ChatSheet({
                 className="chat-send"
                 onClick={() => void send()}
                 disabled={!draft.trim() || sending}
-                aria-label="Send"
+                aria-label={t("chatSheet.send")}
               >
                 <SendIcon size={18} />
               </button>

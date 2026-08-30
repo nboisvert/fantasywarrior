@@ -19,9 +19,11 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { InfoIcon } from "./Icons";
+import { useLanguage } from "../i18n/LanguageContext";
 import "./TradeRatingInfo.css";
 
 export function TradeRatingInfo() {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
 
   return (
@@ -29,7 +31,7 @@ export function TradeRatingInfo() {
       <button
         type="button"
         className="trade-rating-info-trigger"
-        aria-label="What does the trade rating mean?"
+        aria-label={t("tradeRatingInfo.triggerAria")}
         onClick={(e) => {
           e.stopPropagation();
           setOpen(true);
@@ -49,30 +51,25 @@ export function TradeRatingInfo() {
             }}
           >
             <div className="trade-rating-info" onClick={(e) => e.stopPropagation()}>
-              <span className="trade-rating-info-title">Trade rating</span>
-              <p>
-                How much the league agrees on who won a trade — not how good the trade actually was. It's always
-                shown for whichever side the vote favored; a "fair" vote counts as half a point for each side.
-              </p>
+              <span className="trade-rating-info-title">{t("tradeRatingInfo.title")}</span>
+              <p>{t("tradeRatingInfo.intro")}</p>
               <ul>
                 <li>
-                  <strong className="rating-tier-even">50</strong> — dead even, a genuine coin flip.
+                  <strong className="rating-tier-even">50</strong> — {t("tradeRatingInfo.tierEven")}
                 </li>
                 <li>
-                  <strong className="rating-tier-lean">50–65</strong> — a mild lean, still close.
+                  <strong className="rating-tier-lean">50–65</strong> — {t("tradeRatingInfo.tierLean")}
                 </li>
                 <li>
-                  <strong className="rating-tier-clear">65–85</strong> — most voters agree.
+                  <strong className="rating-tier-clear">65–85</strong> — {t("tradeRatingInfo.tierClear")}
                 </li>
                 <li>
-                  <strong className="rating-tier-consensus">85–100</strong> — near or total consensus.
+                  <strong className="rating-tier-consensus">85–100</strong> — {t("tradeRatingInfo.tierConsensus")}
                 </li>
               </ul>
-              <p className="muted">
-                Read it together with the vote count — 100 out of 3 votes flips easily, 80 out of 20 doesn't.
-              </p>
+              <p className="muted">{t("tradeRatingInfo.footnote")}</p>
               <button type="button" className="btn-outline" onClick={() => setOpen(false)}>
-                Got it
+                {t("tradeRatingInfo.gotIt")}
               </button>
             </div>
           </div>,

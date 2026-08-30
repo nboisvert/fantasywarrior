@@ -27,6 +27,8 @@ import type {
 type InjuryStatus = NonNullable<InjuryFields["injuryStatus"]>;
 import { LoadingLogo } from "../components/LoadingLogo";
 import { PlayerCard } from "../components/PlayerCard";
+import { useLanguage } from "../i18n/LanguageContext";
+import type { Vars } from "../i18n/LanguageContext";
 import {
   ArrowDownIcon, ArrowLeftIcon, ArrowUpIcon, ChevronDownIcon, CircleCheckIcon, CircleIcon, InfoIcon,
   CalendarIcon, CrossIcon, GavelIcon, LogInIcon, LogOutIcon,
@@ -88,16 +90,17 @@ function LineupToggle({
   // A player who leaves before next week has no lineup row to set, so there is
   // nothing to tap even when the week itself is open. Shown inert rather than
   // hidden: a slot going quietly empty is the confusing outcome.
+  const { t } = useLanguage();
   const gone = pending === "gone";
   const canTap = editable && !gone;
 
-  const now = entry.active ? "active" : "benched";
+  const now = entry.active ? t("stats.lineupActive") : t("stats.lineupBenched");
   const change =
-    pending === "in" ? ", coming into next week's lineup"
-    : pending === "out" ? ", dropping out of next week's lineup"
-    : gone ? ", leaving the team before next week"
+    pending === "in" ? t("stats.lineupChangeIn")
+    : pending === "out" ? t("stats.lineupChangeOut")
+    : gone ? t("stats.lineupChangeGone")
     : "";
-  const label = `${entry.name} — ${now}${change}${canTap ? ", tap to change next week" : ""}`;
+  const label = `${entry.name} — ${now}${change}${canTap ? t("stats.lineupTapHint") : ""}`;
   const className = `lineup-toggle${entry.active ? " on" : ""}${canTap ? "" : " static"}`;
   const icon = entry.active ? <CircleCheckIcon size={16} /> : <CircleIcon size={16} />;
 
@@ -176,10 +179,11 @@ function LineupPicker({
   onBench: () => void;
   onClose: () => void;
 }) {
+  const { t } = useLanguage();
   const options = replacementsFor(entry, entries);
   const title = entry.active
-    ? `Replace ${formatShortName(entry.name)} for week ${periodIndex}`
-    : `Bring in ${formatShortName(entry.name)} for week ${periodIndex}`;
+    ? t("stats.pickerReplaceTitle", { name: formatShortName(entry.name), week: periodIndex })
+    : t("stats.pickerBringInTitle", { name: formatShortName(entry.name), week: periodIndex });
 
   return (
     <div className="lineup-picker-overlay" role="dialog" aria-modal="true" aria-label={title} onClick={onClose}>
@@ -194,17 +198,17 @@ function LineupPicker({
         {entry.active ? (
           <>
             <button type="button" className="lineup-picker-option" disabled={busy} onClick={onBench}>
-              <span className="lineup-picker-name">Bench, leave the slot open</span>
+              <span className="lineup-picker-name">{t("stats.pickerBench")}</span>
             </button>
-            {options.length > 0 && <span className="lineup-picker-sub">or swap in</span>}
+            {options.length > 0 && <span className="lineup-picker-sub">{t("stats.pickerOrSwapIn")}</span>}
           </>
         ) : slotIsFree ? (
           <button type="button" className="lineup-picker-option" disabled={busy} onClick={() => onSwap(entry.spotId)}>
-            <span className="lineup-picker-name">Activate — a {entry.positionGroup} slot is open</span>
+            <span className="lineup-picker-name">{t("stats.pickerActivate", { pos: entry.positionGroup })}</span>
           </button>
         ) : (
           <span className="lineup-picker-sub">
-            Every {entry.positionGroup} slot is taken. Choose who sits out.
+            {t("stats.pickerAllTaken", { pos: entry.positionGroup })}
           </span>
         )}
 
@@ -216,7 +220,7 @@ function LineupPicker({
             disabled={busy || o.leaving}
             aria-label={
               o.leaving
-                ? `${o.name} — leaves the team before week ${periodIndex}, cannot be selected`
+                ? t("stats.pickerLeavingAria", { name: o.name, week: periodIndex })
                 : undefined
             }
             onClick={() => onSwap(o.spotId)}
@@ -228,13 +232,13 @@ function LineupPicker({
               {o.leaving && (
                 <span className="lineup-picker-note leaving">
                   <LogOutIcon size={11} />
-                  leaves the team
+                  {t("stats.pickerLeavesTeam")}
                 </span>
               )}
               {o.arriving && (
                 <span className="lineup-picker-note arriving">
                   <LogInIcon size={11} />
-                  arriving via trade
+                  {t("stats.pickerArrivingViaTrade")}
                 </span>
               )}
             </span>
@@ -244,11 +248,11 @@ function LineupPicker({
         ))}
 
         {entry.active && options.length === 0 && (
-          <span className="lineup-picker-sub">Nobody on the bench plays {entry.positionGroup}.</span>
+          <span className="lineup-picker-sub">{t("stats.pickerNobodyPlays", { pos: entry.positionGroup })}</span>
         )}
 
         <button type="button" className="btn-outline lineup-picker-cancel" onClick={onClose}>
-          Cancel
+          {t("common.cancel")}
         </button>
       </div>
     </div>
@@ -264,8 +268,9 @@ function LineupPicker({
  * suspended man is injured. The kind is decided server-side — see
  * InjuryClassifier — so this only picks a glyph. */
 function InjuryMark({ status, type }: { status: InjuryStatus; type: string | null }) {
-  const kind = status === "Suspended" ? "Suspended" : "Injured";
-  const label = type ? `${kind} — ${type}` : kind;
+  const { t } = useLanguage();
+  const kind = status === "Suspended" ? t("stats.suspendedKind") : t("stats.injuredKind");
+  const label = t("stats.injuryLabel", { kind, type });
   return (
     <span className="stats-injury" role="img" aria-label={label} title={label}>
       {status === "Suspended" ? <GavelIcon size={11} /> : <CrossIcon size={10} />}
@@ -281,7 +286,8 @@ function InjuryMark({ status, type }: { status: InjuryStatus; type: string | nul
  * so it reads as a continuation of an existing convention rather than a new
  * one. Icon + aria-label always accompany the colour. */
 function TradeMarkIcon({ direction }: { direction: "out" | "in" }) {
-  const label = direction === "out" ? "Leaving via trade" : "Arriving via trade";
+  const { t } = useLanguage();
+  const label = direction === "out" ? t("stats.leavingViaTrade") : t("stats.arrivingViaTrade");
   return (
     <span className={`stats-trade stats-trade-${direction}`} role="img" aria-label={label} title={label}>
       {direction === "out" ? <LogOutIcon size={11} /> : <LogInIcon size={11} />}
@@ -303,17 +309,18 @@ const shortDate = (iso: string) =>
  * RosterAssignment, which is the only grain this app stores.
  */
 function PlayerPeriods({ data, isGoalie }: { data: PlayerPeriodsDto; isGoalie: boolean }) {
+  const { t } = useLanguage();
   const { periods, totals } = data;
   if (periods.length === 0)
-    return <p className="muted player-periods-empty">No weeks scored for this player yet.</p>;
+    return <p className="muted player-periods-empty">{t("stats.noWeeksScored")}</p>;
 
   return (
     <div className="player-periods">
       <table className="player-periods-table">
         <thead>
           <tr>
-            <th>Week</th>
-            <th aria-label="In the lineup" />
+            <th>{t("stats.colWeek")}</th>
+            <th aria-label={t("stats.colInLineupAria")} />
             <th>GP</th>
             {isGoalie ? <><th>W</th><th>SV</th></> : <><th>G</th><th>A</th></>}
             <th className="player-periods-pts">PT</th>
@@ -343,15 +350,13 @@ function PlayerPeriods({ data, isGoalie }: { data: PlayerPeriodsDto; isGoalie: b
 
       <div className="player-periods-totals">
         <span>
-          <strong>{totals.activePoints}</strong> pts over {totals.activeWeeks} week
-          {totals.activeWeeks === 1 ? "" : "s"} in the lineup
+          <strong>{totals.activePoints}</strong> {t("stats.periodsActiveTail", { weeks: totals.activeWeeks })}
         </span>
         {totals.benchPoints > 0 && (
           /* The number this panel exists to surface: what he scored while his
              GM had him benched. */
           <span className="player-periods-bench">
-            {totals.benchPoints} left on the bench over {totals.benchedWeeks} week
-            {totals.benchedWeeks === 1 ? "" : "s"}
+            {t("stats.periodsBenchTotal", { pts: totals.benchPoints, weeks: totals.benchedWeeks })}
           </span>
         )}
       </div>
@@ -600,9 +605,12 @@ export type PositionFilter = "ALL" | "F" | "D" | "G";
 
 /** "No forwards on this list." — the empty state a position filter can reach
  * that `emptyLabel` can't: the grid has players, just none in this group. */
-function positionFilterEmptyLabel(filter: PositionFilter): string {
-  const noun = filter === "F" ? "forwards" : filter === "D" ? "defensemen" : "goalies";
-  return `No ${noun} here.`;
+function positionFilterEmptyLabel(filter: PositionFilter, t: (key: string, vars?: Vars) => string): string {
+  const noun =
+    filter === "F" ? t("stats.positionEmptyForwards")
+    : filter === "D" ? t("stats.positionEmptyDefensemen")
+    : t("stats.positionEmptyGoalies");
+  return t("stats.positionEmpty", { noun });
 }
 
 /** All/F/D/G, right-aligned against the Roster title (Nick, 2026-08-25) —
@@ -623,14 +631,15 @@ export function PositionFilterControl({
   value: PositionFilter;
   onChange: (filter: PositionFilter) => void;
 }) {
+  const { t } = useLanguage();
   const options: { key: PositionFilter; label: string }[] = [
-    { key: "ALL", label: "All" },
+    { key: "ALL", label: t("stats.filterAll") },
     { key: "F", label: "F" },
     { key: "D", label: "D" },
     { key: "G", label: "G" },
   ];
   return (
-    <div className="stats-position-filter" role="group" aria-label="Filter roster by position">
+    <div className="stats-position-filter" role="group" aria-label={t("stats.filterAria")}>
       {options.map((opt) => {
         const active = value === opt.key;
         // "ALL" has no position colour of its own — it keeps the button's
@@ -694,6 +703,7 @@ function RosterGrid({
    * above, but stay silent about changing it. */
   onPositionFilterChange?: (filter: PositionFilter) => void;
 }) {
+  const { t } = useLanguage();
   // Applied before anything else touches `rows`, so sorting, totals and the
   // Extra-position goalie split all naturally see only what the filter lets
   // through — one filter step, not one per downstream computation.
@@ -749,7 +759,7 @@ function RosterGrid({
       {rows.length === 0 ? (
         <p className="empty-state">{emptyLabel}</p>
       ) : filteredRows.length === 0 ? (
-        <p className="empty-state">{positionFilterEmptyLabel(positionFilter)}</p>
+        <p className="empty-state">{positionFilterEmptyLabel(positionFilter, t)}</p>
       ) : (
       <div className="stats-grid-scroll">
         <table className="stats-grid">
@@ -757,21 +767,21 @@ function RosterGrid({
             <tr className="stats-group-row">
               <th className="stats-col-player stats-sortable" rowSpan={2} scope="col">
                 <button type="button" className="stats-sort-btn" onClick={() => sort.toggle("name")}>
-                  Player
+                  {t("stats.colPlayer")}
                   {sort.key === "name" && (
                     <ChevronDownIcon size={12} className={`stats-sort-icon${sort.dir === "asc" ? " asc" : ""}`} />
                   )}
                 </button>
               </th>
-              <GroupHead label="Fantasy point" span={5} accent />
+              <GroupHead label={t("stats.groupFantasyPoint")} span={5} accent />
               {/* "Record", not "Goalie", since 2026-08-05: the Équipe slot
                   reports W/L/OTL in the same three columns, and a goalie's
                   W/OTL/SO was always a record anyway. L is filled for the
                   franchise alone — no goalie loss total is stored. */}
-              <GroupHead label="Record" span={4} />
-              <GroupHead label="NHL" span={5} />
-              <GroupHead label="Extra" span={5} />
-              <GroupHead label="Cap hit" span={2} />
+              <GroupHead label={t("stats.groupRecord")} span={4} />
+              <GroupHead label={t("stats.groupNhl")} span={5} />
+              <GroupHead label={t("stats.groupExtra")} span={5} />
+              <GroupHead label={t("stats.groupCapHit")} span={2} />
             </tr>
             <tr>
               <SortableHead label="GP" colKey="poolGamesPlayed" active={sort.key === "poolGamesPlayed"} dir={sort.dir} onSort={sort.toggle} accent groupStart />
@@ -793,7 +803,7 @@ function RosterGrid({
               <SortableHead label="SOG" colKey="shots" active={sort.key === "shots"} dir={sort.dir} onSort={sort.toggle} />
               <SortableHead label="GAA" colKey="gaa" active={sort.key === "gaa"} dir={sort.dir} onSort={sort.toggle} />
               <SortableHead label="SV%" colKey="svPct" active={sort.key === "svPct"} dir={sort.dir} onSort={sort.toggle} />
-              <SortableHead label="Cap hit" colKey="capHit" active={sort.key === "capHit"} dir={sort.dir} onSort={sort.toggle} groupStart />
+              <SortableHead label={t("stats.groupCapHit")} colKey="capHit" active={sort.key === "capHit"} dir={sort.dir} onSort={sort.toggle} groupStart />
               <SortableHead label="$/PT" colKey="costPerPoint" active={sort.key === "costPerPoint"} dir={sort.dir} onSort={sort.toggle} />
             </tr>
           </thead>
@@ -822,7 +832,7 @@ function RosterGrid({
                       column is already proven to stick, at the exact width
                       `--stats-player-w` gives every other row. */}
                   <td className="stats-col-player stats-prospect-label-cell">
-                    <div className="stats-col-player-inner">Prospects</div>
+                    <div className="stats-col-player-inner">{t("stats.prospects")}</div>
                   </td>
                   <td colSpan={21} />
                 </tr>
@@ -891,8 +901,8 @@ function RosterGrid({
                       className={`stats-periods-btn${openPeriodsFor === r.id ? " open" : ""}`}
                       onClick={() => onTogglePeriods(r.id)}
                       aria-expanded={openPeriodsFor === r.id}
-                      aria-label={`${r.name} — week by week`}
-                      title="Week by week"
+                      aria-label={t("stats.weekByWeekAria", { name: r.name })}
+                      title={t("stats.weekByWeek")}
                     >
                       <CalendarIcon size={13} />
                     </button>
@@ -936,7 +946,7 @@ function RosterGrid({
                     {periodsByPlayer[r.id] ? (
                       <PlayerPeriods data={periodsByPlayer[r.id]} isGoalie={r.isGoalie} />
                     ) : (
-                      <p className="muted player-periods-empty">Loading…</p>
+                      <p className="muted player-periods-empty">{t("common.loading")}…</p>
                     )}
                   </td>
                 </tr>
@@ -948,7 +958,7 @@ function RosterGrid({
           <tfoot>
             <tr>
               <th className="stats-col-player" scope="row">
-                <div className="stats-col-player-inner">Total</div>
+                <div className="stats-col-player-inner">{t("stats.total")}</div>
               </th>
               <td className="accent stats-group-start">{poolGp}</td>
               <td className="accent">{poolGoalsTotal}</td>
@@ -995,6 +1005,7 @@ export function Stats({
   targetUsername: string;
   onBackToStandings: () => void;
 }) {
+  const { t } = useLanguage();
   const [players, setPlayers] = useState<PlayerSeasonStatsRow[] | null>(null);
   const [departed, setDeparted] = useState<PlayerSeasonStatsRow[] | null>(null);
   const [incoming, setIncoming] = useState<PlayerSeasonStatsRow[] | null>(null);
@@ -1043,12 +1054,15 @@ export function Stats({
       })
       .catch((e: unknown) => {
         if (ignore) return;
-        setError(e instanceof Error ? e.message : "Could not load stats.");
+        setError(e instanceof Error ? e.message : t("stats.couldNotLoadStats"));
         setLoading(false);
       });
     return () => {
       ignore = true;
     };
+    // `t` is intentionally excluded: a language toggle should not re-fetch the
+    // whole grid just to re-word a fallback string nothing has hit yet.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [league.id, targetUsername]);
 
   // Two weeks are in play at once, and keeping them apart is the whole point:
@@ -1102,7 +1116,7 @@ export function Stats({
       await api.setLineup(league.id, targetUsername, nextLineup.periodIndex, next);
     } catch (e: unknown) {
       setNextLineup(previous);
-      setLineupError(e instanceof Error ? e.message : "Could not save the lineup.");
+      setLineupError(e instanceof Error ? e.message : t("stats.couldNotSaveLineup"));
     } finally {
       setSaving(false);
     }
@@ -1151,7 +1165,7 @@ export function Stats({
 
   const viewedTeam = league.teams.find((t) => t.ownerUsername === targetUsername);
   const isOwnTeam = targetUsername === username;
-  if (!viewedTeam) return <p className="empty-state">Team not found in this league.</p>;
+  if (!viewedTeam) return <p className="empty-state">{t("stats.teamNotFound")}</p>;
 
   // Cap gauge figures — moved here verbatim from the retired Roster screen
   // (2026-07-26, per Nick): the Stats grid already lists every rostered
@@ -1278,7 +1292,7 @@ export function Stats({
       {!isOwnTeam && (
         <button type="button" className="btn-ghost stats-back" onClick={onBackToStandings}>
           <ArrowLeftIcon size={16} />
-          Back to standings
+          {t("stats.backToStandings")}
         </button>
       )}
 
@@ -1287,7 +1301,7 @@ export function Stats({
           <span className="roster-team-name">{viewedTeam.name}</span>
           <span className="stats-score-col">
             <span className="stats-score-value">{viewedTeam.score}</span>
-            <span className="stats-score-label">Points</span>
+            <span className="stats-score-label">{t("stats.points")}</span>
           </span>
         </div>
         {!isOwnTeam && <small className="muted stats-team-owner">@{viewedTeam.ownerUsername}</small>}
@@ -1301,7 +1315,7 @@ export function Stats({
             >
               <InfoIcon size={14} />
               <span>
-                Cap {formatMoneyCompact(capUsed)} / {formatMoneyCompact(capMax)}
+                {t("stats.capSummary", { used: formatMoneyCompact(capUsed), max: formatMoneyCompact(capMax) })}
               </span>
               <ChevronDownIcon size={14} className={`stats-cap-chevron${capExpanded ? " asc" : ""}`} />
             </button>
@@ -1310,11 +1324,11 @@ export function Stats({
                 <div className="pc-tiles roster-cap-tiles">
                   <div className={`pc-tile${over ? " danger" : " accent"}`}>
                     <span className="pc-tile-value">{formatMoneyCompact(Math.abs(capAvailable))}</span>
-                    <span className="pc-tile-label">{over ? "Over budget" : "Available"}</span>
+                    <span className="pc-tile-label">{over ? t("stats.capOverBudget") : t("stats.capAvailable")}</span>
                   </div>
                   <div className={`pc-tile${over ? " danger" : ""}`}>
                     <span className="pc-tile-value">{pctDisplay}%</span>
-                    <span className="pc-tile-label">Used</span>
+                    <span className="pc-tile-label">{t("stats.capUsed")}</span>
                   </div>
                 </div>
                 <div
@@ -1323,15 +1337,17 @@ export function Stats({
                   aria-valuenow={Math.round(pctBarWidth)}
                   aria-valuemin={0}
                   aria-valuemax={100}
-                  aria-valuetext={`${pctDisplay}% of cap used, ${formatMoneyCompact(Math.abs(capAvailable))} ${
-                    over ? "over budget" : "available"
-                  }`}
-                  aria-label="Salary cap used"
+                  aria-valuetext={t("stats.capValueText", {
+                    pct: pctDisplay,
+                    amount: formatMoneyCompact(Math.abs(capAvailable)),
+                    state: over ? t("stats.capOverBudgetState") : t("stats.capAvailableState"),
+                  })}
+                  aria-label={t("stats.capAria")}
                 >
                   <div className={`cap-fill${over ? " over" : ""}`} style={{ width: `${pctBarWidth}%` }} />
                 </div>
                 <small className="muted roster-cap-sub">
-                  {formatCap(capUsed)} committed of {formatCap(capMax)} cap
+                  {t("stats.capCommitted", { used: formatCap(capUsed), max: formatCap(capMax) })}
                 </small>
               </div>
             )}
@@ -1346,16 +1362,16 @@ export function Stats({
           at the point of choosing, which is where it matters most. */}
       {lineupError && <p className="error-banner">{lineupError}</p>}
 
-      {loading && <LoadingLogo label="Loading stats…" />}
+      {loading && <LoadingLogo label={t("stats.loadingStats")} />}
       {!loading && error && <p className="error-banner">{error}</p>}
 
       {!loading && !error && (
         <>
           <RosterGrid
             rows={rows}
-            title="Roster"
-            subtitle={`${rows.length}${maxRosterSize != null ? ` / ${maxRosterSize}` : ""} player`}
-            emptyLabel="No players on this roster."
+            title={t("stats.rosterTitle")}
+            subtitle={t("stats.rosterSubtitle", { count: rows.length, max: maxRosterSize })}
+            emptyLabel={t("stats.rosterEmpty")}
             lineupByPlayer={lineupBySpotPlayer}
             pendingFor={pendingFor}
             lineupEditable={!!nextLineup && !nextLineup.locked && nextLineup.isOwner}
@@ -1376,9 +1392,9 @@ export function Stats({
           {departedRows.length > 0 && (
             <RosterGrid
               rows={departedRows}
-              title="Departed"
-              subtitle={`${departedRows.length} player, points kept`}
-              emptyLabel="Nobody has left this roster."
+              title={t("stats.departedTitle")}
+              subtitle={t("stats.departedSubtitle", { count: departedRows.length })}
+              emptyLabel={t("stats.departedEmpty")}
               saving={saving}
               onOpenPlayer={setOpenPlayerId}
               openPeriodsFor={openPeriodsFor}
@@ -1398,9 +1414,9 @@ export function Stats({
           {incomingRows.length > 0 && (
             <RosterGrid
               rows={incomingRows}
-              title="Incoming"
-              subtitle={`${incomingRows.length} player, on the roster when the week turns`}
-              emptyLabel="Nobody arriving."
+              title={t("stats.incomingTitle")}
+              subtitle={t("stats.incomingSubtitle", { count: incomingRows.length })}
+              emptyLabel={t("stats.incomingEmpty")}
               saving={saving}
               onOpenPlayer={setOpenPlayerId}
               openPeriodsFor={openPeriodsFor}

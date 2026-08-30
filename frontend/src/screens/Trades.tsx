@@ -20,6 +20,7 @@ import { ArrowLeftRightIcon } from "../components/Icons";
 import { CreateTradeSheet } from "../components/CreateTradeSheet";
 import { TradeVoteWidget } from "../components/TradeVoteWidget";
 import { LoadingLogo } from "../components/LoadingLogo";
+import { useLanguage } from "../i18n/LanguageContext";
 
 const formatDateTime = (iso: string) =>
   new Date(iso).toLocaleString("en-US", {
@@ -33,13 +34,16 @@ const formatDateTime = (iso: string) =>
 /** The one date worth putting at the top of a card, labelled by what it marks:
  * when the offer was proposed (still pending), accepted (awaiting tonight's
  * processing), or actually processed. */
-function primaryDate(t: Trade): { label: string; date: string } {
-  if (t.status === "processed" && t.processedUtc) return { label: "Processed", date: formatDateTime(t.processedUtc) };
-  if (t.status === "accepted" && t.respondedUtc) return { label: "Accepted", date: formatDateTime(t.respondedUtc) };
-  return { label: "Proposed", date: formatDateTime(t.createdUtc) };
+function primaryDate(trade: Trade, t: (key: string) => string): { label: string; date: string } {
+  if (trade.status === "processed" && trade.processedUtc)
+    return { label: t("trades.dateProcessed"), date: formatDateTime(trade.processedUtc) };
+  if (trade.status === "accepted" && trade.respondedUtc)
+    return { label: t("trades.dateAccepted"), date: formatDateTime(trade.respondedUtc) };
+  return { label: t("trades.dateProposed"), date: formatDateTime(trade.createdUtc) };
 }
 
 export function Trades({ league, username }: { league: LeagueDetail; username: string }) {
+  const { t } = useLanguage();
   const [trades, setTrades] = useState<Trade[] | null>(null);
   const [error, setError] = useState("");
   const [showCreate, setShowCreate] = useState(false);
@@ -56,10 +60,10 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
         setTrades(list);
         setError("");
       })
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : "Could not load trades."));
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : t("trades.couldNotLoad")));
   };
 
-  useEffect(load, [league.id, username]);
+  useEffect(load, [league.id, username, t]);
 
   const pointsById = useMemo(() => {
     const map = new Map<number, number>();
@@ -89,7 +93,7 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
       await api.respondTrade(league.id, tradeId, username, accept);
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not respond to trade.");
+      setError(e instanceof Error ? e.message : t("trades.couldNotRespond"));
     } finally {
       setBusyId(null);
     }
@@ -119,14 +123,14 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
     const rest = acquires.filter((p) => !topIds.has(p.id));
     return (
       <div className={`trade-side trade-side-${align}`}>
-        <span className="trade-side-name">To {teamName}</span>
+        <span className="trade-side-name">{t("trades.toTeam", { team: teamName })}</span>
         <div className="trade-side-acquired">
           {top.length === 0 ? (
-            <span className="muted">nothing</span>
+            <span className="muted">{t("trades.nothing")}</span>
           ) : (
             top.map((p) => <span key={p.id}>{p.name}</span>)
           )}
-          {!expanded && rest.length > 0 && <span className="muted">+{rest.length} more</span>}
+          {!expanded && rest.length > 0 && <span className="muted">{t("trades.more", { count: rest.length })}</span>}
           {expanded && rest.map((p) => <span key={p.id}>{p.name}</span>)}
         </div>
       </div>
@@ -136,13 +140,13 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
   /** The card's top line: the relevant date (prominent, left) and, for an
    * accepted-not-yet-processed trade, the awaiting pill (right). */
   const cardHead = (trade: Trade) => {
-    const { label, date } = primaryDate(trade);
+    const { label, date } = primaryDate(trade, t);
     return (
       <div className="trade-row-head">
         <span className="trade-row-date">
           <span className="trade-row-date-label">{label}</span> {date}
         </span>
-        {trade.status === "accepted" && <span className="trade-awaiting-pill">Awaiting processing</span>}
+        {trade.status === "accepted" && <span className="trade-awaiting-pill">{t("trades.awaitingProcessing")}</span>}
       </div>
     );
   };
@@ -203,7 +207,7 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
       return (
         <div className="trade-vote-teaser-wrap">
           <button type="button" className="trade-vote-teaser cast" onClick={() => toggleExpanded(trade.id)}>
-            Cast your vote
+            {t("trades.castYourVote")}
           </button>
         </div>
       );
@@ -213,7 +217,7 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
       return (
         <div className="trade-vote-teaser-wrap">
           <button type="button" className="trade-vote-teaser empty" onClick={() => toggleExpanded(trade.id)}>
-            No votes yet
+            {t("trades.noVotesYet")}
           </button>
         </div>
       );
@@ -226,17 +230,15 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
         <button type="button" className="trade-vote-collapsed-text" onClick={() => toggleExpanded(trade.id)}>
           {winnerName ? (
             <>
-              <strong>{winnerName}</strong> won the trade
+              <strong>{winnerName}</strong> {t("trades.wonTheTrade")}
             </>
           ) : (
-            <strong>Fair trade</strong>
+            <strong>{t("trades.fairTrade")}</strong>
           )}{" "}
-          <span className="muted">
-            out of {votes.total} vote{votes.total === 1 ? "" : "s"}
-          </span>
+          <span className="muted">{t("trades.outOfVotes", { total: votes.total })}</span>
         </button>
         <button type="button" className="trade-vote-rating-mini" onClick={() => toggleExpanded(trade.id)}>
-          <strong className={`rating-tier-${tier}`}>{rating}</strong> Rating
+          <strong className={`rating-tier-${tier}`}>{rating}</strong> {t("trades.ratingLabel")}
         </button>
       </div>
     );
@@ -258,7 +260,7 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
             {trade.status === "processed" ? (
               <TradeVoteWidget leagueId={league.id} trade={trade} username={username} onVoted={load} />
             ) : (
-              <small className="muted">Accepted — the rosters swap with tonight's scoring update.</small>
+              <small className="muted">{t("trades.acceptedNote")}</small>
             )}
           </div>
         )}
@@ -269,36 +271,36 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
   return (
     <section className="fade-in" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
       <div className="trades-header">
-        <span className="section-title">Trades</span>
+        <span className="section-title">{t("trades.title")}</span>
         <button className="btn-ghost" onClick={() => setShowCreate(true)}>
           <ArrowLeftRightIcon size={16} />
-          Propose trade
+          {t("trades.proposeTrade")}
         </button>
       </div>
 
       {error && <p className="error-banner">{error}</p>}
-      {trades === null && !error && <LoadingLogo label="Loading trades…" />}
+      {trades === null && !error && <LoadingLogo label={t("trades.loadingTrades")} />}
 
       {trades !== null && (
         <>
           {(received.length > 0 || sent.length > 0) && (
             <div>
-              <span className="section-title">Pending</span>
+              <span className="section-title">{t("trades.pending")}</span>
 
               {received.length > 0 && (
                 <>
-                  <span className="trade-subhead">Received</span>
+                  <span className="trade-subhead">{t("trades.received")}</span>
                   <ul className="trade-list">
-                    {received.map((t) => (
-                      <li key={t.id} className="card trade-row trade-row-received">
-                        {cardHead(t)}
-                        {teamsSplitToggle(t)}
+                    {received.map((rt) => (
+                      <li key={rt.id} className="card trade-row trade-row-received">
+                        {cardHead(rt)}
+                        {teamsSplitToggle(rt)}
                         <div className="trade-actions">
-                          <button className="btn" disabled={busyId === t.id} onClick={() => respond(t.id, true)}>
-                            Accept
+                          <button className="btn" disabled={busyId === rt.id} onClick={() => respond(rt.id, true)}>
+                            {t("trades.accept")}
                           </button>
-                          <button className="btn-outline danger" disabled={busyId === t.id} onClick={() => respond(t.id, false)}>
-                            Decline
+                          <button className="btn-outline danger" disabled={busyId === rt.id} onClick={() => respond(rt.id, false)}>
+                            {t("trades.decline")}
                           </button>
                         </div>
                       </li>
@@ -309,15 +311,15 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
 
               {sent.length > 0 && (
                 <>
-                  <span className="trade-subhead">Sent</span>
+                  <span className="trade-subhead">{t("trades.sent")}</span>
                   <ul className="trade-list">
-                    {sent.map((t) => (
-                      <li key={t.id} className="card trade-row">
-                        {cardHead(t)}
-                        {teamsSplitToggle(t)}
+                    {sent.map((st) => (
+                      <li key={st.id} className="card trade-row">
+                        {cardHead(st)}
+                        {teamsSplitToggle(st)}
                         <div className="trade-actions">
-                          <button className="btn-outline danger" disabled={busyId === t.id} onClick={() => respond(t.id, false)}>
-                            Cancel offer
+                          <button className="btn-outline danger" disabled={busyId === st.id} onClick={() => respond(st.id, false)}>
+                            {t("trades.cancelOffer")}
                           </button>
                         </div>
                       </li>
@@ -329,9 +331,9 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
           )}
 
           <div>
-            <span className="section-title">League trades</span>
+            <span className="section-title">{t("trades.leagueTrades")}</span>
             {history.length === 0 ? (
-              <p className="empty-state">No trades yet.</p>
+              <p className="empty-state">{t("trades.noTradesYet")}</p>
             ) : (
               <ul className="trade-list">{history.map((t) => historyCard(t))}</ul>
             )}

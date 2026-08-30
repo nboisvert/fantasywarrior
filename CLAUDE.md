@@ -8,7 +8,7 @@ the solution. Your AI agent name is **Macklin Softwarini**.
 
 ## Stack
 
-- **Frontend**: React (mobile-first) + TypeScript + Vite on **GitHub Pages**. UI in English only.
+- **Frontend**: React (mobile-first) + TypeScript + Vite on **GitHub Pages**. UI is bilingual (English/French) — a hand-rolled dictionary + context (`frontend/src/i18n/`), not a library, matching the app's near-zero-dependency style. The language a user last picked lives on their account (`User.Language`) and follows them across devices; pre-login it falls back to the browser's language. **"pool" is reserved for promotional copy** (the login screen's slogan) — everywhere functional, in either language, it's **"league"/"ligue"**. Backend validation-error strings are not translated yet — a known limitation, see `project_status.md`.
 - **Database**: **Azure SQL** (serverless, free tier) via **EF Core 10**.
 - **API**: **.NET 10 minimal API**, Docker, on **Azure Container Apps** (scales to zero), resource group `fw`, same region as the database.
 - **Auth**: none yet. The API trusts the username the client sends. Firebase Auth is the intended replacement.

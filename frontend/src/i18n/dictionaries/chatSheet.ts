@@ -1,0 +1,33 @@
+export const en = {
+  conversationWith: (v: { peer: string }) => `Conversation with ${v.peer}`,
+  messages: "Messages",
+  backToConversations: "Back to conversations",
+  closeMessages: "Close messages",
+  connecting: "Connecting…",
+  loading: "Loading…",
+  noOtherGms: "No other GMs in this league yet.",
+  youPrefix: "You: ",
+  noMessagesYet: "No messages yet",
+  unreadAria: (v: { count: number | string }) => `${v.count} unread`,
+  online: "Online",
+  sayToPeer: (v: { peer: string }) => `Say something to ${v.peer}.`,
+  messagePlaceholder: (v: { peer: string }) => `Message ${v.peer}…`,
+  send: "Send",
+};
+
+export const fr = {
+  conversationWith: (v: { peer: string }) => `Conversation avec ${v.peer}`,
+  messages: "Messages",
+  backToConversations: "Retour aux conversations",
+  closeMessages: "Fermer les messages",
+  connecting: "Connexion…",
+  loading: "Chargement…",
+  noOtherGms: "Encore aucun autre DG dans cette ligue.",
+  youPrefix: "Toi : ",
+  noMessagesYet: "Aucun message pour l'instant",
+  unreadAria: (v: { count: number | string }) => `${v.count} non lus`,
+  online: "En ligne",
+  sayToPeer: (v: { peer: string }) => `Écris-lui quelque chose, à ${v.peer}.`,
+  messagePlaceholder: (v: { peer: string }) => `Message à ${v.peer}…`,
+  send: "Envoyer",
+};

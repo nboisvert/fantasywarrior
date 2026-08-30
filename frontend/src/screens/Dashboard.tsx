@@ -13,6 +13,8 @@ import { ActivityIcon, UsersIcon } from "../components/Icons";
 import { PlayerCard } from "../components/PlayerCard";
 import { TopPlayerGrid } from "../components/TopPlayerGrid";
 import type { TopPlayerCard } from "../components/TopPlayerGrid";
+import { useLanguage } from "../i18n/LanguageContext";
+import type { Language } from "../i18n/LanguageContext";
 
 /** A lineup entry that holds a player, as against the Équipe slot's, which
  * holds a franchise and has no player id or position group to rank by. */
@@ -56,8 +58,10 @@ function nhlHeadline(
  * same number starts reading two ways on two screens. */
 
 
-/** 1 -> "1st", 3 -> "3rd", 11 -> "11th", etc. */
-function ordinal(n: number): string {
+/** 1 -> "1st", 3 -> "3rd", 11 -> "11th", etc. French has no teens exception —
+ * every rank but 1st takes a bare "e" (1er, 2e, 3e, 11e...). */
+function ordinal(n: number, lang: Language): string {
+  if (lang === "fr") return n === 1 ? "1er" : `${n}e`;
   const rem100 = n % 100;
   if (rem100 >= 11 && rem100 <= 13) return `${n}th`;
   switch (n % 10) {
@@ -73,6 +77,7 @@ function ordinal(n: number): string {
 }
 
 export function Dashboard({ league, username }: { league: LeagueDetail; username: string }) {
+  const { lang, t } = useLanguage();
   const [openPlayerId, setOpenPlayerId] = useState<number | null>(null);
 
   const myIndex = league.teams.findIndex((t) => t.ownerUsername === username);
@@ -82,51 +87,51 @@ export function Dashboard({ league, username }: { league: LeagueDetail; username
   if (!myTeam) {
     return (
       <section className="fade-in dash-stack">
-        <p className="empty-state">You don't have a team in this league.</p>
+        <p className="empty-state">{t("dashboard.noTeam")}</p>
       </section>
     );
   }
 
-  const leaderScore = league.teams.reduce((max, t) => Math.max(max, t.score), -Infinity);
+  const leaderScore = league.teams.reduce((max, tm) => Math.max(max, tm.score), -Infinity);
   const isLeading = myTeam.score >= leaderScore;
   const pointsBehind = isLeading ? null : leaderScore - myTeam.score;
 
   const capOver = league.capAmount != null && league.capAmount - myTeam.capTotal < 0;
   const capValue =
-    league.capAmount == null ? "No cap" : formatCapCompact(league.capAmount - myTeam.capTotal);
+    league.capAmount == null ? t("dashboard.noCap") : formatCapCompact(league.capAmount - myTeam.capTotal);
 
   return (
     <section className="fade-in dash-stack">
       <div className="card dash-glance">
-        <span className="section-title">At a glance</span>
+        <span className="section-title">{t("dashboard.atAGlance")}</span>
         <div className="pc-tiles">
           <div className="pc-tile">
             <span className="pc-tile-value">{league.myRoster.length}</span>
-            <span className="pc-tile-label">Players</span>
+            <span className="pc-tile-label">{t("dashboard.players")}</span>
           </div>
           <div className={`pc-tile${capOver ? " danger" : ""}`}>
             <span className="pc-tile-value">{capValue}</span>
-            <span className="pc-tile-label">Cap Space</span>
+            <span className="pc-tile-label">{t("dashboard.capSpace")}</span>
           </div>
           <div className="pc-tile">
-            <span className="pc-tile-value">{myRank != null ? ordinal(myRank) : "—"}</span>
-            <span className="pc-tile-label">Rank</span>
+            <span className="pc-tile-value">{myRank != null ? ordinal(myRank, lang) : "—"}</span>
+            <span className="pc-tile-label">{t("dashboard.rank")}</span>
           </div>
           <div className="pc-tile accent">
             <span className="pc-tile-value">{myTeam.score}</span>
-            <span className="pc-tile-label">Points</span>
+            <span className="pc-tile-label">{t("dashboard.points")}</span>
           </div>
         </div>
         <p className="dash-leader-note muted">
-          {isLeading ? "Leading the pool" : `-${pointsBehind} vs leader`}
+          {isLeading ? t("dashboard.leadingThePool") : t("dashboard.behindLeader", { points: pointsBehind })}
           {league.currentPeriod && (
             <>
               {" · "}
               {league.currentPeriod.gameCount === 0
-                ? `Week ${league.currentPeriod.index}: league break`
-                : `Week ${league.currentPeriod.index}: +${myTeam.periodPoints ?? 0} pts`}
+                ? t("dashboard.weekBreak", { index: league.currentPeriod.index })
+                : t("dashboard.weekPoints", { index: league.currentPeriod.index, points: myTeam.periodPoints ?? 0 })}
               {/* Bench regret is the point of a weekly lineup — surface it. */}
-              {(myTeam.benchScore ?? 0) > 0 && `, ${myTeam.benchScore} benched`}
+              {(myTeam.benchScore ?? 0) > 0 && t("dashboard.benchedSuffix", { count: myTeam.benchScore })}
             </>
           )}
         </p>
@@ -163,6 +168,7 @@ function TopReserve({
   username: string;
   onOpenPlayer: (playerId: number) => void;
 }) {
+  const { t } = useLanguage();
   const [cards, setCards] = useState<TopPlayerCard[] | null>(null);
   const previousIndex = league.currentPeriod ? league.currentPeriod.index - 1 : null;
   const hasHistory = lastTwoWeeks(previousIndex).length > 0;
@@ -220,7 +226,7 @@ function TopReserve({
               statUnit: headline.unit,
               // The one thing a GM cannot infer from the card — the section's
               // title says nothing about how far back it looks.
-              statWindow: "last 2 weeks",
+              statWindow: t("dashboard.lastTwoWeeks"),
               secondaryLine: rawLine(e.positionGroup, e),
             };
           });
@@ -232,17 +238,15 @@ function TopReserve({
     return () => {
       ignore = true;
     };
-  }, [league.id, username, previousIndex]);
+  }, [league.id, username, previousIndex, t]);
 
   if (cards === null) return null;
   return (
     <TopPlayerGrid
-      title="Top Reserve"
+      title={t("dashboard.topReserve")}
       icon={<ActivityIcon size={16} />}
       cards={cards}
-      emptyMessage={
-        hasHistory ? "No bench standouts in the last 2 weeks." : "No previous week yet."
-      }
+      emptyMessage={hasHistory ? t("dashboard.noBenchStandouts") : t("dashboard.noPreviousWeek")}
       onOpenPlayer={onOpenPlayer}
     />
   );
@@ -260,6 +264,7 @@ function TopFreeAgents({
   league: LeagueDetail;
   onOpenPlayer: (playerId: number) => void;
 }) {
+  const { t } = useLanguage();
   const [cards, setCards] = useState<TopPlayerCard[] | null>(null);
 
   useEffect(() => {
@@ -297,10 +302,10 @@ function TopFreeAgents({
   if (cards === null) return null;
   return (
     <TopPlayerGrid
-      title="Top Free Agents"
+      title={t("dashboard.topFreeAgents")}
       icon={<UsersIcon size={16} />}
       cards={cards}
-      emptyMessage="No free agents have played yet this season."
+      emptyMessage={t("dashboard.noFreeAgentsYet")}
       onOpenPlayer={onOpenPlayer}
     />
   );

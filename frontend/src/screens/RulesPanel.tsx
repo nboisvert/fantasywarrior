@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { InfoIcon } from "../components/Icons";
 import { api } from "../api";
 import type { LeagueDetail, RuleGap, RuleSet } from "../api";
+import { useLanguage } from "../i18n/LanguageContext";
 
 /**
  * Commissioner-only league rules — the whole configuration surface, in the
@@ -29,6 +30,7 @@ export function RulesPanel({
   onSaved: () => void;
   onClose: () => void;
 }): React.JSX.Element {
+  const { t } = useLanguage();
   const [rules, setRules] = useState<RuleSet>(structuredClone(league.ruleSet));
   const [gaps, setGaps] = useState<RuleGap[]>(league.unsupported);
   const [error, setError] = useState("");
@@ -63,54 +65,51 @@ export function RulesPanel({
     }
   };
 
+  const groupLabel = (key: (typeof GROUPS)[number]["key"]) => t(`rulesPanel.${GROUP_LABEL_KEY[key]}`);
+  const statLabel = (key: string) => t(`rulesPanel.${STAT_LABEL_KEY[key] ?? key}`);
+
   return (
     <form onSubmit={save} className="card fade-in rules-panel">
-      <span className="section-title">League rules (commissioner)</span>
+      <span className="section-title">{t("rulesPanel.panelTitle")}</span>
       {error && <p className="error-banner">{error}</p>}
 
-      <Section title="Pool">
+      <Section title={t("rulesPanel.sectionPool")}>
         <Gap gap={gapAt("poolType")} />
         <div className="rules-grid">
           <label>
-            Type
+            {t("rulesPanel.poolTypeLabel")}
             <select
               className="field"
               value={rules.poolType}
               onChange={(e) => edit((d) => (d.poolType = e.target.value as RuleSet["poolType"]))}
             >
-              <option value="keeper">Keeper — rosters carry over</option>
-              <option value="singleSeason">Single season — redraft every year</option>
+              <option value="keeper">{t("rulesPanel.poolTypeKeeper")}</option>
+              <option value="singleSeason">{t("rulesPanel.poolTypeSingleSeason")}</option>
             </select>
           </label>
         </div>
       </Section>
 
-      <Section
-        title="Salary cap"
-        note="Enforced on trades and on draft selections, against the engaged figures — a trade already accepted counts before it lands."
-      >
+      <Section title={t("rulesPanel.sectionCap")} note={t("rulesPanel.capNote")}>
         <Gap gap={gapAt("cap.min")} />
         <div className="rules-grid">
           <Money
-            label="Cap ceiling"
+            label={t("rulesPanel.capCeiling")}
             value={rules.cap.max}
-            placeholder="no cap"
+            placeholder={t("rulesPanel.noCap")}
             onChange={(v) => edit((d) => (d.cap.max = v))}
           />
           <Money
-            label="Cap floor"
+            label={t("rulesPanel.capFloor")}
             value={rules.cap.min}
-            placeholder="no floor"
+            placeholder={t("rulesPanel.noFloor")}
             onChange={(v) => edit((d) => (d.cap.min = v))}
           />
         </div>
-        <small className="muted">
-          What a player with no contract on file counts against the cap. Unsigned free
-          agents and undrafted prospects never get a salary — set 0 to carry them for free.
-        </small>
+        <small className="muted">{t("rulesPanel.capDefaultNote")}</small>
         <div className="rules-grid">
           <Money
-            label="Unsigned player counts as"
+            label={t("rulesPanel.unsignedCountsAs")}
             value={rules.cap.defaultCapHit}
             placeholder="0"
             onChange={(v) => edit((d) => (d.cap.defaultCapHit = v ?? 0))}
@@ -118,40 +117,37 @@ export function RulesPanel({
         </div>
       </Section>
 
-      <Section title="Roster size" note="Enforced on trades, when proposed and when accepted.">
+      <Section title={t("rulesPanel.sectionRoster")} note={t("rulesPanel.rosterNote")}>
         <Gap gap={gapAt("roster.byPosition")} />
         <div className="rules-grid">
           <Count
-            label="Minimum"
+            label={t("rulesPanel.minimum")}
             value={rules.roster.min}
-            placeholder="no limit"
+            placeholder={t("rulesPanel.noLimit")}
             onChange={(v) => edit((d) => (d.roster.min = v))}
           />
           <Count
-            label="Maximum"
+            label={t("rulesPanel.maximum")}
             value={rules.roster.max}
-            placeholder="no limit"
+            placeholder={t("rulesPanel.noLimit")}
             onChange={(v) => edit((d) => (d.roster.max = v))}
           />
         </div>
-        <small className="muted">
-          Per position, on top of the overall bounds. Empty means that group is not
-          constrained on its own.
-        </small>
+        <small className="muted">{t("rulesPanel.rosterByPositionNote")}</small>
         <div className="rules-grid">
-          {GROUPS.map(({ key, label }) => (
+          {GROUPS.map(({ key }) => (
             <Count
               key={`rmin-${key}`}
-              label={`${label} min`}
+              label={t("rulesPanel.groupMin", { label: groupLabel(key) })}
               value={rules.roster.byPosition[key].min}
               placeholder="—"
               onChange={(v) => edit((d) => (d.roster.byPosition[key].min = v))}
             />
           ))}
-          {GROUPS.map(({ key, label }) => (
+          {GROUPS.map(({ key }) => (
             <Count
               key={`rmax-${key}`}
-              label={`${label} max`}
+              label={t("rulesPanel.groupMax", { label: groupLabel(key) })}
               value={rules.roster.byPosition[key].max}
               placeholder="—"
               onChange={(v) => edit((d) => (d.roster.byPosition[key].max = v))}
@@ -159,32 +155,29 @@ export function RulesPanel({
           ))}
         </div>
         <small className="muted">
-          Équipe slot (each GM owns one NHL franchise that scores):{" "}
-          <strong>{rules.roster.franchiseSlot ? "yes" : "no"}</strong>. Set when the league
-          is built — turning it on here would create no slots.
+          {t("rulesPanel.franchiseSlotPrefix")}{" "}
+          <strong>{rules.roster.franchiseSlot ? t("rulesPanel.yes") : t("rulesPanel.no")}</strong>.{" "}
+          {t("rulesPanel.franchiseSlotSuffix")}
         </small>
       </Section>
 
-      <Section
-        title="Weekly lineup"
-        note="How many players each GM may activate per position. Only active players score, and fielding fewer is allowed."
-      >
+      <Section title={t("rulesPanel.sectionLineup")} note={t("rulesPanel.lineupNote")}>
         <Gap gap={gapAt("lineup.mode")} />
         <Gap gap={gapAt("lineup.onMissing")} />
         <div className="rules-grid">
           <label>
-            Who scores
+            {t("rulesPanel.whoScores")}
             <select
               className="field"
               value={rules.lineup.mode}
               onChange={(e) => edit((d) => (d.lineup.mode = e.target.value as RuleSet["lineup"]["mode"]))}
             >
-              <option value="activeSelection">The GM picks each week</option>
-              <option value="topN">The best N per position, automatically</option>
+              <option value="activeSelection">{t("rulesPanel.modeActiveSelection")}</option>
+              <option value="topN">{t("rulesPanel.modeTopN")}</option>
             </select>
           </label>
           <label>
-            A forgotten lineup
+            {t("rulesPanel.forgottenLineup")}
             <select
               className="field"
               value={rules.lineup.onMissing}
@@ -192,16 +185,16 @@ export function RulesPanel({
                 edit((d) => (d.lineup.onMissing = e.target.value as RuleSet["lineup"]["onMissing"]))
               }
             >
-              <option value="carryForward">Carries forward from last week</option>
-              <option value="scoreZero">Scores nothing</option>
+              <option value="carryForward">{t("rulesPanel.onMissingCarryForward")}</option>
+              <option value="scoreZero">{t("rulesPanel.onMissingScoreZero")}</option>
             </select>
           </label>
         </div>
         <div className="rules-grid">
-          {GROUPS.map(({ key, label }) => (
+          {GROUPS.map(({ key }) => (
             <Count
               key={`slot-${key}`}
-              label={label}
+              label={groupLabel(key)}
               value={rules.lineup.slots[key]}
               placeholder="0"
               onChange={(v) => edit((d) => (d.lineup.slots[key] = v ?? 0))}
@@ -210,18 +203,15 @@ export function RulesPanel({
         </div>
       </Section>
 
-      <Section
-        title="Point values"
-        note="Any stat the app tracks can be scored — adding one is a setting, not a release."
-      >
+      <Section title={t("rulesPanel.sectionScoring")} note={t("rulesPanel.scoringNote")}>
         <Gap gap={gapAt("scoring.byPosition")} />
         <Gap gap={gapAt("scoring.includePlayoffs")} />
         <div className="rules-grid">
           {SCORED_STATS.filter(
             ({ key }) => !TEAM_STATS.includes(key) || rules.roster.franchiseSlot,
-          ).map(({ key, label }) => (
+          ).map(({ key }) => (
             <label key={key}>
-              {label}
+              {statLabel(key)}
               <input
                 className="field"
                 inputMode="decimal"
@@ -239,11 +229,11 @@ export function RulesPanel({
             checked={rules.scoring.includePlayoffs}
             onChange={(e) => edit((d) => (d.scoring.includePlayoffs = e.target.checked))}
           />
-          Playoff games score
+          {t("rulesPanel.playoffGamesScore")}
         </label>
       </Section>
 
-      <Section title="Trades">
+      <Section title={t("rulesPanel.sectionTrades")}>
         <Gap gap={gapAt("trades.approval")} />
         <Gap gap={gapAt("trades.pickYearsAhead")} />
         <label className="rules-check">
@@ -252,7 +242,7 @@ export function RulesPanel({
             checked={rules.trades.enabled}
             onChange={(e) => edit((d) => (d.trades.enabled = e.target.checked))}
           />
-          Trades are allowed
+          {t("rulesPanel.tradesAllowed")}
         </label>
         <label className="rules-check">
           <input
@@ -260,17 +250,17 @@ export function RulesPanel({
             checked={rules.trades.picksTradable}
             onChange={(e) => edit((d) => (d.trades.picksTradable = e.target.checked))}
           />
-          Draft picks can be traded
+          {t("rulesPanel.picksTradable")}
         </label>
         <div className="rules-grid">
           <Count
-            label="Picks exist this many years ahead"
+            label={t("rulesPanel.picksYearsAhead")}
             value={rules.trades.pickYearsAhead}
             placeholder="1"
             onChange={(v) => edit((d) => (d.trades.pickYearsAhead = v ?? 1))}
           />
           <label>
-            Approval
+            {t("rulesPanel.approval")}
             <select
               className="field"
               value={rules.trades.approval}
@@ -278,29 +268,26 @@ export function RulesPanel({
                 edit((d) => (d.trades.approval = e.target.value as RuleSet["trades"]["approval"]))
               }
             >
-              <option value="none">Both GMs agreeing is enough</option>
-              <option value="commissioner">The commissioner may veto</option>
-              <option value="leagueVote">The league votes</option>
+              <option value="none">{t("rulesPanel.approvalNone")}</option>
+              <option value="commissioner">{t("rulesPanel.approvalCommissioner")}</option>
+              <option value="leagueVote">{t("rulesPanel.approvalLeagueVote")}</option>
             </select>
           </label>
         </div>
       </Section>
 
-      <Section
-        title="Off-season protections"
-        note="How many roster spots each GM shelters before the steal draft. A player with too little NHL experience is safe for free and costs no slot."
-      >
+      <Section title={t("rulesPanel.sectionProtections")} note={t("rulesPanel.protectionsNote")}>
         <Gap gap={gapAt("protection.slotsByPosition")} />
         <Gap gap={gapAt("protection.afterDraft")} />
         <div className="rules-grid">
           <Count
-            label="Protection slots"
+            label={t("rulesPanel.protectionSlots")}
             value={rules.protection.slots}
-            placeholder="not configured"
+            placeholder={t("rulesPanel.notConfigured")}
             onChange={(v) => edit((d) => (d.protection.slots = v))}
           />
           <label>
-            Unclaimed exposed players
+            {t("rulesPanel.unclaimedExposed")}
             <select
               className="field"
               value={rules.protection.afterDraft}
@@ -312,8 +299,8 @@ export function RulesPanel({
                 )
               }
             >
-              <option value="stayWithTeam">Stay on their team</option>
-              <option value="releasedToFreeAgents">Are released to free agency</option>
+              <option value="stayWithTeam">{t("rulesPanel.afterDraftStay")}</option>
+              <option value="releasedToFreeAgents">{t("rulesPanel.afterDraftReleased")}</option>
             </select>
           </label>
         </div>
@@ -323,21 +310,18 @@ export function RulesPanel({
             checked={rules.protection.auto.enabled}
             onChange={(e) => edit((d) => (d.protection.auto.enabled = e.target.checked))}
           />
-          Protect inexperienced players for free
+          {t("rulesPanel.protectFree")}
         </label>
-        <small className="muted">
-          Goalies count separately and lower: a goalie plays about half his club's games,
-          so a skater's bar would keep him untouchable for twice as many seasons.
-        </small>
+        <small className="muted">{t("rulesPanel.goalieNote")}</small>
         <div className="rules-grid">
           <Count
-            label="Skater career NHL games"
+            label={t("rulesPanel.skaterCareerGames")}
             value={rules.protection.auto.skaterMaxCareerGames}
             placeholder="100"
             onChange={(v) => edit((d) => (d.protection.auto.skaterMaxCareerGames = v ?? 0))}
           />
           <Count
-            label="Goalie career NHL games"
+            label={t("rulesPanel.goalieCareerGames")}
             value={rules.protection.auto.goalieMaxCareerGames}
             placeholder="50"
             onChange={(v) => edit((d) => (d.protection.auto.goalieMaxCareerGames = v ?? 0))}
@@ -345,13 +329,13 @@ export function RulesPanel({
         </div>
       </Section>
 
-      <Section title="Off-season draft">
+      <Section title={t("rulesPanel.sectionDraft")}>
         <Gap gap={gapAt("draft.unprotectedDisposition")} />
         <Gap gap={gapAt("draft.steal.turnsTradable")} />
         <Gap gap={gapAt("draft.snake")} />
         <div className="rules-grid">
           <label>
-            Unprotected players
+            {t("rulesPanel.unprotectedPlayers")}
             <select
               className="field"
               value={rules.draft.unprotectedDisposition}
@@ -363,26 +347,26 @@ export function RulesPanel({
                 )
               }
             >
-              <option value="stealRounds">Are taken in dedicated steal rounds</option>
-              <option value="openPool">Join the ordinary draft pool</option>
+              <option value="stealRounds">{t("rulesPanel.unprotectedStealRounds")}</option>
+              <option value="openPool">{t("rulesPanel.unprotectedOpenPool")}</option>
             </select>
           </label>
           <Count
-            label="Steal rounds"
+            label={t("rulesPanel.stealRounds")}
             value={rules.draft.steal.rounds}
             placeholder="0"
             onChange={(v) => edit((d) => (d.draft.steal.rounds = v ?? 0))}
           />
           <Count
-            label="Most a team may lose"
+            label={t("rulesPanel.mostTeamMayLose")}
             value={rules.draft.steal.maxLossesPerTeam}
-            placeholder="uncapped"
+            placeholder={t("rulesPanel.uncapped")}
             onChange={(v) => edit((d) => (d.draft.steal.maxLossesPerTeam = v))}
           />
           <Count
-            label="Rookie rounds"
+            label={t("rulesPanel.rookieRounds")}
             value={rules.draft.rookieRounds}
-            placeholder="no draft"
+            placeholder={t("rulesPanel.noDraft")}
             onChange={(v) => edit((d) => (d.draft.rookieRounds = v))}
           />
         </div>
@@ -392,7 +376,7 @@ export function RulesPanel({
             checked={rules.draft.steal.turnsTradable}
             onChange={(e) => edit((d) => (d.draft.steal.turnsTradable = e.target.checked))}
           />
-          Steal turns can be traded
+          {t("rulesPanel.stealTurnsTradable")}
         </label>
         <label className="rules-check">
           <input
@@ -400,15 +384,15 @@ export function RulesPanel({
             checked={rules.draft.snake}
             onChange={(e) => edit((d) => (d.draft.snake = e.target.checked))}
           />
-          Snake order (reverses every round)
+          {t("rulesPanel.snakeOrder")}
         </label>
       </Section>
 
-      <Section title="Free agency">
+      <Section title={t("rulesPanel.sectionFreeAgency")}>
         <Gap gap={gapAt("freeAgency.mode")} />
         <div className="rules-grid">
           <label>
-            When
+            {t("rulesPanel.when")}
             <select
               className="field"
               value={rules.freeAgency.mode}
@@ -416,13 +400,13 @@ export function RulesPanel({
                 edit((d) => (d.freeAgency.mode = e.target.value as RuleSet["freeAgency"]["mode"]))
               }
             >
-              <option value="none">Never — trades and the draft only</option>
-              <option value="anytime">Any time</option>
-              <option value="windows">Only in set windows</option>
+              <option value="none">{t("rulesPanel.freeAgencyNever")}</option>
+              <option value="anytime">{t("rulesPanel.freeAgencyAnytime")}</option>
+              <option value="windows">{t("rulesPanel.freeAgencyWindows")}</option>
             </select>
           </label>
           <label>
-            What
+            {t("rulesPanel.what")}
             <select
               className="field"
               value={rules.freeAgency.allow}
@@ -430,30 +414,29 @@ export function RulesPanel({
                 edit((d) => (d.freeAgency.allow = e.target.value as RuleSet["freeAgency"]["allow"]))
               }
             >
-              <option value="both">Add and drop</option>
-              <option value="add">Add only</option>
-              <option value="drop">Drop only</option>
+              <option value="both">{t("rulesPanel.allowBoth")}</option>
+              <option value="add">{t("rulesPanel.allowAdd")}</option>
+              <option value="drop">{t("rulesPanel.allowDrop")}</option>
             </select>
           </label>
           <Count
-            label="Moves per week"
+            label={t("rulesPanel.movesPerWeek")}
             value={rules.freeAgency.movesPerPeriod}
-            placeholder="unlimited"
+            placeholder={t("rulesPanel.unlimited")}
             onChange={(v) => edit((d) => (d.freeAgency.movesPerPeriod = v))}
           />
         </div>
       </Section>
 
       <p className="muted" style={{ margin: 0, fontSize: "0.8rem" }}>
-        Applies from the next nightly scoring run. Weeks already scored keep the scale
-        they were played under — changing the rules mid-season does not restate history.
+        {t("rulesPanel.footerNote")}
       </p>
       <div style={{ display: "flex", gap: "0.6rem" }}>
         <button type="submit" className="btn" disabled={busy} style={{ flex: 1 }}>
-          {busy ? "Saving…" : "Save rules"}
+          {busy ? t("rulesPanel.saving") : t("rulesPanel.saveRules")}
         </button>
         <button type="button" className="btn-outline" onClick={onClose}>
-          Cancel
+          {t("common.cancel")}
         </button>
       </div>
     </form>
@@ -487,12 +470,13 @@ function Section({
  * server says so, so a feature shipping removes the badge with no change here.
  */
 function Gap({ gap }: { gap: RuleGap | undefined }): React.JSX.Element | null {
+  const { t } = useLanguage();
   if (!gap) return null;
   return (
     <p className="rules-gap">
       <InfoIcon size={14} />
       <span>
-        <strong>Not enforced yet.</strong> {gap.message}
+        <strong>{t("rulesPanel.notEnforcedYet")}</strong> {gap.message}
       </span>
     </p>
   );
@@ -562,6 +546,13 @@ const GROUPS = [
   { key: "goalies", label: "Goalies" },
 ] as const;
 
+/** Dictionary leaf name for each group's translated label — see `groupLabel` above. */
+const GROUP_LABEL_KEY: Record<(typeof GROUPS)[number]["key"], string> = {
+  forwards: "groupForwards",
+  defense: "groupDefense",
+  goalies: "groupGoalies",
+};
+
 const TEAM_STATS = ["teamWins", "teamOtLosses", "teamLosses"];
 
 /**
@@ -584,3 +575,20 @@ const SCORED_STATS = [
   { key: "teamOtLosses", label: "Franchise OT loss" },
   { key: "teamLosses", label: "Franchise loss" },
 ];
+
+/** Dictionary leaf name for each stat's translated label — see `statLabel` above. */
+const STAT_LABEL_KEY: Record<string, string> = {
+  goals: "statGoal",
+  assists: "statAssist",
+  wins: "statGoalieWin",
+  otLosses: "statGoalieOtLoss",
+  shutouts: "statShutout",
+  plusMinus: "statPlusMinus",
+  pim: "statPim",
+  shots: "statShot",
+  hits: "statHit",
+  blockedShots: "statBlockedShot",
+  teamWins: "statFranchiseWin",
+  teamOtLosses: "statFranchiseOtLoss",
+  teamLosses: "statFranchiseLoss",
+};

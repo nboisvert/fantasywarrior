@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import type { LeagueSeasonSummary } from "../api";
 import { ArrowLeftIcon, TrophyIcon } from "../components/Icons";
+import { useLanguage } from "../i18n/LanguageContext";
 
 // "20262027" -> "2026-27". Same small formatter PlayerCard.tsx carries for its
 // own career rows — deliberately not shared, since two characters of slicing
@@ -11,13 +12,13 @@ function formatSeason(season: string): string {
   return `${season.slice(0, 4)}-${season.slice(6)}`;
 }
 
-const PHASE_LABEL: Record<LeagueSeasonSummary["phase"], string> = {
-  Preparing: "Preparing",
-  Protecting: "Protection window open",
-  Drafting: "Draft in progress",
-  PreSeason: "Pre-season",
-  InSeason: "In season",
-  Complete: "Complete",
+const PHASE_KEY: Record<LeagueSeasonSummary["phase"], string> = {
+  Preparing: "phasePreparing",
+  Protecting: "phaseProtecting",
+  Drafting: "phaseDrafting",
+  PreSeason: "phasePreSeason",
+  InSeason: "phaseInSeason",
+  Complete: "phaseComplete",
 };
 
 /**
@@ -26,6 +27,7 @@ const PHASE_LABEL: Record<LeagueSeasonSummary["phase"], string> = {
  * bottom-nav tab (already full) or a second shortcut anywhere else.
  */
 export function Palmares({ leagueId, onClose }: { leagueId: string; onClose: () => void }) {
+  const { t } = useLanguage();
   const [seasons, setSeasons] = useState<LeagueSeasonSummary[] | null>(null);
   const [error, setError] = useState("");
 
@@ -51,17 +53,17 @@ export function Palmares({ leagueId, onClose }: { leagueId: string; onClose: () 
           type="button"
           className="icon-btn"
           onClick={onClose}
-          aria-label="Back to standings"
+          aria-label={t("palmares.back")}
           style={{ flexShrink: 0 }}
         >
           <ArrowLeftIcon size={20} />
         </button>
-        <span className="section-title">Palmarès</span>
+        <span className="section-title">{t("palmares.title")}</span>
       </div>
 
       {error && <p className="error-banner">{error}</p>}
-      {seasons === null && !error && <p className="muted">Loading…</p>}
-      {seasons?.length === 0 && <p className="empty-state">No season recorded yet.</p>}
+      {seasons === null && !error && <p className="muted">{t("palmares.loading")}</p>}
+      {seasons?.length === 0 && <p className="empty-state">{t("palmares.noSeason")}</p>}
 
       <ol className="standings-list">
         {seasons?.map((s) => (
@@ -70,9 +72,9 @@ export function Palmares({ leagueId, onClose }: { leagueId: string; onClose: () 
               <span className="rank r1">{s.number}</span>
               <div className="standing-info">
                 <div className="team">
-                  {s.championTeamName ?? <span className="muted">{PHASE_LABEL[s.phase]}</span>}
+                  {s.championTeamName ?? <span className="muted">{t(`palmares.${PHASE_KEY[s.phase]}`)}</span>}
                 </div>
-                <small>Season {s.number} · {formatSeason(s.season)}</small>
+                <small>{t("palmares.seasonLine", { number: s.number, formatted: formatSeason(s.season) })}</small>
               </div>
               {s.phase === "Complete" && (
                 <div className="standing-points">

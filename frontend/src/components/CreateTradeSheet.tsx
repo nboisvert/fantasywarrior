@@ -10,6 +10,7 @@ import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent
 import { api, formatCapCompact, formatShortName, posGroup, posGroupClass } from "../api";
 import type { DraftPickDto, LeagueDetail, TeamDto } from "../api";
 import { ArrowRightIcon, ChevronDownIcon, CircleCheckIcon, CircleXIcon, XIcon } from "./Icons";
+import { useLanguage } from "../i18n/LanguageContext";
 import "./PlayerCard.css";
 import "./CreateTradeSheet.css";
 
@@ -88,6 +89,7 @@ function impactOf(
  * such bridge.
  */
 function SideBoard({ impact }: { impact: SideImpact }) {
+  const { t } = useLanguage();
   const bad = impact.violations.length > 0;
   const capBust = impact.violations.includes("cap");
   const rosterBust = impact.violations.includes("max") || impact.violations.includes("min");
@@ -95,9 +97,9 @@ function SideBoard({ impact }: { impact: SideImpact }) {
   return (
     <div className={`cts-board${bad ? " bad" : ""}`}>
       <span className="cts-board-metric">
-        <span className="cts-board-key">Cap</span>
+        <span className="cts-board-key">{t("createTradeSheet.cap")}</span>
         {impact.spaceBefore == null ? (
-          <span className="muted">none</span>
+          <span className="muted">{t("createTradeSheet.none")}</span>
         ) : (
           <>
             <span className="muted">{formatCapCompact(impact.spaceBefore)}</span>
@@ -111,7 +113,7 @@ function SideBoard({ impact }: { impact: SideImpact }) {
       </span>
 
       <span className="cts-board-metric">
-        <span className="cts-board-key">Roster</span>
+        <span className="cts-board-key">{t("createTradeSheet.roster")}</span>
         <span className="muted">{impact.countBefore}</span>
         <ArrowRightIcon size={11} className="cts-board-arrow" />
         <span className={rosterBust ? "cts-board-over" : "cts-board-now"}>{impact.countAfter}</span>
@@ -120,7 +122,7 @@ function SideBoard({ impact }: { impact: SideImpact }) {
       {impact.unknownContracts > 0 && (
         // Counted as $0 by the standings and by the server alike. Saying so is
         // the only honest option — we cannot validate a salary nobody has.
-        <span className="cts-board-unknown muted">{impact.unknownContracts} with no contract</span>
+        <span className="cts-board-unknown muted">{t("createTradeSheet.noContract", { count: impact.unknownContracts })}</span>
       )}
 
       <span className="cts-board-verdict">
@@ -130,7 +132,8 @@ function SideBoard({ impact }: { impact: SideImpact }) {
   );
 }
 
-const pickLabel = (p: DraftPickDto) => `${p.year} rd ${p.round}`;
+const pickLabel = (p: DraftPickDto, t: (key: string, vars?: Record<string, string | number>) => string) =>
+  t("createTradeSheet.pickLabel", { year: p.year, round: p.round });
 
 /**
  * One side of the trade: a card that is either the scrolling picker or, when
@@ -178,11 +181,12 @@ function SideCard({
   /** This card's own team. Null only before a counterparty is resolved. */
   impact: SideImpact | null;
 }) {
+  const { t } = useLanguage();
   const chosenPlayers = players.filter((p) => selectedPlayers.has(p.id));
   const chosenPicks = picks.filter((p) => selectedPicks.has(p.id));
   const names = [
     ...chosenPlayers.map((p) => formatShortName(p.name)),
-    ...chosenPicks.map(pickLabel),
+    ...chosenPicks.map((p) => pickLabel(p, t)),
     ...(franchiseSelected && franchise ? [franchise.name] : []),
   ];
 
@@ -201,7 +205,7 @@ function SideCard({
           truncated answer sends you back in. Wraps rather than clips. */}
       <div className="cts-card-assets">
         {names.length === 0 ? (
-          <span className="muted">Nothing selected</span>
+          <span className="muted">{t("createTradeSheet.nothingSelected")}</span>
         ) : (
           names.map((n) => (
             <span key={n} className="cts-asset-tag">
@@ -214,9 +218,9 @@ function SideCard({
       {open && (
         <div className="cts-card-body">
           {loading ? (
-            <p className="empty-state cts-empty">Loading roster…</p>
+            <p className="empty-state cts-empty">{t("createTradeSheet.loadingRoster")}</p>
           ) : players.length === 0 && picks.length === 0 && franchise == null ? (
-            <p className="empty-state cts-empty">Nothing on this roster.</p>
+            <p className="empty-state cts-empty">{t("createTradeSheet.nothingOnRoster")}</p>
           ) : (
             <ul className="cts-asset-list">
               {players.map((p) => (
@@ -235,7 +239,7 @@ function SideCard({
                     {/* Shown rather than hidden: a player who simply vanished
                         from the list would read as a bug. */}
                     <span className="cts-row-cap muted">
-                      {p.engaged ? "in a trade" : formatCapCompact(p.capHit)}
+                      {p.engaged ? t("createTradeSheet.inATrade") : formatCapCompact(p.capHit)}
                     </span>
                   </label>
                 </li>
@@ -243,7 +247,7 @@ function SideCard({
 
               {picks.length > 0 && (
                 <li className="cts-row-divider" aria-hidden="true">
-                  Draft picks
+                  {t("createTradeSheet.draftPicks")}
                 </li>
               )}
               {picks.map((p) => (
@@ -256,12 +260,12 @@ function SideCard({
                       onChange={() => onTogglePick(p.id)}
                     />
                     <span className="cts-row-name">
-                      {pickLabel(p)}
+                      {pickLabel(p, t)}
                       {/* "Martin's 2nd, via Boston" is only expressible because
                           the original owner survives every trade. */}
-                      {p.viaTrade && <span className="muted"> · via {p.originalTeamName}</span>}
+                      {p.viaTrade && <span className="muted"> · {t("createTradeSheet.via", { team: p.originalTeamName })}</span>}
                     </span>
-                    {p.engaged && <span className="cts-row-cap muted">in a trade</span>}
+                    {p.engaged && <span className="cts-row-cap muted">{t("createTradeSheet.inATrade")}</span>}
                   </label>
                 </li>
               ))}
@@ -273,7 +277,7 @@ function SideCard({
               {franchise && (
                 <>
                   <li className="cts-row-divider" aria-hidden="true">
-                    Franchise
+                    {t("createTradeSheet.franchise")}
                   </li>
                   <li>
                     <label className={`cts-row${franchise.engaged ? " engaged" : ""}`}>
@@ -288,7 +292,7 @@ function SideCard({
                       {/* Shown rather than hidden, same as a player: a
                           franchise that simply vanished would read as a bug. */}
                       <span className="cts-row-cap muted">
-                        {franchise.engaged ? "in a trade" : "no cap"}
+                        {franchise.engaged ? t("createTradeSheet.inATrade") : t("createTradeSheet.noCap")}
                       </span>
                     </label>
                   </li>
@@ -319,6 +323,7 @@ export function CreateTradeSheet({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const { t } = useLanguage();
   const sheetRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
 
@@ -407,7 +412,7 @@ export function CreateTradeSheet({
         setTheirPickList(picks);
       })
       .catch(() => {
-        if (!ignore) setError("Could not load that team's roster.");
+        if (!ignore) setError(t("createTradeSheet.couldNotLoadRoster"));
       })
       .finally(() => {
         if (!ignore) setTheirLoading(false);
@@ -415,7 +420,7 @@ export function CreateTradeSheet({
     return () => {
       ignore = true;
     };
-  }, [counterparty, league.id]);
+  }, [counterparty, league.id, t]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -508,7 +513,7 @@ export function CreateTradeSheet({
       onCreated();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not propose trade.");
+      setError(e instanceof Error ? e.message : t("createTradeSheet.couldNotPropose"));
       setSubmitting(false);
     }
   };
@@ -522,12 +527,12 @@ export function CreateTradeSheet({
         className="pc-sheet"
         role="dialog"
         aria-modal="true"
-        aria-label="Propose a trade"
+        aria-label={t("createTradeSheet.dialogLabel")}
         onKeyDown={trapFocus}
       >
         <div className="pc-top">
           <span className="pc-handle" aria-hidden="true" />
-          <button ref={closeRef} className="pc-close" onClick={onClose} aria-label="Close">
+          <button ref={closeRef} className="pc-close" onClick={onClose} aria-label={t("common.close")}>
             <XIcon size={20} />
           </button>
         </div>
@@ -536,11 +541,11 @@ export function CreateTradeSheet({
             carries it, and the height it was spending is what the recap needs. */}
         <div className="pc-body cts-body">
           {otherTeams.length === 0 ? (
-            <p className="empty-state">No other team to trade with.</p>
+            <p className="empty-state">{t("createTradeSheet.noOtherTeam")}</p>
           ) : (
             <>
               <label className="cts-field">
-                <span className="section-title">Trade with</span>
+                <span className="section-title">{t("createTradeSheet.tradeWith")}</span>
                 <select
                   className="field cts-select"
                   value={counterparty}
@@ -556,7 +561,7 @@ export function CreateTradeSheet({
 
               <div className="cts-sides">
                 <SideCard
-                  title={`You give · ${myTeam.name}`}
+                  title={t("createTradeSheet.youGive", { team: myTeam.name })}
                   open={openSide === "give"}
                   onOpen={() => toggleSide("give")}
                   players={myPlayers}
@@ -571,7 +576,7 @@ export function CreateTradeSheet({
                   impact={myImpact}
                 />
                 <SideCard
-                  title={`You get · ${counterpartyTeam?.name ?? "—"}`}
+                  title={t("createTradeSheet.youGet", { team: counterpartyTeam?.name ?? "—" })}
                   open={openSide === "get"}
                   onOpen={() => toggleSide("get")}
                   players={theirPlayers}
@@ -589,7 +594,7 @@ export function CreateTradeSheet({
               </div>
 
               {franchiseUnbalanced && (
-                <p className="error-banner">A franchise can only be traded for another franchise.</p>
+                <p className="error-banner">{t("createTradeSheet.franchiseUnbalanced")}</p>
               )}
               {error && <p className="error-banner">{error}</p>}
 
@@ -601,7 +606,7 @@ export function CreateTradeSheet({
                 disabled={!canSubmit}
                 onClick={submit}
               >
-                {submitting ? "Sending…" : illegal ? "Over the limit" : "Send trade offer"}
+                {submitting ? t("createTradeSheet.sending") : illegal ? t("createTradeSheet.overTheLimit") : t("createTradeSheet.sendTradeOffer")}
               </button>
             </>
           )}

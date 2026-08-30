@@ -25,6 +25,7 @@ import { api, tradeRating } from "../api";
 import type { Trade } from "../api";
 import { CockcoinReward } from "./CockcoinReward";
 import { TradeRatingInfo } from "./TradeRatingInfo";
+import { useLanguage } from "../i18n/LanguageContext";
 import "./TradeVoteWidget.css";
 
 interface VoteOption {
@@ -44,6 +45,7 @@ export function TradeVoteWidget({
   username: string;
   onVoted: () => void;
 }) {
+  const { t } = useLanguage();
   const [voting, setVoting] = useState(false);
   // Optimistic selection: reflect the just-confirmed option immediately,
   // before the parent's full refetch round-trips `trade.myVote` back to us.
@@ -56,7 +58,7 @@ export function TradeVoteWidget({
 
   const options: VoteOption[] = [
     { key: "proposer", favoredUsername: trade.proposerUsername, label: trade.proposerTeamName },
-    { key: "fair", favoredUsername: null, label: "Fair Trade" },
+    { key: "fair", favoredUsername: null, label: t("tradeVoteWidget.fairTradeOption") },
     { key: "counterparty", favoredUsername: trade.counterpartyUsername, label: trade.counterpartyTeamName },
   ];
 
@@ -108,25 +110,23 @@ export function TradeVoteWidget({
           <span className="trade-vote-recap-text">
             {ratingWinnerName ? (
               <>
-                <strong>{ratingWinnerName}</strong> won the trade
+                <strong>{ratingWinnerName}</strong> {t("tradeVoteWidget.wonTheTrade")}
               </>
             ) : (
-              <strong>Fair trade</strong>
+              <strong>{t("tradeVoteWidget.fairTrade")}</strong>
             )}{" "}
-            <span className="muted">
-              out of {votes.total} vote{votes.total === 1 ? "" : "s"}
-            </span>
+            <span className="muted">{t("tradeVoteWidget.outOfVotes", { total: votes.total })}</span>
           </span>
           <div className="trade-vote-recap-rating">
             <div className="trade-vote-recap-rating-row">
               <span className={`trade-vote-recap-rating-value rating-tier-${rating.tier}`}>{rating.rating}</span>
               <TradeRatingInfo />
             </div>
-            <span className="trade-vote-recap-rating-label">Trade rating</span>
+            <span className="trade-vote-recap-rating-label">{t("tradeVoteWidget.tradeRating")}</span>
           </div>
         </div>
       ) : (
-        <span className="tvw-label">Who won the trade?</span>
+        <span className="tvw-label">{t("tradeVoteWidget.whoWonTheTrade")}</span>
       )}
       <div className={`tvw-options${voting ? " saving" : ""}`}>
         {options.map((opt) => {
@@ -142,7 +142,7 @@ export function TradeVoteWidget({
               onClick={() => canInteract && setConfirming(opt)}
               disabled={!canInteract}
               aria-pressed={mine}
-              aria-label={votes != null ? `${opt.label}: ${count} of ${votes.total} votes` : opt.label}
+              aria-label={votes != null ? t("tradeVoteWidget.optionAria", { label: opt.label, count, total: votes.total }) : opt.label}
             >
               {votes != null && (
                 <span className="tvw-option-fill" style={{ width: `${pct}%` }} aria-hidden="true" />
@@ -150,7 +150,7 @@ export function TradeVoteWidget({
               <span className="tvw-option-label">{opt.label}</span>
               {votes != null && (
                 <span className="tvw-option-count">
-                  {count} vote{count === 1 ? "" : "s"} · {Math.round(pct)}%
+                  {t("tradeVoteWidget.voteCount", { count, pct: Math.round(pct) })}
                 </span>
               )}
             </button>
@@ -159,26 +159,24 @@ export function TradeVoteWidget({
       </div>
       <small className="muted tvw-hint">
         {voting
-          ? "Saving your vote…"
+          ? t("tradeVoteWidget.savingVote")
           : !trade.canVote && !hasVoted
-            ? "You can't vote on your own trade."
+            ? t("tradeVoteWidget.cantVoteOwnTrade")
             : votes != null
-              ? `${votes.total} vote${votes.total === 1 ? "" : "s"} total`
-              : "Vote to see how everyone else voted."}
+              ? t("tradeVoteWidget.votesTotal", { total: votes.total })
+              : t("tradeVoteWidget.voteToSee")}
       </small>
 
       {confirming && (
         <div className="tvw-confirm-overlay" role="dialog" aria-modal="true" onClick={() => setConfirming(null)}>
           <div className="tvw-confirm" onClick={(e) => e.stopPropagation()}>
-            <p className="tvw-confirm-text">
-              Vote for <strong>{confirming.label}</strong>? This can't be changed once cast.
-            </p>
+            <p className="tvw-confirm-text">{t("tradeVoteWidget.confirmText", { label: confirming.label })}</p>
             <div className="tvw-confirm-actions">
               <button type="button" className="btn-outline" onClick={() => setConfirming(null)}>
-                Cancel
+                {t("common.cancel")}
               </button>
               <button type="button" className="btn" onClick={() => void confirmVote()}>
-                Confirm vote
+                {t("tradeVoteWidget.confirmVote")}
               </button>
             </div>
           </div>

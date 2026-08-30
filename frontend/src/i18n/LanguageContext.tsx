@@ -16,7 +16,7 @@ import { dictionaries } from "./dictionaries";
 
 export type Language = "en" | "fr";
 
-type Vars = Record<string, string | number>;
+export type Vars = Record<string, string | number | null | undefined>;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type DictValue = string | ((vars: any) => string);
 

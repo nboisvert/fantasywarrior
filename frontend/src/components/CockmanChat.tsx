@@ -19,6 +19,7 @@ import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import type { LeagueDetail } from "../api";
 import cockmanAvatar from "../assets/cockman.png";
+import { useLanguage } from "../i18n/LanguageContext";
 import { CockcoinIcon, SendIcon, XIcon } from "./Icons";
 import "./CockmanChat.css";
 
@@ -31,54 +32,33 @@ interface ChatMessage {
 
 /** Fixed intro script — one Cockman, one script, always the same order
  * (unlike ProfileMenu's per-GM hash-seeded pick, there's nothing to vary
- * here). `{league}`/`{pooler}` are substituted with the actual league name
- * and a randomly picked fellow pooler. The last line is the "bonus entry"
- * hook (2026-07-27, per Nick): cockcoin is earned toward in-app interaction
- * and unlocks exclusive content — the three-word question is the first of
- * what should become a small library of bonus-entry prompts. */
-const SCRIPT: { text: string; withCoin?: boolean }[] = [
-  {
-    text:
-      "Hi there. Garry Cockman here — President of {league}, produced and sponsored by Fantasy Warrior. Great to e-meet you.",
-  },
-  {
-    text:
-      "Before we get into your ticket, a quick reminder that your league runs on cockcoin — our proprietary, 100% fictional token economy. Very real-sounding, very fake.",
-    withCoin: true,
-  },
-  {
-    text:
-      "You currently have a very respectable amount of cockcoin. I'd tell you exactly how much, but our blockchain is actually just a spreadsheet, and Deb is at lunch.",
-    withCoin: true,
-  },
-  {
-    text:
-      "Here's how you actually earn more: cockcoin tracks toward your interaction within the app, and it'll unlock access to exclusive content once you've built up a balance.",
-    withCoin: true,
-  },
-  {
-    text: "Let's start with a bonus entry toward your cockcoin — quick one: describe {pooler} in three words.",
-    withCoin: true,
-  },
-];
-
-const AUTO_REPLY = "Great question. I'm going to escalate this to myself and get back to you never. Have you tried more cockcoin?";
-const BONUS_REPLY = "Logged — that's one bonus entry toward your cockcoin. Very official. Very fake.";
-
-function buildInitialThread(leagueName: string, poolerName: string): ChatMessage[] {
-  return SCRIPT.map((line, i) => ({
-    id: `script-${i}`,
-    fromCockman: true,
-    text: line.text.replace("{league}", leagueName).replace("{pooler}", poolerName),
-    withCoin: line.withCoin,
-  }));
+ * here). The last line is the "bonus entry" hook (2026-07-27, per Nick):
+ * cockcoin is earned toward in-app interaction and unlocks exclusive content
+ * — the three-word question is the first of what should become a small
+ * library of bonus-entry prompts. Script text itself comes from the
+ * cockmanChat dictionary (gamer-tone flavour text, translated in full, not
+ * external content) — `t()` is threaded through instead of `{league}`/
+ * `{pooler}` placeholders now that substitution happens per-language. */
+function buildInitialThread(
+  leagueName: string,
+  poolerName: string,
+  t: (key: string, vars?: Record<string, string>) => string,
+): ChatMessage[] {
+  return [
+    { id: "script-0", fromCockman: true, text: t("cockmanChat.intro", { league: leagueName }) },
+    { id: "script-1", fromCockman: true, text: t("cockmanChat.reminder"), withCoin: true },
+    { id: "script-2", fromCockman: true, text: t("cockmanChat.balance"), withCoin: true },
+    { id: "script-3", fromCockman: true, text: t("cockmanChat.howToEarn"), withCoin: true },
+    { id: "script-4", fromCockman: true, text: t("cockmanChat.bonusEntry", { pooler: poolerName }), withCoin: true },
+  ];
 }
 
 /** Picks a stand-in fellow pooler name for the bonus-entry question. Falls
- * back to "yourself" if the league has no teams yet (e.g. brand-new league). */
-function pickPoolerName(league: LeagueDetail): string {
+ * back to `t("cockmanChat.yourself")` if the league has no teams yet (e.g.
+ * brand-new league). */
+function pickPoolerName(league: LeagueDetail, yourself: string): string {
   const names = league.teams.map((t) => t.ownerUsername).filter(Boolean);
-  if (names.length === 0) return "yourself";
+  if (names.length === 0) return yourself;
   const raw = names[Math.floor(Math.random() * names.length)];
   return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
@@ -106,11 +86,12 @@ function MessageText({ text, withCoin }: { text: string; withCoin?: boolean }) {
 }
 
 export function CockmanChat({ league, onClose }: { league: LeagueDetail; onClose: () => void }) {
+  const { t } = useLanguage();
   const sheetRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const threadRef = useRef<HTMLUListElement>(null);
-  const [poolerName] = useState(() => pickPoolerName(league));
-  const [thread, setThread] = useState<ChatMessage[]>(() => buildInitialThread(league.name, poolerName));
+  const [poolerName] = useState(() => pickPoolerName(league, t("cockmanChat.yourself")));
+  const [thread, setThread] = useState<ChatMessage[]>(() => buildInitialThread(league.name, poolerName, t));
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   // True until the bonus-entry question (last script line) gets its first
@@ -174,7 +155,7 @@ export function CockmanChat({ league, onClose }: { league: LeagueDetail; onClose
     setThread((prev) => [...prev, { id: `mine-${Date.now()}`, fromCockman: false, text }]);
     setDraft("");
     setBusy(true);
-    const replyText = bonusPending ? BONUS_REPLY : AUTO_REPLY;
+    const replyText = bonusPending ? t("cockmanChat.bonusReply") : t("cockmanChat.autoReply");
     window.setTimeout(() => {
       setThread((prev) => [...prev, { id: `reply-${Date.now()}`, fromCockman: true, text: replyText, withCoin: true }]);
       setBusy(false);
@@ -199,17 +180,14 @@ export function CockmanChat({ league, onClose }: { league: LeagueDetail; onClose
               Garry Cockman
               <span className="gc-online-dot" aria-hidden="true" />
             </span>
-            <span className="gc-header-sub">President, {league.name} · Typically replies instantly</span>
+            <span className="gc-header-sub">{t("cockmanChat.headerSub", { league: league.name })}</span>
           </div>
-          <button ref={closeRef} className="gc-close" onClick={onClose} aria-label="Close chat with Garry Cockman">
+          <button ref={closeRef} className="gc-close" onClick={onClose} aria-label={t("cockmanChat.closeAria")}>
             <XIcon size={18} />
           </button>
         </div>
 
-        <p className="gc-mock-note">
-          This is a UI preview only. Garry Cockman is not a real president, cockcoin is not a real currency, and no
-          messages here go anywhere — Fantasy Warrior accepts no liability for Garry's opinions, of which he has many.
-        </p>
+        <p className="gc-mock-note">{t("cockmanChat.mockNote")}</p>
 
         <ul className="gc-thread" ref={threadRef}>
           {thread.map((msg) => (
@@ -222,20 +200,20 @@ export function CockmanChat({ league, onClose }: { league: LeagueDetail; onClose
         <div className="gc-composer">
           <input
             className="gc-input"
-            placeholder="Message Cockman…"
+            placeholder={t("cockmanChat.messagePlaceholder")}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") sendMessage();
             }}
-            aria-label="Message Garry Cockman"
+            aria-label={t("cockmanChat.messageAria")}
           />
-          <button className="gc-send" onClick={sendMessage} disabled={!draft.trim()} aria-label="Send">
+          <button className="gc-send" onClick={sendMessage} disabled={!draft.trim()} aria-label={t("cockmanChat.send")}>
             <SendIcon size={16} />
           </button>
         </div>
 
-        <div className="gc-footer">Powered by Fantasy Warrior · Cockcoin™ Support</div>
+        <div className="gc-footer">{t("cockmanChat.footer")}</div>
       </div>
     </div>
   );

@@ -125,3 +125,11 @@ date-related behaviour as a bug**. See [testmode.md](testmode.md).
   session and phone photos. Only the `AZURE_CREDENTIALS` GitHub secret would
   need replacing.
 
+- **Backend validation-error strings are English-only.** The UI itself is
+  bilingual, but a message like `"Username must be 2-30 characters."` comes
+  straight from the API and is shown verbatim regardless of the viewer's
+  language. Translating those needs an error-code system on the backend (a
+  code the frontend maps to its own dictionary) rather than string matching
+  — a separate, larger change, deliberately not bundled into the bilingual UI
+  work.
+

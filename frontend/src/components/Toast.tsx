@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from "react";
 import { useLive, type LiveNotice } from "../live/LiveProvider";
+import { useLanguage } from "../i18n/LanguageContext";
 import { XIcon } from "./Icons";
 import "./Toast.css";
 
@@ -17,6 +18,7 @@ const DISMISS_MS = 6000;
 const MAX_VISIBLE = 3;
 
 export function ToastHost() {
+  const { t } = useLanguage();
   const { onNotice } = useLive();
   const [notices, setNotices] = useState<LiveNotice[]>([]);
 
@@ -44,7 +46,7 @@ export function ToastHost() {
           <button
             className="toast-close"
             onClick={() => setNotices((prev) => prev.filter((n) => n.id !== notice.id))}
-            aria-label="Dismiss"
+            aria-label={t("toast.dismiss")}
           >
             <XIcon size={14} />
           </button>

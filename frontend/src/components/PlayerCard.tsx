@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { JSX, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import { posGroup, posGroupClass } from "../api";
+import { useLanguage } from "../i18n/LanguageContext";
 import { CrossIcon, ExternalLinkIcon, GavelIcon, ShieldIcon, XIcon } from "./Icons";
 import "./PlayerCard.css";
 
@@ -176,8 +177,8 @@ function formatBirthDayMonth(birthDate: string): string {
 /** "1st 2005" main + "PIT" team, rendered as two segments so the team can
  * get the muted de-emphasized treatment instead of parens (2026-07-27, per
  * Nick — no more "()", just a lighter/muted font for the secondary bit). */
-function formatDraft(p: PlayerDetail): { main: string; team: string | null } {
-  if (p.draftYear == null || p.draftOverall == null) return { main: "Undrafted", team: null };
+function formatDraft(p: PlayerDetail, undraftedLabel: string): { main: string; team: string | null } {
+  if (p.draftYear == null || p.draftOverall == null) return { main: undraftedLabel, team: null };
   return { main: `${ordinal(p.draftOverall)} ${p.draftYear}`, team: p.draftTeamAbbrev };
 }
 
@@ -305,7 +306,10 @@ const isHotGame = (g: RecentGame, isGoalie: boolean): boolean =>
 
 /** Aligned columns instead of a single concatenated stat string, so the 10
  * rows read as a scannable grid (2026-07-31, per Nick). */
-function GamesTable({ games, isGoalie }: { games: RecentGame[]; isGoalie: boolean }) {
+function GamesTable(
+  { games, isGoalie, t }:
+  { games: RecentGame[]; isGoalie: boolean; t: (key: string, vars?: Record<string, string | number>) => string },
+) {
   return (
     <table className="pc-games-table">
       <colgroup>
@@ -318,8 +322,8 @@ function GamesTable({ games, isGoalie }: { games: RecentGame[]; isGoalie: boolea
       </colgroup>
       <thead>
         <tr>
-          <th scope="col">Date</th>
-          <th scope="col">Opp</th>
+          <th scope="col">{t("playerCard.colDate")}</th>
+          <th scope="col">{t("playerCard.colOpp")}</th>
           {isGoalie ? (
             <>
               <th scope="col">Dec</th>
@@ -373,14 +377,17 @@ function GamesTable({ games, isGoalie }: { games: RecentGame[]; isGoalie: boolea
 /** One row per season/league/team stint, most recent season first (already
  * sorted server-side). Column set depends on isGoalie, same branch pattern
  * as the tiles and GamesTable above. */
-function CareerTable({ rows, isGoalie }: { rows: CareerRow[]; isGoalie: boolean }) {
+function CareerTable(
+  { rows, isGoalie, t }:
+  { rows: CareerRow[]; isGoalie: boolean; t: (key: string, vars?: Record<string, string | number>) => string },
+) {
   return (
     <table className="pc-career-table">
       <thead>
         <tr>
-          <th scope="col">Season</th>
-          <th scope="col" aria-label="League" />
-          <th scope="col">Team</th>
+          <th scope="col">{t("playerCard.seasonBare")}</th>
+          <th scope="col" aria-label={t("playerCard.colLeague")} />
+          <th scope="col">{t("playerCard.colTeam")}</th>
           <th scope="col">GP</th>
           {isGoalie ? (
             <>
@@ -439,16 +446,19 @@ function CareerTable({ rows, isGoalie }: { rows: CareerRow[]; isGoalie: boolean 
  * would push the team name out. This is also the only place the *date* fits,
  * and "out since Jul 19" is most of what a GM wants — the label alone does
  * not say whether he is about to come back. */
-function InjuryBanner({ injury }: { injury: Injury }) {
+function InjuryBanner(
+  { injury, t }:
+  { injury: Injury; t: (key: string, vars?: Record<string, string | number>) => string },
+) {
   const suspended = injury.status === "Suspended";
   return (
     <div className="pc-injury">
       {suspended ? <GavelIcon size={15} /> : <CrossIcon size={13} />}
       <span className="pc-injury-label">
-        {suspended ? "Suspended" : "Injured"}
+        {suspended ? t("playerCard.suspended") : t("playerCard.injured")}
         {injury.injuryType != null && <span className="pc-injury-type">{injury.injuryType}</span>}
       </span>
-      <span className="pc-injury-since">since {formatNewsDate(injury.since)}</span>
+      <span className="pc-injury-since">{t("playerCard.since", { date: formatNewsDate(injury.since) })}</span>
     </div>
   );
 }
@@ -459,7 +469,10 @@ function InjuryBanner({ injury }: { injury: Injury }) {
  * a knee sit in the same list, because a GM wants both and would only open one
  * tab. The source is named on each item: two sites word the same event
  * differently, and there is no point pretending they are one voice. */
-function NewsList({ rows }: { rows: NewsRow[] }) {
+function NewsList(
+  { rows, t }:
+  { rows: NewsRow[]; t: (key: string, vars?: Record<string, string | number>) => string },
+) {
   return (
     <ul className="pc-news">
       {rows.map((n) => (
@@ -472,7 +485,7 @@ function NewsList({ rows }: { rows: NewsRow[] }) {
           {n.body != null && <p className="pc-news-body">{n.body}</p>}
           {n.url != null && (
             <a className="pc-news-link" href={n.url} target="_blank" rel="noopener noreferrer">
-              Read at the source
+              {t("playerCard.readAtSource")}
               <ExternalLinkIcon size={12} />
             </a>
           )}
@@ -524,6 +537,7 @@ export function PlayerCard(
   { playerId, leagueId, onClose }:
   { playerId: number; leagueId?: string; onClose: () => void },
 ): JSX.Element {
+  const { t } = useLanguage();
   const [player, setPlayer] = useState<PlayerDetail | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -570,10 +584,11 @@ export function PlayerCard(
       })
       .catch((err: unknown) => {
         if (ctrl.signal.aborted) return;
-        setError(err instanceof Error ? err.message : "Could not load player.");
+        setError(err instanceof Error ? err.message : t("playerCard.couldNotLoadPlayer"));
         setLoading(false);
       });
     return () => ctrl.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playerId, leagueId]);
 
   /** Opens the Career tab, fetching on first open and caching after —
@@ -589,7 +604,7 @@ export function PlayerCard(
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setCareerRows((await res.json()) as CareerRow[]);
     } catch {
-      setCareerError("Could not load career stats.");
+      setCareerError(t("playerCard.couldNotLoadCareer"));
     } finally {
       setCareerLoading(false);
     }
@@ -607,7 +622,7 @@ export function PlayerCard(
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setNewsRows((await res.json()) as NewsRow[]);
     } catch {
-      setNewsError("Could not load news.");
+      setNewsError(t("playerCard.couldNotLoadNews"));
     } finally {
       setNewsLoading(false);
     }
@@ -662,7 +677,7 @@ export function PlayerCard(
     .slice(0, 10);
 
   const age = player?.birthDate != null ? computeAge(player.birthDate) : null;
-  const draft = player != null ? formatDraft(player) : { main: "", team: null };
+  const draft = player != null ? formatDraft(player, t("playerCard.undrafted")) : { main: "", team: null };
 
   return (
     <div className="pc-overlay" onClick={onBackdrop}>
@@ -672,12 +687,12 @@ export function PlayerCard(
         role="dialog"
         aria-modal="true"
         aria-labelledby="pc-player-name"
-        aria-label="Player card"
+        aria-label={t("playerCard.playerCardAria")}
         onKeyDown={trapFocus}
       >
         <div className="pc-top">
           <span className="pc-handle" aria-hidden="true" />
-          <button ref={closeRef} className="pc-close" onClick={onClose} aria-label="Close player card">
+          <button ref={closeRef} className="pc-close" onClick={onClose} aria-label={t("playerCard.closeAria")}>
             <XIcon size={20} />
           </button>
         </div>
@@ -714,24 +729,22 @@ export function PlayerCard(
                     {player.autoProtected === true && (
                       <span
                         className="pc-protect-pill"
-                        title={`Auto-protected — ${player.careerNhlGames} NHL ${
-                          player.careerNhlGames === 1 ? "game" : "games"
-                        }, too few to be drafted away`}
+                        title={t("playerCard.autoProtectedTitle", { games: player.careerNhlGames ?? 0 })}
                       >
                         <ShieldIcon size={12} />
-                        AUTO
+                        {t("playerCard.auto")}
                       </span>
                     )}
                   </div>
                 </div>
               </div>
 
-              {player.injury != null && <InjuryBanner injury={player.injury} />}
+              {player.injury != null && <InjuryBanner injury={player.injury} t={t} />}
 
               {/* bio */}
               <div className="pc-bio-grid">
                 <div className="pc-bio-item">
-                  <span className="pc-bio-label">Age</span>
+                  <span className="pc-bio-label">{t("playerCard.age")}</span>
                   <span className="pc-bio-value">
                     {age != null ? String(age) : "—"}
                     {player.birthDate != null && (
@@ -742,14 +755,14 @@ export function PlayerCard(
                   </span>
                 </div>
                 <div className="pc-bio-item">
-                  <span className="pc-bio-label">Draft</span>
+                  <span className="pc-bio-label">{t("playerCard.draft")}</span>
                   <span className="pc-bio-value">
                     {draft.main}
                     {draft.team != null && <span className="pc-bio-inline-sub">{draft.team}</span>}
                   </span>
                 </div>
                 <div className="pc-bio-item">
-                  <span className="pc-bio-label">Cap hit</span>
+                  <span className="pc-bio-label">{t("playerCard.capHit")}</span>
                   <span className="pc-bio-value">{formatCapHit(player.capHit)}</span>
                 </div>
               </div>
@@ -757,7 +770,7 @@ export function PlayerCard(
               {/* Stats (season totals) / Last 10 games / Career (embedded
                   Hockey-Reference) — Stats is the default tab, since it's
                   the number most people open the card to check. */}
-              <div className="pc-tabs" role="tablist" aria-label="Player stats">
+              <div className="pc-tabs" role="tablist" aria-label={t("playerCard.playerStatsAria")}>
                 <button
                   id="pc-tab-stats"
                   role="tab"
@@ -767,7 +780,7 @@ export function PlayerCard(
                   className={`pc-tab${activeTab === "stats" ? " active" : ""}`}
                   onClick={() => setActiveTab("stats")}
                 >
-                  Stats
+                  {t("playerCard.tabStats")}
                 </button>
                 <button
                   id="pc-tab-last10"
@@ -778,7 +791,7 @@ export function PlayerCard(
                   className={`pc-tab${activeTab === "last10" ? " active" : ""}`}
                   onClick={() => setActiveTab("last10")}
                 >
-                  Last 10
+                  {t("playerCard.tabLast10")}
                 </button>
                 <button
                   id="pc-tab-career"
@@ -789,7 +802,7 @@ export function PlayerCard(
                   className={`pc-tab${activeTab === "career" ? " active" : ""}`}
                   onClick={() => void openCareerTab()}
                 >
-                  Career
+                  {t("playerCard.tabCareer")}
                 </button>
                 <button
                   id="pc-tab-news"
@@ -800,7 +813,7 @@ export function PlayerCard(
                   className={`pc-tab${activeTab === "news" ? " active" : ""}`}
                   onClick={() => void openNewsTab()}
                 >
-                  News
+                  {t("playerCard.tabNews")}
                 </button>
               </div>
 
@@ -813,7 +826,9 @@ export function PlayerCard(
               >
                 <div className="pc-stats-panel">
                   <span className="section-title">
-                    {player.season ? `Season ${formatSeason(player.season)}` : "Season"}
+                    {player.season
+                      ? t("playerCard.season", { season: formatSeason(player.season) })
+                      : t("playerCard.seasonBare")}
                   </span>
                   {/* `season == null` means no NHL game on record at all — a
                       prospect. `seasonTotals` is never actually null from the
@@ -833,7 +848,7 @@ export function PlayerCard(
                       ))}
                     </div>
                   ) : (
-                    <p className="pc-empty muted">No stats this season.</p>
+                    <p className="pc-empty muted">{t("playerCard.noStatsThisSeason")}</p>
                   )}
                 </div>
               </div>
@@ -846,10 +861,10 @@ export function PlayerCard(
                 className="pc-tabpanel"
               >
                 {games.length === 0 ? (
-                  <p className="pc-empty muted">No games played yet.</p>
+                  <p className="pc-empty muted">{t("playerCard.noGamesPlayedYet")}</p>
                 ) : (
                   <div className="pc-games">
-                    <GamesTable games={games} isGoalie={player.isGoalie} />
+                    <GamesTable games={games} isGoalie={player.isGoalie} t={t} />
                   </div>
                 )}
               </div>
@@ -861,14 +876,14 @@ export function PlayerCard(
                 hidden={activeTab !== "career"}
                 className="pc-tabpanel"
               >
-                {careerLoading && <p className="pc-empty muted">Loading…</p>}
+                {careerLoading && <p className="pc-empty muted">{t("playerCard.loading")}</p>}
                 {!careerLoading && careerError && <p className="error-banner">{careerError}</p>}
                 {!careerLoading && !careerError && careerRows != null && (
                   careerRows.length === 0 ? (
-                    <p className="pc-empty muted">No career stats on file yet.</p>
+                    <p className="pc-empty muted">{t("playerCard.noCareerStatsYet")}</p>
                   ) : (
                     <div className="pc-career-wrap">
-                      <CareerTable rows={careerRows} isGoalie={player.isGoalie} />
+                      <CareerTable rows={careerRows} isGoalie={player.isGoalie} t={t} />
                     </div>
                   )
                 )}
@@ -881,13 +896,13 @@ export function PlayerCard(
                 hidden={activeTab !== "news"}
                 className="pc-tabpanel"
               >
-                {newsLoading && <p className="pc-empty muted">Loading…</p>}
+                {newsLoading && <p className="pc-empty muted">{t("playerCard.loading")}</p>}
                 {!newsLoading && newsError && <p className="error-banner">{newsError}</p>}
                 {!newsLoading && !newsError && newsRows != null && (
                   newsRows.length === 0 ? (
-                    <p className="pc-empty muted">No news about this player.</p>
+                    <p className="pc-empty muted">{t("playerCard.noNewsAboutPlayer")}</p>
                   ) : (
-                    <NewsList rows={newsRows} />
+                    <NewsList rows={newsRows} t={t} />
                   )
                 )}
               </div>

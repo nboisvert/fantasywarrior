@@ -9,14 +9,16 @@
 // it rather than the page.
 
 import { CockcoinIcon } from "./Icons";
+import { useLanguage } from "../i18n/LanguageContext";
 import "./CockcoinReward.css";
 
 export function CockcoinReward({ amount, onDone }: { amount: number; onDone: () => void }) {
+  const { t } = useLanguage();
   return (
     <span className="cockcoin-reward" aria-live="polite" onAnimationEnd={onDone}>
       <CockcoinIcon size={36} />
       <span className="cockcoin-reward-amount">+{amount} CK</span>
-      <span className="cockcoin-reward-label">cockcoin</span>
+      <span className="cockcoin-reward-label">{t("cockcoinReward.label")}</span>
     </span>
   );
 }

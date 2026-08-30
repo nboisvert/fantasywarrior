@@ -7,6 +7,7 @@ import { api, formatCap } from "../api";
 import type { LeagueSummary } from "../api";
 import { LogOutIcon, XIcon } from "../components/Icons";
 import { LoadingLogo } from "../components/LoadingLogo";
+import { useLanguage } from "../i18n/LanguageContext";
 import logo from "../assets/logo.webp";
 
 export function LeagueGate({
@@ -23,6 +24,7 @@ export function LeagueGate({
   /** Present only when there's already an active league to return to (i.e. this is a "switch", not the first-time gate). */
   onClose?: () => void;
 }) {
+  const { t } = useLanguage();
   const [leagues, setLeagues] = useState<LeagueSummary[] | null>(null);
   const [error, setError] = useState("");
 
@@ -42,7 +44,7 @@ export function LeagueGate({
         </span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
           {onClose && (
-            <button className="icon-btn" onClick={onClose} aria-label="Cancel switching league">
+            <button className="icon-btn" onClick={onClose} aria-label={t("leagueGate.cancelSwitching")}>
               <XIcon size={18} />
             </button>
           )}
@@ -54,14 +56,14 @@ export function LeagueGate({
       <main className="shell-content" style={{ paddingTop: "1rem" }}>
         {error && <p className="error-banner">{error}</p>}
 
-        <span className="section-title">Choose a league</span>
+        <span className="section-title">{t("leagueGate.chooseLeague")}</span>
         {leagues === null ? (
           <LoadingLogo />
         ) : leagues.length === 0 ? (
           <div className="empty-state" style={{ display: "flex", flexDirection: "column", gap: "0.9rem", alignItems: "center" }}>
-            <p style={{ margin: 0 }}>No league yet — create one or join with an invite code.</p>
+            <p style={{ margin: 0 }}>{t("leagueGate.noLeagueYet")}</p>
             <button className="btn" onClick={onGoSettings}>
-              Go to Settings
+              {t("leagueGate.goToSettings")}
             </button>
           </div>
         ) : (
@@ -72,16 +74,14 @@ export function LeagueGate({
                   <button className="league-card" onClick={() => onOpen(l.id)}>
                     <span>
                       <strong>{l.name}</strong>
-                      <small>
-                        {l.members} member{l.members > 1 ? "s" : ""} · cap {formatCap(l.capAmount)}
-                      </small>
+                      <small>{t("leagueGate.memberCap", { members: l.members, cap: formatCap(l.capAmount) })}</small>
                     </span>
                   </button>
                 </li>
               ))}
             </ul>
             <button className="btn-ghost" onClick={onGoSettings} style={{ alignSelf: "flex-start" }}>
-              Create or join another league in Settings
+              {t("leagueGate.createOrJoinInSettings")}
             </button>
           </>
         )}
