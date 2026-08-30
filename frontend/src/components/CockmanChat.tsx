@@ -3,11 +3,12 @@
 // sponsored by Fantasy Warrior. No backend, no real AI, no real token system —
 // everything below is scripted/local state, evaluated on visual quality only.
 //
-// The whole point of this component is to deliberately CLASH with the rest of
-// the app's "Night Arena" theme: it's meant to read as a real embedded 3rd-party
-// corporate helpdesk widget (Intercom/Zendesk/Drift-style) bolted onto the app,
-// not a native screen. CockmanChat.css is fully self-contained — it never
-// references index.css's custom properties, on purpose.
+// Night Arena skin (2026-08-30, per Nick — see cockman-concept.md): this used
+// to deliberately clash with the rest of the app as a fake corporate
+// helpdesk widget. Reversed — it now reads from index.css's tokens like any
+// other screen, and the message list is unboxed "statements"/"replies" (a
+// gold rule for Cockman, an ice one for you) rather than the twin chat
+// bubbles ChatSheet already owns, so the two don't read as the same widget.
 //
 // Reuses two existing patterns rather than inventing new ones:
 //   - the modal shell mechanics of PlayerCard.tsx (overlay, focus trap,
@@ -16,6 +17,7 @@
 //     typed replies appended locally, a visible "not real" disclosure note).
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import type { LeagueDetail } from "../api";
 import cockmanAvatar from "../assets/cockman.png";
@@ -163,7 +165,14 @@ export function CockmanChat({ league, onClose }: { league: LeagueDetail; onClose
     }, 900);
   };
 
-  return (
+  // Portaled to document.body, same reason as TradeRatingInfo: every screen
+  // root carries the app-wide `.fade-in` class, and an element with an
+  // animation targeting `transform` is a containing block for its
+  // `position: fixed` descendants for as long as that animation property is
+  // set — which for `.fade-in` is forever. Left in place, this "floating,
+  // docks bottom-right" sheet would drift with Settings' own scroll instead
+  // of staying pinned to the viewport.
+  return createPortal(
     <div className="gc-overlay" onClick={onBackdrop}>
       <div
         ref={sheetRef}
@@ -178,7 +187,7 @@ export function CockmanChat({ league, onClose }: { league: LeagueDetail; onClose
           <div className="gc-header-info">
             <span id="gc-header-name" className="gc-header-name">
               Garry Cockman
-              <span className="gc-online-dot" aria-hidden="true" />
+              <span className="gc-title-pill">{t("cockmanChat.presidentTag")}</span>
             </span>
             <span className="gc-header-sub">{t("cockmanChat.headerSub", { league: league.name })}</span>
           </div>
@@ -190,11 +199,17 @@ export function CockmanChat({ league, onClose }: { league: LeagueDetail; onClose
         <p className="gc-mock-note">{t("cockmanChat.mockNote")}</p>
 
         <ul className="gc-thread" ref={threadRef}>
-          {thread.map((msg) => (
-            <li key={msg.id} className={`gc-bubble${msg.fromCockman ? "" : " gc-bubble-mine"}`}>
-              <MessageText text={msg.text} withCoin={msg.withCoin} />
-            </li>
-          ))}
+          {thread.map((msg, i) => {
+            const showLabel = i === 0 || thread[i - 1].fromCockman !== msg.fromCockman;
+            return (
+              <li key={msg.id} className={msg.fromCockman ? "gc-statement" : "gc-reply"}>
+                {showLabel && (
+                  <span className="gc-label">{msg.fromCockman ? "Garry Cockman" : t("cockmanChat.you")}</span>
+                )}
+                <MessageText text={msg.text} withCoin={msg.withCoin} />
+              </li>
+            );
+          })}
         </ul>
 
         <div className="gc-composer">
@@ -215,6 +230,7 @@ export function CockmanChat({ league, onClose }: { league: LeagueDetail; onClose
 
         <div className="gc-footer">{t("cockmanChat.footer")}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

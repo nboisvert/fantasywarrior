@@ -1,15 +1,23 @@
-/* CockmanChat — deliberately self-contained "corporate helpdesk widget" skin.
-   Nothing here references index.css's custom properties (--ice, --bg, --gold,
-   --font-display, etc.) on purpose — the clash with the rest of the app's
-   dark "Night Arena" theme is the point, not an oversight (2026-07-27, per
-   Nick). Literal values only, own small design system, floating widget
-   layout (docks bottom-right on desktop) instead of a page-modal/bottom-sheet. */
+/* CockmanChat — Night Arena skin (2026-08-30, per Nick: bring Cockman into
+   the app's own ice/gold look rather than the corporate-widget clash this
+   used to deliberately go for — see cockman-concept.md for the reasoning
+   behind the reversal). Reads from index.css's tokens like any other native
+   screen now.
+
+   Deliberately not a bubble-both-sides chat (that's ChatSheet's job, and
+   this should read differently from a GM-to-GM thread): Cockman's lines are
+   unboxed "statements" marked by a gold rule — he's giving a briefing, not
+   trading messages — and the GM's own replies get a matching ice rule on the
+   other side. Floating widget layout (docks bottom-right on desktop) is kept
+   from the original — that part was never the "clash," only the palette
+   and message treatment were. */
 
 .gc-overlay {
   position: fixed;
   inset: 0;
   z-index: 100;
-  background: rgba(15, 23, 42, 0.25);
+  background: rgba(4, 7, 15, 0.7);
+  backdrop-filter: blur(3px);
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -31,14 +39,13 @@
   max-height: 80dvh;
   display: flex;
   flex-direction: column;
-  background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: 18px 18px 0 0;
+  box-shadow: 0 0 48px rgba(251, 191, 36, 0.1), 0 8px 32px rgba(0, 0, 0, 0.5);
   overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  color: #1f2430;
-  margin: 8px;
-  animation: gc-sheet-in 220ms ease-out;
+  margin: 0;
+  animation: gc-sheet-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes gc-sheet-in {
@@ -65,6 +72,7 @@
     width: 360px;
     max-height: 560px;
     margin: 0;
+    border-radius: 18px;
   }
 }
 
@@ -75,52 +83,58 @@
   }
 }
 
+/* ---------- header ---------- */
+
 .gc-header {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  padding: 0.85rem 0.9rem;
-  background: #2f5fdb;
-  color: #ffffff;
+  gap: 0.7rem;
+  padding: 0.9rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
   flex-shrink: 0;
 }
 
 .gc-avatar {
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
   border-radius: 999px;
   object-fit: cover;
   flex-shrink: 0;
-  border: 2px solid rgba(255, 255, 255, 0.6);
+  border: 2px solid var(--gold);
+  box-shadow: 0 0 14px rgba(251, 191, 36, 0.45);
 }
 
 .gc-header-info {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  gap: 0.1rem;
+  gap: 0.25rem;
 }
 
 .gc-header-name {
-  font-size: 15px;
-  font-weight: 600;
+  font: 1rem var(--font-display);
+  letter-spacing: 0.03em;
+  color: var(--text);
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
 }
 
-.gc-online-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: #22c55e;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+.gc-title-pill {
   flex-shrink: 0;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: rgba(251, 191, 36, 0.14);
+  color: var(--gold);
+  font: 700 0.6rem var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .gc-header-sub {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.72rem;
+  color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -136,135 +150,172 @@
   justify-content: center;
   background: transparent;
   border: none;
-  border-radius: 8px;
-  color: #ffffff;
+  border-radius: 10px;
+  color: var(--text-muted);
   cursor: pointer;
   flex-shrink: 0;
+  transition: color 0.15s, background-color 0.15s;
 }
 
 .gc-close:hover {
-  background: rgba(255, 255, 255, 0.15);
+  color: var(--text);
+  background: var(--surface-strong);
 }
 
 .gc-close:focus-visible {
-  outline: 2px solid #ffffff;
-  outline-offset: -2px;
+  outline: 2px solid var(--ice);
+  outline-offset: 2px;
 }
 
 .gc-mock-note {
   margin: 0;
   padding: 0.55rem 0.9rem;
-  font-size: 12px;
+  font-size: 0.72rem;
   line-height: 1.4;
-  color: #6b7280;
-  background: #f4f6f9;
-  border-bottom: 1px solid #e2e6ed;
+  color: var(--text-muted);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
+
+/* ---------- transcript ---------- */
 
 .gc-thread {
   list-style: none;
   margin: 0;
-  padding: 0.75rem 0.9rem;
+  padding: 0.9rem;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  background: #ffffff;
+  gap: 0.65rem;
+  background: var(--bg);
 }
 
-.gc-bubble {
+.gc-label {
+  display: block;
+  font: 700 0.62rem var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.2rem;
+}
+
+/* Cockman's lines are unboxed statements, not chat bubbles — a gold rule
+   marks whose turn it is, the same way a press-conference transcript marks a
+   speaker change rather than drawing a box around every quote. */
+.gc-statement {
   align-self: flex-start;
-  max-width: 82%;
-  padding: 0.55rem 0.75rem;
-  border-radius: 18px;
-  background: #eef0f4;
-  color: #1f2430;
-  font-size: 14px;
-  line-height: 1.4;
+  max-width: 88%;
+  padding: 0.1rem 0 0.1rem 0.75rem;
+  border-left: 3px solid var(--gold);
+  color: var(--text);
+  font-size: 0.86rem;
+  line-height: 1.45;
 }
 
-.gc-bubble-mine {
+.gc-statement .gc-label {
+  color: var(--gold);
+}
+
+/* The GM's own replies get the matching ice rule on the other side —
+   Cockman's gold, your ice, same "who's speaking" logic mirrored. */
+.gc-reply {
   align-self: flex-end;
-  background: #2f5fdb;
-  color: #ffffff;
+  max-width: 88%;
+  padding: 0.1rem 0.75rem 0.1rem 0;
+  border-right: 3px solid var(--ice);
+  color: var(--text);
+  font-size: 0.86rem;
+  line-height: 1.45;
+  text-align: right;
+}
+
+.gc-reply .gc-label {
+  color: var(--ice-bright);
+  text-align: right;
 }
 
 .gc-coin-mention {
   display: inline-flex;
   align-items: center;
   gap: 0.2rem;
-  font-weight: 600;
+  font-weight: 700;
+  color: var(--gold);
 }
 
 .gc-coin-icon {
   flex-shrink: 0;
+  filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.5));
 }
+
+/* ---------- composer ---------- */
 
 .gc-composer {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.6rem 0.9rem;
-  border-top: 1px solid #e2e6ed;
-  background: #ffffff;
+  padding: 0.6rem 0.75rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
   flex-shrink: 0;
 }
 
 .gc-input {
   flex: 1;
   min-width: 0;
-  height: 40px;
+  height: 42px;
   padding: 0 0.9rem;
-  border-radius: 20px;
-  border: 1px solid #e2e6ed;
-  background: #f4f6f9;
-  color: #1f2430;
-  font-size: 14px;
-  font-family: inherit;
+  border-radius: 21px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  color: var(--text);
+  font: 0.86rem var(--font-body);
 }
 
 .gc-input::placeholder {
-  color: #9aa2b1;
+  color: var(--text-muted);
 }
 
 .gc-input:focus-visible {
-  outline: 2px solid #2f5fdb;
+  outline: 2px solid var(--ice);
   outline-offset: 1px;
 }
 
 .gc-send {
+  display: grid;
+  place-items: center;
   width: 44px;
   height: 44px;
-  border-radius: 999px;
+  min-width: 44px;
   border: none;
-  background: #2f5fdb;
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--gold) 0%, #f59e0b 100%);
+  box-shadow: 0 0 12px rgba(251, 191, 36, 0.4);
+  color: #241a02;
   cursor: pointer;
   flex-shrink: 0;
+  transition: opacity 0.15s, box-shadow 0.15s;
 }
 
 .gc-send:disabled {
-  opacity: 0.4;
+  background: var(--surface-strong);
+  box-shadow: none;
+  color: var(--text-muted);
   cursor: default;
 }
 
 .gc-send:focus-visible {
-  outline: 2px solid #2f5fdb;
+  outline: 2px solid var(--ice);
   outline-offset: 2px;
 }
 
 .gc-footer {
   padding: 0.4rem 0.9rem;
-  font-size: 12px;
-  color: #6b7280;
+  font-size: 0.68rem;
+  color: var(--text-muted);
   text-align: center;
-  border-top: 1px solid #e2e6ed;
-  background: #f4f6f9;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
   flex-shrink: 0;
 }

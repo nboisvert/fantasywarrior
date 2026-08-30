@@ -21,6 +21,7 @@ import { api, initials } from "../api";
 import { useLive } from "../live/LiveProvider";
 import { useLanguage } from "../i18n/LanguageContext";
 import { CockcoinIcon, LogOutIcon, MessageSquareIcon, SettingsIcon, UsersIcon } from "./Icons";
+import { CockcoinInfo } from "./CockcoinInfo";
 import "./ProfileMenu.css";
 
 export function ProfileMenu({
@@ -190,6 +191,7 @@ export function ProfileMenu({
                 <span className="profile-cockcoin-amount">{cockcoin ?? 0} CK</span>
                 <span className="profile-cockcoin-label">{t("profileMenu.cockcoinLabel")}</span>
               </span>
+              <CockcoinInfo />
             </span>
           </div>
 

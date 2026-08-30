@@ -1,0 +1,98 @@
+.cockcoin-info-trigger {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.2s, background-color 0.2s;
+}
+
+.cockcoin-info-trigger:hover {
+  color: var(--gold);
+  background: rgba(251, 191, 36, 0.14);
+}
+
+.cockcoin-info-trigger:focus-visible {
+  outline: 2px solid var(--ice);
+  outline-offset: 2px;
+}
+
+.cockcoin-info-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(4, 7, 15, 0.62);
+  backdrop-filter: blur(2px);
+  animation: fade-in 180ms ease-out;
+}
+
+.cockcoin-info {
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 1.1rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+.cockcoin-info-title {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--gold);
+}
+
+.cockcoin-info-quote {
+  display: flex;
+  gap: 0.65rem;
+  padding: 0.7rem;
+  border-left: 3px solid var(--gold);
+  background: var(--surface);
+  border-radius: 0 10px 10px 0;
+}
+
+.cockcoin-info-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 2px solid var(--gold);
+}
+
+.cockcoin-info-quote-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.cockcoin-info-quote-text p {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.cockcoin-info-attribution {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.cockcoin-info-footnote {
+  font-size: 0.76rem;
+  margin: 0;
+}

@@ -16,10 +16,16 @@
 real NHL commissioner (the avatar is an AI-generated cartoon caricature —
 navy suit, red tie, corporate-office background — deliberately reads as a
 "commissioner" type). He's reachable from the commissioner-only area of
-Settings, and pops up a chat styled like a real corporate helpdesk/support
-widget (Intercom/Zendesk/Drift-style) — clean, but deliberately clashing with
-the rest of the app's dark "Night Arena" look, so it reads as an embedded
-3rd-party widget bolted onto the app, not a native screen.
+Settings, and pops up in the app's own dark "Night Arena" look — the
+originally-planned "corporate helpdesk widget that clashes on purpose" was
+reversed (2026-08-30, per Nick): he now reads as a native screen, not a
+3rd-party widget, with a gold rule marking his lines and an ice one marking
+the GM's own replies instead of the twin-bubble chat shape `ChatSheet` owns.
+
+Every GM also sees a quick, standalone explainer — a small info trigger next
+to the cockcoin balance in `ProfileMenu`, popping the same small-card style
+`TradeRatingInfo` already uses, quoting Cockman rather than the full chat
+(which stays commissioner-only).
 
 ## Cockcoin — the token concept
 
@@ -51,24 +57,30 @@ the rest of the app's dark "Night Arena" look, so it reads as an embedded
   idea is this becomes a small *library* of bonus-entry prompt types over
   time, not just this one — more should be added as they're thought up.
 
-## UI/UX direction (established, 2026-07-27)
+## UI/UX direction (established 2026-07-27, palette reversed 2026-08-30)
 
 - Trigger: a single button in Settings' commissioner-only block ("Chat with
-  Cockman"), no duplicate entry points.
+  Cockman"), no duplicate entry points — plus the standalone cockcoin-info
+  popup in `ProfileMenu`, reachable by every GM, not just the commissioner.
 - Chat surface: floating widget, docks bottom-right on desktop (not a
-  full page modal/bottom-sheet) — the single biggest visual signal that this
-  is "a widget," not "a screen."
-- Palette/type/shape entirely its own — light corporate-SaaS look (white/
-  light-grey surfaces, one confident brand blue, system-UI font, flat/no
-  blur), nothing shared with the app's cyan-glass Night Arena tokens.
-- Still respects the app's underlying accessibility rules even though it
-  breaks every visual-theme rule: real SVG icons (no emojis), 44px touch
-  targets, visible focus rings, `aria-label`s, `prefers-reduced-motion`.
+  full page modal/bottom-sheet) — that part of the "it's a widget, not a
+  screen" framing stayed.
+- Palette/type/shape read from `index.css`'s own Night Arena tokens now —
+  gold marks Cockman's lines, ice marks the GM's own replies, `--font-display`
+  for his name. The original light-corporate-SaaS skin (white surfaces, one
+  brand blue, system-UI font) was the deliberate "clashing 3rd-party widget"
+  bit; Nick reversed that call, so nothing here fights the rest of the app's
+  look anymore.
+- Respects the app's underlying accessibility rules: real SVG icons (no
+  emojis), 44px touch targets, visible focus rings, `aria-label`s,
+  `prefers-reduced-motion`.
 - Everything scripted/local-state only — no backend calls anywhere yet.
 
 ## Implemented so far (2026-07-27)
 
 - `frontend/src/components/CockmanChat.tsx` + `.css` — the modal itself.
+- `frontend/src/components/CockcoinInfo.tsx` + `.css` — the standalone
+  cockcoin explainer popup, next to the balance in `ProfileMenu`.
 - `frontend/src/components/Icons.tsx` — `CockcoinIcon`.
 - `frontend/src/screens/Settings.tsx` — the trigger button.
 - `frontend/src/assets/cockman.png` — the avatar.

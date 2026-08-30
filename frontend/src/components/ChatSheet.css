@@ -1,8 +1,5 @@
 /* ChatSheet — direct messages, full-screen sheet, scoped with a "chat-" prefix.
-
-   Unlike CockmanChat.css, which is self-contained and deliberately off-theme,
-   everything here reads from index.css's tokens: this is a native screen and
-   has to look like one. */
+   Reads from index.css's tokens like any other native screen. */
 
 .chat-overlay {
   position: fixed;
