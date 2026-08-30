@@ -22,7 +22,7 @@ public static class DraftRules
     /// Roster-size bounds are trade rules; a draft selection is off-season by
     /// construction — this only ever runs while a <c>LeagueSeason</c> is
     /// <c>Drafting</c>, which is never <c>InSeason</c> — and
-    /// <c>season-lifecycle.md</c> §5 says <c>PreSeason</c> exists precisely so a
+    /// <c>offseason.md</c> says <c>PreSeason</c> exists precisely so a
     /// roster coming out of the draft can be out of bounds in either direction
     /// and still have a window to trade itself back into shape before lineups
     /// matter again. A team already sitting at <c>RosterMax</c> before its steal

@@ -8,7 +8,7 @@ namespace FantasyWarrior.Jobs.Sql;
 
 /// <summary>
 /// Creates the real "Les Mordus" league from the rosters imported out of Nick's
-/// PoolExpert standings PDF (see .claude/doc/mordus-pool.md).
+/// PoolExpert standings PDF (see .claude/doc/mordus.md).
 ///
 /// The roster data is a checked-in artifact (data/mordus-rosters.json), not
 /// something this job derives: the PDF's names arrive as one run of

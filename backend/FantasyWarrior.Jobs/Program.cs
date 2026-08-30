@@ -59,7 +59,7 @@ using FantasyWarrior.Jobs.Sql;
 //     Drafting -> PreSeason -> InSeason -> Complete. Run by a commissioner's
 //     decision, never a clock. --to Preparing with no open season opens the next
 //     one. --to InSeason flips League.Season and clears protections; --to
-//     Complete writes the champion off vStandings. See season-lifecycle.md.
+//     Complete writes the champion off vStandings. See offseason.md.
 //   draft-picks-init --league <joinCode> [--year YYYY] [--dry-run]
 //     One pick per team per round for one season, defaulting to the season
 //     after the current one. Picks exist one year ahead and only one, which is

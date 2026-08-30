@@ -7,7 +7,7 @@ namespace FantasyWarrior.Data.Migrations
     /// <summary>
     /// Scopes <c>vStandings</c> and <c>vRosterSpotTotals</c> to the league's
     /// current season. Neither ever filtered by season at all — a latent bug
-    /// found while designing the off-season draft (<c>season-lifecycle.md</c>
+    /// found while designing the off-season draft (<c>offseason.md</c>
     /// §8), harmless only because no league has ever reached a second season. A
     /// <c>RosterSpot</c> survives a season boundary in a keeper league, so once
     /// one exists, its <c>RosterAssignments</c> span two seasons' worth of
@@ -17,7 +17,7 @@ namespace FantasyWarrior.Data.Migrations
     ///
     /// <b>Both views keep aggregating from the same rows; only the filter
     /// changes.</b> That is the whole point of scoping rather than deleting
-    /// (<c>season-lifecycle.md</c> §6): the rollover moves a filter, and a
+    /// (<c>offseason.md</c>): the rollover moves a filter, and a
     /// future lifetime/career feature can still read the very same
     /// <c>RosterAssignments</c> rows unfiltered by season — it would simply not
     /// go through these two views, which now deliberately answer only "this

@@ -71,7 +71,7 @@ public sealed class League
     /// How many roster spots a GM may protect before the off-season steal
     /// draft. Null = not configured yet — Les Mordus has never run one, so
     /// there is no real number to default this to (see
-    /// <c>mordus-pool.md</c>'s "à fixer" rows). A player who qualifies for
+    /// <c>mordus.md</c> for the league's own number). A player who qualifies for
     /// <c>ProtectionRules.IsAutoProtected</c> does not spend one of these; this
     /// count is only for the GM's own picks.
     /// </summary>

@@ -1,11 +1,11 @@
 # Fantasy Warrior — Project Status
 
-> **Read at the start of every session, and keep updated along the way.**
-> Last updated: 2026-08-29.
+> **Read at the start of every session, and keep it updated along the way.**
 >
-> This file holds the **current state and the decisions behind it**. It is not a
-> changelog — `git log` is, and the commit messages in this repo are detailed.
-> Add a decision here when the *why* would be hard to recover from a diff.
+> This is the only doc that says what is built, what is not, and what is
+> broken. Every other doc describes the system in the present tense and never
+> dates anything. If a status claim lives somewhere else, it is in the wrong
+> file.
 
 ## Current state
 
@@ -13,587 +13,120 @@
 
 | | |
 |---|---|
-| App | https://nboisvert.github.io/fantasywarrior/ (GitHub Pages, auto-deploy on push) |
+| App | https://nboisvert.github.io/fantasywarrior/ (GitHub Pages) |
 | API | https://fantasy-warrior-api.calmhill-00a494fd.canadacentral.azurecontainerapps.io |
 | Database | Azure SQL serverless, free tier, resource group `fw` |
 | Nightly cron | `daily-jobs.yml` — db-migrate → stats-sync → nightly → player-sync → draft-sync → news-sync |
 
-- **Reference data**: 1 586 players, the full 2025-26 regular season (1 312 games —
-  32 teams × 82, confirmed against the NHL's published schedule — ~51 k
-  player-game lines, 2025-10-07 → 2026-04-16), contracts scraped from CapWages.
-- **Mordus2** is a throwaway copy of Les Mordus — join code `6HEURH`, created
-  2026-08-29 by `clone-league`, sitting in `Drafting` for season 4 (`20262027`).
-  Same rules, same rosters, **no history**. Delete it whenever; the SQL is in
-  [deployment.md](deployment.md).
-- **Les Mordus** is the live league — join code `TKW6UR`, season `20252026`,
-  14 GMs, **404 players plus one NHL franchise each (418 roster spots)**,
-  9F/4D/1G active plus the Équipe slot, 23-35 roster, **$134M cap**, scoring
-  1/1/2/1/0 (goal/assist/goalie win/OT loss/shutout) and 2/0/1 for the
-  franchise (win/loss/OT loss). See [mordus-pool.md](mordus-pool.md).
-- **A season replay is running**, restarted from scratch on 2026-08-05 (join
-  code `TKW6UR`) so the Équipe slot scores from week 1. It sits at
-  **2025-12-22, week 12, weeks 1-11 banked** — advanced five weeks on
-  2026-08-24, which also settled the doubt this paragraph used to carry: the
-  week-7 state on record did belong to *this* replay, not the previous one; it
-  was testmode.md's journal that had skipped the passages. `sim-clock` stays
-  the only authority. Everything in the app believes it is whatever day it
-  reports — check it before treating any date-related behaviour as a bug. See
-  [testmode.md](testmode.md).
+See [deployment.md](deployment.md) for how a deploy happens, the jobs and the
+runbooks.
 
-**Built and working**: player and stats services, leagues/teams/multi-tenancy,
-weekly-lineup scoring with banked points, trades (propose → accept, which
-applies the swap dated to the next Monday → lands → community rating), the five
-screens, the news ticker, per-player news and injury status.
+**Reference data**: ~1 586 players, the full 2025-26 regular season (1 312
+games — 32 teams × 82 — and 51 264 player-game lines, 2025-10-07 → 2026-04-16),
+contracts scraped from CapWages.
+
+**Two leagues exist.**
+
+- **Les Mordus** — the live league, join code `TKW6UR`, season `20252026`. Its
+  rosters, rules, cap and scoring scale are in [mordus.md](mordus.md).
+- **Mordus2** — a throwaway copy of Les Mordus, join code `6HEURH`, created by
+  `clone-league`, sitting in `Drafting` for season `20262027`. Same rules, same
+  rosters, **no history**. It exists so the off-season is rehearsed on a copy
+  and never on the live pool. Delete it whenever; the SQL is in
+  [deployment.md](deployment.md).
+
+**A season replay is running.** It sits at **2025-12-22, week 12, weeks 1-11
+banked**. `sim-clock` is the only authority: everything in the app believes it
+is whatever day that job reports, so **check it before treating any
+date-related behaviour as a bug**. See [testmode.md](testmode.md).
 
 ## Roadmap
 
 | Scope | Status |
 |---|---|
-| Player service — NHL identity, rosters, prospects, draft info | **Done** |
-| Stats service — game-by-game lines, daily sync, full-season backfill | **Done** |
-| Core domain — users, leagues, teams, multi-tenancy | **Done** |
-| Rules & scoring engine — weekly lineups, banked points | **Done** |
-| Frontend — Dashboard, Standings, Team, Trades, Settings | **Done** |
-| Trades — propose, respond, nightly processing, community rating | **Done** |
-| Contracts — CapWages import | **Done** |
-| GM-to-GM direct messages and live presence (SignalR) | **Done** |
-| Cap and roster-size **enforcement** | **Done for trades** — no other path changes a roster yet |
-| Draft picks — tradable, one year ahead | **Done** (the draft itself is not) |
+| Player service — NHL identity, rosters, prospects, draft info | Done |
+| Stats service — game-by-game lines, daily sync, full-season backfill | Done |
+| Core domain — users, leagues, teams, multi-tenancy | Done |
+| Rules & scoring engine — weekly lineups, banked points | Done |
+| Frontend — GM Office, Standings, Team, Trades, Settings | Done |
+| Trades — propose, respond, nightly processing, community rating | Done |
+| Contracts — CapWages import | Done |
+| GM-to-GM direct messages and live presence (SignalR) | Done |
+| Draft picks — tradable, one year ahead | Done |
+| Season-lifecycle foundation — `Season`, `LeagueSeasons`, the six phases, the trade freeze, the palmarès | Done |
+| Interactive live draft — steal rounds then rookie rounds, one room, asynchronous, no pick clock | Done |
+| Off-season protections — `ProtectionSlots`, the autofill default, the public protection slates | **Written, but no GM-facing screen.** See below. |
+| Cap and roster-size enforcement | **Partial.** The cap is enforced on trades and on draft picks. `RosterMin`/`RosterMax` are enforced on trades only — `DraftRules.ValidateSelection` deliberately passes both as null (`DraftRules.cs:54`), because `PreSeason` exists to repair a roster that came out of a draft off-bounds. No other path changes a roster. |
+| **Protection screen** — a GM contradicting the autofill's default | **Not built.** `GET /protections` reads and `POST /protections/autofill` writes the whole league at once; nothing lets one GM choose his own nine. It is a player-row list and owes the CLAUDE.md player-row ask before a line is written. |
 | Real authentication | Todo |
-| Free agency | Todo |
-| Off-season protection & steal draft | **Draft done** (2026-08-25); **protections now write** (2026-08-28) — `ProtectionSlots = 9` and an autofill that protects each roster's nine best from last season. **The protection *screen* is still not built**: a GM cannot yet contradict the default. It needs the CLAUDE.md player-row ask. |
+| Free agency | Todo. `GET /free-agents` is a read-only leaderboard, not a claim path. |
 | 🏁 **Season-tracking MVP in prod for early October 2026** (NHL 2026-27) | — |
-| Interactive live draft | **Done** (2026-08-25) — brought forward from its 2027-28 target. Asynchronous and turn-based; a clock was considered and refused. |
-
-## Decisions log
-
-Newest first. Each line is a decision that is still in force, with the reason it
-was taken — not a record of what changed. **Only the last ~5 days live here** —
-older entries (back to 2026-07-22) are in
-[decisions-archive.md](decisions-archive.md), same format, nothing dropped.
-
-### Architecture
-
-- **2026-08-29 — Le bouton Confirm de la salle de repêchage était cassé, et
-  `RosterMax` bloquait des équipes qui ne pouvaient déjà plus rien y faire.**
-  Deux bugs signalés par Nick sur le même bouton, corrigés ensemble.
-  **Le style** : `.btn-primary` n'existait dans aucune feuille de style —
-  DraftRoom.tsx était le seul fichier à l'utiliser, et le bouton retombait sur
-  le défaut du navigateur. Remplacé par `.btn`, la vraie classe primaire
-  glace-cyan utilisée partout ailleurs. **Le clic silencieux** : Ottawa, dans
-  Mordus2, est déjà à `RosterMax = 35` ; prendre qui que ce soit l'aurait mis
-  à 36, et `DraftRules.ValidateSelection` refusait à raison — mais le message
-  s'affichait derrière le fond assombri de la fenêtre de confirmation,
-  invisible. L'erreur vit maintenant **dans** la fenêtre elle-même.
-  **En creusant, Nick a demandé la vraie correction** : hors saison,
-  `RosterMax` ne devrait pas s'appliquer à une pige, seulement aux échanges,
-  pour l'instant. Fait — `DraftRules.ValidateSelection` n'accepte plus de
-  `rosterMax` du tout, symétrique au traitement déjà fait à `RosterMin`
-  (§11 de [scoring-model.md](scoring-model.md)) : une pige ne tourne que
-  pendant `Drafting`, jamais `InSeason`, et `PreSeason` existe justement pour
-  qu'un roster sorti hors bornes se répare par échange. Le plafond salarial,
-  lui, reste appliqué — la demande portait sur la taille du roster, pas sur
-  l'argent. `TradeValidation` n'a pas bougé : les échanges continuent
-  d'appliquer les deux bornes sans condition.
-
-- **2026-08-29 — La salle de repêchage montre le tableau complet, et les
-  protections de tout le monde.** Deux demandes de Nick, deux listes de joueurs,
-  donc deux fois la question de la convention player-row avant d'écrire une
-  ligne.
-  **L'onglet Piges devient le tableau.** Il montrait les 12 dernières
-  sélections ; il montre maintenant les 70 tours, faits et à venir, en une liste
-  continue — une ligne par tour, étiquetée `S1.4` / `R2.11`, l'équipe, puis le
-  joueur pris ou rien. « Qu'est-ce qui vient d'arriver » et « qu'est-ce qui s'en
-  vient » sont la même liste lue par un bout ou par l'autre, donc il n'y en a
-  qu'une. `DraftOrder.Remaining` (pur, testé) déroule la suite, et `TurnsUntil`
-  est devenu un index dans cette liste au lieu d'une deuxième marche en avant :
-  deux marches qui divergent diraient « tu piges dans 3 » avant de ne pas être
-  ton tour.
-  **Un 4e onglet, Protections**, avec un menu déroulant d'équipe — une ardoise à
-  la fois, parce que 14 d'un coup font 300 rangées que personne n'a demandées.
-  Position, nom tronqué, masse salariale, puis pourquoi il est à l'abri.
-  **Trois abris, pas deux** : `ProtectionRules.KindOf` distingue `ByGm` (une
-  place dépensée), `Auto` (gratuit, personne ne l'a choisi) et `Unknown` (ses
-  matchs en carrière n'ont jamais été synchronisés — tout aussi intouchable,
-  mais c'est un trou dans nos données, pas une règle du pool). Un test croisé
-  affirme que `KindOf` et `DraftPool.StealReason` ne peuvent pas diverger : un
-  écran qui dirait « exposé » d'un homme que le bassin refuse ensuite serait pire
-  que pas d'écran.
-  **Publiques pour toute la ligue** — question de produit ouverte depuis le
-  2026-08-25, tranchée. Le bassin de vol les donne déjà par omission ; les
-  rendre explicites ne coûte aucun secret et donne au pool de quoi jaser.
-
-- **2026-08-29 — The off-season is rehearsed on a copy, not on the live pool.**
-  `clone-league --from <code> --name <name> [--drafting]` duplicates a league's
-  **rules and rosters and nothing else** — no weeks, no lineups, no trades, no
-  season history — then opens a draft on it. It replaces the 2026-08-28 runbook
-  that walked Les Mordus itself through `Complete → Preparing → Protecting →
-  Drafting` and needed a hand-written SQL unwind to come back: there is now
-  nothing to unwind, because the real league never moved.
-  **The copy borrows one thing from the past: the draft order.** Having never
-  played, it has no standings of its own, so `--drafting` freezes the *source*
-  league's reverse standings onto its picks. An order of "whatever sequence the
-  teams were created in" would make the rehearsal worthless for the one thing a
-  pool argues about most.
-  **The protections come from shared code, not a second implementation**
-  (`ProtectionSlate` in `Data`, now behind the commissioner's button too). A
-  sandbox protected by a different rule would be rehearsing a draft nobody will
-  ever run.
-  **The three off-season rules had to be passed as flags**, and that is the
-  finding: `mordus-pool.md` records 9 protections / 2 steal rounds / 2 max
-  losses as settled, but none of the three has ever been written to the
-  `Leagues` row. **Les Mordus could not open a draft today** — `draft/open` and
-  the autofill both refuse without `ProtectionSlots`. The job overrides them on
-  the copy only; it will not edit a live league to unblock itself.
-  **Mordus2 exists**: join code `6HEURH`, 14 teams, 404 players + 14 franchise
-  slots, 126 protected / 130 free / 148 exposed, 70 turns, all 14 GMs joined at
-  Nick's call.
-
-- **2026-08-28 — Protections can be written, but only as a default nobody
-  chose.** Les Mordus is settled at **`ProtectionSlots = 9`** (Nick), the last
-  open number of the off-season rules. What fills them is
-  `POST /api/leagues/{id}/protections/autofill`: each GM's nine best from last
-  season. It exists because the protection *screen* still does not, and a draft
-  held without it filters on auto-protection alone — every veteran in the league
-  exposed, which is not a pool worth judging the room against. It is explicitly
-  **a default and not a decision**; the screen is what a GM who disagrees will
-  use, and it still owes the CLAUDE.md player-row ask.
-  **Ranked through the league's own scale, never raw NHL points** — the same
-  argument `FreeAgentRanking` already makes: on goals and assists alone a
-  goalie's season is zero and no GM would ever protect one. **Bounded to the
-  simulated day**, because the database holds the whole 2025-26 schedule while
-  the replay sits in December; unbounded, the ranking would read games nobody
-  has played. **A slot is only spent on someone the draft could actually take**:
-  an auto-protected prospect is out of reach for free and an unsynced player is
-  refused by `DraftPool` anyway, so neither is a candidate and neither is marked
-  — spending a slot on either would throw it away and expose the veteran it
-  would have covered. Ties break on `PlayerId` so two runs choose the same men:
-  the endpoint clears and rewrites the whole league every press, and a
-  non-reproducible run would silently reshuffle who is exposed each time.
-  It lives in the API rather than a job because it needs three things only the
-  API has wired — `Queries.SeasonTotalsAsync`, `Queries.ScaleAsync` and
-  `SimulationClockService` — and `FantasyWarrior.Api` references
-  `FantasyWarrior.Jobs`, never the reverse.
-- **2026-08-28 — Fixed: the draft room had no door.** The Draft tab rendered
-  only while the phase was `Drafting`, but `POST /draft/open` — the sole path
-  into `Drafting`, and the only thing that freezes `DraftPick.PickInRound` from
-  the reversed standings — is reached from a button *inside* the room's
-  `Protecting` branch. The commissioner could therefore never open a draft from
-  the app at all. The tab now also appears in `Protecting`, **for the
-  commissioner alone**, without the LIVE pill: the pill states a fact, and there
-  is nothing live before the room opens. `season-phase --to Drafting` is not a
-  substitute and must not be used — it would set the phase while leaving every
-  `PickInRound` null.
-- **2026-08-28 — There is no way back from the off-season, and there will not
-  be a job for it.** `Drafting → PreSeason → InSeason` does not return a league
-  to the season it was playing: entering `InSeason` points `Leagues.Season` at
-  the *prepared* season, which has no `Games` and no `Periods` until the NHL
-  publishes that schedule, so the standings would empty. Returning is SQL, not a
-  transition. Nick chose to repair by hand rather than build a rewind job, so
-  the undo is **written down in advance** in
-  [deployment.md](deployment.md) instead of improvised on a live league. Its one
-  sharp edge is recorded there too: `StartReason = Draft` cannot distinguish a
-  pick from a spot `seed-mordus` opened in October, so deleting draft-opened
-  spots must be bounded by date.
-- **2026-08-25 — The draft room is built, and it has no clock.** The `Drafting`
-  phase runs **two drafts back to back in one room**: 2 steal rounds, then the
-  rookie / free-agent rounds that finally spend the `DraftPick` rows nothing had
-  ever consumed. They share a turn engine and a selection log and differ only in
-  where a turn comes from and who is available — which is what "generic over
-  draft type" buys: a third kind is a third branch in `DraftPool`.
-  **No pick clock** (Nick): the GM on the clock picks whenever they get to it,
-  nobody is timed out, nothing auto-picks. That is a product decision *and* the
-  reason the whole draft fits inside request handling — no `IHostedService`, no
-  timer, and the Container App keeps scaling to zero between picks.
-  **Steal turns are not tradable**, so they have no entitlement row; the 28 turns
-  are derived. That is exactly what makes `DraftSelections` necessary rather than
-  convenient — with nothing to claim, a unique index on
-  `(LeagueSeasonId, OverallIndex)` is the only thing stopping two GMs from taking
-  turn 7. Deriving the draft from `RosterSpots` with `StartReason = Draft` was
-  never an option anyway: `SeedMordusJob` opened all 418 Mordus spots with that
-  reason. Order is frozen into `PickInRound` at open and never re-read from the
-  standings — steal turns read `OriginalTeamId`, rookie turns `CurrentTeamId`, so
-  trading a first-rounder moves the rookie pick without moving the steal turn it
-  was never attached to. `RosterMin` is deliberately **not** enforced on a
-  selection: `PreSeason` exists so a team can come out of the draft under it.
-  Verified end to end against LocalDB — a real steal closes the victim's spot the
-  day before it opens the thief's, and `RosterSpot.StartDraftPickId` was written
-  for the first time since the schema was authored.
-- **2026-08-25 — Les Mordus' two open draft numbers are set**: `StealRounds = 2`
-  and `MaxLossesPerTeam = 2` (Nick), both league columns. 14 teams × 2 losses is
-  exactly the 28 steal turns, so the pool really can close — which is why **a
-  turn can be passed**. `ProtectionSlots` is still unset and stays unset: the
-  protection screen is a separate player-row screen and needs its own ask.
-- **2026-08-25 — Presence stamps the viewer, never the viewed.** The middleware
-  read `username` from the route values *first*, and on every league-scoped team
-  route that segment names the team's **owner**, not the caller. Opening a
-  rival's roster, pricing a trade against him (`CreateTradeSheet` fetches his
-  `season-stats` and `picks` with no `viewer` at all) or scrolling his week in
-  Stats all stamped **him** as "seen just now". The whole league read as active:
-  eight GMs who have never logged in showed "4h ago". The rule now lives in
-  `PresenceStamping.ResolveViewer` (Core, 12 tests) instead of inline in the
-  middleware, because it is a rule with a bug history. **Only the query string
-  names the viewer** — `viewer` first, then `username`. A route segment counts
-  only in the `/api/users/{username}/…` family, where the subject *is* the
-  caller by construction and which is the first call the app makes after login.
-  Everywhere else an ambiguous request stamps nobody: a missed stamp costs a
-  stale label for one request, a wrong one invents activity that never happened.
-  **Rows already written stay wrong** — they were not cleaned, they simply decay.
-- **2026-08-25 — `LastLoginUtc` is readable, commissioner-only.** It had been
-  written at every login since the SQL rebuild and read by *nothing*, so when
-  the first real outside GM logged in (steeve) his arrival could only be
-  inferred from a trade he declined. `GET /api/leagues/{leagueId}/activity`
-  returns, per member, both timestamps side by side: `lastLoginUtc` is a
-  deliberate act, `lastSeenUtc` is any traffic at all — and only the first one
-  was ever immune to the bug above. No screen, on purpose: it is a diagnostic,
-  and a per-GM last-login list on a public route is a surveillance feature
-  nobody asked for.
-- **2026-08-25 — The season-lifecycle foundation is built and deployed**, same
-  day as the design doc (`season-lifecycle.md`). `Season` (Core, 35 tests)
-  replaces four places that each re-derived the NHL season string on their own.
-  `LeagueSeasons` exists, backfilled one row per league (`Number = 3` for Les
-  Mordus, matching its own source PDF; `InSeason`), with a filtered unique
-  index enforcing "at most one non-Complete row per league" as a real
-  constraint rather than a sentence in a doc. `Leagues.Season` deliberately
-  keeps **no** foreign key to it: a composite FK was the first thing tried and
-  cannot work — creating a league inserts the `Leagues` row first, since it is
-  the row that hands out the `LeagueId` any `LeagueSeason` row would need to
-  reference, so a constraint requiring the reverse would refuse the very
-  insert that has to happen first. `LeagueSeasonPhase` and
-  `SeasonPhaseRules` (Core, tested) model the six-phase lifecycle and gate
-  trades; the freeze is wired into `TradeEndpoints.ValidateAgainstEngagedAsync`,
-  the one helper both propose and accept already shared, so neither path can
-  drift from the other. `SeasonPhaseJob` (`season-phase --league --to <Phase>`)
-  advances a league one step, flips `League.Season` and clears protections on
-  entering `InSeason`, writes the champion off `vStandings` on entering
-  `Complete` — **never run against a real league**, since advancing a season
-  is Nick's call, not a default. `vStandings` and `vRosterSpotTotals` are now
-  scoped to the league's current season (a latent bug that predates all of
-  this: neither ever filtered by season, so a keeper spot's assignments from
-  two different seasons would have summed together the moment any league
-  reached a second one) — verified live against Les Mordus, same 435 spots and
-  same 454-point leader before and after. The palmarès
-  (`GET /api/leagues/{id}/seasons` + `Palmares.tsx`) is the first screen paid
-  for by keeping `RosterAssignments` forever instead of clearing them; it lives
-  behind a trophy icon on Standings rather than a new bottom-nav tab (already
-  full) or a duplicate shortcut. **Deliberately not built**: the protection and
-  draft screens themselves, both player-row lists that need the CLAUDE.md ask
-  first (how many lines, name truncation, what sits on the right) and two
-  numbers — protection slots, max losses per team — Nick has not set yet.
-
-- **2026-08-25 — The season rollover moves a filter; it never deletes a row.**
-  Nick's first shape for the keeper rollover was to delete the finished
-  season's `RosterAssignments`, which does reset the standings. It also empties
-  `vRosterSpotTotals`, which reads the same rows — so the Team screen's PTS
-  column would go to zero **for a player still on the roster**, since a keeper
-  spot survives the season. "What has he produced for me since I got him" is
-  the question a lifetime pool exists to answer, and deleting is the one way to
-  make it permanently unanswerable. It also contradicts banking itself: a
-  week's points belong permanently to whoever fielded the player. And it is not
-  recoverable in the way that matters — `PlayerGameStats` survives, so a replay
-  is possible, but only under *today's* scale, restating history that a scale
-  change is explicitly never allowed to restate. For 5,434 rows (≈14k a full
-  season, both leagues) against 50k game lines, there was no pressure to relieve.
-  The fix is one `WHERE p.Season = l.Season` in each of the two views. Points
-  reset because the filter moves. Design in
-  [season-lifecycle.md](season-lifecycle.md).
-
-- **2026-08-25 — Three different things are called "season", and only one of
-  them wants a table.** Nick asked what `League.Season` actually is and whether
-  it should be a table; the question was right and it split into three.
-  **(A)** the NHL season, `"20262027"` — the NHL's own identifier, same argument
-  as `Player.PlayerId`, so it stays a value: a `Seasons` table would carry no
-  attribute the string lacks, would put a foreign key on ~50k
-  `PlayerGameStats` rows for nothing, and the one thing it would be asked —
-  succession — is a pure function. What is missing there is a `Season` helper in
-  Core, not a table: the string surgery is currently repeated in four places
-  (`CurrentSeason()`, the draft-year `[..4] + 1`, three hardcoded defaults, and
-  the frontend's `formatSeason`), and the column is free text, so `"2025-2026"`
-  would create a phantom season in silence.
-  **(B)** the league's own season — "Les Mordus, saison 4". **This is the table**,
-  `LeagueSeasons(LeagueId, Season, Number, Phase, ChampionTeamId)`, and it does
-  not exist at all today even though the source PDF is titled *"Classement
-  Mordus pool a vie **saison 3**"* — the pool has counted its own seasons for
-  three years. It turns the rollover into an insert rather than an overwrite of
-  `League.Season` (which would destroy the record the league ever played
-  2025-26), and it is the only place a champion can be written.
-  **(C)** the draft year, `2026` — derived from (A), never stored twice: the
-  draft is named for the summer it is held in, the season for the two years it
-  spans, and the 2026 draft stocks `"20262027"`. `DraftPicksInitJob` already
-  computes exactly this; nothing says so, so every reader re-derives it.
-  **Correction to the same day's earlier entry**: `Phase` belongs on the
-  `LeagueSeason` row, not on `League` — "the league is drafting" cannot say
-  *for which season*. Each row walks `Preparing → Protecting → Drafting →
-  PreSeason → InSeason → Complete`, exactly one row per league is not
-  `Complete`, and the off-season phases belong to the season being **prepared**.
-
-- **2026-08-25 — The measurement is stored, the verdict stays derived.**
-  Off-season protection needs to know who has too few NHL games to be draftable.
-  Two different things were hiding in that: the **games count**, reference data
-  with a single writer, and **auto-protection**, a comparison against a
-  threshold. `Players.CareerNhlGames` is written by `career-sync` in the same
-  `SaveChanges` as the career rows it sums, so it cannot drift;
-  `ProtectionRules.IsAutoProtected` stays a comparison, written once. Storing
-  nothing would have made every read sum `PlayerCareerSeasonStats` and — the day
-  a view needed it — **copied the threshold into SQL**; that, not the query
-  cost, is what decided it. Storing the verdict instead would have meant
-  rewriting rows every time a prospect plays a game, and losing the number
-  itself, which is the thing worth displaying. The precedent was in the same
-  table: `Player.PositionGroup` is a computed **persisted** column for exactly
-  those two reasons.
-  Accepted consequence: `CareerNhlGames` is stale by at most 30 days
-  (career-sync's window, because the current season's row keeps changing all
-  year). Irrelevant at 50 and 100 games — but one more reason the draft itself
-  must **freeze** the figure rather than read it live.
-
-- **2026-08-07 — `sim-advance` is also an API endpoint, Nick-only.** Advancing
-  the replay used to mean a PowerShell prompt on `C:\Nick\fw`; now
-  `POST /api/testmode/advance?username=nick&to=...` on the deployed API runs
-  the same job, so it can be triggered from a phone. Gated on
-  `username == "nick"` (403 otherwise) because the job it wraps banks weeks
-  permanently and executes trades across both leagues at once — not real auth,
-  just a guard against a pool-mate's stray tap until the app has something
-  stronger. Meant to be removed with the rest of test mode once the real
-  season starts. `FantasyWarrior.Api` now references `FantasyWarrior.Jobs` to
-  reach `SimAdvanceJob` directly rather than shelling out.
-
-### Scoring
-
-- **2026-08-07 — Next week's lineup is written, not previewed.** The endpoint
-  used to compute what the carry-forward *would* pick and never store it,
-  because the rows only appeared when the scoring pass reached the week — by
-  which time it was locked, and the "preview" had never been anyone's choice.
-  `WeekAheadJob` writes them every night, fills in what is missing and rewrites
-  nothing, so the forgotten-lineup rule is data rather than a guess and a trade
-  can edit next week's lineup like anything else. `setBy: "auto"` is now a
-  stored value.
-- **2026-08-05 — The "Équipe" slot is a roster spot, not a column.** Every GM in
-  Les Mordus owns one NHL franchise for life; it now banks its own record — 2
-  per win, 1 per overtime loss here, priced per league through
-  `extraPointValues` like any other stat. **This reverses the modelling decision
-  taken that morning** (mordus-pool.md §3), which kept the franchise off
-  `RosterSpots` to stop a polymorphic spot "contaminating the whole roster,
-  lineup and transaction model". The reversal is what that shape is worth: a
-  franchise opens a spot, produces one assignment a week, banks points and can
-  be traded — it *is* a roster spot, and the alternative was a second scoring
-  engine, a second trade path and a second grid. The cost came to one nullable
-  column and one CHECK constraint.
-  Three unique indexes carry the rules: one owner per franchise per league, one
-  Équipe slot per team — which is exactly why the slot has no active/bench
-  control — and the existing one-owner-per-player index re-filtered on
-  `PlayerId IS NOT NULL`, without which the second team in a league to open a
-  franchise spot would collide with the first.
-  `Teams.FranchiseAbbrev` stays: it is the team's identity and never moves,
-  while the spot is the asset a trade can carry. The two start equal and are
-  meant to be able to diverge.
-
-### UI
-
-- **2026-08-25 — Auto-protection is marked on the player card, and nowhere
-  else.** Protection is an off-season mechanism, but one half of it matters all
-  year: whether a kid on your roster is out of anyone's reach. That is the only
-  part worth showing during a season (Nick), so it is a single `AUTO` pill at
-  the right of the card's header row and nothing on any list or grid.
-  A new `.pc-protect-pill` rather than `.roster-pos-pill`: that pattern is
-  reserved for the F/D/G indicator, and a second pill of the same shape on the
-  same row saying something else is exactly what that rule prevents. Ice-cyan,
-  because rose on this card is spoken for by the injury mark and the two must
-  never be confused at a glance. It pins right and refuses to shrink, so the
-  team abbreviation ellipsizes to make room — the same call as the injury badge.
-  **Nothing is drawn when the answer is unknown.** `autoProtected` is `bool?`,
-  null when career-sync has never reached the player, and the card renders on
-  `=== true` only. An `AUTO` badge on a veteran whose sync failed would be a
-  false statement about a real person; no badge is merely a gap.
-
-- **2026-08-04 — An unavailable player is marked twice on the Team grid, and
-  neither mark costs the row a column**: a rose edge on the sticky identity
-  cell, and a badge immediately after the name. The badge is in the flow rather
-  than absolutely positioned, so the name ellipsizes to make room — Nick's call,
-  the mark matters more than the last letters of a surname. The edge is an
-  `inset` box-shadow on the sticky cell rather than a border on the row, so it
-  stays on screen while the twenty numeric columns scroll under it.
-- **2026-08-04 — Injured and suspended share the colour, never the symbol.**
-  Both keep a player out of the lineup, which is the whole point of the marker,
-  so both rows are rose. But a gavel instead of a cross, because telling a GM
-  his defenceman is *injured* when he was suspended six games for slashing is a
-  false statement about a real person. `InjuryClassifier` decides which,
-  server-side, once, at the moment the source's label is read.
-- **2026-08-04 — The player card's News tab carries every source, not just
-  injuries.** A contract signing and a knee are both things a GM wants, and
-  splitting them would hide whichever tab he did not think to open. Lazy-loaded
-  on first open, same as Career: most players have no news at all.
-
-- **2026-08-04 — The two dashboard leaderboards show *NHL* numbers, over
-  longer windows.** The headline figure on a card is now the stat a GM already
-  knows from a box score — points for a skater, wins for a goalie — not the
-  league's fantasy score. The fantasy score stays as the *ranking* key, because
-  it is the only thing that can compare a goalie with a winger; it just no
-  longer has to be the number on the card. The unit stays welded to the figure
-  ("9 W"), with the window stacked underneath: a goalie's 9 sitting above a bare
-  "last 2 weeks" reads as nine points. Windows widened with it: Top Reserve sums
-  the last **two** weeks — named under every figure, since the section title
-  does not say it — and Top Free Agents covers the **whole season to date** — a claim is a season-long bet, and a one-week window put a fourth-liner
-  who scored twice on Saturday ahead of a 60-point winger nobody had taken.
-  `GET /free-agents` accordingly lost its `period` parameter and now aggregates
-  the season in SQL (tens of thousands of game lines, none wanted individually),
-  bounded to the simulated day like every other season total.
-- **2026-08-25 — Fixed: the player card crashed for every true prospect.**
-  `PlayerDetail.season` was typed `string`, never `string | null` — but the API
-  genuinely sends `null` for a player with zero NHL games on record, and
-  `formatSeason(null)` threw reading `.length`. No error boundary exists
-  anywhere in the app, so the crash took the whole screen down, not just the
-  card. Nick reported it as "the player card doesn't work" for Zharovsky; the
-  same crash hits every prospect, not just him. Fixed at the type (now
-  honest) and the one call site; the "Season" heading now omits the year it
-  doesn't have, and the stats panel shows "No stats this season" instead of a
-  wall of zeros, which is what a truthiness check on the always-non-null
-  `seasonTotals` used to render instead.
-
-### Trades
-
-- **2026-08-07 — Accepting a trade executes it, dated to the next Monday.** The
-  effect did not move: the swap still lands on a week boundary and no player
-  ever owns two teams on one day. What moved is when the database is told.
-  Between agreeing and executing, the app used to still believe the old
-  rosters — and that window is exactly when a GM sets the lineup for the week
-  the trade lands in, so he was offered a player who would be gone and denied
-  the one who would arrive. The old effective date was a *consequence of job
-  scheduling* rather than a rule: the nightly job ran trades on banking nights,
-  and the grace day pushed them a week later than `scoring-model.md` promised.
-  It is now `TradeSchedule.NextPeriodStart`, pure and tested.
-- **2026-08-07 — A `RosterSpot` can start or end in the future, and that is the
-  property everything else follows from.** "Never closed" and "held today" split
-  apart for exactly the two spots a trade creates. `RosterWindow` names the
-  three questions that used to share one filter. The surprise: the old
-  `EndDate IS NULL` did not become wrong, it changed meaning — it is now the
-  *engaged* figure.
-- **2026-08-07 — `vTeamCommitments` is gone, folded into `vStandings`.** The
-  delta it carried is in the spots' own dates now, so today's cap and the
-  engaged cap are the same aggregate one filter apart, in one statement, where
-  they cannot drift from each other. That costs `vStandings` a `Today` CTE
-  reading `SimulationState` — the first date logic in any view here — because
-  the displayed cap must keep counting only the spots active today (Nick).
-
-### Product
-
-- **2026-08-05 — A player with no contract stops being free.** Both cap views
-  counted him at $0, which treats "no contract" as a data gap to wait out. It is
-  not: an unsigned free agent and an undrafted prospect are permanent states, and
-  a keeper pool holds plenty of both — 30 on Mordus rosters today. He now costs
-  `Leagues.DefaultCapHit`, $1M by default and editable per league from the Rules
-  panel (0 restores the old behaviour). Both views had to move together at the
-  time, since callers summed `vStandings` and `vTeamCommitments` — the latter is
-  gone as of 2026-08-07 and both figures now come from one. `vStandings` also gained
-  `UnknownContracts`: folding an assumed salary into the total makes it
-  invisible, and a figure that is part measurement and part house rule should
-  say so.
-- **2026-08-05 — Half the "missing" Mordus players were never missing, and no
-  third-party source was needed for the other half.** The import's 44 unmatched
-  names were diagnosed in July as players the NHL API does not expose, which
-  pointed at scraping EliteProspects. Both halves of that were wrong. 25 were
-  already in `Players`, stored "J. Klingberg" — the shape the NHL publishes a
-  man between contracts in — so it was a matching failure at import, not a
-  missing row. The other 19 are genuinely unreachable through the two endpoints
-  `player-sync` reads, but the official search endpoint returns every one of
-  them. **EliteProspects is not integrated and is not needed**: a player in this
-  situation still has an NHL id. `PlayerCareerSeasonStats` already covers the
-  junior/KHL/NCAA history that motivated it.
-- **2026-08-05 — `PlayerNameIndex` is the wrong matcher when the question is
-  "does this name refer to anyone?"** Its first-initial fallback is right where
-  a news source abbreviates a player we already hold, but asked to resolve a
-  name that may match nobody it answered *Mathieu* Bolduc for "Marcel Bolduc" —
-  the only M. Bolduc among seven namesakes. `PlayerSearchMatcher` requires three
-  shared characters in the given name instead, keeping Zack for Zachary and Sam
-  for Samuel while refusing Marcel for Mathieu. Nicknames sharing no prefix
-  (Bill for William) are reported unresolved rather than guessed. Found by the
-  tests, not by review.
-- **2026-08-05 — The Mordus cap was the NHL's number, not the league's.** It had
-  been seeded at $115M since July; the real rule is **$134M** (Nick). At $115M,
-  nine of fourteen teams would have been over budget once the 44 missing players
-  were added. At $134M all fourteen are compliant.
-- **2026-08-04 — An injury list is not a news feed, and news-sync now treats
-  them differently.** The two scraped sources publish who is hurt *today*, so a
-  player disappearing from one is that source saying "cleared" — nobody ever
-  announces a recovery. That single fact drives both writes: his
-  `PlayerInjuries` row is resolved, and his `NewsItem` is deleted, because
-  "out with a knee" is no longer true. The medical record survives in
-  `PlayerInjuries` with its `ReportedUtc`/`ResolvedUtc`; the headline does not
-  deserve to. A source returning nothing is treated as broken, never as "nobody
-  is hurt" — a site rewrite would otherwise clear the league in one silent run.
-- **2026-08-04 — Age retires a headline, never a condition.** The 30-day
-  retention prune now skips injury-list sources entirely. Once the Rotowire
-  timestamp was read properly, Troy Terry's hip — reported 18 June, still out —
-  fell past the cutoff and was deleted every night and re-inserted on the next
-  run, taking the one item that explained the mark on his row with it. An
-  injury list already has a truer deletion rule: the source stopped listing him.
-- **2026-08-04 — A news source's name is matched through `PlayerNameIndex`,
-  which falls back to first-initial-plus-surname.** player-sync stores a player
-  as the NHL currently publishes him, and a veteran between contracts is
-  published as "R. Gudas" — so seven real NHL players (Gudas, Arvidsson,
-  Jensen, Schwartz, Bogosian, MacEwen, Pitlick) matched nothing and could never
-  be marked injured, silently, because an unmatched name is stored with a null
-  PlayerId rather than failing. The fallback only uses keys that are unique:
-  the league has two Sebastian Ahos, so "s aho" is not a key. A wrong match
-  puts another man's injury on a GM's roster, which is worse than no match.
-  news-sync now names every unmatched player in its output.
-- **2026-08-04 — Injuries are reconciled per source, never across sources.**
-  Rotowire dropping a player says nothing about whether FantasySP still lists
-  him, and letting one site's silence resolve the other's report is how a flag
-  starts lying. Where two sources report the same man, the API shows the one
-  reported first — its "hurt since" date is the true one.
 
 ## Open items
 
 - **No authentication.** The API trusts the username the client sends. Weekly
-  lineups make this materially worse than it sounds: silently benching a rival's
-  best player every Sunday would be undetectable.
-  **Direct messages changed the nature of this risk, not just its size**
-  (2026-08-03): the hub and the message routes trust a username in the query
-  string like everything else, so anyone who knows a handle can read that
-  person's private threads. For a pool of friends that is a tolerable trade,
-  but it is the first place where the gap exposes content rather than actions.
-- **FantasySP started answering the job's HttpClient with 403** (2026-08-04),
-  from an IP and User-Agent that curl got 200 on seconds later; Accept headers
-  and HTTP/2 changed nothing, so it is the client fingerprint. Deliberately not
-  chased — dressing the client up as a browser would circumvent an access
-  control the site chose to put up. Cost is bounded: news-sync treats a failed
-  fetch as "unknown", so FantasySP's injuries stop updating rather than
-  vanishing, and Rotowire covers the same ground. Worth re-checking whether it
-  also 403s from a GitHub runner, which is a different IP; it worked from there
-  on 2026-08-02. **One consequence today: Charlie McAvoy's suspension is the
-  only Mordus case of the gavel icon, and it comes from FantasySP alone — so
+  lineups make this materially worse than it sounds: silently benching a
+  rival's best player every Sunday would be undetectable. Direct messages
+  changed the *nature* of the risk, not just its size — the hub and the message
+  routes trust a username in the query string like everything else, so anyone
+  who knows a handle can read that person's private threads. It is the first
+  place where the gap exposes content rather than actions.
+
+- **Les Mordus' three off-season numbers are decided but not entered**, and the
+  app does not stop you. `ProtectionSlots`, `StealRounds` and
+  `MaxLossesPerTeam` are settled but absent from the live `Leagues` row.
+  `draft/open` never reads them, so it **opens anyway** and silently yields a
+  draft with no steal segment and uncapped losses. Worse, only `ProtectionSlots`
+  has a writer at all. Details and line references in [mordus.md](mordus.md);
+  this is the most dangerous gap before the October MVP.
+
+- **`period-rollup` scores a league whatever its phase.** It iterates every
+  league and knows nothing about `LeagueSeasonPhase`, so a copy sitting in
+  `Drafting` gets this week auto-filled and scored like any other. Harmless
+  today — the draft order is frozen at creation — but its standings will not
+  stay at zero, and [offseason.md](offseason.md) says a league outside
+  `InSeason` should not be scored.
+
+- **The scale can change mid-season and nothing records what it used to be.**
+  Point values live on `League` and mutate in place, so a lifetime pool has no
+  way to answer "what were season 2's rules?". `LeagueSeasons` is where that
+  would land. Not urgent, but it gets harder every season.
+
+- **There is no error boundary anywhere in the frontend.** One throw in one
+  component takes the whole screen down rather than that component — which is
+  how a single null field once read as "the app is broken".
+
+- **`TradeSchedule.NextPeriodStart` returns null past the last week of a
+  season** (`TradeSchedule.cs:33`). A trade in `PreSeason` is therefore refused
+  even though the phase itself allows it — the one piece of the season
+  lifecycle that is still wrong.
+
+- **Nothing announces a failed nightly.** `daily-jobs.yml` once failed 17
+  nights in a row and it only surfaced because the app broke. The chain is
+  ordered, so a red first step silently stops all data movement. No
+  notification exists. See deployment.md's troubleshooting log.
+
+- **FantasySP answers the job's HttpClient with 403**, from an IP and
+  User-Agent that curl gets 200 on seconds later; Accept headers and HTTP/2
+  changed nothing, so it is the client fingerprint. Deliberately not chased —
+  dressing the client up as a browser would circumvent an access control the
+  site chose to put up. Cost is bounded: news-sync treats a failed fetch as
+  "unknown", so FantasySP's injuries stop updating rather than vanishing, and
+  Rotowire covers the same ground. Worth re-checking from a GitHub runner,
+  which is a different IP. **One consequence: Charlie McAvoy's suspension is
+  the only Mordus case of the gavel icon and it comes from FantasySP alone, so
   nothing in the league currently exercises that path.**
+
 - **Injuries are real-world, the replay is not.** The scrapers read today's
   pages, so during the 2025-26 replay the Team grid marks players who are hurt
-  in *August 2026* against a roster that believes it is January. Harmless in
-  prod next season, confusing while testing — and unfixable, since no source
-  publishes a historical injury list. Check `sim-clock` before treating an
-  odd-looking marker as a bug.
-- ~~Cap and roster size are displayed but not enforced~~ — **enforced on trades
-  since 2026-08-03**, against the *engaged* figures. No other path can change a
-  roster, so there is nothing left unguarded; free agency will need its own
-  check when it arrives.
-- ~~The "Équipe" roster slot scores nothing~~ — **done 2026-08-05**. See the
-  decisions log and [scoring-model.md](scoring-model.md) §1.
-- ~~Unmatched Les Mordus players~~ — **done 2026-08-05**, all 44 resolved. See
-  [mordus-pool.md](mordus-pool.md) §2.
+  *now* against a roster that believes it is December. Harmless in prod next
+  season, confusing while testing — and unfixable, since no source publishes a
+  historical injury list. Check `sim-clock` before treating an odd-looking
+  marker as a bug.
+
 - **Rotate the deploy service principal secret.** It was passed through a chat
-  session and phone photos on 2026-08-02. Only the `AZURE_CREDENTIALS` GitHub
-  secret would need replacing.
-- ~~Nothing in the app can cross a season boundary~~ — **the foundation is
-  built** (2026-08-25): `vStandings` and `vRosterSpotTotals` are scoped to the
-  league's season (verified live: Les Mordus' 435 spots and top score of 454
-  unchanged after the migration), `LeagueSeasons` exists and is backfilled
-  (Number 3 for Les Mordus), and `LeagueSeasonPhase` plus the trade freeze are
-  wired into `TradeEndpoints`. **`TradeSchedule.NextPeriodStart` still returns
-  null past the last week of a season**, so a trade in `PreSeason` would still
-  be refused even though the phase itself allows it — the one piece of this
-  that is still wrong today. See [season-lifecycle.md](season-lifecycle.md).
-- **Free agency and the draft** are modelled in the schema but not built —
-  neither needs a migration.
-- **Nothing announces a failed nightly.** `daily-jobs.yml` failed 17 nights in a
-  row (2026-08-08 → 2026-08-24) and it only surfaced because the app broke. The
-  chain is `db-migrate → stats-sync → nightly → player-sync → draft-sync →
-  news-sync`, so a red first step silently stops all data movement. No
-  notification exists today. See deployment.md's troubleshooting log for that
-  outage; the CI-side cause of the abort is still unproven.
+  session and phone photos. Only the `AZURE_CREDENTIALS` GitHub secret would
+  need replacing.
+
+- **`LeagueEndpoints.cs:184` tells the user to "run `recompute` to restate
+  them".** That job does not exist. Here the *code* is the thing that lies.

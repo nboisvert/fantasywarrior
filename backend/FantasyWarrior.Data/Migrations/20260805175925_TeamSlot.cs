@@ -14,7 +14,7 @@ namespace FantasyWarrior.Data.Migrations
     /// overtime loss here, priced per league like every other stat.
     ///
     /// <b>This reverses the modelling decision taken earlier the same day</b>
-    /// (mordus-pool.md §3), which kept the franchise off <c>RosterSpots</c> to
+    /// which kept the franchise off <c>RosterSpots</c> to
     /// avoid a polymorphic spot "contaminating the whole roster, lineup and
     /// transaction model". The reversal is what that shape is worth: a
     /// franchise behaves like a player in every way the system cares about — it

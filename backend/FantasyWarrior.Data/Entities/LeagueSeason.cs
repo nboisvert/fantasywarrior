@@ -5,7 +5,7 @@ namespace FantasyWarrior.Data.Entities;
 /// <summary>
 /// One league's playthrough of one NHL season — protect, draft, play, close.
 ///
-/// This is the table half of "season" (see <c>season-lifecycle.md</c> §1/§4).
+/// This is the table half of "season" (see <c>offseason.md</c>).
 /// <c>League.Season</c> stays a plain value naming the NHL season whose points
 /// currently count (<see cref="Core.Seasons.Season"/>); this row is where a
 /// keeper league gets to be at "season 4" the way its own commissioner counts

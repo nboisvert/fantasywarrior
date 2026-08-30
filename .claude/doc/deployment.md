@@ -1,157 +1,243 @@
-# Deployment & Operations Runbook
+# Deployment & Operations
 
-> Everything needed to run Fantasy Warrior live.
-> Last updated: 2026-08-09 — refreshed the test count (`/doc-clean`); the
-> SignalR/one-replica architecture below is unchanged since 2026-08-03.
+> How Fantasy Warrior ships, how its infrastructure is configured, every job and
+> runbook, and the traps that have already cost a night. **This file owns jobs,
+> commands and runbooks** — no other doc restates them.
 
-## Architecture (live)
+## Architecture
 
-| Piece | Where | How it deploys |
+| Piece | Where | How it gets there |
 |---|---|---|
-| Frontend (React/Vite) | GitHub Pages — https://nboisvert.github.io/fantasywarrior/ | Auto on every push to `main` touching `frontend/**` (`frontend-deploy.yml`) |
-| API (.NET 10 minimal API) | **Azure Container Apps** — app `fantasy-warrior-api`, environment `fantasy-warrior-env`, same region as the database, scales to zero | Auto on push to `main` touching `backend/**` (`api-deploy.yml`); image published to ghcr.io |
-| **Database** | **Azure SQL** — server `fantasywarrior.database.windows.net`, database `fantasywarrior`, General Purpose Serverless (free tier) | Schema by `db-migrate`, never at app startup |
-| Nightly data jobs | GitHub Actions cron 09:30 UTC (`daily-jobs.yml`): db-migrate → stats-sync → nightly → player-sync → draft-sync → news-sync | Auto; manual backfill via Run workflow with from/to |
-| News sync (standalone) | GitHub Actions (`news-sync.yml`), manual only | Actions → "News sync" |
-| Auth | TEMPORARY username-only (the API trusts the client). | — |
+| Frontend (React/Vite) | GitHub Pages — https://nboisvert.github.io/fantasywarrior/ | `frontend-deploy.yml` |
+| API (.NET 10 minimal API) | Azure Container Apps — app `fantasy-warrior-api`, environment `fantasy-warrior-env`, same region as the database, scales to zero | `api-deploy.yml`, image on ghcr.io |
+| Database | Azure SQL — server `fantasywarrior.database.windows.net`, database `fantasywarrior`, General Purpose Serverless (free tier) | `db-migrate`, **never at app startup** |
+| Nightly jobs | GitHub Actions cron 09:30 UTC | `daily-jobs.yml` |
+| News sync (standalone) | GitHub Actions, manual only | `news-sync.yml` |
+| Auth | TEMPORARY username-only — the API trusts the client | — |
 
-**The API and the database sit in the same Azure region** since 2026-08-02. The
-API ran on Cloud Run, and moving it was not a preference: Cloud Run has no
-stable outbound IP, so it could never be allowed through the Azure SQL firewall
-without paying for Cloud NAT (about $32/month), which breaks the project's
-"hosting stays free" rule. Co-locating also removed the cross-cloud round-trip
-on every query and made the database's wake-up far less visible.
+**The API and the database sit in the same Azure region**, and that is not a
+preference. On Cloud Run the API had no stable outbound IP, so it could never be
+allowed through the Azure SQL firewall without paying for Cloud NAT
+(~$32/month), which breaks the "hosting stays free" rule; co-locating also
+removed a cross-cloud round-trip on every query. The image goes to ghcr.io rather
+than Azure Container Registry because ghcr.io is free here and ACR Basic is not.
 
-## The Container App runs exactly one replica (2026-08-03)
+---
 
-`api-deploy.yml` sets `--min-replicas 0 --max-replicas 1`. The ceiling is a
-**correctness** requirement since the API started hosting a SignalR hub, not a
-budget one. Two things in it are per-process:
+## Deploying
 
-- the hub's connection groups — a GM on replica A never receives a message
-  pushed from replica B;
-- `PresenceRegistry`, the in-memory map of who is connected — each replica would
-  report the half of the league it doesn't hold as offline.
+### What ships automatically
 
-Both fail intermittently and only under load, which is the worst kind to chase.
-Raising the ceiling needs a **backplane** (Azure SignalR Service or Redis) *and*
-a shared presence store — not a bigger number.
+| Workflow | Trigger | Result |
+|---|---|---|
+| `frontend-deploy.yml` | push to `main` touching `frontend/**` (or the workflow itself) | `npm ci && npm run build` with `VITE_API_URL` = repo variable `API_URL`, then GitHub Pages |
+| `api-deploy.yml` | push to `main` touching `backend/**` (or the workflow itself) | Docker build → ghcr.io tagged with the commit SHA → `az containerapp create`/`update` → SQL firewall rules → health assertion |
 
-### The awake-time budget
+**Both also carry `workflow_dispatch`**, so either can be run by hand from the
+Actions tab — pick the workflow, "Run workflow", `main`. That is how you
+redeploy without a code change: after setting `API_URL` for the first time,
+after rotating `AZURE_SQL_CONNECTION`, or to re-push an image.
 
-A WebSocket is a request that never ends, so **the app cannot scale to zero
-while anyone is connected**. The free grant is 180 000 vCPU-s + 360 000 GiB-s a
-month, and the replica is the default 0.5 vCPU / 1 GiB (no `--cpu`/`--memory` in
-the workflow) — so the grant buys roughly **100 hours of an awake replica per
-month**, past which it is pay-as-you-go, on the order of $30-35/month if it
-never sleeps. Confirm against the Azure pricing calculator before assuming those
-figures.
+`api-deploy.yml` is idempotent end to end. It creates the Container Apps
+environment on the first run and no-ops after, creates the app if absent and
+updates it otherwise, and re-derives the SQL firewall rules every time.
 
-Billing is **per replica-second, not per connection**: five GMs connected at
-once cost what one does. The budget is wall-clock *union* time where at least
-one person is active, not the sum of their sessions.
+### What CI does, and what it does not
 
-What keeps it inside the grant is the client, in
-`frontend/src/live/LiveProvider.tsx`: connect when a league loads and the tab is
-visible, drop 60 s after the tab is hidden, stop immediately on `pagehide`.
-**The hidden tab is the whole lever** — a tab forgotten on a second monitor is
-what would otherwise hold the container up all night for nobody.
+`ci.yml` runs on **every push to `main` and every pull request**: one job builds
+`FantasyWarrior.slnx` in Release and runs `dotnet test`, another runs
+`npm ci && npm run build` in `frontend/`. It has no `workflow_dispatch`.
 
-There is deliberately **no idle timeout and no activity tracking** (2026-08-03).
-An earlier version dropped the socket after three minutes without a
-pointerdown/keydown/scroll. It bought little on top of `visibilitychange` and
-cost a lot: listeners on scroll, a "connected" flag that was a poor proxy for
-"in the app", and a retry path that could hammer `/hubs/live/negotiate` once per
-scroll event whenever the API was cold. Reconnection after a mid-session drop is
-`withAutomaticReconnect()`'s job, not ours.
+**It gates nothing.** The deploy workflows are independent triggers on the same
+push, not downstream of CI, and no required-check rule stands between them. A red
+CI run and a green deploy of the same commit are both possible. CI tells you the
+tree builds and the tests pass; it does not stop a broken commit reaching prod.
 
-**If the awake hours ever look wrong, read that file first** — it is the only
-thing standing between this feature and a monthly bill.
+### What a deploy does NOT do
 
-## Azure SQL configuration
+**Migrations never run at API startup.** `db-migrate` is deliberately a command,
+not a startup hook — several instances could otherwise race into the same schema
+change. It runs in exactly one automated place: the *Apply migrations* step,
+first in `daily-jobs.yml`.
 
-**Public network access must be enabled.** The server shipped with *Deny Public
-Network Access = Yes*, which blocks everything — including Cloud Run and GitHub
-Actions — behind a misleading error: *"Database is not currently available.
-Please retry the connection later."* If you ever see that, check this first.
+The ordering constraint follows: **a migration must be applied before the code
+that needs it serves traffic.** Deployed code ahead of the schema is the failure
+mode — `Invalid column name '…'` on whichever endpoint reads the new column,
+which in practice means every screen, since they all load league detail first.
+When a change carries a migration, apply it right after the deploy, or run
+`daily-jobs.yml` from the Actions tab — it takes optional `from`/`to` date
+inputs, which is the whole point of running it by hand: a backfill over a date
+range rather than yesterday alone.
 
-Portal → SQL server `fantasywarrior` → Security → Networking:
-- Public access: **Selected networks**
-- Firewall rules: one per fixed IP that needs in (Nick's dev machine), plus
-  `containerapp-N` rules the deploy workflow maintains automatically
-- **"Allow Azure services and resources to access this server"** — on. It covers
-  GitHub-hosted runners, which are Azure VMs. It does **not** cover Container
-  Apps outbound traffic: the first deploy was refused by name, *"Client with IP
-  address '20.200.119.174' is not allowed to access the server"*.
+```powershell
+dotnet run --project backend/FantasyWarrior.Jobs -- db-migrate --list   # what is pending
+dotnet run --project backend/FantasyWarrior.Jobs -- db-migrate
+```
 
-**The Container App's outbound IPs are allowed automatically.** A Container Apps
-environment has *stable* outbound addresses — the one thing Cloud Run could not
-offer, and the reason the API is here at all — so `api-deploy.yml` reads them
-off the app and writes the matching firewall rules on every deploy. Nothing to
-maintain by hand, and it self-heals if Azure ever moves them.
+### Verifying a deploy landed
 
-`daily-jobs.yml` can instead open a per-run firewall rule for a runner outside
-Azure; that path is skipped unless `AZURE_RESOURCE_GROUP` is set, which is not
-the normal case.
+`api-deploy.yml`'s last step **asserts**: it polls `/health` for up to 60 seconds
+and fails the run if it never returns 200, printing the Container Apps *system*
+log and the console log when it does. A green API deploy therefore means a
+replica really answered.
 
-### The serverless tier auto-pauses
+- **`/health`** never touches the database — it measures the container being up.
+- **`/health/db`** runs a real query and reports the database separately. It is
+  the **first thing to hit when the app looks wrong**: it separates "the API is
+  down" from "the serverless database is resuming".
 
-After an idle hour the database pauses. The first connection then fails and the
-resume takes roughly ten seconds; from fully cold it can be a couple of minutes.
-`EnableRetryOnFailure(6, 20s)` plus a 60-second command timeout absorbs this.
-The API being in the same region now means a user only pays the resume itself,
-not a resume plus a cross-cloud round-trip — still worth watching on the first
-visit of the day.
+The app's URL is the repository variable `API_URL`, or read it live with
+`az containerapp show -n fantasy-warrior-api -g fw --query
+"properties.configuration.ingress.fqdn" -o tsv`. A frontend talking to the wrong
+API is a stale `API_URL` at build time, not a runtime setting.
 
-Free tier: 100,000 vCore-seconds/month (about 27 hours of compute) and 32 GB.
-The season holds ~50,000 game lines and uses a fraction of the space; the
-vCore budget is the one worth watching, and a full-season replay is the heaviest
-thing that touches it.
+### What is provisioned by hand
 
-## GitHub repo configuration (Settings → Secrets and variables → Actions)
+No workflow creates these; they exist because someone made them once.
+
+| Thing | Notes |
+|---|---|
+| Resource group `fw` | Holds the SQL server and the Container App. Exposed to the workflows as the variable `AZURE_RESOURCE_GROUP`. |
+| Azure SQL server + database `fantasywarrior` | General Purpose Serverless, free tier. `api-deploy.yml` reads the **region** off this server rather than hardcoding one, since co-location is the whole reason the API is in Azure. |
+| SQL networking | Public network access on, "Selected networks", plus "Allow Azure services…" — see below. |
+| Service principal behind `AZURE_CREDENTIALS` | `az ad sp create-for-rbac --sdk-auth`, scoped to the resource group `fw`. That scope is deliberate and has a visible consequence: it cannot register a subscription-level resource provider. |
+| Provider registration | One-time, by a subscription **owner**, in Cloud Shell: `az provider register --namespace Microsoft.App --wait`, same for `Microsoft.OperationalInsights`. `api-deploy.yml` prints these as a warning but never blocks. |
+| ghcr.io package visibility | The API image package is **public**, which is what lets the Container App pull it anonymously. Keep it that way — see the `ImagePullUnauthorized` trap. |
+| GitHub Pages | Enabled on the repository with GitHub Actions as the source, and the `github-pages` environment `frontend-deploy.yml` deploys into. |
+
+The Container Apps environment `fantasy-warrior-env` and the app itself are
+**not** in this list: `api-deploy.yml` creates both if they are missing.
+
+### Secrets and variables (Settings → Secrets and variables → Actions)
 
 | Kind | Name | Value |
 |---|---|---|
 | Secret | `AZURE_SQL_CONNECTION` | Full Azure SQL connection string |
-| Secret | `AZURE_CREDENTIALS` | Service-principal JSON from `az ad sp create-for-rbac --sdk-auth`, used to deploy the Container App |
-| Variable | `AZURE_RESOURCE_GROUP` | `fw` — the resource group holding the SQL server and the Container App |
+| Secret | `AZURE_CREDENTIALS` | Service-principal JSON, used to deploy and to open firewall rules |
+| Variable | `AZURE_RESOURCE_GROUP` | `fw` |
 | Variable | `API_URL` | The Container App URL — injected as `VITE_API_URL` into the Pages build |
+
+`api-deploy.yml` checks all three up front and fails with a named list rather
+than deep inside an `az` call.
 
 ⚠️ **The repository is public.** A credential committed to it is readable by
 anyone, permanently, including from git history — rotating it would be the only
-real fix. Real credentials live in `appsettings.Local.json`, which `.gitignore`
-excludes; the committed `appsettings.json` holds a placeholder only.
+real fix. Real credentials live in `appsettings.Local.json`, and `.gitignore`
+needs **both** patterns: `appsettings.*.Local.json` requires a middle segment and
+does **not** match `appsettings.Local.json`, so the bare name must be listed on
+its own line. The committed `appsettings.json` holds a placeholder only.
+
+---
+
+## Azure SQL configuration
+
+**Public network access must be enabled.** The server shipped with *Deny Public
+Network Access = Yes*, which blocks everything — GitHub Actions included —
+behind a misleading error: *"Database is not currently available. Please retry
+the connection later."*
+
+Portal → SQL server `fantasywarrior` → Security → Networking:
+- Public access: **Selected networks**
+- Firewall rules: one per fixed IP that needs in (Nick's dev machine), plus the
+  `containerapp-N` rules the deploy maintains
+- **"Allow Azure services and resources to access this server"** — on. It covers
+  GitHub-hosted runners, which are Azure VMs. It does **not** cover Container
+  Apps outbound traffic.
+
+**The Container App's outbound IPs are allowed automatically.** A Container Apps
+environment has *stable* outbound addresses, so `api-deploy.yml` reads them off
+the app and writes the matching rules on every deploy. Azure SQL takes up to five
+minutes to apply a new rule. `daily-jobs.yml` instead opens and closes its own
+per-run rule, guarded on `AZURE_RESOURCE_GROUP` being set — which it is (`fw`),
+so that path runs every night.
+
+**The serverless tier auto-pauses.** After an idle hour the database pauses; the
+first connection then fails and the resume takes ~10 seconds, or a couple of
+minutes from fully cold. `EnableRetryOnFailure(6, 20s)` plus a 60-second command
+timeout absorbs it. Free tier: 100,000 vCore-seconds/month (~27 hours of compute)
+and 32 GB. A season holds ~50,000 game lines and uses a fraction of the space;
+the vCore budget is the one to watch, and a full-season replay is the heaviest
+thing that touches it.
+
+## One replica, and why it is a ceiling
+
+`api-deploy.yml` sets `--min-replicas 0 --max-replicas 1`. The ceiling is a
+**correctness** requirement, not a budget one, since the API hosts a SignalR hub.
+Two things in it are per-process: the hub's connection groups (a GM on replica A
+never receives a message pushed from replica B) and `PresenceRegistry` (each
+replica reports the half of the league it does not hold as offline). Both fail
+intermittently and only under load. Raising the ceiling needs a **backplane**
+(Azure SignalR Service or Redis) *and* a shared presence store — not a bigger
+number.
+
+**The awake-time budget.** A WebSocket is a request that never ends, so the app
+cannot scale to zero while anyone is connected. The free grant (180,000 vCPU-s +
+360,000 GiB-s a month, at the default 0.5 vCPU / 1 GiB) buys roughly **100 hours
+of an awake replica per month**, past which it is pay-as-you-go, on the order of
+$30-35/month if it never sleeps. Billing is per replica-second, not per
+connection: five GMs connected at once cost what one does.
+
+What keeps it inside the grant is `frontend/src/live/LiveProvider.tsx`: connect
+when a league loads and the tab is visible, drop 60 s after the tab is hidden,
+stop immediately on `pagehide`. **The hidden tab is the whole lever**, and **if
+the awake hours ever look wrong, read that file first.** There is deliberately no
+idle timeout and no activity tracking — it bought little on top of
+`visibilitychange` and could hammer `/hubs/live/negotiate` once per scroll event
+whenever the API was cold. Reconnection after a drop is
+`withAutomaticReconnect()`'s job.
+
+---
 
 ## Local dev
 
 Credentials: `backend/FantasyWarrior.{Jobs,Api}/appsettings.Local.json`, or the
-`AZURE_SQL_CONNECTION` environment variable, which wins. Nothing else is needed.
+`AZURE_SQL_CONNECTION` environment variable, which wins. Nothing else.
 
 ```powershell
 dotnet run --project backend/FantasyWarrior.Api --no-launch-profile   # :5099
 cd frontend && npm run dev                                            # :5173
-dotnet test FantasyWarrior.slnx                                       # ~353 tests
+dotnet test FantasyWarrior.slnx
 ```
 
-Jobs: `dotnet run --project backend/FantasyWarrior.Jobs -- <job>`. See the
-comment block at the top of `Jobs/Program.cs` for all of them.
-
 Integration tests use **LocalDB** (`MSSQLLocalDB`), creating and dropping
-`FantasyWarriorTests` each run — they never touch Azure. Set
-`FW_TEST_SQL_CONNECTION` to point elsewhere; with no SQL Server at all they skip
-cleanly rather than failing.
-
+`FantasyWarriorTests` each run — they never touch Azure. `FW_TEST_SQL_CONNECTION`
+points them elsewhere; with no SQL Server at all they skip cleanly.
 `dotnet-ef` is needed only to author migrations:
 `dotnet tool install --global dotnet-ef --version 10.0.10`.
 
-## Rebuilding the database from nothing
+## Jobs
+
+`dotnet run --project backend/FantasyWarrior.Jobs -- <job>`. The comment block at
+the top of `Jobs/Program.cs` documents every option; that block is the reference,
+this is the map. Almost every job takes `--dry-run` — use it.
+
+| Need | Command |
+|---|---|
+| Apply the schema | `db-migrate [--list]` |
+| Generate a season's calendar | `period-init --season 20262027` |
+| Generate a league's draft picks | `draft-picks-init --league <joinCode> [--year YYYY]` |
+| Run the scoring (nightly entry point) | `nightly` |
+| Catch up a missed cron or an imported season | `nightly --backfill-from N` |
+| Re-score one week of one league | `period-rollup --league <id> --week N` |
+| Move a league one phase | `season-phase --league <joinCode> --to <Phase>` |
+| Clear a league's protections | `protection-reset --league <joinCode>` |
+| Move a week's lock | `UPDATE Periods SET LockUtc = … WHERE Season = … AND Number = …` |
+| Un-bank to recompute | `UPDATE RosterAssignments SET IsFinalized = 0` and `UPDATE Periods SET FinalizedUtc = NULL`, then `nightly --backfill-from N` |
+
+A full-season backfill is an ordinary operation on Azure SQL — no read quota to
+spare. There is **no `set-league-rules`, no `sim-reset` and no `recompute` job**,
+whatever other text may claim; `LeagueEndpoints.cs:184` still tells the user to
+run `recompute`, and that message is wrong. Season replay commands live in
+[testmode.md](testmode.md).
+
+### Rebuilding the database from nothing
 
 ```powershell
 dotnet run --project backend/FantasyWarrior.Jobs -- db-migrate
 dotnet run --project backend/FantasyWarrior.Jobs -- player-sync --season 20252026
 dotnet run --project backend/FantasyWarrior.Jobs -- stats-sync --from 2025-10-07 --to 2026-04-16  # ~10 min
 dotnet run --project backend/FantasyWarrior.Jobs -- period-init --season 20252026
-dotnet run --project backend/FantasyWarrior.Jobs -- player-resolve            # before seeding — see below
+dotnet run --project backend/FantasyWarrior.Jobs -- player-resolve            # before seeding
 dotnet run --project backend/FantasyWarrior.Jobs -- draft-sync
 dotnet run --project backend/FantasyWarrior.Jobs -- career-sync
 dotnet run --project backend/FantasyWarrior.Jobs -- capwages-sync --resolve-unmatched   # ~15 min
@@ -159,41 +245,33 @@ dotnet run --project backend/FantasyWarrior.Jobs -- seed-mordus
 dotnet run --project backend/FantasyWarrior.Jobs -- sim-clock --set 2025-10-04 --season 20252026
 ```
 
-### `player-resolve` — the players `player-sync` cannot see
+`career-sync [--limit N] [--max-age-days N]` refreshes the stalest players
+rather than syncing once, because the current season's row changes all year.
+The window defaults to **30 days**, which is the exact staleness ceiling on
+`Players.CareerNhlGames` — and the reason a draft should freeze that number
+rather than read it live. It is **not** in the nightly chain.
 
-`player-sync` reads two endpoints per team, the season roster and the prospect
-list. A player can be on neither and still be someone a GM owns: an unsigned
-free agent is on no roster, and a fresh draftee his club has not listed yet is
-on no prospect list. `seed-mordus` refuses to write a league whose roster file
-names a player it cannot find, so this has to run **before** seeding.
+⚠️ **To replay the pre-SQL oracle comparison, seed with `--no-opening-lineup`.**
+The old engine never used the source PDF's Active list, it auto-filled. Both
+produce legitimate but different scores, and `golden-scores-preSql.json` only
+validates the engine if the *inputs* match — otherwise you get a large,
+plausible, meaningless diff.
 
-```powershell
-dotnet run --project backend/FantasyWarrior.Jobs -- player-resolve [--file data/unresolved-players.txt] [--dry-run]
-```
+`wipe-pools` clears leagues, teams, rosters and un-banks every week while leaving
+players, contracts, games and game lines alone — that half costs hours to rebuild
+and is identical for everyone.
 
-It reads one name per line (`#` comments allowed), queries the NHL search
-endpoint by **surname**, and writes only what is unambiguous — anything with
-no match or several is printed at the end for a human. Always `--dry-run`
-first and read that list.
+**`player-resolve` runs before `seed-mordus`, not after**, because `seed-mordus`
+refuses to write a league whose roster file names a player it cannot find and
+`player-sync` cannot see everyone (`--file data/unresolved-players.txt`; how it
+resolves them is in [integrations.md](integrations.md)). Always `--dry-run` first
+and read the list of names it could not place.
 
-Names are kept spelled the way the source wrote them, on purpose: the matcher
-is what absorbs Zack for Zachary and Sandin Pellikka for Sandin-Pellikka, and
-correcting the input by hand would hide a regression in it.
+### Rehearsing the off-season — `clone-league`
 
-Nothing here is scraped and no third-party source is involved — it is the same
-official NHL API as everything else. EliteProspects was considered and is not
-needed: every player in this situation still has an NHL id.
-
-`wipe-pools` clears leagues, teams, rosters and un-banks every week while
-leaving players, contracts, games and game lines alone — that half costs hours
-to rebuild and is identical for everyone.
-
-## Rehearsing the off-season on a copy — `clone-league`
-
-**The way to do it.** Everything below this section drives a *live* league into
-`Drafting` and needs hand-written SQL to come back. `clone-league` copies the
-rules and the rosters into a brand new league and leaves the original untouched,
-so there is nothing to undo — throw the copy away instead.
+**The way to do it.** `clone-league` copies the rules and the rosters into a
+brand new league and leaves the original untouched, so there is nothing to
+undo — throw the copy away instead.
 
 ```powershell
 dotnet run --project backend/FantasyWarrior.Jobs -- clone-league `
@@ -206,264 +284,132 @@ Drop `--dry-run` to write. In one pass it copies the league's rules, its teams
 a `LeagueSeason` for the season after the one being played, generates the
 rookie-segment picks, auto-fills the protections and freezes the order.
 
-Four things worth knowing:
-
-- **The weeks are not copied** — no assignments, no lineups, no trades, no
-  season history. The copy has never played a game, so its standings are empty
-  by design.
-- **Which is why the order is borrowed.** With no standings of its own the copy
-  has no reverse-standings order, so `--drafting` freezes **the source league's**
-  onto it. That is the one thing the copy takes from the past.
-- **The three rule flags apply to the copy only.** Les Mordus' 9 protections /
-  2 steal rounds / 2 max losses are in `mordus-pool.md` but have never been
-  written to its row, and this job will not write them there to unblock itself.
+- **The weeks are not copied** — no assignments, lineups, trades or history, so
+  the copy's standings are empty by design. **Which is why the order is
+  borrowed**: with no standings of its own, `--drafting` freezes **the source
+  league's** onto it.
+- **The three rule flags apply to the copy only** — never to the source, a live pool.
 - **`--commissioner-only`** keeps the copy out of the other GMs' league lists.
-  Without it, every owner gets a membership row and sees the new league appear.
+  Without it every owner gets a membership row and sees the new league appear.
+- **The nightly still scores a copy.** `period-rollup` iterates every league and
+  knows nothing about phases, so a copy sitting in `Drafting` gets this week
+  auto-filled and scored like any other. Harmless, but its standings will not
+  stay at zero — it accrues from the week it was created in, since weeks already
+  banked are not re-scored (`Periods.FinalizedUtc` is global).
 
-**Done 2026-08-29**: `Mordus2`, join code `6HEURH` — 14 teams, 404 players plus
-14 franchise slots, 126 protected / 130 free / 148 exposed, 70 turns, all 14 GMs
-joined.
+**Throwing a copy away.** A copy owns no banked history, so this is a plain
+delete rather than an unwind — never run it against a league you did not clone.
+In one transaction, with `@l` = its `LeagueId`, delete in this order (foreign
+keys make it load-bearing): `DraftSelections` (by its `LeagueSeasonId`s),
+`RosterAssignments` (by its `RosterSpotId`s), `TeamPeriodLineups` (by its
+`TeamId`s), `RosterSpots`, `TradeVotes` and `TradeAssets` (by its `TradeId`s),
+`Trades`, `Messages`, `DraftPicks`, `LeagueScoringRules`, `LeagueMembers`,
+`LeagueSeasons`, `Teams`, `Leagues` — the last eleven all `WHERE LeagueId = @l`.
 
-### The nightly still scores a copy
+---
 
-`period-rollup` iterates every league and knows nothing about phases, so a copy
-sitting in `Drafting` gets this week auto-filled and scored like any other
-league. Harmless — the draft order was frozen at creation and does not move —
-but its standings will not stay at zero. Weeks already banked are not re-scored
-(`Periods.FinalizedUtc` is global), so a copy only ever accrues from the week it
-was created in. **Open**: the rollup arguably should skip a league whose active
-season is not `InSeason`, which is what `season-lifecycle.md` §5 says.
+## Troubleshooting
 
-### Throwing a copy away
+| Symptom | Cause | Fix |
+|---|---|---|
+| *"Database is not currently available. Please retry the connection later."* | Usually *Deny Public Network Access*, not a paused database — the message is misleading | Connect to `master` instead and the real error appears; re-check Networking |
+| `Client with IP address 'x.x.x.x' is not allowed to access the server` | The Container App's outbound IP is not in the firewall — "Allow Azure services" does not cover it | `api-deploy.yml` writes those rules itself; Azure SQL takes up to 5 min to apply one, so retry before assuming failure |
+| `The configured execution strategy does not support user-initiated transactions` | `EnableRetryOnFailure` is on | Go through `db.Database.CreateExecutionStrategy()`. Not a formality: a retry must replay the whole transaction, not the surviving half |
+| `Replacement index 1 out of range for positional args tuple` during a deploy | A bug in the `containerapp` extension's own error formatting, hit while it tries and fails to auto-register a provider — it hides the real error | The two `az provider register` commands above, once, as a subscription owner |
+| Every screen but News says "failed to fetch" | A pending migration. `GET /api/leagues/{id}` throws `Invalid column name '…'`, and every screen loads league detail first — News is the one that never asks. It reads as `Failed to fetch` not `HTTP 500` because an unhandled exception's response carries no CORS headers | `db-migrate` |
+| The nightly chain has been dead for weeks and nobody noticed | `daily-jobs.yml` announces nothing when it fails, and every step is downstream of *Apply migrations* | Read the step log. **Exit 134 is a .NET job aborting on an unhandled exception** (SIGABRT), not a step-specific code. A green *Apply migrations* usually means nothing was pending, not that CI can migrate — check the migration's timestamp against the run |
+| `news-sync` reports FantasySP 403 Forbidden | The site blocks the scraper (client fingerprinting, deliberately not chased) | Nothing. Rotowire's two sources still work, and the job logs the status rather than reporting a silent zero |
+| A local build fails on a locked output file | A stale `dotnet run` still holds it | Kill the `FantasyWarrior.Api` or `FantasyWarrior.Jobs` process and rebuild |
 
-`@l` = its `LeagueId`. It owns no banked history worth keeping, so this is a
-plain delete rather than an unwind — nothing here is safe to run against a league
-you did not clone.
+**The API answers the TLS handshake and then hangs forever** — ingress up, no
+healthy replica behind it. Two causes, and the second is the one to know.
 
-```sql
-BEGIN TRAN;
-DELETE FROM DraftSelections   WHERE LeagueSeasonId IN (SELECT LeagueSeasonId FROM LeagueSeasons WHERE LeagueId = @l);
-DELETE FROM RosterAssignments WHERE RosterSpotId IN (SELECT RosterSpotId FROM RosterSpots WHERE LeagueId = @l);
-DELETE FROM TeamPeriodLineups WHERE TeamId IN (SELECT TeamId FROM Teams WHERE LeagueId = @l);
-DELETE FROM RosterSpots       WHERE LeagueId = @l;
-DELETE FROM TradeVotes        WHERE TradeId IN (SELECT TradeId FROM Trades WHERE LeagueId = @l);
-DELETE FROM TradeAssets       WHERE TradeId IN (SELECT TradeId FROM Trades WHERE LeagueId = @l);
-DELETE FROM Trades            WHERE LeagueId = @l;
-DELETE FROM Messages          WHERE LeagueId = @l;
-DELETE FROM DraftPicks        WHERE LeagueId = @l;
-DELETE FROM LeagueScoringRules WHERE LeagueId = @l;
-DELETE FROM LeagueMembers     WHERE LeagueId = @l;
-DELETE FROM LeagueSeasons     WHERE LeagueId = @l;
-DELETE FROM Teams             WHERE LeagueId = @l;
-DELETE FROM Leagues           WHERE LeagueId = @l;
-COMMIT;
+*The container crash-loops.* The connection string resolves lazily, so `/health`
+answers whatever the database is doing and `/health/db` reports the real reason
+separately. Resolving it at service-registration time throws before the web host
+exists, which is what produces this symptom.
+
+*`ImagePullUnauthorized`* — **the nastier one, because the deploy that causes it
+goes green.** Never store registry credentials on the app. `GITHUB_TOKEN` dies
+when the run ends, and a Container App that has stored credentials *always* uses
+them and never falls back to an anonymous pull, so the pull returns 401 even
+though the ghcr package is public. The running replica still holds the image, so
+the deploy passes; the app only dies at the next wake-up from `min-replicas 0`.
+`api-deploy.yml` removes the credential on every deploy. To repair an app still
+carrying one — and if the package ever goes private, use a PAT with
+`read:packages`, never `GITHUB_TOKEN`:
+
+```bash
+az containerapp registry remove -n fantasy-warrior-api -g fw --server ghcr.io
+az containerapp revision restart -n fantasy-warrior-api -g fw --revision <rev>
 ```
 
-## Putting a league into the off-season draft, and getting it back out
+**Reading Container Apps logs.** `--type console` shows what the app wrote;
+**`--type system` shows what Container Apps did to it.** A failed pull writes
+nothing to console, so an empty console log is a signal, not a dead end. And
+`az containerapp logs show` reporting *"Successfully connected to container"*
+does **not** mean the image is good: a replica stuck in `ImagePullBackOff` still
+has a replica object with no container inside it.
 
-Nick's rehearsal of 2026-08-28: drive Les Mordus (`TKW6UR`) into `Drafting`
-mid-replay to see the room against real rosters, then return it to the season
-it was playing. **Prefer `clone-league` above** — this path is what you use when
-the *real* league genuinely has to move.
+---
 
-**Every `season-phase` step takes `--dry-run`. Run it that way first.**
+## Appendix — emergency: unwinding a live league out of `Drafting`
 
-```powershell
-# 1. the number the draft needs, via Settings > Rules > Off-season protection
-#    (PATCH /api/leagues/TKW6UR/rules) — 9 for Les Mordus
-# 2. close the season being played; this writes a champion off today's standings
-dotnet run --project backend/FantasyWarrior.Jobs -- season-phase --league TKW6UR --to Complete
-# 3. open the next one (Number + 1, Season.Next)
-dotnet run --project backend/FantasyWarrior.Jobs -- season-phase --league TKW6UR --to Preparing
-# 4. trades freeze here
-dotnet run --project backend/FantasyWarrior.Jobs -- season-phase --league TKW6UR --to Protecting
-# 5. the rookie segment's entitlements — year defaults to the right one
-dotnet run --project backend/FantasyWarrior.Jobs -- draft-picks-init --league TKW6UR
-# 6-8. in the app, as commissioner: the Draft tab appears in Protecting.
-#      "Auto-protect each roster", then "Open the draft".
-```
+**Use `clone-league` instead.** This is only for when the *real* league has
+genuinely had to move, and it is irreversible work on live data.
 
-Three things that will bite otherwise:
+Driving a live league in: `season-phase --to Complete`, `--to Preparing`,
+`--to Protecting`, then `draft-picks-init --league <code>`, then the app's Draft
+tab as commissioner — "Auto-protect each roster", then "Open the draft". Four
+things that will bite otherwise:
 
-- **Step 5 is not optional.** `draft/open` refuses unless the pick count is
-  exactly `teams × DraftRounds` (14 × 3 = 42 for Les Mordus), and says so.
-- **Never `season-phase --to Drafting`.** Only `POST /draft/open` freezes
+- ⚠️ **`season-phase --to Complete` writes a champion off today's standings.**
+  Run mid-season — which is exactly when a rehearsal happens — it stamps
+  whoever is leading into `LeagueSeasons.ChampionTeamId`, and the palmarès then
+  publishes that false champion to the whole league. Every `season-phase` step
+  takes `--dry-run`; use it.
+- ⚠️ **Never `season-phase --to Drafting`.** Only `POST /draft/open` freezes
   `DraftPick.PickInRound` from the reversed standings. The job would set the
-  phase alone and the rookie segment would read nulls.
-- **Call the autofill with `?preview=true` first** on a live league. It returns
-  the same counts and writes nothing.
+  phase alone and the rookie segment would then read nulls for every pick. The
+  commissioner's route into `Drafting` is the button in the app, which is why the
+  Draft tab already appears during `Protecting` for the commissioner alone.
+- **`draft-picks-init` is not optional.** `draft/open` refuses unless the pick
+  count is exactly `teams × DraftRounds` (`DraftEndpoints.cs:367`) and says so.
+- **Call the autofill with `?preview=true` first** on a live league: it returns
+  the same counts and writes nothing (`DraftEndpoints.cs:170-222`).
 
-### What the league sees while this runs
+**What the league sees while this runs.** Trades freeze, and a Draft tab with a
+LIVE pill appears **for everyone** the moment the room opens — this is not a
+quiet rehearsal. The palmarès reports a champion for a season that never
+finished. What does *not* move is `Leagues.Season`: it only advances on the way
+into `InSeason`, which a rehearsal never reaches, so standings, lineups and
+scoring carry on and the nightly keeps banking weeks underneath.
 
-Trades are frozen (`SeasonPhaseRules.CanTrade`), a Draft tab with a LIVE pill
-appears for everyone once the room opens, and the palmarès reports a champion
-for a season that was not finished. What does **not** move: `Leagues.Season`
-stays on the season being played until `InSeason`, so standings, lineups and
-scoring carry on, and the nightly keeps banking weeks underneath.
-
-### Coming back — there is no forward path
-
-`Drafting → PreSeason → InSeason` does **not** return to the season you were
-playing: entering `InSeason` points `Leagues.Season` at the prepared season,
-which has no `Games` and no `Periods` until the NHL publishes its schedule, and
-the standings would empty. Nick chose (2026-08-28) not to build a rewind job, so
-the undo is this, written down before it is needed rather than improvised.
-
-`@l` = the league's `LeagueId`, `@s3`/`@s4` = the two `LeagueSeasonId`s,
-`@d` = the simulated date the rehearsal started on.
+**There is no forward path back.** `Drafting → PreSeason → InSeason` points
+`Leagues.Season` at the prepared season, which has no `Games` and no `Periods`
+until the NHL publishes its schedule, and the standings would empty. So the undo
+is hand-written SQL, in one transaction, with `@l` = the `LeagueId`, `@s3`/`@s4`
+= the played and prepared `LeagueSeasonId`s, `@d` = the date the rehearsal
+started on:
 
 ```sql
-BEGIN TRAN;
--- 1. the turn log
-DELETE FROM DraftSelections WHERE LeagueSeasonId = @s4;
-
--- 2. spots a pick opened. Bounded by DATE, never by reason alone: seed-mordus
---    opened all 418 original spots with StartReason = Draft too.
-DELETE FROM RosterSpots
+DELETE FROM DraftSelections WHERE LeagueSeasonId = @s4;               -- the turn log
+DELETE FROM RosterSpots                                               -- spots a pick opened
  WHERE LeagueId = @l AND StartReason = 1 AND StartDate > @d;
-
--- 3. spots a steal closed
-UPDATE RosterSpots SET EndDate = NULL, EndReason = NULL
+UPDATE RosterSpots SET EndDate = NULL, EndReason = NULL               -- spots a steal closed
  WHERE LeagueId = @l AND EndReason = 2;
-
--- 4. spent entitlements and the frozen order
-UPDATE DraftPicks SET UsedUtc = NULL, PickInRound = NULL
+UPDATE DraftPicks SET UsedUtc = NULL, PickInRound = NULL              -- entitlements + frozen order
  WHERE LeagueId = @l AND Year = @draftYear;
-
--- 5. the prepared season goes away, the played one resumes
-DELETE FROM LeagueSeasons WHERE LeagueSeasonId = @s4;
-UPDATE LeagueSeasons
-   SET Phase = 4, ChampionTeamId = NULL, CompletedUtc = NULL   -- 4 = InSeason
- WHERE LeagueSeasonId = @s3;
-COMMIT;
+DELETE FROM LeagueSeasons WHERE LeagueSeasonId = @s4;                 -- the prepared season
+UPDATE LeagueSeasons SET Phase = 4, ChampionTeamId = NULL, CompletedUtc = NULL
+ WHERE LeagueSeasonId = @s3;                                          -- 4 = InSeason
 ```
 
-Then `protection-reset --league TKW6UR` for the slate, and confirm
-`Leagues.Season` never moved — it only changes on the way into `InSeason`, which
-a rehearsal never reaches.
+Then `protection-reset --league <code>`, and confirm `Leagues.Season` never moved
+— it only changes on the way into `InSeason`, which a rehearsal never reaches.
 
-**Step 2 is the dangerous one.** `StartReason = Draft` cannot tell today's pick
-from a spot seeded in October; the `StartDate > @d` bound is the only thing that
-makes the delete safe. Run it as a `SELECT COUNT(*)` first and check the number
-against how many picks were actually made.
-
-## Troubleshooting log
-
-- **"Database is not currently available. Please retry the connection later."**
-  (2026-08-01) — usually *Deny Public Network Access*, not a paused database.
-  Connect to `master` instead and the real error appears.
-- **"The configured execution strategy does not support user-initiated
-  transactions"** (2026-08-02) — `EnableRetryOnFailure` is on, so a manual
-  transaction has to go through `db.Database.CreateExecutionStrategy()`. Not a
-  formality: a retry must replay the whole transaction, not the surviving half.
-- **A fresh league scores zero for weeks that already happened** (2026-08-02) —
-  `wipe-pools` used to leave `Periods.FinalizedUtc` set, so those weeks could
-  never be banked again. Fixed; the wipe now un-banks them.
-- **FantasySP returns 403 Forbidden** (2026-08-02) — the site started blocking
-  the scraper. Rotowire's two sources still work. `news-sync` logs the status
-  rather than reporting a silent zero. Superseded by a more detailed diagnosis
-  (client fingerprinting, deliberately not chased) — see project_status.md's
-  Open items.
-- **Cloud Run could not reach Azure SQL** (2026-08-02) — it has no stable
-  outbound IP, and pinning one needs Cloud NAT at about $32/month. That is why
-  the API moved to Azure Container Apps rather than why a firewall rule was
-  added.
-- **`Replacement index 1 out of range for positional args tuple`** during a
-  Container Apps deploy (2026-08-02) — a bug in the `containerapp` extension's
-  own error formatting, hit while it tries to auto-register a resource provider
-  and cannot. It hides the real error. The cause is an unregistered
-  `Microsoft.App` / `Microsoft.OperationalInsights`, and the deploy service
-  principal is scoped to one resource group so it has no right to register a
-  subscription-level provider. Fix once, in Cloud Shell, as an owner:
-  ```bash
-  az provider register --namespace Microsoft.App --wait
-  az provider register --namespace Microsoft.OperationalInsights --wait
-  ```
-  `api-deploy.yml` warns about this up front and prints those two commands,
-  but never blocks on it: reading provider state is itself a subscription-level
-  call, so a resource-group-scoped principal cannot tell "not registered" apart
-  from "not allowed to look".
-- **The API answers the TLS handshake and then hangs forever** (2026-08-02) —
-  ingress up, no healthy replica behind it. It meant the container was
-  crash-looping, because the connection string was resolved at
-  service-registration time and threw before the web host existed. Fixed by
-  resolving it lazily; `/health` now answers whatever the database is doing, and
-  `/health/db` reports the real reason separately. That endpoint is the first
-  thing to hit when the app looks wrong.
-- **`Client with IP address 'x.x.x.x' is not allowed to access the server`**
-  (2026-08-02) — the Container App's outbound IP was not in the firewall, and
-  "Allow Azure services" does not cover it. The deploy workflow now derives and
-  writes those rules itself. Azure SQL takes up to five minutes to apply a new
-  rule, so retry before assuming it failed.
-- **The API hangs at TLS again, hours after a green deploy** (2026-08-02) —
-  same symptom as the entry above, different cause, and the second one is
-  nastier because the deploy that caused it passed.
-
-  System events name it: `ImagePullUnauthorized`, then
-  `Container ... terminated with ... reason 'ImagePullFailure'`.
-
-  The workflow used to pass `--registry-password ${{ secrets.GITHUB_TOKEN }}`.
-  That token **dies when the run ends**. A Container App with stored registry
-  credentials *always* uses them and never falls back to an anonymous pull, so
-  once the token expired the pull returned 401 **even though the ghcr package
-  is public**. The deploy stayed green because the replica already had the
-  image; the app only died at the next wake-up from `min-replicas 0`.
-
-  Fixed by removing registry credentials entirely — the package is public, so
-  the pull is anonymous. If it ever goes private, use a PAT with
-  `read:packages`, never `GITHUB_TOKEN`. To repair an app still carrying the
-  old credential:
-  ```bash
-  az containerapp registry remove -n fantasy-warrior-api -g fw --server ghcr.io
-  az containerapp revision restart -n fantasy-warrior-api -g fw --revision <rev>
-  ```
-  `api-deploy.yml` now does the `registry remove` on every deploy, and its last
-  step **asserts** `/health` returns 200 instead of merely printing the revision
-  state — that reporting-without-asserting is what let this ship green.
-
-  Two diagnostic lessons, both of which cost time here:
-  - `--type console` shows what the app wrote; **`--type system` shows what
-    Container Apps did to it.** A failed pull writes nothing to console, so an
-    empty console log is a signal, not a dead end. Reach for system first.
-  - `az containerapp logs show` reporting *"Successfully connected to
-    container"* does **not** mean the image is good. A replica stuck in
-    `ImagePullBackOff` still has a replica object with no container inside it.
-- **A stale local `dotnet run` locks the build output** — kill the
-  `FantasyWarrior.Api` or `FantasyWarrior.Jobs` process and rebuild.
-- **Every screen but News says "failed to fetch"** (2026-08-24) — one pending
-  migration, and a 17-day silence that hid it.
-
-  `GET /api/leagues/{id}` was the only endpoint failing, with
-  `Invalid column name 'EngagedCapTotal' / 'EngagedPlayerCount' /
-  'EngagedUnknownContracts'`. Every screen loads league detail first, so
-  everything broke *except* News — the one screen that never asks for it. The
-  browser reported `Failed to fetch` rather than `HTTP 500` because an
-  unhandled exception's response carries no CORS headers, so the fetch fails at
-  the network layer instead of returning a status the client can read.
-
-  The database was still at `20260805175925_TeamSlot` while the deployed API
-  carried the 2026-08-07 code that reads the new `vStandings`. Fixed by
-  applying the one pending migration:
-  ```bash
-  dotnet run --project backend/FantasyWarrior.Jobs -- db-migrate
-  ```
-
-  **How it went unnoticed for 17 days**: `daily-jobs.yml` had been failing at
-  its *Apply migrations* step every single night since 2026-08-08 — 17
-  consecutive red runs, and nothing announces them. `stats-sync`, `nightly`,
-  `player-sync`, `draft-sync` and `news-sync` are all downstream of that step,
-  so the whole chain had been dead for as long.
-
-  Two things to know when reading those runs:
-  - **Exit code 134 is a .NET console job aborting on an unhandled exception**
-    (SIGABRT), not a step-specific code. `News sync` produced the same 134 on
-    2026-08-04. GitHub's annotation shows only the number; the message is in
-    the step log, which needs admin rights on the repo to fetch over the API.
-  - A green *Apply migrations* usually means **nothing was pending**, not that
-    CI can migrate. Check the migration's own timestamp against the run.
-
-  Still unexplained: the same migration applied cleanly by hand against the
-  same server, and its SQL was verified as a plain `SELECT` against production
-  before applying. So the CI failure is environmental and remains unproven.
-  Nothing is pending now, so the next scheduled run should get past that step —
-  **watch it**, and if it still aborts, read the step log for the real message.
+⚠️ **The `RosterSpots` delete is the sharp edge.** `StartReason = Draft` cannot
+tell today's pick from a spot `seed-mordus` opened in October — the seed used
+that same reason for every original spot. **The `StartDate > @d` bound is the
+only thing that makes the delete safe.** Run it as a `SELECT COUNT(*)` first and
+check the number against how many picks were actually made.

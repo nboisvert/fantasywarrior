@@ -31,7 +31,7 @@ namespace FantasyWarrior.Jobs.Sql;
 ///
 /// Personal/non-commercial use only per the source sites' terms; Rotowire's
 /// subscription-locked ANALYSIS block is never read. See
-/// .claude/doc/news-integration-guide.md.
+/// .claude/doc/integrations.md.
 /// </summary>
 public sealed class NewsSyncJob(FantasyWarriorDbContext db)
 {

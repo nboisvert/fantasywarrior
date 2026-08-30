@@ -13,7 +13,7 @@ public static class NewsSourceName
 ///
 /// Personal/non-commercial use only per both source sites' terms; never store
 /// Rotowire's subscription-locked "ANALYSIS" body. See
-/// .claude/doc/news-integration-guide.md.
+/// .claude/doc/integrations.md.
 /// </summary>
 public sealed class NewsItem
 {

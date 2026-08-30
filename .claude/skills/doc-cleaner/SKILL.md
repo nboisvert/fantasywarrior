@@ -2,36 +2,40 @@
 name: doc-cleaner
 description: >
   Audite CLAUDE.md et .claude/doc/*.md pour repérer des contradictions
-  (entre deux docs, ou entre un doc et le code réel), corrige directement en
-  traitant le code comme la vérité, et garde project_status.md court en
-  archivant les vieilles entrées de son journal de décisions. Déclenche sur
-  "/doc-clean", "nettoie la doc", "clean the docs", "vérifie la cohérence de
-  la doc", "audit la doc", ou toute demande de vérifier/nettoyer la
-  documentation du projet.
+  (entre deux docs, ou entre un doc et le code réel), de la duplication entre
+  domaines, et des résidus d'historique. Corrige directement en traitant le
+  code comme la vérité. Déclenche sur "/doc-clean", "nettoie la doc",
+  "clean the docs", "vérifie la cohérence de la doc", "audit la doc", ou
+  toute demande de vérifier/nettoyer la documentation du projet.
 ---
 
 # /doc-clean — nettoyeur de documentation
 
-Le code fait foi. Une doc qui le contredit est fausse et se corrige — jamais
-l'inverse. Ce skill ne touche jamais au code pour le faire concorder avec un
-doc.
+Deux règles au-dessus de tout :
+
+1. **Le code fait foi.** Une doc qui le contredit est fausse et se corrige —
+   jamais l'inverse. Ce skill ne touche jamais au code pour le faire concorder
+   avec un doc.
+2. **Le comportement actuel est la seule vérité qu'on garde.** La doc décrit le
+   système tel qu'il est, au présent. L'historique vit dans `git log`, dont les
+   messages de commit sont détaillés exprès.
 
 ## Usage
 
 ```
 /doc-clean                # audit complet + corrections
 /doc-clean check          # audit seul, aucune correction (dry-run)
-/doc-clean mordus-pool.md # portée réduite à un fichier
+/doc-clean mordus.md      # portée réduite à un fichier
 ```
 
 ---
 
 ## Étape 1 — Inventaire
 
-Liste `CLAUDE.md` + tous les `.claude/doc/*.md` **sauf** `ideas/` (espace de
-brainstorm de l'Engagement Queen, pas une doc factuelle) et
-`decisions-archive.md` lui-même (c'est une sortie de ce skill, pas une
-entrée — voir étape 6).
+`CLAUDE.md` + tous les `.claude/doc/*.md`, **sauf** :
+
+- `ideas/` — espace de brainstorm de l'Engagement Queen, pas une doc factuelle ;
+- `cockman-concept.md` — doc de concept assumée, append-only par décision.
 
 ## Étape 2 — Vérifier chaque fait contre le code
 
@@ -40,91 +44,110 @@ Pour chaque doc, repère les affirmations **vérifiables** :
 - routes d'API (`GET /...`, `POST /...`) → `backend/FantasyWarrior.Api/*Endpoints.cs`
 - noms de jobs / valeurs de `case` → le commentaire en tête de
   `backend/FantasyWarrior.Jobs/Program.cs`
-- tables, colonnes, vues, contraintes → migrations EF Core sous
-  `backend/FantasyWarrior.Data/Migrations`
-- libellés d'UI, noms d'onglets, textes visibles → `frontend/src/App.tsx` et
-  `frontend/src/screens/`
-- ordre du cron nocturne → `.github/workflows/daily-jobs.yml`
-- montants, comptes, codes d'accès de ligue, identifiants → pas dans le
-  code : vivent en base, donc **jamais vérifiables par grep**. Compare-les
-  plutôt entre docs (étape 3) et signale-les comme à confirmer avec Nick s'ils
-  ne sont cités nulle part ailleurs.
+- tables, colonnes, vues, contraintes → `backend/FantasyWarrior.Data/Configurations/`
+  et les migrations sous `backend/FantasyWarrior.Data/Migrations`
+- classes CSS, variables, hooks → `frontend/src/index.css`, `App.css`, `screens/`
+- libellés d'UI, noms d'onglets → `frontend/src/App.tsx` et `frontend/src/screens/`
+- déclencheurs de déploiement, ordre du cron → `.github/workflows/`
+- montants, comptes, codes d'accès de ligue → **pas dans le code** : ils vivent
+  en base, donc jamais vérifiables par grep. Compare-les entre docs (étape 3) et
+  signale-les comme à confirmer avec Nick s'ils ne sont cités nulle part ailleurs.
 
-Utilise Grep/Read pour chaque affirmation choisie ; ne devine jamais un
-comptage (ex. nombre de tests) — `dotnet test` (ou à défaut compter
-`[Fact]`/`[Theory]`+`[InlineData]`, en notant que c'est une approximation si
-`dotnet` n'est pas disponible dans l'environnement).
+Ne devine jamais un comptage. Pour les tests : `dotnet test FantasyWarrior.slnx`,
+ou à défaut compter `[Fact]`/`[Theory]`/`[InlineData]` **en notant que c'est une
+approximation**. Un chiffre qui pourrit est pire que pas de chiffre — si tu ne
+peux pas le mesurer, retire-le.
 
-## Étape 3 — Cohérence inter-docs
+**Piège connu** : des jobs cités dans la doc ou dans des messages d'erreur
+n'existent pas (`set-league-rules`, `sim-reset`, `recompute`). Vérifie toujours
+un nom de job contre `Program.cs` avant de le croire, d'où qu'il vienne.
 
-Le même fait cité dans deux fichiers doit concorder — y compris **dans un
-même fichier** entre deux sections écrites à des moments différents (ex. le
-code de ligue de `project_status.md` a un jour désigné son propre
-prédécesseur sans que la phrase du dessus soit mise à jour — la
-contradiction la plus facile à manquer est celle qu'on ne pense pas à
-chercher parce qu'elle est dans le même document que sa correction).
+## Étape 3 — Les six frontières
+
+C'est le cœur de l'audit. Chaque fait vit à **un** endroit ; partout ailleurs
+c'est un lien. Un fait énoncé dans deux fichiers est un défaut, même si les deux
+énoncés concordent aujourd'hui — c'est précisément ainsi qu'ils divergent demain.
+
+| # | Domaine | Propriétaire unique |
+|---|---|---|
+| 1 | **Statut** — construit / pas construit / risque ouvert | `project_status.md` |
+| 2 | **Schéma** — tables, colonnes, index, vues, contraintes | `data-model.md` |
+| 3 | **Entre-saison** — phases, protections, vols, repêchage | `offseason.md` |
+| 4 | **Chiffres des Mordus** — plafond, slots, taille de roster, barème | `mordus.md` |
+| 5 | **Jobs, commandes, runbooks, déploiement** | `deployment.md` |
+| 6 | **Couleurs, CSS, mise en page, conventions d'écran** | `design-system.md` |
+
+Conséquence de la frontière 1, à vérifier partout : **aucun doc autre que
+`project_status.md` ne dit « fait le \<date\> » ni « pas encore construit ».**
+Les autres décrivent le système tel qu'il est. Une limitation réelle s'énonce au
+présent (« l'écran de protection n'existe pas, donc un DG ne peut pas contredire
+le défaut ») — ce n'est pas la même chose qu'une case à cocher de suivi de projet.
 
 Vérifie aussi :
-- la table « Reference docs » de `CLAUDE.md` (chaque doc listé existe, la
-  description résume encore son contenu réel) ;
-- les renvois « voir X.md §N » (la section N existe toujours) ;
-- les liens vers `decisions-archive.md` une fois qu'il existe.
+- la table « Reference docs » de `CLAUDE.md` — chaque doc listé existe, et la
+  description résume encore son contenu réel ;
+- les renvois « voir X.md §N » — la section existe toujours ;
+- aucun lien mort vers un fichier supprimé.
 
 ## Étape 4 — Corriger
 
-**Un fait périmé ordinaire** (code de ligue, nombre de tests, libellé d'un
-onglet, chemin de fichier déplacé) → correction silencieuse, sans
-commentaire ni bloc de citation.
+**Toute correction est silencieuse.** Tu réécris au présent et tu passes à la
+suite. Tu n'ajoutes **jamais** un bloc de citation du genre « ce fichier disait X
+jusqu'au \<date\> », ni une note de renversement, ni une entrée datée. Cette
+convention a existé dans ce projet et c'est exactement ce qui a fait gonfler la
+doc à 3 600 lignes dont l'essentiel racontait ce qui n'était plus vrai.
 
-**Un revirement de conception qui vaut la peine d'être retenu** (le genre de
-décision qui, si elle se reproduit, ferait perdre du temps à la retrouver) →
-utilise le bloc de citation déjà en usage dans ce projet :
+Ce qui survit d'une décision, c'est **sa raison, au présent** :
 
-> Ce fichier disait X jusqu'au DATE. [raison du changement].
+- ✅ « Un `RosterSpot` tient un joueur ou une franchise. Le coût est une colonne
+  nullable et une contrainte CHECK — moins cher qu'un deuxième moteur de
+  pointage. »
+- ❌ « Le 2026-08-05, Nick a renversé la décision du matin qui gardait la
+  franchise hors des `RosterSpots`… »
 
-Exemples déjà en place à imiter, pas à dupliquer : `testmode.md:1-9` (migration
-Firestore → Azure SQL), `testmode.md` et le skill `/testmode` sur le faux job
-`sim-reset`, `mordus-pool.md §3` sur le renversement du slot Équipe,
-`scoring-model.md` sur le faux job `set-league-rules`,
-`news-integration-guide.md` sur les sélecteurs CSS corrigés v2/v3.
+Le test : **la phrase survit-elle si on en retire toute date ?** Si oui, elle
+reste. Sinon elle part — sauf si elle explique pourquoi une alternative évidente
+a été écartée, auquel cas réécris-la au présent.
 
-Ne jamais ajouter un bloc de citation pour un simple chiffre qui a changé —
-ça noierait les vrais revirements de conception sous du bruit.
+Si un revirement mérite vraiment d'être retenu, sa place est le message de
+commit, pas la doc.
 
-## Étape 5 — Purger le mort, avec prudence
+## Étape 5 — Purger les résidus d'historique
 
-Un contenu qui documente un design **jamais construit** et non signalé comme
-volontairement conservé (contrairement à `news-integration-guide.md`, dont
-l'en-tête explique déjà pourquoi le guide Python original est gardé tel
-quel comme référence) est un candidat à condenser ou retirer. Si le statut
-est ambigu — le doc ne dit pas explicitement si c'est un vestige ou une
-référence assumée — ne tranche pas : signale-le dans le résumé final et
-laisse le fichier tel quel.
+Cherche et retire :
 
-## Étape 6 — `project_status.md` compact
+```
+~~texte barré~~   ✅ ⬜ 🟨   « superseded »   « renversé »
+« avant le 20.. »   « jusqu'au 20.. »   « la première version de ce document »
+« fait le <date> »   « livré le <date> »
+```
 
-Le journal de décisions ne garde que les entrées récentes — repère la
-coupure au jugement (typiquement les 5 à 10 derniers jours, ou assez pour
-que le fichier reste sous ~250-300 lignes), **par catégorie** (Architecture,
-Scoring, UI, Trades, Product) plutôt qu'un seuil global : une catégorie peu
-active ne doit pas se retrouver vide simplement parce que sa dernière entrée
-est un peu plus vieille que celles d'une catégorie très active.
+Retire aussi un contenu qui documente un design **jamais construit** et non
+signalé comme volontairement conservé. Si le statut est ambigu — le doc ne dit
+pas si c'est un vestige ou une référence assumée — **ne tranche pas** : signale-le
+dans le résumé final et laisse le fichier tel quel.
 
-Le reste part **verbatim**, dans l'ordre (le plus récent en premier), vers
-[`.claude/doc/decisions-archive.md`](../../doc/decisions-archive.md) — créé
-s'il n'existe pas encore, sinon les nouvelles entrées archivées s'ajoutent
-au bon endroit de chaque section. **Jamais de suppression** : une décision
-qui sort de `project_status.md` doit être retrouvable dans l'archive, mot
-pour mot. Laisse un pointeur d'une ligne en tête du journal de décisions de
-`project_status.md` vers l'archive.
+## Étape 6 — Garder les pièges
 
-Si une entrée archivée a depuis été explicitement renversée par une entrée
-plus récente restée dans `project_status.md`, ajoute une note d'une ligne
-dans l'archive plutôt que de réécrire l'entrée d'origine.
+Un piège n'est pas de l'historique, même s'il a une histoire. Ce sont des mines
+vivantes, et elles restent, sous forme d'encadrés courts au présent :
+
+- SQL Server considère deux NULL comme égaux dans un index unique ;
+- un NULL dans un `NOT IN` vide tout le résultat en silence ;
+- deux appels `HasIndex` sur la même propriété **redéfinissent** un index au lieu
+  d'en créer deux ;
+- `EnableRetryOnFailure` oblige toute transaction manuelle à passer par
+  `db.Database.CreateExecutionStrategy()` ;
+- `display: flex` sur un `<td>` le sort de l'algorithme de colonnes du tableau ;
+- `position: sticky` sur un descendant imbriqué dans une cellule `colSpan` échoue
+  silencieusement.
+
+Si tu hésites entre « piège » et « histoire », demande-toi si un agent qui
+l'ignore casserait quelque chose. Si oui, c'est un piège.
 
 ## Étape 7 — Résumer et committer
 
-Liste au format court les changements fichier par fichier (une ligne par
-fichier touché : ce qui a changé et pourquoi). Committe avec un message
-descriptif ; pas de push automatique vers une branche que Nick n'a pas
-désignée pour la session en cours.
+Liste au format court les changements fichier par fichier (une ligne par fichier
+touché : ce qui a changé et pourquoi), puis le total de lignes avant → après.
+Committe avec un message descriptif ; pas de push automatique vers une branche
+que Nick n'a pas désignée pour la session en cours.

@@ -15,7 +15,7 @@ namespace FantasyWarrior.Jobs.Sql;
 /// roster; a recent draftee his club has not listed yet is on no prospect list.
 /// The Mordus import hit exactly these two categories: 43 of its 360 roster
 /// entries matched nothing, leaving two teams under the roster minimum and ten
-/// active lineups short (.claude/doc/mordus-pool.md §2).
+/// active lineups short (.claude/doc/mordus.md).
 ///
 /// They were never absent from the NHL's data — only out of reach of those two
 /// endpoints. Every one of the 43 has an NHL id, and the search endpoint

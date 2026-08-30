@@ -367,7 +367,7 @@ public static class LeagueEndpoints
         // The palmarès: one row per season this league has ever played,
         // newest first, with its champion — the first screen that pays off
         // keeping RosterAssignments forever instead of clearing them at
-        // rollover (season-lifecycle.md §7).
+        // rollover (offseason.md).
         app.MapGet("/api/leagues/{leagueId}/seasons", async (string leagueId, FantasyWarriorDbContext db) =>
         {
             var league = await Queries.LeagueByCodeAsync(db, leagueId);

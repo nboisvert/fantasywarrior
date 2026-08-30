@@ -230,7 +230,7 @@ public static class DraftEndpoints
         // Every team's protection slate — the room's Protections pane.
         //
         // **Public to the whole league** (Nick, 2026-08-29). It was an open
-        // product question in season-lifecycle.md §10, and hiding it buys
+        // product question in offseason.md, and hiding it buys
         // nothing: the steal pool already gives it away by omission, since a
         // veteran who is missing from the available list is a veteran somebody
         // protected. Making it explicit costs no secrecy and gives the pool

@@ -14,7 +14,7 @@ the solution. Your AI agent name is **Macklin Softwarini**.
 - **Auth**: none yet. The API trusts the username the client sends. Firebase Auth is the intended replacement.
 - **Batch jobs**: .NET console apps on **GitHub Actions cron** (`daily-jobs.yml`: db-migrate → stats-sync → nightly → player-sync → draft-sync → news-sync).
 - **Realtime**: **SignalR** (`LiveHub`) carries presence, direct messages and the live draft board. Push-only — clients never call hub methods; a REST endpoint persists, then pushes. **One replica, no backplane** — that ceiling is a correctness requirement, not a budget one.
-- **CI/CD**: GitHub Actions (frontend → GitHub Pages, API → Container Apps via ghcr.io).
+- **CI/CD**: GitHub Actions (frontend → GitHub Pages, API → Container Apps via ghcr.io). See [deployment.md](.claude/doc/deployment.md) for what ships on which trigger.
 
 Hosting must stay easy and free.
 
@@ -32,24 +32,53 @@ solo on this repo; revisit if collaborators join.
 - **Stats service** — `PlayerGameStats` is the source of truth, one row per player per game (~50k a season). Season totals are the `vPlayerSeasonStats` view; totals *as of a simulated day* are the same aggregation with a date bound. **There is no cache to keep fresh.**
 - **Scoring is weekly**: each GM activates a subset of his roster per week, only active players score, and a week's points are **banked permanently** once it closes — a trade can never move history. [scoring-model.md](.claude/doc/scoring-model.md) **MUST** be read before changing anything about scoring, lineups, roster spots or periods, and kept in sync with the code.
 - **Season simulation (test mode)**: the 2025-26 season can be replayed day by day. The simulated date lives in the single-row `SimulationState` table and is the single source of truth for jobs and the API alike. When a replay is running, **everything in the app believes it is that day** — check `sim-clock` before concluding a date-related behaviour is a bug. See [testmode.md](.claude/doc/testmode.md) and the `/testmode` skill.
-- **News service** — pulls NHL news into a global `NewsItems` table, not league-scoped. **Personal/non-commercial use only** per both sites' terms: no redistribution, and never scrape Rotowire's subscription-locked "ANALYSIS" content. See [news-integration-guide.md](.claude/doc/news-integration-guide.md).
+- **External sources are used on personal, non-commercial terms**: no redistribution, and never store Rotowire's subscription-locked "ANALYSIS" block. See [integrations.md](.claude/doc/integrations.md).
 - Features are built on Nick's own buddies' pool first, agile and incremental.
 - **Every feature that touches the database ships with mocking-free unit tests for its pure logic** — proactively, not only live-verified.
-- **Doc coherence** — run `/doc-clean` when the docs feel stale or contradictory. It cross-checks `.claude/doc/*.md` against the code (the code always wins) and archives the old part of `project_status.md`'s decisions log into [decisions-archive.md](.claude/doc/decisions-archive.md). See the `doc-cleaner` skill.
+
+## Documentation rules
+
+The docs describe the system **as it is**, in the present tense. They are not a
+changelog — `git log` is, and the commit messages here are detailed on purpose.
+
+- **Keep the reason, drop the chronology.** Write "X is Y because Z", never "X
+  was A until some date, when it became Y". The test: does the sentence survive
+  having every date removed? If not, it belongs in a commit message.
+- **Never add** struck-through "done on <date>" items, checkbox status markers,
+  "superseded by", or "this file used to say". That convention is exactly what
+  grew these docs to 3,600 lines of mostly-untrue text.
+- **One fact, one home.** Six boundaries, and everywhere else is a link:
+
+  | Domain | Owner |
+  |---|---|
+  | Status — built, not built, open risk | `project_status.md` |
+  | Schema — tables, columns, indexes, views | `data-model.md` |
+  | Off-season — phases, protections, draft | `offseason.md` |
+  | Les Mordus' own numbers | `mordus.md` |
+  | Jobs, commands, runbooks, deploys | `deployment.md` |
+  | Colours, CSS, layout, screen conventions | `design-system.md` |
+
+  A consequence worth stating twice: **no doc other than `project_status.md`
+  says "done on <date>" or "not built yet".** A real limitation is written in
+  the present tense — "the protection screen does not exist, so a GM cannot
+  contradict the default" — which is not the same thing as a progress checkbox.
+- Run `/doc-clean` when the docs feel stale or contradictory. It cross-checks
+  `.claude/doc/*.md` against the code (**the code always wins**) and enforces
+  the boundaries above. See the `doc-cleaner` skill.
 
 ## Reference docs
 
 | Doc | What it holds |
 |---|---|
-| [project_status.md](.claude/doc/project_status.md) | **Read at the start of every session.** Current state, roadmap, decisions log, open items. Keep it updated. |
+| [project_status.md](.claude/doc/project_status.md) | **Read at the start of every session.** Current state, roadmap, open risks. Keep it updated. |
 | [scoring-model.md](.claude/doc/scoring-model.md) | The scoring rules. Authoritative — if it and the code disagree, one of them is a bug. |
 | [data-model.md](.claude/doc/data-model.md) | The SQL schema and **why** it is shaped that way. |
-| [deployment.md](.claude/doc/deployment.md) | Infra, config, local dev commands, ops runbook, troubleshooting log. Keep it updated when infra changes. |
-| [design-system.md](.claude/doc/design-system.md) | Night Arena detail: exact colours, typography, PWA asset regeneration. |
-| [season-lifecycle.md](.claude/doc/season-lifecycle.md) | What "season" means (three different things), `LeagueSeasons`, the phases, the palmarès. **Foundation built** — the protection/draft screens themselves are not. |
+| [offseason.md](.claude/doc/offseason.md) | What "season" means, `LeagueSeasons`, the six phases, protections, and the two-segment draft. |
+| [deployment.md](.claude/doc/deployment.md) | Infra, how to deploy, config, local dev, every job and runbook, troubleshooting. Keep it updated when infra changes. |
+| [design-system.md](.claude/doc/design-system.md) | Night Arena detail: exact colours, typography, the stats-grid traps, PWA asset regeneration. |
+| [mordus.md](.claude/doc/mordus.md) | Les Mordus: the league's own settings and vocabulary. |
+| [integrations.md](.claude/doc/integrations.md) | The NHL API, CapWages and the news sources — and the terms that constrain each. |
 | [testmode.md](.claude/doc/testmode.md) | Season replay. |
-| [news-integration-guide.md](.claude/doc/news-integration-guide.md) | News sources and their ToS constraints. |
-| [mordus-pool.md](.claude/doc/mordus-pool.md) | Les Mordus league: import, vocabulary mapping, unmatched players. |
 | [cockman-concept.md](.claude/doc/cockman-concept.md) | The Garry Cockman / cockcoin mascot concept — a living doc, keep appending. |
 
 ## UI rules — "Night Arena"
@@ -67,3 +96,4 @@ must respect without being reminded.
   - **Compact** — the bare letter, colour on the font only: `.pos-compact-f/d/g`.
   - Pick by data density: dense grids and multi-select lists use compact, roomier screens (Dashboard, PlayerCard) use the pill.
   - Always build the suffix with `posGroupClass()` in `frontend/src/api.ts` — never inline `.toLowerCase()` on `posGroup()`.
+- **Type honestly against real data.** The app has no error boundary, so one throw in one component takes the whole screen down — a field the API can really return as null must be typed that way.

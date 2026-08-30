@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace FantasyWarrior.Data.Migrations
 {
     /// <summary>
-    /// The table half of "season" — see <c>season-lifecycle.md</c>. A league's
+    /// The table half of "season" — see <c>offseason.md</c>. A league's
     /// own count of its seasons ("saison 3", "saison 4"), the phase each one
     /// walks through, and where its champion gets written. <c>Leagues.Season</c>
     /// is untouched: it stays the plain value naming whose points currently

@@ -52,7 +52,7 @@ public static class LeagueClone
             // The same NHL season, because League.Season names the season whose
             // points count and the copy inherits the rules that price them. The
             // season being *prepared* is the caller's business — it lives on a
-            // LeagueSeason row, not here (season-lifecycle.md §4).
+            // LeagueSeason row, not here (offseason.md).
             Season = source.Season,
             JoinCode = await UniqueJoinCodeAsync(db, ct),
             CommissionerUserId = source.CommissionerUserId,

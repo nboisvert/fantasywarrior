@@ -32,7 +32,7 @@ public sealed class CloneLeagueJob(FantasyWarriorDbContext db)
     /// Overrides <c>League.ProtectionSlots</c> on the copy only. It exists
     /// because a league can have an off-season rule that was agreed but never
     /// written to its row — Les Mordus' nine protections were decided on
-    /// 2026-08-28 and are in <c>mordus-pool.md</c>, not in the database. The
+    /// 2026-08-28 and are in <c>mordus.md</c>, not in the database. The
     /// rehearsal should not be blocked on that, and it must not be the thing
     /// that quietly edits a live league's rules to unblock itself.
     /// </param>

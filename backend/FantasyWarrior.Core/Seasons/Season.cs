@@ -8,7 +8,7 @@ namespace FantasyWarrior.Core.Seasons;
 /// <c>Seasons</c> table would carry no attribute the string lacks, would put a
 /// foreign key on tens of thousands of <c>PlayerGameStats</c> rows for nothing,
 /// and the one thing it would ever be asked — succession — is a pure function.
-/// See <c>season-lifecycle.md</c> §2.
+/// See <c>offseason.md</c>.
 ///
 /// What was actually missing was this class. The string surgery it replaces
 /// used to live in four places that could each get it wrong on their own:

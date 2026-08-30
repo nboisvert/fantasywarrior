@@ -1,280 +1,223 @@
-# Design system — « Night Arena »
+# Design system — "Night Arena"
 
-> Approuvé par Nick le 2026-07-22. Les **règles** vivent dans `CLAUDE.md` ; ce
-> document porte le détail qu'on va chercher au besoin (valeurs exactes,
-> typographie, procédure de régénération des assets).
+> The **rules** you follow without being reminded live in `CLAUDE.md` (dark
+> theme only, Lucide icons never emojis, 44px targets, no duplicate
+> destinations, the player-row ask, the two position-indicator patterns). This
+> is the detail you look up: exact values, class names, procedures.
 
-Tokens : `frontend/src/index.css` (variables CSS) · composants :
-`frontend/src/App.css` · écrans : `frontend/src/screens/` · icônes SVG :
-`frontend/src/components/Icons.tsx`.
+Tokens: `frontend/src/index.css` · components: `frontend/src/App.css` ·
+screens: `frontend/src/screens/` · icons: `frontend/src/components/Icons.tsx`.
 
-## Couleurs
+## Colours
 
-| Rôle | Valeur |
-|---|---|
-| Fond | `#0a0e1a`, avec des halos radiaux cyan/indigo fixes |
-| Surface élevée | `#10162a` |
-| Carte « verre » | `rgba(255,255,255,.045)` + bordure 1px `rgba(255,255,255,.09)` + backdrop-blur |
-| Accent (dégradé) | ice cyan `#38bdf8` → `#22d3ee` |
-| Lueur néon | `rgba(56,189,248,.35)` |
-| Danger / dépassement de plafond | rose `#f43f5e` |
-| Succès | `#4ade80` (`--success`) |
-| Podium du classement | or `#fbbf24`, argent `#c7d2e0`, bronze `#d0885a` |
-| Texte | `#f1f5f9` ; atténué `#8b96ab` |
+| Role | Token | Value |
+|---|---|---|
+| Background | `--bg` | `#0a0e1a`, with fixed cyan/indigo radial halos on `body` |
+| Elevated surface | `--bg-elevated` | `#10162a` |
+| Glass card | `--surface` / `--border` | `rgba(255,255,255,.045)` + 1px `rgba(255,255,255,.09)` + backdrop-blur |
+| Accent gradient | `--ice` → `--ice-bright` | `#38bdf8` → `#22d3ee` |
+| Neon glow | `--ice-glow` | `rgba(56,189,248,.35)` |
+| Danger / over cap | `--danger` | `#f43f5e` |
+| Success, presence | `--success`, `--online` | `#4ade80` — one green under two names, so the two uses can diverge later without a rename |
+| Standings podium | `--gold` / `--silver` / `--bronze` | `#fbbf24` / `#c7d2e0` / `#d0885a` |
+| Text | `--text` / `--text-muted` | `#f1f5f9` / `#8b96ab` |
 
-**Positions** : attaquant = ice cyan · défenseur = violet `#a78bfa` (`--defense`)
-· gardien = or. Le violet a remplacé l'argent le 2026-07-23 : l'argent était trop
-peu contrasté pour la défense.
+AA contrast minimum, everywhere. **Positions**: forward = ice cyan ·
+defenseman = violet `#a78bfa` (`--defense`, chosen over silver, too
+low-contrast) · goalie = gold.
 
-**Slot Équipe** (`T`, la franchise NHL que possède un DG) = le neutre de la
-palette, `#c7d2e0` (`--franchise`), depuis le 2026-08-05. Volontairement **pas**
-une quatrième teinte saturée : F/D/G sont des positions et partagent un code de
-couleur, une franchise n'en est pas une. Et toutes les teintes restantes veulent
-déjà dire autre chose — le vert est « en ligne », le rose est « danger »,
-l'orange se confond avec l'or — donc une quatrième se lirait comme un statut
-plutôt que comme une nature. Les deux patrons obligatoires existent :
-`.roster-pos-pill-t` et `.pos-compact-t`.
+**Team slot** (`T`, the NHL franchise a GM owns) = the palette's neutral
+`#c7d2e0` (`--franchise`). Deliberately **not** a fourth saturated hue: F/D/G
+are positions sharing a colour code, and a franchise is not one of them. Every
+saturated colour left already means something — green is "online", rose is
+"danger", orange collides with gold — so a fourth would read as a status rather
+than a kind. Both mandatory patterns exist: `.roster-pos-pill-t`, `.pos-compact-t`.
 
-Contraste AA au minimum, partout.
+## Typography, shape, motion
 
-## Typographie
+**Russo One** for display (headings, team names, figures, uppercase),
+**Chakra Petch** for body. Google Fonts, loaded in `index.html`. Radii 12–16px.
+Transitions 150–300ms and **only** on `color`/`opacity`/`filter` — never
+anything that moves layout on hover. `.fade-in` 0.25s on screen mount.
+`prefers-reduced-motion` respected.
 
-**Russo One** pour l'affichage (titres, noms d'équipe, chiffres, majuscules) et
-**Chakra Petch** pour le corps de texte. Google Fonts, chargées dans `index.html`.
+## Layout
 
-## Forme et mouvement
+Mobile-first, content capped at 680px. Fixed bottom nav at `--nav-height`
+(64px) + `env(safe-area-inset-bottom)`, news ticker (`--ticker-height`, 44px)
+directly above it; content bottom padding clears both. **Four tabs**: GM Office
+(default, internal key `dashboard`), Standings, Team (key `stats`), Trades. A
+fifth **Draft** tab appears only while a draft is running, plus the
+commissioner's preview in Protecting — a permanent tab leading to "no draft is
+running" would be a dead destination in an already full bar. Settings lives in
+a top-bar icon button, not in the nav.
 
-Rayons de 12 à 16 px. Transitions de 150 à 300 ms, et **uniquement** sur
-`color`/`opacity`/`filter` — jamais rien qui déplace la mise en page au survol.
-`fade-in` de 250 ms au montage d'un écran. `prefers-reduced-motion` respecté.
+Sticky blurred top bar, in order: logo (`.topbar-logo`, 40px), league switcher,
+week badge, then **pinned right** the messaging icon and the profile menu. The
+switcher carries the league name alone, no season — it does not change week to
+week and did not pay for its width; Settings shows it where it is read. The
+week badge does earn its width and is a `<span>`, not a button: a status, not a
+destination. The messaging icon is **bare**, no pill background — the profile
+pill is right beside it, and two pills side by side read as a segmented control
+rather than as an identity and an action; its unread badge is `--ice`, since
+gold stays reserved for "an offer is waiting". The profile's green counter
+counts **others only** (`otherMembers` excludes the viewer): including yourself
+made a badge that never dropped below 1, so "1 online" and "nobody" looked
+alike. In the menu the GM list comes before Settings/Log out, a compact footer
+(36px, under 44px, accepted).
 
-## Mise en page
+## Dashboard leaderboards
 
-Mobile d'abord, contenu à 680 px de large maximum. Barre de navigation basse
-fixe à 64 px + `env(safe-area-inset-bottom)`, **4 onglets** : GM Office (défaut,
-clé interne `dashboard`), Standings, Team, Trades — les réglages vivent dans un bouton-icône de la barre
-du haut, pas dans la navigation. Le rembourrage bas du contenu doit dégager la
-navigation.
+The two leaderboard cards show **NHL numbers, not fantasy scores**: points for
+a skater, wins for a goalie (`nhlHeadline`, `screens/Dashboard.tsx`). The
+fantasy score stays the *ranking* key — the only thing that can compare a
+goalie with a winger — but the figure on the card is the one a GM already knows
+from a box score. The unit stays welded to the figure ("9 W") with the window
+stacked underneath: a goalie's bare 9 above "last 2 weeks" reads as nine
+points. The raw line below (`rawLine`) is `GP · G · A` for skaters,
+`GP · W-OTL · SV` for goalies, because 0G 0A is true and useless. **Top
+Reserve** sums the last two weeks; **Top Free Agents** covers the whole season
+to date, because a claim is a season-long bet, not a reaction to one good
+Saturday.
 
-Barre du haut collante et floutée, dans cet ordre : logo, sélecteur de ligue,
-puis **collés à droite** l'icône de messagerie et le menu profil. Le sélecteur
-porte le nom de la ligue seul, sans la saison — elle ne change pas d'une semaine
-à l'autre et ne payait pas sa largeur (2026-08-03). L'icône de messagerie est
-**nue**, sans pastille de fond : la pilule du profil est juste à côté, et deux
-pilules côte à côte se lisent comme un contrôle segmenté plutôt que comme une
-identité et une action.
+## Team grid (`screens/Stats.tsx`)
 
-Le compteur vert du profil ne compte **que les autres** — s'y inclure faisait un
-badge qui ne descendait jamais sous 1, donc « 1 en ligne » et « personne » se
-ressemblaient. Dans le menu, la liste des GMs passe avant Settings/Log out, qui
-deviennent un pied de menu compact (36 px, sous la cible habituelle de 44 px,
-assumé).
+One stat block per swipe: the twenty numeric columns scroll horizontally under
+the sticky name column and rest **block by block**, never straddling two
+categories (Fantasy point, Record, NHL, Extra, Cap hit). Pure CSS —
+`scroll-snap-type: x mandatory` on `.stats-grid-scroll` guarantees the resting
+point, `scroll-snap-stop: always` on `.stats-group-start` makes one gesture
+advance exactly one block. No new markup: `.stats-group-start` already marked
+each group's first column in the header, every row and the footer.
 
-**Grille de la page Team — un bloc de stats par swipe (2026-08-25).** Les
-vingt colonnes chiffrées défilent horizontalement sous la colonne collante du
-nom, et elles s'arrêtent maintenant **bloc par bloc**, jamais à cheval sur deux
-catégories : Fantasy point, Record, NHL, Extra, Cap hit. C'est du `scroll-snap`
-CSS, pas du JavaScript — `scroll-snap-type: x mandatory` sur
-`.stats-grid-scroll` garantit le point d'arrêt, `scroll-snap-stop: always` sur
-`.stats-group-start` fait qu'un geste avance **exactement un** bloc plutôt que
-le nombre que son élan porterait. Aucun balisage nouveau : la classe
-`.stats-group-start` marquait déjà la première colonne de chaque groupe dans
-l'en-tête, chaque rangée et le pied.
+Roster, Departed and Incoming are three separate `<table>`s sharing one column
+width: `useSharedPlayerColumnWidth`, mounted on the screen's root `<section>`
+(not on a grid), measures the widest name cell across all three and writes
+`--stats-player-w`. Departed and Incoming have no active/bench toggle, so
+`.stats-toggle-spacer` (an empty box the size of `.lineup-toggle`) keeps the
+row structure identical everywhere.
 
-Le `scroll-padding-left` doit valoir la largeur de la colonne collante du nom,
-sinon le bloc atterrit **dessous** et sa première colonne sort de l'écran —
-c'est exactement ce qui s'est produit au premier jet, avec un 9,5 rem codé en
-dur. Cette largeur est dictée par le contenu (nom long, marqueur de blessure,
-logo de franchise), donc 9,5 rem n'en est que le plancher.
+**An unavailable player is marked twice, and neither mark costs the row a
+column**: a rose edge on the sticky identity cell plus a badge right after the
+name. The badge (`.stats-injury`) sits **in the flow**, not absolutely
+positioned, so `.stats-player-name` ellipsizes to make room — the mark matters
+more than the last letters of a surname. The edge is an `inset` box-shadow on
+`.stats-row-out .stats-col-player`, not a border on the row, so it rides with
+the sticky cell instead of scrolling out of view. Injured and suspended share
+the rose but never the symbol — a gavel, not a cross — and the glyph, `title`
+and aria-label carry the meaning, so colour is never the only signal.
 
-**Contrepartie à connaître** : sous `mandatory`, on ne peut se poser qu'au début
-d'un bloc. Un groupe plus large que l'espace visible (l'écran moins la colonne
-du nom) verrait donc sa dernière colonne inatteignable au repos. `Extra`
-(+/-, PIM, SOG, GAA, SV%) est le plus large et c'est lui qu'il faut surveiller
-si une colonne s'ajoute. Le repli tient en un mot : `mandatory` → `proximity`,
-qui laisse se poser entre deux blocs.
+**Prospects** — players with no NHL career games (rule and provenance in
+[data-model.md](data-model.md)) are pinned **below** the roster in a fixed
+**F → D → G, then name** order and **excluded from sorting**: a zone that
+always keeps the same shape is the only one a border can honestly delimit. It
+opens with a dedicated row — "PROSPECTS" at the ticker "Trade Alert" strip's
+proportions (16px, tiny bold uppercase, wide letter-spacing) so both read as
+the same *kind* of mark, but muted, not its colours: gold already means
+"trade", ice already means "headline figure" on the PT column nearby.
 
-**Une seule largeur pour les trois grilles de l'écran (2026-08-25).** Roster,
-Departed et Incoming sont trois `<table>` distincts, et `table-layout: auto`
-donne à chacun sa propre largeur de colonne — même balisage, mais le nom le
-plus long de *sa* liste la fixe. Vérifié en direct (Chrome headless, DOM
-mesuré) : sur une même équipe, la colonne du nom faisait 211 px sur Roster et
-188 px sur Departed, un vrai saut visible en descendant d'une section à
-l'autre — c'est le décalage que Nick a signalé entre le nom et le toggle.
+**Position filter** — All/F/D/G as a segmented pill, right-aligned against the
+ROSTER title (`.stats-table-head`, a flex `space-between` row).
+`PositionFilterControl` is exported from `Stats.tsx` and reused by the draft
+room. One control for the whole screen: `positionFilter` flows into all three
+`RosterGrid`s, `onPositionFilterChange` only into the first — its presence is
+what decides whether an instance draws the buttons. The "26 / 35 player"
+subtitle ignores it: that is the real roster size. The active button borrows
+the filtered position's colour (the same ice/violet/gold as
+`.roster-pos-pill`/`.pos-compact`); "All" takes the ordinary ice "selected"
+treatment. A grid emptied **by the filter** says `positionFilterEmptyLabel`
+("No defensemen here.") rather than the generic message ("Nobody has left this
+roster."), which would stay correct but lie by omission.
 
-Deux causes empilées, deux correctifs :
-- **Departed et Incoming n'affichent jamais le toggle actif/banc** (rien à
-  activer pour un joueur parti ou pas encore arrivé) — la ligne avait donc une
-  icône de moins que Roster. `.stats-toggle-spacer` (même boîte que
-  `.lineup-toggle`, vide) comble ce trou dans les deux grilles, pour que la
-  structure soit identique partout.
-- **Même structure ne garantit pas même largeur** : chaque table calcule
-  toujours sa colonne à partir de ses propres noms. Le hook
-  `useSharedPlayerColumnWidth` de `Stats.tsx`, posé sur la `<section>` racine
-  de l'écran (pas sur une grille), mesure la cellule la plus large **à
-  travers les trois grilles montées** et écrit une seule valeur dans
-  `--stats-player-w`. `.stats-col-player` s'y range avec
-  `width: var(--stats-player-w)` — un vrai `width`, pas juste un `min-width`,
-  sinon rien ne forcerait les trois tables à s'aligner. Tant que la variable
-  est absente (`var()` invalide sans repli → valeur initiale `auto`), le
-  `min-width: 9.5rem` gouverne seul — c'est justement l'état non contraint
-  dont le hook a besoin pour mesurer.
-- **`--stats-snap-pad` a disparu**, remplacé par `--stats-player-w` réutilisé
-  directement pour `scroll-padding-left` : une fois que toutes les colonnes
-  partagent la même largeur forcée, il n'y a plus qu'une valeur à connaître,
-  pas deux à garder synchronisées. L'ancien hook par-grille
-  (`useSnapPadding`) est parti avec elle — il aurait de toute façon mesuré
-  *avant* que le hook partagé (posé sur le parent) n'ait forcé la largeur,
-  React exécutant les effets des enfants avant ceux du parent.
+### Traps in the stats grid
 
-**Piège rencontré, à ne pas répéter** : la première tentative posait
-`position: sticky` sur un `<span>` niché dans une cellule à `colSpan`. Ça ne
-collait pas — measuré en direct, l'élément restait à sa position de flux
-normal (x≈1000px) au lieu de x≈17px. La colonne `.stats-col-player` elle-même
-colle très bien (elle porte les noms de joueurs depuis le début) ; c'est
-spécifiquement la stickiness d'un descendant *imbriqué* dans une cellule
-`colSpan` qui échoue silencieusement. Le correctif : ne jamais réinventer un
-mécanisme sticky quand un autre marche déjà dans le même tableau — voir
-« Prospects » ci-dessous, qui réutilise `.stats-col-player` au lieu d'un
-`position: sticky` maison.
+- **`scroll-padding-left` must equal the sticky name column's width**, or a
+  snapped block lands *under* it and its first column goes off screen. A
+  hardcoded value is wrong — the width is content-driven (long name, injury
+  marker, franchise logo) — so it reuses `var(--stats-player-w, 9.5rem)`, where
+  the 9.5rem is only a floor.
+- **Under `mandatory` you can only rest at a block start**, so a group wider
+  than the visible area (screen minus the name column) has an unreachable last
+  column. `Extra` (+/-, PIM, SOG, GAA, SV%) is the widest and the one to watch
+  if a column is added. The fallback is one word: `mandatory` → `proximity`.
+- **`table-layout: auto` gives each grid its own column width** from its own
+  longest name, so `.stats-col-player` needs a real `width: var(--stats-player-w)`,
+  not just `min-width`, or nothing forces the three tables to agree. The
+  variable being *absent* (invalid `var()` → initial `auto`, `min-width`
+  governs) is the unconstrained state the hook needs in order to measure.
+- **`.stats-col-player` must never carry `display: flex`.** A flexed `<td>`
+  drops out of the table's column-tracking algorithm and each cell then rounds
+  its own height independently under `border-collapse` — a sub-pixel border
+  misalignment, invisible at 100% and obvious at zoom. Flex layout goes on an
+  inner `<div className="stats-col-player-inner">`.
+- **`position: sticky` on a `<span>` nested inside a `colSpan` cell fails
+  silently** — it renders at its static flow position. Reuse
+  `.stats-col-player` (the prospect label row does); never hand-roll a second
+  sticky mechanism in the same table.
+- **Specificity, twice.** `.pos-compact-d/-g` carry only `color` at (0,1,0)
+  while `.stats-position-filter-btn.active` claims it at (0,2,0), so the
+  combined `.active.pos-compact-d/-g` rule must restate `color` at (0,3,0) or
+  ice wins the colour it is meant to yield. Same trap on the prospect label
+  row: `border-top: none` must out-specify the generic separator
+  `.stats-grid tbody tr + tr td`, and `padding-left` must be written at three
+  classes to beat the row rule's own `padding: 0`.
 
-**`.stats-col-player` ne doit jamais porter `display: flex` (2026-08-25).**
-Nick l'a repéré zoomé sur son téléphone : un fin liseré vertical entre les
-bordures de rangée de la colonne collante et celles des colonnes chiffrées.
-Mesuré en direct (un décodeur PNG écrit à la main, `System.Drawing` ayant
-refusé de répondre ce jour-là) : les bordures de la colonne du nom
-atterrissaient 1 à 3 px plus haut que celles du reste de la rangée — sous 1 px
-CSS une fois ramené à la densité de l'écran, donc invisible à l'œil nu, mais
-bien réel au zoom. Un `<td>` en `display: flex` **sort de l'algorithme de
-suivi des colonnes du tableau** (déjà noté plus haut pour l'en-tête, mais la
-portée était sous-estimée) : chaque cellule de la colonne se met alors à
-arrondir sa propre hauteur indépendamment sous `border-collapse`, au lieu de
-partager la hauteur véritable de sa rangée avec ses voisines.
+## Player card — the `AUTO` protection pill
 
-Le correctif retire `display: flex` de `.stats-col-player` lui-même — qui
-redevient une cellule de tableau ordinaire — et déplace la mise en page flex
-(icône-ou-espace réservé, nom, bouton calendrier, pastille de position) sur
-un `<div className="stats-col-player-inner">` à l'intérieur. C'est exactement
-le principe que l'en-tête `rowSpan={2}` appliquait déjà (« le bouton fournit
-sa propre mise en page interne, la cellule n'a pas besoin de l'être ») —
-étendu maintenant à chaque cellule collante : la rangée de joueur, la rangée
-« Prospects » et le pied « Total ». La surcharge `display: table-cell` du
-thead est devenue inutile et a été retirée ; il ne reste que le
-`vertical-align: middle` qui centre « Player » sur les deux rangées d'en-tête
-fusionnées. Vérifié après coup sur les 34 rangées de la page : écart de
-**0 px exactement** entre chaque cellule collante et sa voisine, contre
-0,5-1 px avant.
+Its own class `.pc-protect-pill`, deliberately **not** `.roster-pos-pill`: that
+pattern is reserved for the F/D/G indicator, and a second pill of the same
+shape on the same row saying something else is exactly what the rule exists to
+prevent. Ice-cyan, because rose on this card is spoken for by the injury mark
+and the two must never be confused at a glance. `margin-left: auto` pins it
+right and `flex-shrink: 0` makes `.pc-team` ellipsize to make room — the same
+call as the injury badge. **Nothing is drawn when the answer is unknown**:
+`autoProtected` is `boolean | null`, null when career-sync has never reached
+the player, and the card renders on `=== true` only. An `AUTO` badge on a
+veteran whose sync failed would be a false statement about a real person; no
+badge is merely a gap.
 
-**Zone prospect, en bas de la grille Team (2026-08-25).** Les joueurs sans aucun
-match de carrière LNH (règle et provenance dans
-[data-model.md](data-model.md)) sont épinglés **sous** le roster, dans un ordre
-fixe **F → D → G puis nom**, et ils sont **hors tri** : cliquer sur une colonne
-ne les réordonne pas. C'est délibéré — un DG qui classe son roster par points ne
-classe pas vingt joueurs qui n'ont jamais joué, et une zone qui garde toujours
-la même tête est la seule qu'une bordure peut honnêtement délimiter; trier
-dedans ferait bouger cette bordure sous le pouce.
+## Messaging
 
-La zone s'ouvre par une **rangée dédiée**, pas seulement une bordure — le mot
-« PROSPECTS » à la même proportion que le bandeau « Trade Alert » du ticker
-(16 px, police minuscule en gras, lettres très espacées) pour que les deux se
-lisent comme le même *type* de marque, sans en partager la couleur : le or
-veut déjà dire « trade » ailleurs sur l'écran, l'ice veut déjà dire « chiffre
-vedette » sur la colonne PT deux centimètres plus loin, et emprunter l'un ou
-l'autre ici attribuerait une signification qui n'existe pas. Le texte muté dit
-« section », rien de plus.
-
-**Sans bordure (2026-08-25).** La teinte de fond seule marque la rangée —
-`border-top: none`, à outrepasser explicitement le séparateur ordinaire de
-1 px que chaque rangée hérite sinon (`.stats-grid tbody tr + tr td`, plus
-spécifique qu'une simple absence de déclaration). Et le mot ne colle plus à
-la bordure collante : `padding-left: 0.5rem` sur `.stats-prospect-label-cell`,
-la même valeur que le rembourrage ordinaire des cellules — mais elle aussi
-doit être écrite à une spécificité qui bat la règle de la rangée
-(`.stats-grid tbody tr.stats-prospect-label-row td` remet tout à zéro à
-`(0,2,3)`), sans quoi le padding s'écrit et ne s'applique jamais.
-
-**Filtre de position, aligné à droite du titre ROSTER (2026-08-25, per
-Nick).** All/F/D/G en pill segmenté — même langage arrondi-en-groupe que la
-barre de navigation basse, pas une forme nouvelle. `.stats-table-head`
-remplace le `<span>` de titre seul par une ligne `flex`
-`justify-content: space-between`, titre à gauche, `PositionFilterControl` à
-droite.
-
-Un seul contrôle pour tout l'écran : posé une fois, à côté du titre Roster,
-il filtre en silence Departed et Incoming aussi — `positionFilter` descend
-dans les trois instances de `RosterGrid`, `onPositionFilterChange` seulement
-dans la première (sa présence est ce qui décide si l'instance dessine les
-boutons). Le sous-titre « 26 / 35 player » n'en tient jamais compte — c'est
-la taille réelle du roster, pas ce que le filtre laisse voir en ce moment.
-
-Actif emprunte sa couleur à la position filtrée — le même ice/violet/or que
-`.roster-pos-pill`/`.pos-compact` partout ailleurs, pour que « tu regardes la
-défense » se lise pareil que le marqueur de position d'un défenseur sur sa
-propre rangée. « All » n'a pas de couleur de position à lui, il prend l'ice
-« sélectionné » ordinaire de l'app (même traitement qu'un onglet de nav bas
-actif). Piège de spécificité, encore : `.pos-compact-d/-g` ne portent que
-`color` à `(0,1,0)`, et `.stats-position-filter-btn.active` réclame déjà cette
-propriété à `(0,2,0)` — sans réécrire `color` dans la règle combinée
-`.active.pos-compact-d/-g` à `(0,3,0)`, l'ice gagnerait sur la couleur de
-position qu'il est censé céder.
-
-Grille vide **à cause du filtre** (aucun défenseur chez les partis, par
-exemple) distincte de grille vide **tout court** : `positionFilterEmptyLabel`
-donne « No defensemen here. » plutôt que le message générique de la grille
-(« Nobody has left this roster. »), qui resterait correct mais mentirait par
-omission sur pourquoi rien ne s'affiche.
-
-## Messagerie (2026-08-03)
-
-Les DMs vivent dans une **feuille plein écran**, préfixe `chat-`
-(`components/ChatSheet.css`), et **dans** le thème — contrairement à
-`CockmanChat.css`, qui est autonome et détonne exprès parce qu'il joue un widget
-tiers greffé sur l'app. Une feuille pour deux vues qui s'échangent, liste ↔ fil,
-même forme que les deux panneaux du `ProfileMenu`.
-
-Deux portes, deux destinations distinctes — la règle « pas de destination
-dupliquée » tient : la bulle de la barre du haut ouvre la **liste** (et porte la
-pastille de non-lus, en `--ice` et non en or, l'or restant réservé à « une offre
-t'attend »), tandis que le bouton message d'une ligne GM du `ProfileMenu` ouvre
-**un fil précis**.
-
-Ligne de conversation : avatar avec pastille de présence, nom, heure à droite ;
-2e ligne l'aperçu du dernier message (préfixé « You: » si c'est le nôtre) et la
-pastille de non-lus. Les pop-ups d'événements live sont préfixées `toast-` et se
-placent **au-dessus** du bandeau d'actualités, jamais par-dessus.
+DMs live in a **full-screen sheet**, prefix `chat-`
+(`components/ChatSheet.css`), and **inside** the theme — unlike
+`CockmanChat.css`, self-contained and clashing on purpose because it plays a
+third-party widget bolted onto the app. One sheet, two swapping views,
+list ↔ thread, the same shape as `ProfileMenu`'s two panels. Two doors, two
+distinct destinations, so no-duplicate-destinations holds: the top-bar bubble
+opens the **list**, a GM row's message button in `ProfileMenu` opens **one
+thread**. Conversation row: avatar with presence dot, name, time right; second
+line the last-message preview (prefixed "You: " when ours) and the unread
+badge. Live event pop-ups are prefixed `toast-` and sit **above** the news
+ticker, never over it.
 
 ## Logo
 
-Écusson circulaire : guerrier barbu, casque rouge, bâtons croisés. Master
-`fw_logo.png` à la racine du dépôt (1024 px, transparent). Asset applicatif
-`frontend/src/assets/logo.webp` (512 px, nettoyé et recadré). Utilisé dans le
-héros de connexion (180 px, ombre portée cyan) et dans les barres du haut (30 px).
+Circular crest: bearded warrior, red helmet, crossed sticks. Master
+`fw_logo.png` at the repo root (1024px, transparent); app asset
+`frontend/src/assets/logo.webp` (512px, cleaned and cropped). Used in the login
+hero (`.hero-logo`, 180px, cyan drop shadow) and the top bar (40px).
 
-## Icônes d'écran d'accueil et PWA (2026-07-25)
+## Home-screen and PWA icons
 
-`frontend/public/manifest.json` (lié dans `index.html`, `name`/`short_name`
-« Fantasy Warrior », `display: standalone`, `background_color` et `theme_color`
-à `#0a0e1a`) fait qu'« Ajouter à l'écran d'accueil » installe une vraie icône
-d'application plutôt qu'un raccourci de navigateur dans une boîte blanche.
+`frontend/public/manifest.json` (linked from `index.html`; `name`/`short_name`
+"Fantasy Warrior", `display: standalone`, `background_color` and `theme_color`
+`#0a0e1a`) is what makes "Add to Home Screen" install a real app icon instead
+of a browser shortcut in a white box. All assets are regenerated from
+`logo.webp` with Pillow — crop to the content's bounding box, centre, resize.
+**If the logo changes, regenerate them the same way.**
 
-Tous les assets sont régénérés depuis `logo.webp` via Pillow — recadrage sur la
-boîte englobante du contenu, centrage, redimensionnement. **Si le logo change,
-les régénérer de la même façon.**
-
-| Fichier | Taille | Fond | Rôle |
+| File | Size | Background | Role |
 |---|---|---|---|
-| `favicon.png` | 64 | transparent | onglet du navigateur seulement |
+| `favicon.png` | 64 | transparent | browser tab only |
 | `favicon-192.png` | 192 | transparent | manifest, `purpose: "any"` |
 | `favicon-512.png` | 512 | transparent | manifest, `purpose: "any"` |
 | `maskable-icon.png` | 512 | **`#0a0e1a` opaque** | manifest, `purpose: "maskable"` |
 | `apple-touch-icon.png` | 180 | **`#0a0e1a` opaque** | iOS |
 
-Les deux dernières **ne doivent jamais être transparentes ni blanches**. Sur
-`maskable-icon.png`, le logo est réduit à ~72 % pour survivre au recadrage de la
-zone de sécurité des icônes adaptatives d'Android ; un fond transparent est
-exactement ce qui produisait l'ancien rendu « cercle blanc avec badge Chrome ».
-iOS ne compose pas l'alpha de façon fiable sur les icônes tactiles, d'où le fond
-opaque sur `apple-touch-icon.png` aussi.
-
-`index.html` porte également les balises `apple-mobile-web-app-capable`,
-`-status-bar-style` et `-title` pour un lancement propre en mode autonome sur iOS.
+The last two **must never be transparent or white**. On `maskable-icon.png` the
+logo is scaled to ~72% to survive Android's adaptive-icon safe-zone crop; a
+transparent background is exactly what produced the old "white circle with a
+Chrome badge" rendering. iOS does not composite alpha reliably on touch icons,
+hence the opaque background there too. `index.html` also carries
+`apple-mobile-web-app-capable`, `-status-bar-style` and `-title` for a clean
+standalone launch on iOS.

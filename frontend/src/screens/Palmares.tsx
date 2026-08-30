@@ -4,8 +4,8 @@ import type { LeagueSeasonSummary } from "../api";
 import { ArrowLeftIcon, TrophyIcon } from "../components/Icons";
 
 // "20262027" -> "2026-27". Same small formatter PlayerCard.tsx carries for its
-// own career rows — not worth sharing for two characters of slicing, and
-// season-lifecycle.md already documents this duplication as harmless.
+// own career rows — deliberately not shared, since two characters of slicing
+// is not worth a module boundary.
 function formatSeason(season: string): string {
   if (season.length !== 8) return season;
   return `${season.slice(0, 4)}-${season.slice(6)}`;

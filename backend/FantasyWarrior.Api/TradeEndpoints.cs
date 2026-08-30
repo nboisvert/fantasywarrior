@@ -37,7 +37,7 @@ public static class TradeEndpoints
         // A trade closes a spot and opens a new one, and the new one inherits
         // no protection at all — a player a GM had just protected would
         // silently become stealable. Freezing trades for exactly the two
-        // phases where that could happen (season-lifecycle.md §5) closes the
+        // phases where that could happen (offseason.md) closes the
         // hole rather than working around it after the fact.
         var activeSeason = await Queries.ActiveLeagueSeasonAsync(db, league.LeagueId);
         if (activeSeason is not null && !SeasonPhaseRules.CanTrade(activeSeason.Phase))

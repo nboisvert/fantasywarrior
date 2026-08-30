@@ -7,7 +7,7 @@ namespace FantasyWarrior.Core.Seasons;
 /// **Lives on the season, not the league.** "The league is drafting" cannot say
 /// *for which season* — a keeper league spends its off-season protecting and
 /// drafting players for the season it is about to start while its standings
-/// still show the one that just finished. See <c>season-lifecycle.md</c> §5.
+/// still show the one that just finished. See <c>offseason.md</c>.
 ///
 /// **Exactly one <c>LeagueSeason</c> row per league is ever anything but
 /// <see cref="Complete"/>.** That is enforced as a database constraint

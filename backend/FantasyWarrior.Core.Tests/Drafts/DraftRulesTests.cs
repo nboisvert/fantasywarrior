@@ -44,7 +44,7 @@ public class DraftRulesTests
     [Fact]
     public void Selection_UnderTheRosterMinimumIsNOTRefused()
     {
-        // THE regression test for the trap. season-lifecycle.md section 5:
+        // THE regression test for the trap. offseason.md:
         // PreSeason exists precisely because a team can come out of the draft
         // under RosterMin - two players lost, one drafted back. Enforcing the
         // minimum here would make that window unreachable. A minimum cannot be

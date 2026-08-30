@@ -7,7 +7,7 @@ namespace FantasyWarrior.Jobs.Sql;
 
 /// <summary>
 /// Moves one league's active <see cref="LeagueSeason"/> row forward one phase,
-/// with the side effects each step carries — see <c>season-lifecycle.md</c> §5.
+/// with the side effects each step carries — see <c>offseason.md</c>.
 ///
 /// **Deliberately not run on a cron.** Every other job in this file reacts to a
 /// clock (a night passing, a date reached); this one reacts to a commissioner's
