@@ -34,7 +34,22 @@ public static class LeagueEndpoints
                 user.LastLoginUtc = now;
             }
             await db.SaveChangesAsync();
-            return Results.Ok(new { username = user.Username, displayName = user.DisplayName });
+            return Results.Ok(new { username = user.Username, displayName = user.DisplayName, language = user.Language });
+        });
+
+        app.MapPut("/api/users/{username}/language", async (string username, LanguageRequest req, FantasyWarriorDbContext db) =>
+        {
+            if (req.Language is not ("en" or "fr"))
+                return Results.BadRequest(new { error = "Language must be 'en' or 'fr'." });
+
+            var normalized = Queries.Normalize(username);
+            var user = await db.Users.FirstOrDefaultAsync(u => u.Username == normalized);
+            if (user is null)
+                return Results.NotFound();
+
+            user.Language = req.Language;
+            await db.SaveChangesAsync();
+            return Results.Ok(new { language = user.Language });
         });
 
         app.MapGet("/api/users/{username}/leagues", async (string username, FantasyWarriorDbContext db) =>
@@ -558,6 +573,8 @@ public static class LeagueEndpoints
 }
 
 public record LoginRequest(string? Username);
+
+public record LanguageRequest(string? Language);
 public record CreateLeagueRequest(string? Name, string? Username, string? TeamName, string? Season, long? CapAmount);
 public record JoinLeagueRequest(string? Username, string? TeamName);
 public record UpdateRulesRequest(string? Username, RuleSet? RuleSet);

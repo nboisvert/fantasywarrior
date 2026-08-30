@@ -1,4 +1,5 @@
 import logo from "../assets/logo.webp";
+import { useLanguage } from "../i18n/LanguageContext";
 
 /**
  * Shared loading indicator — a gently breathing app logo, replacing plain
@@ -8,8 +9,9 @@ import logo from "../assets/logo.webp";
  * user, or omit it for a bare, quieter indicator.
  */
 export function LoadingLogo({ label }: { label?: string }) {
+  const { t } = useLanguage();
   return (
-    <div className="empty-state loading-logo" role="status" aria-live="polite" aria-label={label ?? "Loading"}>
+    <div className="empty-state loading-logo" role="status" aria-live="polite" aria-label={label ?? t("common.loading")}>
       <img className="loading-logo-img" src={logo} alt="" aria-hidden="true" />
       {label && <p className="loading-logo-label">{label}</p>}
     </div>

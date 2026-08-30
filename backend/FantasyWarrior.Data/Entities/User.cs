@@ -39,6 +39,13 @@ public sealed class User
     /// </summary>
     public DateTime? LastSeenUtc { get; set; }
 
+    /// <summary>
+    /// "en" or "fr". Null means never chosen — the client falls back to the
+    /// browser's language, then defaults to English, and writes its guess
+    /// back here the first time it knows a username.
+    /// </summary>
+    public string? Language { get; set; }
+
     public ICollection<LeagueMember> Memberships { get; set; } = [];
 
     public ICollection<Team> Teams { get; set; } = [];

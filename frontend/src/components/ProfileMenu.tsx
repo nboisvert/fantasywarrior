@@ -19,6 +19,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, initials } from "../api";
 import { useLive } from "../live/LiveProvider";
+import { useLanguage } from "../i18n/LanguageContext";
 import { CockcoinIcon, LogOutIcon, MessageSquareIcon, SettingsIcon, UsersIcon } from "./Icons";
 import "./ProfileMenu.css";
 
@@ -40,6 +41,7 @@ export function ProfileMenu({
   onLogout: () => void;
   onOpenChat: (peer: string) => void;
 }) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -154,8 +156,8 @@ export function ProfileMenu({
         aria-expanded={open}
         aria-label={
           onlineCount > 0
-            ? `Profile menu — ${username}, ${onlineCount} other GM${onlineCount > 1 ? "s" : ""} online`
-            : `Profile menu — ${username}, nobody else online`
+            ? t("profileMenu.triggerOnline", { username, count: onlineCount })
+            : t("profileMenu.triggerAlone", { username })
         }
       >
         <span className="profile-avatar-wrap">
@@ -172,7 +174,7 @@ export function ProfileMenu({
       </button>
 
       {open && (
-        <div ref={panelRef} className="profile-panel" role="dialog" aria-label="Profile menu" tabIndex={-1}>
+        <div ref={panelRef} className="profile-panel" role="dialog" aria-label={t("profileMenu.dialogLabel")} tabIndex={-1}>
           <div className="profile-panel-header">
             <span className="profile-avatar profile-avatar-lg" aria-hidden="true">
               {initials(username)}
@@ -182,21 +184,21 @@ export function ProfileMenu({
              * icon alone carries the "look here", everything next to it
              * (amount, ticker, label) stays quiet on purpose: no frame, no
              * gold background, this isn't the screen's focal point. */}
-            <span className="profile-cockcoin" aria-label={`${cockcoin ?? 0} CK cockcoin`}>
+            <span className="profile-cockcoin" aria-label={t("profileMenu.cockcoinAria", { amount: cockcoin ?? 0 })}>
               <CockcoinIcon size={32} />
               <span className="profile-cockcoin-text">
                 <span className="profile-cockcoin-amount">{cockcoin ?? 0} CK</span>
-                <span className="profile-cockcoin-label">cockcoin</span>
+                <span className="profile-cockcoin-label">{t("profileMenu.cockcoinLabel")}</span>
               </span>
             </span>
           </div>
 
           <span className="section-title profile-panel-section">
-            <UsersIcon size={13} className="inline-icon" /> League GMs ({onlineCount} online)
+            <UsersIcon size={13} className="inline-icon" /> {t("profileMenu.leagueGms", { count: onlineCount })}
           </span>
 
           {members.length === 0 ? (
-            <p className="profile-empty muted">No other poolers yet.</p>
+            <p className="profile-empty muted">{t("profileMenu.noOtherPoolers")}</p>
           ) : (
             <ul className="profile-member-list">
               {members.map((p) => {
@@ -217,7 +219,7 @@ export function ProfileMenu({
                         close();
                         onOpenChat(member);
                       }}
-                      aria-label={`Message ${member}`}
+                      aria-label={t("profileMenu.messageAria", { member })}
                     >
                       <MessageSquareIcon size={15} />
                     </button>
@@ -227,7 +229,7 @@ export function ProfileMenu({
                      * wording of the interval itself comes from Core either
                      * way, so there is still one implementation of it. */}
                     <span className="profile-member-seen muted">
-                      {p.online ? "Online" : p.label === "—" ? "—" : `last seen ${p.label}`}
+                      {p.online ? t("profileMenu.online") : p.label === "—" ? "—" : t("profileMenu.lastSeen", { time: p.label })}
                     </span>
                   </li>
                 );
@@ -249,7 +251,7 @@ export function ProfileMenu({
               }}
             >
               <SettingsIcon size={15} />
-              Settings
+              {t("profileMenu.settings")}
             </button>
             <button
               className="profile-action profile-action-danger"
@@ -259,7 +261,7 @@ export function ProfileMenu({
               }}
             >
               <LogOutIcon size={15} />
-              Log out
+              {t("profileMenu.logOut")}
             </button>
           </div>
         </div>

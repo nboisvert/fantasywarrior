@@ -26,6 +26,7 @@ import { ChatSheet } from "./components/ChatSheet";
 import DraftRoom from "./screens/DraftRoom";
 import { ToastHost } from "./components/Toast";
 import { LiveProvider, useLive } from "./live/LiveProvider";
+import { useLanguage } from "./i18n/LanguageContext";
 import "./App.css";
 
 type Tab = "dashboard" | "standings" | "stats" | "trades" | "draft" | "settings";
@@ -60,6 +61,7 @@ function DraftBridge({ onDraft: onPush }: { onDraft: (s: DraftState) => void }) 
 }
 
 export default function App() {
+  const { t } = useLanguage();
   const [username, setUsername] = useState<string | null>(localStorage.getItem("fw-username"));
   const [leagueId, setLeagueId] = useState<string | null>(localStorage.getItem("fw-league"));
   const [league, setLeague] = useState<LeagueDetail | null>(null);
@@ -247,9 +249,9 @@ export default function App() {
         {/* No season next to the name (2026-08-03, per Nick) — it is the same
             every week, so it spent topbar width saying nothing. Settings still
             shows it where it is actually being read. */}
-        <button className="league-switch" onClick={() => setShowPicker(true)} aria-label="Switch league">
+        <button className="league-switch" onClick={() => setShowPicker(true)} aria-label={t("app.switchLeague")}>
           <span className="league-switch-text">
-            <span className="name">{league?.name ?? (leagueId ? "…" : "Select league")}</span>
+            <span className="name">{league?.name ?? (leagueId ? "…" : t("app.selectLeague"))}</span>
           </span>
           <ChevronDownIcon size={16} />
         </button>
@@ -258,13 +260,13 @@ export default function App() {
             behind most of what the app shows. Not a button — it is a status,
             and nothing here would be a sensible destination. */}
         {league?.currentPeriod && (
-          <span className="topbar-week">Week {league.currentPeriod.index}</span>
+          <span className="topbar-week">{t("app.week", { index: league.currentPeriod.index })}</span>
         )}
         {league && (
           <button
             className="topbar-chat"
             onClick={() => openChat(null)}
-            aria-label={unread > 0 ? `Messages, ${unread} unread` : "Messages"}
+            aria-label={unread > 0 ? t("app.messagesUnread", { count: unread }) : t("app.messages")}
           >
             <MessageSquareIcon size={20} />
             {unread > 0 && (
@@ -299,14 +301,14 @@ export default function App() {
 
         {tab !== "settings" && !leagueId && (
           <p className="empty-state">
-            No league selected yet. Head to{" "}
+            {t("app.noLeagueSelected")}{" "}
             <button className="link-btn" onClick={() => setTab("settings")}>
-              Settings
+              {t("settings.title")}
             </button>{" "}
-            to create or join one.
+            {t("app.noLeagueSelectedSuffix")}
           </p>
         )}
-        {tab !== "settings" && leagueId && !league && !error && <LoadingLogo label="Loading league…" />}
+        {tab !== "settings" && leagueId && !league && !error && <LoadingLogo label={t("app.loadingLeague")} />}
         {league && tab === "dashboard" && <Dashboard league={league} username={username} />}
         {league && tab === "standings" && showPalmares && (
           <Palmares leagueId={league.id} onClose={() => setShowPalmares(false)} />
@@ -336,14 +338,14 @@ export default function App() {
 
       <NewsTicker leagueId={leagueId} league={league} username={username} />
 
-      <nav className="bottom-nav" aria-label="Main navigation">
+      <nav className="bottom-nav" aria-label={t("app.mainNavigation")}>
         <button
           className={`nav-tab${tab === "dashboard" ? " active" : ""}`}
           onClick={() => setTab("dashboard")}
           aria-current={tab === "dashboard" ? "page" : undefined}
         >
           <BriefcaseIcon size={22} />
-          GM Office
+          {t("app.navGmOffice")}
         </button>
         <button
           className={`nav-tab${tab === "standings" ? " active" : ""}`}
@@ -351,7 +353,7 @@ export default function App() {
           aria-current={tab === "standings" ? "page" : undefined}
         >
           <TrophyIcon size={22} />
-          Standings
+          {t("app.navStandings")}
         </button>
         <button
           className={`nav-tab${tab === "stats" ? " active" : ""}`}
@@ -362,7 +364,7 @@ export default function App() {
           aria-current={tab === "stats" ? "page" : undefined}
         >
           <ActivityIcon size={22} />
-          Team
+          {t("app.navTeam")}
         </button>
         <button
           className={`nav-tab${tab === "trades" ? " active" : ""}${
@@ -370,11 +372,7 @@ export default function App() {
           }`}
           onClick={() => setTab("trades")}
           aria-current={tab === "trades" ? "page" : undefined}
-          aria-label={
-            offersToAnswer > 0
-              ? `Trades, ${offersToAnswer} offer${offersToAnswer > 1 ? "s" : ""} awaiting your answer`
-              : undefined
-          }
+          aria-label={offersToAnswer > 0 ? t("app.navTradesAwaiting", { count: offersToAnswer }) : undefined}
         >
           <span className="nav-tab-icon">
             <ArrowLeftRightIcon size={22} />
@@ -386,7 +384,7 @@ export default function App() {
               </span>
             )}
           </span>
-          Trades
+          {t("app.navTrades")}
         </button>
         {/* Only while a draft is running, plus the commissioner's one-phase
             preview of it in Protecting — he has to get in to open it. A
@@ -401,10 +399,10 @@ export default function App() {
             aria-current={tab === "draft" ? "page" : undefined}
             aria-label={
               !draftRunning
-                ? "Draft, not open yet"
+                ? t("app.navDraftNotOpen")
                 : isMyDraftTurn
-                  ? "Draft, you are on the clock"
-                  : "Draft, live"
+                  ? t("app.navDraftYourTurn")
+                  : t("app.navDraftLive")
             }
           >
             <span className="nav-tab-icon">
@@ -413,11 +411,11 @@ export default function App() {
                   live to announce. */}
               {draftRunning && (
                 <span className="nav-tab-pill" aria-hidden="true">
-                  LIVE
+                  {t("app.draftLive")}
                 </span>
               )}
             </span>
-            Draft
+            {t("app.navDraft")}
           </button>
         )}
       </nav>

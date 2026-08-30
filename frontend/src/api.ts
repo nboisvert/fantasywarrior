@@ -712,9 +712,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   login: (username: string) =>
-    request<{ username: string; displayName: string }>("/api/login", {
+    request<{ username: string; displayName: string; language: string | null }>("/api/login", {
       method: "POST",
       body: JSON.stringify({ username }),
+    }),
+  setLanguage: (username: string, language: "en" | "fr") =>
+    request<{ language: string }>(`/api/users/${encodeURIComponent(username)}/language`, {
+      method: "PUT",
+      body: JSON.stringify({ language }),
     }),
   myLeagues: (username: string) =>
     request<LeagueSummary[]>(`/api/users/${encodeURIComponent(username)}/leagues`),

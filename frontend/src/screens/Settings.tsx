@@ -6,6 +6,7 @@ import { CockmanChat } from "../components/CockmanChat";
 import { LoadingLogo } from "../components/LoadingLogo";
 import { RulesPanel } from "./RulesPanel";
 import { TestModePanel } from "./TestModePanel";
+import { useLanguage } from "../i18n/LanguageContext";
 
 export function Settings({
   username,
@@ -20,6 +21,7 @@ export function Settings({
   onLogout: () => void;
   onRulesSaved: () => void;
 }) {
+  const { lang, setLang, t } = useLanguage();
   const [leagues, setLeagues] = useState<LeagueSummary[] | null>(null);
   const [name, setName] = useState("");
   const [cap, setCap] = useState("");
@@ -70,15 +72,15 @@ export function Settings({
 
   return (
     <section className="fade-in" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-      <span className="section-title">Settings</span>
+      <span className="section-title">{t("settings.title")}</span>
       {error && <p className="error-banner">{error}</p>}
 
       <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-        <span className="section-title">My leagues</span>
+        <span className="section-title">{t("settings.myLeagues")}</span>
         {leagues === null ? (
           <LoadingLogo />
         ) : leagues.length === 0 ? (
-          <p className="empty-state">No league yet — create one or join with an invite code below.</p>
+          <p className="empty-state">{t("settings.noLeagueYet")}</p>
         ) : (
           <ul className="league-list">
             {leagues.map((l) => (
@@ -90,9 +92,7 @@ export function Settings({
                 >
                   <span>
                     <strong>{l.name}</strong>
-                    <small>
-                      {l.members} member{l.members > 1 ? "s" : ""} · cap {formatCap(l.capAmount)}
-                    </small>
+                    <small>{t("settings.leagueCardMeta", { members: l.members, cap: formatCap(l.capAmount) })}</small>
                   </span>
                 </button>
               </li>
@@ -101,39 +101,63 @@ export function Settings({
         )}
       </div>
 
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+        <div className="dashboard-section-head">
+          <span className="section-title">{t("settings.language")}</span>
+          <div className="lang-switch" role="group" aria-label="Language / Langue">
+            <button
+              type="button"
+              className={`lang-switch-btn${lang === "en" ? " active" : ""}`}
+              onClick={() => setLang("en", username)}
+              aria-pressed={lang === "en"}
+            >
+              {t("common.languageEn")}
+            </button>
+            <button
+              type="button"
+              className={`lang-switch-btn${lang === "fr" ? " active" : ""}`}
+              onClick={() => setLang("fr", username)}
+              aria-pressed={lang === "fr"}
+            >
+              {t("common.languageFr")}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <form onSubmit={create} className="card" style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-        <span className="section-title">Create a league</span>
+        <span className="section-title">{t("settings.createLeague")}</span>
         <input
           className="field"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="League name"
-          aria-label="League name"
+          placeholder={t("settings.leagueNamePlaceholder")}
+          aria-label={t("settings.leagueNameAria")}
         />
         <input
           className="field"
           value={cap}
           onChange={(e) => setCap(e.target.value.replace(/\D/g, ""))}
-          placeholder="Salary cap in $ (optional)"
+          placeholder={t("settings.capPlaceholder")}
           inputMode="numeric"
-          aria-label="Salary cap"
+          aria-label={t("settings.capAria")}
         />
         <button type="submit" className="btn" disabled={!name.trim()}>
-          Create
+          {t("settings.create")}
         </button>
       </form>
 
       <form onSubmit={join} className="card" style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-        <span className="section-title">Join a league</span>
+        <span className="section-title">{t("settings.joinLeague")}</span>
         <input
           className="field"
           value={joinCode}
           onChange={(e) => setJoinCode(e.target.value)}
-          placeholder="Invite code"
-          aria-label="Invite code"
+          placeholder={t("settings.inviteCodePlaceholder")}
+          aria-label={t("settings.inviteCodeAria")}
         />
         <button type="submit" className="btn" disabled={!joinCode.trim()}>
-          Join
+          {t("settings.join")}
         </button>
       </form>
 
@@ -141,7 +165,7 @@ export function Settings({
         <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
           <div className="dashboard-section-head">
             <span className="section-title">
-              <SettingsIcon size={14} className="inline-icon" /> League rules — {league.name}
+              <SettingsIcon size={14} className="inline-icon" /> {t("settings.leagueRules", { name: league.name })}
             </span>
             <button
               type="button"
@@ -149,7 +173,7 @@ export function Settings({
               onClick={() => setShowRules(!showRules)}
               aria-expanded={showRules}
             >
-              {showRules ? "Hide" : "Edit"}
+              {showRules ? t("common.hide") : t("common.edit")}
             </button>
           </div>
           {showRules && (
@@ -167,10 +191,10 @@ export function Settings({
         <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
           <div className="dashboard-section-head">
             <span className="section-title">
-              <MessageSquareIcon size={14} className="inline-icon" /> League commissioner support
+              <MessageSquareIcon size={14} className="inline-icon" /> {t("settings.commissionerSupport")}
             </span>
             <button type="button" className="btn-ghost" onClick={() => setShowCockman(true)}>
-              Chat with Cockman
+              {t("settings.chatWithCockman")}
             </button>
           </div>
         </div>
@@ -184,7 +208,7 @@ export function Settings({
         <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
           <div className="dashboard-section-head">
             <span className="section-title">
-              <ShieldIcon size={14} className="inline-icon" /> Test mode
+              <ShieldIcon size={14} className="inline-icon" /> {t("settings.testMode")}
             </span>
             <button
               type="button"
@@ -192,7 +216,7 @@ export function Settings({
               onClick={() => setShowTestMode(!showTestMode)}
               aria-expanded={showTestMode}
             >
-              {showTestMode ? "Hide" : "Open"}
+              {showTestMode ? t("common.hide") : t("common.open")}
             </button>
           </div>
           {showTestMode && (
@@ -202,7 +226,7 @@ export function Settings({
       )}
 
       <button className="btn-ghost" onClick={onLogout} style={{ alignSelf: "flex-start" }}>
-        <LogOutIcon size={16} /> Log out ({username})
+        <LogOutIcon size={16} /> {t("settings.logOut", { username })}
       </button>
     </section>
   );

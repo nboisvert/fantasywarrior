@@ -790,6 +790,46 @@
 
 /* ---------- shared elements ---------- */
 
+/* FR/EN switch — Login (pre-account) and Settings (the account's saved
+   choice). Same segmented-pill shape as `.stats-position-filter` /
+   the bottom nav ("un contrôle bien pensé et subtil sans réinventer la
+   roue", 2026-08-25, per Nick) rather than a new control language. */
+.lang-switch {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.lang-switch-btn {
+  min-width: 2.4rem;
+  padding: 0.3rem 0.6rem;
+  border: none;
+  border-radius: 7px;
+  background: none;
+  color: var(--text-muted);
+  font: 700 0.72rem var(--font-body);
+  cursor: pointer;
+  transition: color 0.15s, background-color 0.15s;
+}
+
+.lang-switch-btn:hover {
+  color: var(--text);
+}
+
+.lang-switch-btn:focus-visible {
+  outline: 2px solid var(--ice);
+  outline-offset: 2px;
+}
+
+.lang-switch-btn.active {
+  background: rgba(56, 189, 248, 0.12);
+  color: var(--ice-bright);
+}
+
 .field {
   width: 100%;
   padding: 0.8rem 1rem;
