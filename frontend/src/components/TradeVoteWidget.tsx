@@ -170,7 +170,10 @@ export function TradeVoteWidget({
       {confirming && (
         <div className="tvw-confirm-overlay" role="dialog" aria-modal="true" onClick={() => setConfirming(null)}>
           <div className="tvw-confirm" onClick={(e) => e.stopPropagation()}>
-            <p className="tvw-confirm-text">{t("tradeVoteWidget.confirmText", { label: confirming.label })}</p>
+            <p className="tvw-confirm-text">
+              {t("tradeVoteWidget.confirmPrefix")} <strong>{confirming.label}</strong>
+              {t("tradeVoteWidget.confirmSuffix")}
+            </p>
             <div className="tvw-confirm-actions">
               <button type="button" className="btn-outline" onClick={() => setConfirming(null)}>
                 {t("common.cancel")}

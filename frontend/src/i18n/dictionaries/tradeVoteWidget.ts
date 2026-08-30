@@ -13,7 +13,8 @@ export const en = {
   cantVoteOwnTrade: "You can't vote on your own trade.",
   votesTotal: (v: { total: number | string }) => `${v.total} vote${Number(v.total) === 1 ? "" : "s"} total`,
   voteToSee: "Vote to see how everyone else voted.",
-  confirmText: (v: { label: string }) => `Vote for ${v.label}? This can't be changed once cast.`,
+  confirmPrefix: "Vote for",
+  confirmSuffix: "? This can't be changed once cast.",
   confirmVote: "Confirm vote",
 };
 
@@ -32,6 +33,7 @@ export const fr = {
   cantVoteOwnTrade: "Tu ne peux pas voter sur ton propre échange.",
   votesTotal: (v: { total: number | string }) => `${v.total} vote${Number(v.total) === 1 ? "" : "s"} au total`,
   voteToSee: "Vote pour voir ce que le reste de la ligue a choisi.",
-  confirmText: (v: { label: string }) => `Voter pour ${v.label}? Impossible de revenir en arrière une fois voté.`,
+  confirmPrefix: "Voter pour",
+  confirmSuffix: "? Impossible de revenir en arrière une fois voté.",
   confirmVote: "Confirmer le vote",
 };
