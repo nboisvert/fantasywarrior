@@ -65,18 +65,25 @@ public class RuleSetJsonTests
     }
 
     [Fact]
-    public void AnEmptyDocumentReadsAsANewLeaguesDefaults()
+    public void AnEmptyDocumentReadsAsUnwritten_NotAsDefaults()
     {
-        // The column defaults to '{}', so this is what every LeagueSeason looks
-        // like between the migration that adds the column and the one that
-        // fills it.
+        // The column defaults to '{}', so this is every LeagueSeason between
+        // the migration that adds it and the backfill that fills it. Reading it
+        // as "a league with no cap and no slots" would report a conversion
+        // nobody ran as that league's rules.
         foreach (var stored in new[] { "{}", "", "   ", null })
-        {
-            var rules = RuleSetJson.Deserialize(stored);
+            Assert.True(RuleSetJson.Deserialize(stored).IsUnwritten);
+    }
 
-            Assert.Equal(RuleSetDefaults.CurrentVersion, rules.Version);
-            Assert.Equal(RuleSetDefaults.StartingScale(), rules.Scoring.Values);
-        }
+    [Fact]
+    public void ANewLeaguesDefaultsAreWritten()
+    {
+        // The other side of the same distinction: a league that genuinely plays
+        // the defaults is a written document and must never be refused.
+        var rules = RuleSetJson.Deserialize(RuleSetJson.Serialize(RuleSetDefaults.ForNewLeague()));
+
+        Assert.False(rules.IsUnwritten);
+        Assert.Equal(RuleSetDefaults.StartingScale(), rules.Scoring.Values);
     }
 
     [Fact]

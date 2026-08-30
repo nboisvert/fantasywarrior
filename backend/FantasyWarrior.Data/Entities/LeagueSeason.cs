@@ -1,3 +1,4 @@
+using FantasyWarrior.Core.Rules;
 using FantasyWarrior.Core.Seasons;
 
 namespace FantasyWarrior.Data.Entities;
@@ -43,6 +44,26 @@ public sealed class LeagueSeason
     public int Number { get; set; }
 
     public LeagueSeasonPhase Phase { get; set; }
+
+    /// <summary>
+    /// Every rule this league plays by, for this season — see
+    /// <see cref="Core.Rules.RuleSet"/>. Stored as one JSON document in an
+    /// <c>nvarchar(max)</c> column.
+    ///
+    /// <b>Here rather than on <see cref="League"/> because rules have a
+    /// season.</b> Ten columns on <c>Leagues</c> plus <c>LeagueScoringRules</c>
+    /// mutated in place, so a keeper pool had no way to answer "what were season
+    /// 2's rules?" — and a scale changed mid-season restated nothing but left no
+    /// record of what it had been. One document per season makes that history a
+    /// consequence of where the rules live rather than a feature to maintain.
+    ///
+    /// <b>Two of these are live at once during the off-season</b>, and reading
+    /// the wrong one is the mistake to avoid: the season being scored is
+    /// <c>League.Season</c>, the season being prepared is the row that is not
+    /// <c>Complete</c>, and in July they are different rows. Go through
+    /// <c>RuleSetResolver</c>, which names which it means.
+    /// </summary>
+    public RuleSet Rules { get; set; } = RuleSetDefaults.ForNewLeague();
 
     /// <summary>Written when this row completes — the top of that season's own standings, not today's.</summary>
     public int? ChampionTeamId { get; set; }

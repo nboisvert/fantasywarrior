@@ -34,12 +34,17 @@ public static class RuleSetJson
     public static string Serialize(RuleSet rules) => JsonSerializer.Serialize(rules, Options);
 
     /// <summary>
-    /// Reads a stored document. An empty or absent one is a league whose rules
-    /// were never written — a new <c>LeagueSeason</c> before its first save —
-    /// and gets the defaults rather than a null nobody downstream can handle.
+    /// Reads a stored document.
+    ///
+    /// <b>An empty or absent one deliberately does not become the defaults.</b>
+    /// It deserializes to <see cref="RuleSet.IsUnwritten"/>, which callers
+    /// refuse on: a league whose rules were never converted would otherwise read
+    /// as one with no cap, no slots and no protections, and every screen would
+    /// report those as its rules. Never a null — nothing downstream could carry
+    /// one usefully.
     /// </summary>
     public static RuleSet Deserialize(string? json) =>
-        string.IsNullOrWhiteSpace(json) || json == "{}"
-            ? RuleSetDefaults.ForNewLeague()
-            : JsonSerializer.Deserialize<RuleSet>(json, Options) ?? RuleSetDefaults.ForNewLeague();
+        string.IsNullOrWhiteSpace(json)
+            ? new RuleSet()
+            : JsonSerializer.Deserialize<RuleSet>(json, Options) ?? new RuleSet();
 }

@@ -243,14 +243,35 @@ it is looked up on essentially every request.
 
 **`LeagueSeasons`** — `LeagueSeasonId`, LeagueId (FK cascade), Season, Number,
 Phase (tinyint: Preparing/Protecting/Drafting/PreSeason/InSeason/Complete),
-ChampionTeamId (FK Teams, null), StartedUtc, CompletedUtc
+**`Rules` (nvarchar(max), the rules document)**, ChampionTeamId (FK Teams, null),
+StartedUtc, CompletedUtc
 → unique (LeagueId, Season); unique (LeagueId, Number)
 → unique **filtered** `(LeagueId) WHERE Phase <> 5` — at most one non-`Complete`
 row per league, a real constraint rather than a sentence in a doc
 
 > The table half of "season": `Leagues.Season` names the NHL season whose points
-> count now; this is the league's **own** count ("season 3") and the home of
-> `Phase`.
+> count now; this is the league's **own** count ("season 3"), the home of
+> `Phase`, and the home of **every rule the league plays by**.
+>
+> **`Rules` is one JSON document** — the whole `RuleSet` (`Core/Rules/`), mapped
+> through a value converter rather than EF's owned-JSON support, because the
+> scale and its per-position overrides are dictionaries keyed by data. **The
+> `ValueComparer` is mandatory**: `RuleSet` is a mutable graph, so EF's default
+> reference equality would compare a tracked entity to itself, conclude nothing
+> changed, and drop every rules edit at `SaveChanges` with no error anywhere.
+>
+> **Rules live here, not on `Leagues`, because rules have a season.** Mutating
+> them in place left a keeper pool unable to answer "what were season 2's
+> rules?"; one document per season makes that history a consequence of where the
+> rules are stored. It also means **two documents are live through the whole
+> off-season** — the season being scored (`Leagues.Season`, sitting `Complete`)
+> and the season being prepared — which is why every read goes through
+> `RuleSetResolver`, whose three entry points *are* the three questions.
+>
+> **The column defaults to `'{}'`, which reads as `IsUnwritten`, not as the
+> defaults.** A league whose rules were never converted would otherwise report
+> "no cap, no slots, no protections" and look exactly like a correctly configured
+> permissive league. Every reader refuses instead and names `rules-backfill`.
 >
 > ⚠️ **`Leagues.Season` has no composite FK to this table, and cannot have one.** A
 > composite FK on (LeagueId, Season) refuses the very first insert: creating a

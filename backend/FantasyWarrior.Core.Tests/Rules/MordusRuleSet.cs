@@ -16,6 +16,7 @@ public static class MordusRuleSet
 {
     public static RuleSet Build() => new()
     {
+        Version = RuleSetDefaults.CurrentVersion,
         PoolType = PoolType.Keeper,
 
         Cap = new CapConfig { Max = 134_000_000, Min = null, DefaultCapHit = 1_000_000 },

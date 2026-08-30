@@ -37,6 +37,10 @@ public static class RuleSetDefaults
     /// <summary>A brand new league's rules.</summary>
     public static RuleSet ForNewLeague() => new()
     {
+        // The one place besides a real save that stamps a version, which is what
+        // separates "a league that plays the defaults" from "a document nobody
+        // has written". See RuleSet.Version.
+        Version = CurrentVersion,
         Scoring = new ScoringConfig { Values = StartingScale() },
     };
 }

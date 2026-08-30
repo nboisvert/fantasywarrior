@@ -30,8 +30,22 @@ public sealed class RuleSet
     /// <summary>
     /// The shape of this document, not the league's season. Bumped only when a
     /// stored document needs converting on read.
+    ///
+    /// <b>Zero means never written</b>, and that is load-bearing: the column
+    /// defaults to <c>'{}'</c>, which deserializes to every property's default —
+    /// indistinguishable from a league that genuinely plays the defaults unless
+    /// something separates them. A league whose rules were never converted must
+    /// not quietly read as one with no cap and no slots, so
+    /// <see cref="IsUnwritten"/> is what callers refuse on. Only
+    /// <see cref="RuleSetDefaults.ForNewLeague"/> and a real save set this.
     /// </summary>
-    public int Version { get; set; } = RuleSetDefaults.CurrentVersion;
+    public int Version { get; set; }
+
+    /// <summary>
+    /// Has anyone ever written this document? A stored <c>'{}'</c> has not, and
+    /// no rule may be read off it.
+    /// </summary>
+    public bool IsUnwritten => Version < 1;
 
     public PoolType PoolType { get; set; } = PoolType.Keeper;
 

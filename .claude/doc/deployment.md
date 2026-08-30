@@ -214,6 +214,7 @@ this is the map. Almost every job takes `--dry-run` — use it.
 | Need | Command |
 |---|---|
 | Apply the schema | `db-migrate [--list]` |
+| Convert a league's rules into its season documents | `rules-backfill [--league <joinCode>]` |
 | Declare a season's dates | `season-init --season 20262027 --start 2026-10-06 --end 2027-04-15` |
 | List what is declared | `season-init` |
 | Generate a season's calendar | `period-init --season 20262027` |
@@ -225,6 +226,13 @@ this is the map. Almost every job takes `--dry-run` — use it.
 | Clear a league's protections | `protection-reset --league <joinCode>` |
 | Move a week's lock | `UPDATE Periods SET LockUtc = … WHERE Season = … AND Number = …` |
 | Un-bank to recompute | `UPDATE RosterAssignments SET IsFinalized = 0` and `UPDATE Periods SET FinalizedUtc = NULL`, then `nightly --backfill-from N` |
+
+**`rules-backfill` must run once after the migration that adds
+`LeagueSeasons.Rules`**, and before anything reads a rule. The column defaults to
+`'{}'`, which reads as "never written" rather than as a league's defaults, and
+every reader refuses on it — so skipping this step fails loudly instead of
+serving a configuration nobody chose. It is idempotent and only fills blanks;
+`--force` overwrites documents already written and is for a re-import.
 
 **`period-init` is idempotent and runs nightly**, after `stats-sync` and before
 scoring. It appends weeks the calendar is missing and refreshes `GameCount` on
