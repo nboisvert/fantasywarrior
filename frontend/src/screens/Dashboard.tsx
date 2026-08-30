@@ -135,7 +135,7 @@ export function Dashboard({ league, username }: { league: LeagueDetail; username
       <TopReserve league={league} username={username} onOpenPlayer={setOpenPlayerId} />
       <TopFreeAgents league={league} onOpenPlayer={setOpenPlayerId} />
 
-      {openPlayerId != null && <PlayerCard playerId={openPlayerId} onClose={() => setOpenPlayerId(null)} />}
+      {openPlayerId != null && <PlayerCard playerId={openPlayerId} leagueId={league.id} onClose={() => setOpenPlayerId(null)} />}
     </section>
   );
 }

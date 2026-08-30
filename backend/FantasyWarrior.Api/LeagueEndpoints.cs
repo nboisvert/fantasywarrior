@@ -1,9 +1,11 @@
 using FantasyWarrior.Core.Messaging;
+using FantasyWarrior.Core.Rules;
 using FantasyWarrior.Core.Scoring;
 using FantasyWarrior.Core.Seasons;
 using FantasyWarrior.Core.Time;
 using FantasyWarrior.Data;
 using FantasyWarrior.Data.Entities;
+using FantasyWarrior.Data.Leagues;
 using FantasyWarrior.Data.Seasons;
 using Microsoft.EntityFrameworkCore;
 
@@ -130,6 +132,20 @@ public static class LeagueEndpoints
                     LeagueId = league.LeagueId, StatKey = key, PointValue = value,
                 });
 
+            // Its first season, opened here rather than by a separate command.
+            // A league with no LeagueSeason row has nowhere to keep its rules,
+            // and every consumer refuses on that — so creating one without it
+            // would produce a league that cannot trade, score or draft.
+            db.LeagueSeasons.Add(new LeagueSeason
+            {
+                LeagueId = league.LeagueId,
+                Season = season,
+                Number = 1,
+                Phase = LeagueSeasonPhase.Preparing,
+                Rules = RuleSetDefaults.ForNewLeague(),
+                StartedUtc = now,
+            });
+
             db.LeagueMembers.Add(new LeagueMember { LeagueId = league.LeagueId, UserId = user.UserId, JoinedUtc = now });
             db.Teams.Add(new Team
             {
@@ -181,8 +197,8 @@ public static class LeagueEndpoints
         app.MapMethods("/api/leagues/{leagueId}/rules", ["PATCH"], async (
             string leagueId, UpdateRulesRequest req, FantasyWarriorDbContext db) =>
         {
-            if (string.IsNullOrWhiteSpace(req.Username) || req.RuleConfig is null)
-                return Results.BadRequest(new { error = "Username and ruleConfig are required." });
+            if (string.IsNullOrWhiteSpace(req.Username) || req.RuleSet is null)
+                return Results.BadRequest(new { error = "Username and ruleSet are required." });
 
             var league = await Queries.LeagueByCodeAsync(db, leagueId);
             if (league is null) return Results.NotFound(new { error = "League not found." });
@@ -191,38 +207,48 @@ public static class LeagueEndpoints
             if (commissioner?.Username != Queries.Normalize(req.Username))
                 return Results.Json(new { error = "Only the commissioner can change the rules." }, statusCode: 403);
 
-            var config = req.RuleConfig;
-            // Was a hand-copied reimplementation of this until 2026-08-03. Two
-            // identical copies of a validation rule is exactly how they stop
-            // being identical.
-            var errors = RuleConfigValidation.Validate(config);
+            var incoming = req.RuleSet;
+            incoming.Version = RuleSetDefaults.CurrentVersion;
+
+            LeagueSeason target;
+            try
+            {
+                // The season being prepared, never a closed one: editing a
+                // Complete season's rules would restate what a finished season
+                // was played under, which is the one thing storing rules per
+                // season exists to prevent.
+                target = await RuleSetResolver.ForEditingAsync(db, league.LeagueId);
+            }
+            catch (RuleSetUnavailableException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+
+            // The franchise slot is a fact about how the league was built, not a
+            // setting: turning it on creates no Équipe spots and turning it off
+            // deletes none, so accepting a change here would be accepting a
+            // no-op that looks like a rule.
+            incoming.Roster.FranchiseSlot = target.Rules.Roster.FranchiseSlot;
+
+            var errors = RuleSetValidation.Validate(incoming);
             if (errors.Count > 0)
                 return Results.BadRequest(new { error = string.Join(" ", errors), errors });
 
-            league.ActiveForwards = config.TopCount.Forwards ?? 0;
-            league.ActiveDefense = config.TopCount.Defense ?? 0;
-            league.ActiveGoalies = config.TopCount.Goalies ?? 0;
-            league.RosterMin = config.RosterSize.Min;
-            league.RosterMax = config.RosterSize.Max;
-            league.DraftRounds = config.DraftRounds;
-            league.ProtectionSlots = config.ProtectionSlots;
-            league.DefaultCapHit = config.DefaultCapHit;
-
-            // Replace the whole scale: a value removed from the config must stop
-            // scoring, which an upsert-only pass would never achieve.
-            await db.LeagueScoringRules.Where(r => r.LeagueId == league.LeagueId).ExecuteDeleteAsync();
-            foreach (var (key, value) in config.ScoringScale())
-                db.LeagueScoringRules.Add(new LeagueScoringRule
-                {
-                    LeagueId = league.LeagueId, StatKey = key, PointValue = value,
-                });
+            target.Rules = incoming;
             await db.SaveChangesAsync();
+
+            // Saved is not the same as enforced. A commissioner may record the
+            // pool's real rules before the code catches up — but the answer says
+            // which of them are inert, so nothing here is silently ignored.
+            var unsupported = RuleSetCapabilities.Unsupported(incoming);
 
             return Results.Ok(new
             {
                 ok = true,
+                season = target.Season,
+                unsupported = unsupported.Select(g => new { path = g.Path, message = g.Message }),
                 note = "Applies from the next nightly scoring run. Weeks already banked keep the "
-                     + "scale they were scored under — run `recompute` to restate them.",
+                     + "scale they were scored under.",
             });
         });
 
@@ -337,21 +363,45 @@ public static class LeagueEndpoints
                     .Cast<object>()];
             }
 
+            var activeSeason = await Queries.ActiveLeagueSeasonAsync(db, league.LeagueId);
+
+            // A league whose rules were never converted still has to render:
+            // this is the screen every session opens on, and a 500 here would
+            // take the whole app down rather than one panel. The defaults are
+            // marked unwritten, which is what the panel shows.
+            RuleSet scoringRules;
+            try
+            {
+                scoringRules = await RuleSetResolver.ForScoringAsync(db, league);
+            }
+            catch (RuleSetUnavailableException)
+            {
+                scoringRules = RuleSetDefaults.ForNewLeague();
+            }
+
             return Results.Ok(new
             {
                 id = league.JoinCode,
                 league.Name,
                 league.Season,
-                league.CapAmount,
+                capAmount = scoringRules.Cap.Max,
                 commissionerUsername = (await db.Users.FindAsync(league.CommissionerUserId))?.Username ?? "",
                 // What phase this league's current season sits in. Here rather
                 // than on its own route because it decides whether the Draft
                 // tab exists at all, and the nav must not need a second request
                 // to draw itself.
-                activeSeason = await Queries.ActiveLeagueSeasonAsync(db, league.LeagueId) is { } active
-                    ? new { number = active.Number, season = active.Season, phase = active.Phase.ToString() }
-                    : null,
-                ruleConfig = Dtos.RuleConfig(league, await Queries.ScaleAsync(db, league.LeagueId)),
+                activeSeason = activeSeason is null
+                    ? null
+                    : new { number = activeSeason.Number, season = activeSeason.Season, phase = activeSeason.Phase.ToString() },
+                // The rules the league is being SCORED under. During the
+                // off-season that is not the same document the rules panel
+                // edits, which is the prepared season's -- and that difference
+                // is the point, not a discrepancy.
+                ruleSet = Dtos.RuleSet(scoringRules),
+                // Which of those rules nothing enforces, so the panel can badge
+                // them rather than let a commissioner believe they are live.
+                unsupported = RuleSetCapabilities.Unsupported(scoringRules)
+                    .Select(g => new { path = g.Path, message = g.Message }),
                 members = await db.LeagueMembers
                     .Where(m => m.LeagueId == league.LeagueId)
                     .Select(m => m.User!.Username).ToListAsync(),
@@ -505,4 +555,4 @@ public static class LeagueEndpoints
 public record LoginRequest(string? Username);
 public record CreateLeagueRequest(string? Name, string? Username, string? TeamName, string? Season, long? CapAmount);
 public record JoinLeagueRequest(string? Username, string? TeamName);
-public record UpdateRulesRequest(string? Username, RuleConfig? RuleConfig);
+public record UpdateRulesRequest(string? Username, RuleSet? RuleSet);

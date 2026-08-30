@@ -1,6 +1,8 @@
 using FantasyWarrior.Core.Lineups;
+using FantasyWarrior.Core.Rules;
 using FantasyWarrior.Data;
 using FantasyWarrior.Data.Entities;
+using FantasyWarrior.Data.Leagues;
 using FantasyWarrior.Data.Rosters;
 using Microsoft.EntityFrameworkCore;
 
@@ -155,6 +157,25 @@ public sealed class WeekAheadJob(FantasyWarriorDbContext db)
             var missing = spots.Where(s => !existing.Contains(s.RosterSpotId)).ToList();
             if (missing.Count == 0) continue;
 
+            // The season being played, for the same reason the rollup reads it:
+            // this writes next week's lineup inside the current season.
+            RuleSet rules;
+            try
+            {
+                rules = await RuleSetResolver.ForScoringAsync(db, league, ct);
+            }
+            catch (RuleSetUnavailableException ex)
+            {
+                Console.Error.WriteLine($"  {league.Name}: no lineup written — {ex.Message}");
+                continue;
+            }
+
+            // lineup.onMissing is deliberately not read here: ScoreZero is
+            // listed in RuleSetCapabilities as unenforced, and skipping the
+            // carry-forward is only half of it — the rollup would still have to
+            // decide what an unwritten week means. Half an implementation is
+            // worse than a badge that says so.
+
             var previousActive = current is null
                 ? []
                 : await db.RosterAssignments
@@ -179,7 +200,8 @@ public sealed class WeekAheadJob(FantasyWarriorDbContext db)
                 var active = LineupRules.CarryForward(
                     candidates,
                     [.. previousActive.Where(id => team.Any(s => s.RosterSpotId == id)).Select(id => id.ToString())],
-                    new LineupSlots(league.ActiveForwards, league.ActiveDefense, league.ActiveGoalies));
+                    new LineupSlots(
+                        rules.Lineup.Slots.Forwards, rules.Lineup.Slots.Defense, rules.Lineup.Slots.Goalies));
 
                 foreach (var spot in team.Where(s => missing.Contains(s)))
                 {

@@ -515,7 +515,15 @@ function Skeleton() {
 
 /* ---------- main component ---------- */
 
-export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: () => void }): JSX.Element {
+/**
+ * @param leagueId Whose rules decide "auto-protected". The bars are a league rule,
+ *   so a card opened outside any league gets no answer and shows no badge —
+ *   better than reporting one pool's threshold as a fact about the player.
+ */
+export function PlayerCard(
+  { playerId, leagueId, onClose }:
+  { playerId: number; leagueId?: string; onClose: () => void },
+): JSX.Element {
   const [player, setPlayer] = useState<PlayerDetail | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -546,7 +554,8 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
     setCareerError("");
     setNewsRows(null);
     setNewsError("");
-    fetch(`${API_BASE}/api/players/${playerId}`, { signal: ctrl.signal })
+    const scoped = leagueId ? `?league=${encodeURIComponent(leagueId)}` : "";
+    fetch(`${API_BASE}/api/players/${playerId}${scoped}`, { signal: ctrl.signal })
       .then(async (res) => {
         const body: unknown = await res.json().catch(() => ({}));
         if (!res.ok) {
@@ -565,7 +574,7 @@ export function PlayerCard({ playerId, onClose }: { playerId: number; onClose: (
         setLoading(false);
       });
     return () => ctrl.abort();
-  }, [playerId]);
+  }, [playerId, leagueId]);
 
   /** Opens the Career tab, fetching on first open and caching after —
    * mirrors Stats.tsx's togglePeriods (per-player data nobody needs until

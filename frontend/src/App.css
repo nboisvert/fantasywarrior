@@ -2722,3 +2722,71 @@
 @media (prefers-reduced-motion: reduce) {
   .lineup-toggle { transition: none; }
 }
+
+/* ---------- league rules panel ---------- */
+
+/*
+ * One long form covering every rule a league has. Sections rather than one flat
+ * grid, because a commissioner looking for the steal-round count should not have
+ * to read the scoring scale to find it.
+ */
+.rules-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+}
+
+.rules-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+/*
+ * A rule that is recorded but that nothing acts on. Deliberately quiet — it is
+ * information, not an error: the commissioner's entry was accepted, and this
+ * says what the pool is playing in the meantime.
+ */
+.rules-gap {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--ice);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.rules-gap svg {
+  flex: none;
+  margin-top: 0.15rem;
+  color: var(--ice);
+}
+
+/* Checkbox rows sit outside .rules-grid: a yes/no needs its label beside it,
+   not stacked above a field. 44px tall so the whole row is the touch target. */
+.rules-check {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 44px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.rules-check input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--ice);
+  cursor: pointer;
+}
+
+.rules-check:focus-within {
+  color: var(--text);
+}

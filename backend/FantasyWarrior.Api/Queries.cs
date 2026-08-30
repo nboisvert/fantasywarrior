@@ -41,13 +41,6 @@ public static class Queries
         db.LeagueSeasons.FirstOrDefaultAsync(
             s => s.LeagueId == leagueId && s.Phase != LeagueSeasonPhase.Complete, ct);
 
-    /// <summary>A league's scale as the engine consumes it: stat name to value.</summary>
-    public static async Task<Dictionary<string, double>> ScaleAsync(
-        FantasyWarriorDbContext db, int leagueId, CancellationToken ct = default) =>
-        await db.LeagueScoringRules
-            .Where(r => r.LeagueId == leagueId)
-            .ToDictionaryAsync(r => r.StatKey, r => r.PointValue, ct);
-
     /// <summary>
     /// The week being played, or the one asked for.
     ///

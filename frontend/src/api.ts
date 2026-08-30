@@ -105,41 +105,130 @@ export interface TeamDto {
   finalizedScore: number;
 }
 
-export interface RuleConfig {
-  pointValues: {
-    goal: number;
-    assist: number;
-    goalieWin: number;
-    goalieOtLoss: number;
-    shutout: number;
+/** Which of these rules the app actually enforces; a path here is inert. */
+export interface RuleGap {
+  /** The document path, e.g. `freeAgency.mode` — what a badge keys off. */
+  path: string;
+  /** What is recorded, and what actually happens instead. */
+  message: string;
+}
+
+/** How rosters carry between seasons. Points resetting each season is a
+ * property of `keeper` as implemented, not a separate setting. */
+export type PoolType = "keeper" | "singleSeason";
+
+/** Two scoring models that share the same per-position counts:
+ * `activeSelection` = the GM picks the week's actives (Les Mordus);
+ * `topN` = the best N per position score automatically. */
+export type LineupMode = "activeSelection" | "topN";
+
+export type MissingLineupBehaviour = "carryForward" | "scoreZero";
+export type TradeApproval = "none" | "commissioner" | "leagueVote";
+export type AfterDraftDisposition = "stayWithTeam" | "releasedToFreeAgents";
+export type UnprotectedDisposition = "stealRounds" | "openPool";
+export type FreeAgencyMode = "none" | "anytime" | "windows";
+export type FreeAgencyMoves = "add" | "drop" | "both";
+
+/** A count per position group. `T` is absent: a team holds at most one
+ * franchise, so there is nothing to configure. */
+export interface PositionCounts {
+  forwards: number;
+  defense: number;
+  goalies: number;
+}
+
+/** Null means "no bound", never zero. */
+export interface SizeBounds {
+  min: number | null;
+  max: number | null;
+}
+
+/**
+ * Every rule one league plays by, for one season — the whole configuration
+ * surface, stored as one document on its `LeagueSeason`.
+ *
+ * The rules panel reads this and PATCHes it straight back, so it must survive
+ * a round trip field for field: anything dropped here is a rule silently reset
+ * to its default.
+ */
+export interface RuleSet {
+  version: number;
+  poolType: PoolType;
+  cap: {
+    /** Ceiling in whole dollars. Null = no cap. */
+    max: number | null;
+    /** Floor in whole dollars. Null = no floor, which is not a floor of zero. */
+    min: number | null;
+    /** What a player with no contract on file costs against the cap. An
+     * unsigned free agent is a permanent state in a keeper pool, not a data
+     * gap, so every league needs an answer. 0 carries them free. */
+    defaultCapHit: number;
   };
-  /** Anything scored beyond the five above, keyed by stat name (goals,
-   * assists, plusMinus, pim, shots, hits, blockedShots, wins, otLosses,
-   * shutouts, saves, goalsAgainst, shotsAgainst, gamesPlayed). Lets a league
-   * score a stat the app never anticipated without a schema change. */
-  extraPointValues: Record<string, number>;
-  /** Active lineup slots per position — how many players count each week. */
-  topCount: {
-    forwards: number | null;
-    defense: number | null;
-    goalies: number | null;
-  };
-  rosterSize: {
+  roster: {
     min: number | null;
     max: number | null;
+    byPosition: { forwards: SizeBounds; defense: SizeBounds; goalies: SizeBounds };
+    /** Does every team own one NHL franchise that scores — the Équipe slot.
+     * Set when the league is built; the panel shows it and cannot change it. */
+    franchiseSlot: boolean;
   };
-  /** Picks per team per year — one per round. Null = no draft. */
-  draftRounds: number | null;
-  /** Roster spots a GM may protect before the off-season steal draft. Null = not configured. */
-  protectionSlots: number | null;
-  /**
-   * What a player with no contract on file costs against the cap, in whole
-   * dollars. $1M by default; 0 carries unsigned players for free.
-   *
-   * Not nullable: an unsigned free agent is a permanent state in a keeper
-   * pool, not a data gap, so every league needs an answer.
-   */
-  defaultCapHit: number;
+  lineup: {
+    mode: LineupMode;
+    /** Slots per position. Fielding fewer is allowed; more is refused. */
+    slots: PositionCounts;
+    onMissing: MissingLineupBehaviour;
+  };
+  scoring: {
+    /** The scale, keyed by stat name (goals, assists, plusMinus, pim, shots,
+     * hits, blockedShots, wins, otLosses, shutouts, saves, goalsAgainst,
+     * shotsAgainst, gamesPlayed, teamWins, teamLosses, teamOtLosses). A map
+     * rather than a fixed list, so a league can score a stat the app never
+     * anticipated. */
+    values: Record<string, number>;
+    /** Per-position overrides, keyed by F/D/G then by stat. */
+    byPosition: Record<string, Record<string, number>>;
+    includePlayoffs: boolean;
+  };
+  trades: {
+    enabled: boolean;
+    picksTradable: boolean;
+    /** How many seasons ahead picks exist, and can therefore be traded. */
+    pickYearsAhead: number;
+    approval: TradeApproval;
+  };
+  protection: {
+    /** Roster spots a GM may protect. Null = the league has no protection
+     * rule at all, which is not the same as zero. */
+    slots: number | null;
+    slotsByPosition: PositionCounts | null;
+    /** Too little NHL experience and a player is out of reach for free —
+     * what stops a pool becoming a prospect raid every summer. Goalies count
+     * separately and lower, since a goalie plays about half his club's games. */
+    auto: { enabled: boolean; skaterMaxCareerGames: number; goalieMaxCareerGames: number };
+    afterDraft: AfterDraftDisposition;
+  };
+  draft: {
+    unprotectedDisposition: UnprotectedDisposition;
+    steal: {
+      /** Rounds, so also steals per team. */
+      rounds: number;
+      turnsTradable: boolean;
+      /** The most players one team may lose across a whole steal draft.
+       * Null = uncapped, a real choice and not a limit of zero. */
+      maxLossesPerTeam: number | null;
+    };
+    /** Rookie / free-agent rounds — one pick per team per round, so this is
+     * also "picks per team per year". Null or 0 = no such segment. */
+    rookieRounds: number | null;
+    snake: boolean;
+  };
+  freeAgency: {
+    mode: FreeAgencyMode;
+    allow: FreeAgencyMoves;
+    /** Moves a team may make per scoring week. Null = unlimited. */
+    movesPerPeriod: number | null;
+    windows: { name: string; start: string; end: string }[];
+  };
 }
 
 /** One scoring week. Weeks run Monday-Sunday on the NHL's Eastern game date. */
@@ -244,7 +333,12 @@ export interface LeagueDetail {
   season: string;
   capAmount: number | null;
   commissionerUsername: string;
-  ruleConfig: RuleConfig;
+  /** The rules the league is being SCORED under. During the off-season that
+   * is not the same document the rules panel edits, which is the season being
+   * prepared -- that difference is the point, not a discrepancy. */
+  ruleSet: RuleSet;
+  /** Rules recorded here that nothing enforces yet, badged in the panel. */
+  unsupported: RuleGap[];
   members: string[];
   /** What phase this league's current season sits in. Null for a league with
    * no season row at all. `phase === "Drafting"` is what puts the Draft tab in
@@ -643,10 +737,10 @@ export const api = {
     request<LeagueSeasonSummary[]>(`/api/leagues/${encodeURIComponent(leagueId)}/seasons`),
   news: (limit = 30) =>
     request<NewsArticle[]>(`/api/news?limit=${encodeURIComponent(String(limit))}`),
-  updateRules: (leagueId: string, username: string, ruleConfig: RuleConfig) =>
-    request<{ ok: boolean }>(`/api/leagues/${encodeURIComponent(leagueId)}/rules`, {
+  updateRules: (leagueId: string, username: string, ruleSet: RuleSet) =>
+    request<{ ok: boolean; season: string; unsupported: RuleGap[] }>(`/api/leagues/${encodeURIComponent(leagueId)}/rules`, {
       method: "PATCH",
-      body: JSON.stringify({ username, ruleConfig }),
+      body: JSON.stringify({ username, ruleSet }),
     }),
   clock: () => request<ClockStatus>("/api/clock"),
   /** Nick-only — see TestModeEndpoints.cs. Runs sim-advance up to `to`. */

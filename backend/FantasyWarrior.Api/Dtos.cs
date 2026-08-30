@@ -1,4 +1,5 @@
-using FantasyWarrior.Core.Scoring;
+using System.Text.Json;
+using FantasyWarrior.Core.Rules;
 using FantasyWarrior.Data.Entities;
 
 namespace FantasyWarrior.Api;
@@ -14,50 +15,17 @@ namespace FantasyWarrior.Api;
 public static class Dtos
 {
     /// <summary>
-    /// A league's scoring config in the shape the frontend has always read:
-    /// the five historic values as named properties, everything else in a map.
+    /// A league's rules on the wire.
     ///
-    /// Stored as rows now (one per scored stat), which is what lets a
-    /// commissioner score blocked shots without a migration — but that is an
-    /// implementation detail the Rules panel never needs to learn.
+    /// <b>The document itself, not a projection of it.</b> The rules panel reads
+    /// this and PATCHes it straight back, so any reshaping here would be a field
+    /// the panel could not round-trip — and a rule silently reset to its default
+    /// is exactly the failure this whole design removes. Serializing through
+    /// <see cref="RuleSetJson"/> means the wire shape and the stored shape are
+    /// the same shape, by construction rather than by discipline.
     /// </summary>
-    public static object RuleConfig(League league, IReadOnlyDictionary<string, double> scale)
-    {
-        var extras = scale
-            .Where(kv => kv.Key is not (StatKeys.Goals or StatKeys.Assists
-                or StatKeys.Wins or StatKeys.OtLosses or StatKeys.Shutouts))
-            .ToDictionary(kv => kv.Key, kv => kv.Value);
-
-        return new
-        {
-            pointValues = new
-            {
-                goal = scale.GetValueOrDefault(StatKeys.Goals),
-                assist = scale.GetValueOrDefault(StatKeys.Assists),
-                goalieWin = scale.GetValueOrDefault(StatKeys.Wins),
-                goalieOtLoss = scale.GetValueOrDefault(StatKeys.OtLosses),
-                shutout = scale.GetValueOrDefault(StatKeys.Shutouts),
-            },
-            extraPointValues = extras,
-            topCount = new
-            {
-                forwards = (int?)league.ActiveForwards,
-                defense = (int?)league.ActiveDefense,
-                goalies = (int?)league.ActiveGoalies,
-            },
-            rosterSize = new { min = league.RosterMin, max = league.RosterMax },
-            // One pick per team per round, so this doubles as "picks per team
-            // per year". Les Mordus: 3.
-            draftRounds = league.DraftRounds,
-            // Null until a commissioner sets one — Les Mordus has never run an
-            // off-season draft, so there is no real number to default this to.
-            protectionSlots = league.ProtectionSlots,
-            // What an unsigned player costs against the cap. Round-tripped so
-            // the Rules panel can PATCH the config back without silently
-            // resetting it to the property default.
-            defaultCapHit = league.DefaultCapHit,
-        };
-    }
+    public static object RuleSet(Core.Rules.RuleSet rules) =>
+        JsonSerializer.Deserialize<JsonElement>(RuleSetJson.Serialize(rules));
 
     /// <summary>
     /// One scoring week. <c>index</c> keeps its name even though the column is

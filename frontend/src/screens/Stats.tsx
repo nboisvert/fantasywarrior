@@ -1267,7 +1267,7 @@ export function Stats({
   };
 
 
-  const maxRosterSize = league.ruleConfig.rosterSize.max;
+  const maxRosterSize = league.ruleSet.roster.max;
 
   return (
     <section
@@ -1448,7 +1448,7 @@ export function Stats({
       })()}
 
       {openPlayerId != null && (
-        <PlayerCard playerId={openPlayerId} onClose={() => setOpenPlayerId(null)} />
+        <PlayerCard playerId={openPlayerId} leagueId={league.id} onClose={() => setOpenPlayerId(null)} />
       )}
     </section>
   );

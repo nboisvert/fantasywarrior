@@ -1,3 +1,4 @@
+using FantasyWarrior.Core.Rules;
 using FantasyWarrior.Core.Trades;
 using FantasyWarrior.Data;
 using FantasyWarrior.Data.Entities;
@@ -104,7 +105,7 @@ public static class TradeValidation
     /// minimum on the other.
     /// </summary>
     public static IReadOnlyList<string> Validate(
-        League league,
+        RuleSet rules,
         EngagedState proposer,
         EngagedState counterparty,
         IReadOnlyCollection<long> playersFromProposer,
@@ -119,17 +120,17 @@ public static class TradeValidation
         var proposerImpact = TradeRules.Impact(
             proposer.TeamName, proposer.CapTotal, proposer.PlayerCount,
             outgoing: fromProposer, incoming: fromCounterparty,
-            defaultCapHit: league.DefaultCapHit);
+            defaultCapHit: rules.Cap.DefaultCapHit);
 
         var counterpartyImpact = TradeRules.Impact(
             counterparty.TeamName, counterparty.CapTotal, counterparty.PlayerCount,
             outgoing: fromCounterparty, incoming: fromProposer,
-            defaultCapHit: league.DefaultCapHit);
+            defaultCapHit: rules.Cap.DefaultCapHit);
 
         return
         [
-            .. TradeRules.Validate(proposerImpact, league.CapAmount, league.RosterMin, league.RosterMax),
-            .. TradeRules.Validate(counterpartyImpact, league.CapAmount, league.RosterMin, league.RosterMax),
+            .. TradeRules.Validate(proposerImpact, rules.Cap.Max, rules.Roster.Min, rules.Roster.Max),
+            .. TradeRules.Validate(counterpartyImpact, rules.Cap.Max, rules.Roster.Min, rules.Roster.Max),
         ];
     }
 }

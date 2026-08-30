@@ -1,11 +1,13 @@
+using FantasyWarrior.Core.Rules;
 using FantasyWarrior.Data;
 using FantasyWarrior.Data.Entities;
+using FantasyWarrior.Data.Leagues;
 using Microsoft.EntityFrameworkCore;
 
 namespace FantasyWarrior.Jobs.Sql;
 
 /// <summary>
-/// Creates one season's draft picks: <c>League.DraftRounds</c> picks per team,
+/// Creates one season's draft picks: <c>draft.rookieRounds</c> picks per team,
 /// one per round. Les Mordus run three.
 ///
 /// The analogue of <c>period-init</c>, and manual for the same reason — a
@@ -38,7 +40,19 @@ public sealed class DraftPicksInitJob(FantasyWarriorDbContext db)
             return 1;
         }
 
-        if (league.DraftRounds is not { } rounds || rounds < 1)
+        // The season being prepared: these picks stock the draft it will run.
+        RuleSet rules;
+        try
+        {
+            rules = await RuleSetResolver.ForActiveSeasonAsync(db, league.LeagueId, ct);
+        }
+        catch (RuleSetUnavailableException ex)
+        {
+            Console.Error.WriteLine(ex.Message);
+            return 1;
+        }
+
+        if (rules.Draft.RookieRounds is not { } rounds || rounds < 1)
         {
             Console.Error.WriteLine(
                 $"{league.Name} has no draft configured. Set draftRounds in the league rules first.");

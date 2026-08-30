@@ -1,5 +1,7 @@
 using System.Text.Json;
+using FantasyWarrior.Core.Rules;
 using FantasyWarrior.Core.Scoring;
+using FantasyWarrior.Core.Seasons;
 using FantasyWarrior.Data;
 using FantasyWarrior.Data.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -157,21 +159,23 @@ public sealed class SeedMordusJob(FantasyWarriorDbContext db)
         db.Leagues.Add(league);
         await db.SaveChangesAsync(ct);
 
-        // The five historic values, as rows. Anything else a commissioner wants
-        // to score is another row, never a schema change.
-        foreach (var (key, value) in new (string, double)[]
-                 {
-                     (StatKeys.Goals, 1), (StatKeys.Assists, 1),
-                     (StatKeys.Wins, 2), (StatKeys.OtLosses, 1), (StatKeys.Shutouts, 0),
-                     // The Équipe slot (Nick, 2026-08-05). Its own keys, not the
-                     // goalie's: they happen to be priced the same here, which
-                     // is a coincidence, not a shared rule.
-                     (StatKeys.TeamWins, 2), (StatKeys.TeamOtLosses, 1), (StatKeys.TeamLosses, 0),
-                 })
-            db.LeagueScoringRules.Add(new LeagueScoringRule
-            {
-                LeagueId = league.LeagueId, StatKey = key, PointValue = value,
-            });
+        // The league's own season row, and with it every rule it plays by. It
+        // has to exist here: a league with no LeagueSeason has nowhere to keep
+        // its rules, and every consumer refuses on that rather than inventing
+        // one — so a seed without this would produce a pool that cannot trade,
+        // score or draft.
+        db.LeagueSeasons.Add(new LeagueSeason
+        {
+            LeagueId = league.LeagueId,
+            Season = season,
+            // The source PDF's own title says season 3, and the pool has counted
+            // its own seasons for years — this is not derivable from the NHL
+            // season string.
+            Number = 3,
+            Phase = LeagueSeasonPhase.InSeason,
+            Rules = MordusRules(data, capAmount),
+            StartedUtc = now,
+        });
 
         var spotCount = 0;
         foreach (var entry in data.Teams)
@@ -288,6 +292,52 @@ public sealed class SeedMordusJob(FantasyWarriorDbContext db)
         db.Users.Add(user);
         await db.SaveChangesAsync(ct);
         return user;
+    }
+
+    /// <summary>
+    /// Les Mordus' rules, as documented in <c>mordus.md</c> — which stays their
+    /// single source, so a change there is a change here and nowhere else.
+    ///
+    /// <b>The three off-season numbers are written.</b> They were decided long
+    /// ago and had never been entered: <c>ProtectionSlots</c>, <c>StealRounds</c>
+    /// and <c>MaxLossesPerTeam</c> sat NULL on the live row, and two of them had
+    /// no writer anywhere in the app.
+    /// </summary>
+    private static RuleSet MordusRules(RosterFile data, long capAmount)
+    {
+        var rules = RuleSetDefaults.ForNewLeague();
+
+        rules.PoolType = PoolType.Keeper;
+        rules.Cap.Max = capAmount;
+        rules.Cap.DefaultCapHit = 1_000_000;
+        rules.Roster.Min = 23;
+        rules.Roster.Max = 35;
+        // Every GM's `E` line: one NHL franchise apiece, held for life.
+        rules.Roster.FranchiseSlot = true;
+        rules.Lineup.Slots = new PositionCounts
+        {
+            Forwards = data.ActiveSlots.Forwards,
+            Defense = data.ActiveSlots.Defense,
+            Goalies = data.ActiveSlots.Goalies,
+        };
+
+        // The Équipe slot's own keys, not the goalie's: they happen to be priced
+        // the same here, which is a coincidence, not a shared rule.
+        rules.Scoring.Values[StatKeys.TeamWins] = 2;
+        rules.Scoring.Values[StatKeys.TeamOtLosses] = 1;
+        rules.Scoring.Values[StatKeys.TeamLosses] = 0;
+
+        rules.Protection.Slots = 9;
+        rules.Draft.Steal.Rounds = 2;
+        rules.Draft.Steal.MaxLossesPerTeam = 2;
+        // Three rounds a year. It used to be set by hand through the rules PATCH
+        // after a seed, which meant every wipe-and-reseed silently produced a
+        // league with no draft — and `draft-picks-init` reads it, so it
+        // generated nothing and the trade sheet lost its Draft picks section
+        // without a word.
+        rules.Draft.RookieRounds = 3;
+
+        return rules;
     }
 
     private async Task<string> UniqueJoinCodeAsync(CancellationToken ct)

@@ -1,8 +1,10 @@
 using FantasyWarrior.Core.Lineups;
+using FantasyWarrior.Core.Rules;
 using FantasyWarrior.Core.Scoring;
 using FantasyWarrior.Core.Time;
 using FantasyWarrior.Data;
 using FantasyWarrior.Data.Entities;
+using FantasyWarrior.Data.Leagues;
 using FantasyWarrior.Data.Players;
 using FantasyWarrior.Data.Rosters;
 using Microsoft.EntityFrameworkCore;
@@ -35,7 +37,13 @@ public static class LineupEndpoints
             if (periodDoc is null) return Results.NotFound(new { error = "No period calendar for this season." });
 
             var locked = periodDoc.LockUtc <= now.UtcDateTime;
-            var slots = new { forwards = league.ActiveForwards, defense = league.ActiveDefense, goalies = league.ActiveGoalies };
+            var rules = await RuleSetResolver.ForScoringAsync(db, league);
+            var slots = new
+            {
+                forwards = rules.Lineup.Slots.Forwards,
+                defense = rules.Lineup.Slots.Defense,
+                goalies = rules.Lineup.Slots.Goalies,
+            };
             var periodsDto = allPeriods.Select(p => Dtos.Period(p, now)).ToArray();
 
             // A rival's lineup is competitive information until it locks.
@@ -246,7 +254,9 @@ public static class LineupEndpoints
 
             var perPlayer = totals.Select(t => (t.PlayerId, StatColumns.ToStatLine(t)));
 
-            var scale = await Queries.ScaleAsync(db, league.LeagueId);
+            // Ranked under the league's own scale, not raw NHL points -- that is
+            // what lets a goalie's wins compete with a skater's goals on one list.
+            var scale = (await RuleSetResolver.ForScoringAsync(db, league)).Scoring.Values;
             var ranked = FreeAgentRanking.Rank(perPlayer, scale, limit ?? 4);
 
             var playerIds = ranked.Select(r => r.PlayerId).ToList();
@@ -327,7 +337,7 @@ public static class LineupEndpoints
 
             var errors = LineupRules.Validate(
                 candidates, requested,
-                new LineupSlots(league.ActiveForwards, league.ActiveDefense, league.ActiveGoalies));
+                LineupSlotsOf(await RuleSetResolver.ForScoringAsync(db, league)));
             if (errors.Count > 0) return Results.BadRequest(new { error = string.Join(" ", errors), errors });
 
             var activeIds = requested.Select(int.Parse).ToHashSet();
@@ -675,6 +685,15 @@ public static class LineupEndpoints
             });
         });
     }
+
+    /// <summary>
+    /// The slot limits in the shape <c>LineupRules</c> takes. Two types for one
+    /// idea, kept apart on purpose: <c>LineupSlots</c> is what the pure rule
+    /// consumes and <c>PositionCounts</c> is what a league stores, and folding
+    /// them would put a storage concern inside a scoring function.
+    /// </summary>
+    private static LineupSlots LineupSlotsOf(RuleSet rules) => new(
+        rules.Lineup.Slots.Forwards, rules.Lineup.Slots.Defense, rules.Lineup.Slots.Goalies);
 }
 
 public record SetLineupRequest(string? Username, int? PeriodIndex, List<string>? ActiveSpotIds);

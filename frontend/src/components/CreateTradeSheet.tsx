@@ -468,7 +468,7 @@ export function CreateTradeSheet({
   const incoming = theirPlayers.filter((p) => theirs.has(p.id));
 
   const cap = league.capAmount;
-  const { min: rosterMin, max: rosterMax } = league.ruleConfig.rosterSize;
+  const { min: rosterMin, max: rosterMax } = league.ruleSet.roster;
 
   const myImpact = impactOf(myTeam, outgoing, incoming, cap, rosterMin, rosterMax);
   const theirImpact = impactOf(counterpartyTeam, incoming, outgoing, cap, rosterMin, rosterMax);

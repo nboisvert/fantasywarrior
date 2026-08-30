@@ -32,7 +32,8 @@ public static class TradeEndpoints
     /// </summary>
     private static async Task<IReadOnlyList<string>> ValidateAgainstEngagedAsync(
         FantasyWarriorDbContext db, League league, int proposerTeamId, int counterpartyTeamId,
-        IReadOnlyCollection<long> fromProposer, IReadOnlyCollection<long> fromCounterparty)
+        IReadOnlyCollection<long> fromProposer, IReadOnlyCollection<long> fromCounterparty,
+        bool includesPicks)
     {
         // A trade closes a spot and opens a new one, and the new one inherits
         // no protection at all — a player a GM had just protected would
@@ -40,8 +41,22 @@ public static class TradeEndpoints
         // phases where that could happen (offseason.md) closes the
         // hole rather than working around it after the fact.
         var activeSeason = await Queries.ActiveLeagueSeasonAsync(db, league.LeagueId);
-        if (activeSeason is not null && !SeasonPhaseRules.CanTrade(activeSeason.Phase))
+        if (activeSeason is null)
+            return ["This league has no open season, so nothing says what a legal roster is."];
+        if (!SeasonPhaseRules.CanTrade(activeSeason.Phase))
             return [$"Trades are frozen during the off-season {activeSeason.Phase.ToString().ToLowerInvariant()} phase."];
+        if (activeSeason.Rules.IsUnwritten)
+            return ["This league's rules were never written. Run `rules-backfill`."];
+
+        // The **open** season's rules, not the scored one's. They are the same
+        // row all through InSeason; in PreSeason they differ, and a trade then
+        // is repairing a roster for the season about to start — so the bounds
+        // that matter are the ones it will be judged by.
+        var rules = activeSeason.Rules;
+
+        if (!rules.Trades.Enabled) return ["This league does not allow trades."];
+        if (includesPicks && !rules.Trades.PicksTradable)
+            return ["This league does not allow draft picks to be traded."];
 
         var engaged = await TradeValidation.EngagedStateAsync(db, league.LeagueId);
         if (!engaged.TryGetValue(proposerTeamId, out var proposerState)
@@ -52,7 +67,7 @@ public static class TradeEndpoints
             db, league.Season, [.. fromProposer.Concat(fromCounterparty)]);
 
         return TradeValidation.Validate(
-            league, proposerState, counterpartyState, fromProposer, fromCounterparty, capHits);
+            rules, proposerState, counterpartyState, fromProposer, fromCounterparty, capHits);
     }
 
     public static void Map(WebApplication app)
@@ -168,7 +183,8 @@ public static class TradeEndpoints
                     new { error = "A franchise in this offer is already committed in an accepted trade." });
 
             var capErrors = await ValidateAgainstEngagedAsync(
-                db, league, proposerTeam.TeamId, counterpartyTeam.TeamId, fromProposer, fromCounterparty);
+                db, league, proposerTeam.TeamId, counterpartyTeam.TeamId, fromProposer, fromCounterparty,
+                includesPicks: picksFromProposer.Count > 0 || picksFromCounterparty.Count > 0);
             if (capErrors.Count > 0)
                 return Results.BadRequest(new { error = string.Join(" ", capErrors), errors = capErrors });
 
@@ -325,7 +341,8 @@ public static class TradeEndpoints
                     });
 
                 var errors = await ValidateAgainstEngagedAsync(
-                    db, league, trade.ProposerTeamId, trade.CounterpartyTeamId, offered, requested);
+                    db, league, trade.ProposerTeamId, trade.CounterpartyTeamId, offered, requested,
+                    includesPicks: trade.Assets.Any(a => a.AssetType == TradeAssetType.DraftPick));
                 if (errors.Count > 0)
                     return Results.BadRequest(new { error = string.Join(" ", errors), errors });
 

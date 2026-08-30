@@ -3,6 +3,7 @@ using FantasyWarrior.Core.Scoring;
 using FantasyWarrior.Core.Time;
 using FantasyWarrior.Data;
 using FantasyWarrior.Data.Entities;
+using FantasyWarrior.Data.Leagues;
 using Microsoft.EntityFrameworkCore;
 
 namespace FantasyWarrior.Jobs.Sql;
@@ -80,7 +81,18 @@ public sealed class PeriodRollupJob(FantasyWarriorDbContext db)
                 continue;
             }
 
-            await ScoreLeagueWeekAsync(league, period, periods, lastStatDate, dryRun, ct);
+            try
+            {
+                await ScoreLeagueWeekAsync(league, period, periods, lastStatDate, dryRun, ct);
+            }
+            catch (RuleSetUnavailableException ex)
+            {
+                // Skipped, not fatal, and the same posture as every other skip
+                // above: one misconfigured league must not stop every other
+                // league's night. The message names the command that fixes it,
+                // and the league's standings visibly stop moving until it runs.
+                Console.Error.WriteLine($"    cannot be scored — {ex.Message}");
+            }
             Console.WriteLine();
         }
         return 0;
@@ -90,8 +102,14 @@ public sealed class PeriodRollupJob(FantasyWarriorDbContext db)
         League league, Period period, List<Period> periods, DateOnly lastStatDate,
         bool dryRun, CancellationToken ct)
     {
-        var scale = await ScoringScaleAsync(league.LeagueId, ct);
-        var slots = new LineupSlots(league.ActiveForwards, league.ActiveDefense, league.ActiveGoalies);
+        // The rules of the season being scored — League.Season's row, which
+        // through the whole off-season is still the one that just finished.
+        // Scoring a banked week under next season's scale is exactly what
+        // storing rules per season exists to prevent.
+        var rules = await RuleSetResolver.ForScoringAsync(db, league, ct);
+        var scale = rules.Scoring.Values;
+        var slots = new LineupSlots(
+            rules.Lineup.Slots.Forwards, rules.Lineup.Slots.Defense, rules.Lineup.Slots.Goalies);
 
         // Every spot owning any part of this week: open ones, plus ones that
         // closed during it. Forgetting the second half is the bug that made
@@ -297,12 +315,4 @@ public sealed class PeriodRollupJob(FantasyWarriorDbContext db)
     /// Rows in, map out — which is what lets a commissioner score blocked shots
     /// without a schema change.
     /// </summary>
-    public static async Task<Dictionary<string, double>> ScoringScaleAsync(
-        FantasyWarriorDbContext db, int leagueId, CancellationToken ct = default) =>
-        await db.LeagueScoringRules
-            .Where(r => r.LeagueId == leagueId)
-            .ToDictionaryAsync(r => r.StatKey, r => r.PointValue, ct);
-
-    private Task<Dictionary<string, double>> ScoringScaleAsync(int leagueId, CancellationToken ct) =>
-        ScoringScaleAsync(db, leagueId, ct);
 }
