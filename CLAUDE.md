@@ -53,6 +53,7 @@ changelog — `git log` is, and the commit messages here are detailed on purpose
   |---|---|
   | Status — built, not built, open risk | `project_status.md` |
   | Schema — tables, columns, indexes, views | `data-model.md` |
+  | The rule catalogue — every parameter, its default, where it is enforced | `league-rules.md` |
   | Off-season — phases, protections, draft | `offseason.md` |
   | Les Mordus' own numbers | `mordus.md` |
   | Jobs, commands, runbooks, deploys | `deployment.md` |
@@ -73,6 +74,7 @@ changelog — `git log` is, and the commit messages here are detailed on purpose
 | [project_status.md](.claude/doc/project_status.md) | **Read at the start of every session.** Current state, roadmap, open risks. Keep it updated. |
 | [scoring-model.md](.claude/doc/scoring-model.md) | The scoring rules. Authoritative — if it and the code disagree, one of them is a bug. |
 | [data-model.md](.claude/doc/data-model.md) | The SQL schema and **why** it is shaped that way. |
+| [league-rules.md](.claude/doc/league-rules.md) | Every rule a league can set, its default, and where it is enforced. Read before touching anything configurable. |
 | [offseason.md](.claude/doc/offseason.md) | What "season" means, `LeagueSeasons`, the six phases, protections, and the two-segment draft. |
 | [deployment.md](.claude/doc/deployment.md) | Infra, how to deploy, config, local dev, every job and runbook, troubleshooting. Keep it updated when infra changes. |
 | [design-system.md](.claude/doc/design-system.md) | Night Arena detail: exact colours, typography, the stats-grid traps, PWA asset regeneration. |

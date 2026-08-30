@@ -55,6 +55,7 @@ date-related behaviour as a bug**. See [testmode.md](testmode.md).
 | Draft picks — tradable, one year ahead | Done |
 | Season-lifecycle foundation — `Season`, `LeagueSeasons`, the six phases, the trade freeze, the palmarès | Done |
 | Season calendar — the `Seasons` table, `season-init`, a weekly calendar that can be built from declared dates before a single game is imported | Done |
+| League rules — the whole catalogue as one versioned document per season, its validation, the "not enforced yet" badge, and the rules panel that writes it | Done. Catalogue in [league-rules.md](league-rules.md); what is modelled but inert is listed there. |
 | Interactive live draft — steal rounds then rookie rounds, one room, asynchronous, no pick clock | Done |
 | Off-season protections — `ProtectionSlots`, the autofill default, the public protection slates | **Written, but no GM-facing screen.** See below. |
 | Cap and roster-size enforcement | **Partial.** The cap is enforced on trades and on draft picks. `RosterMin`/`RosterMax` are enforced on trades only — `DraftRules.ValidateSelection` deliberately passes both as null (`DraftRules.cs:54`), because `PreSeason` exists to repair a roster that came out of a draft off-bounds. No other path changes a roster. |
@@ -73,13 +74,13 @@ date-related behaviour as a bug**. See [testmode.md](testmode.md).
   who knows a handle can read that person's private threads. It is the first
   place where the gap exposes content rather than actions.
 
-- **Les Mordus' three off-season numbers are decided but not entered**, and the
-  app does not stop you. `ProtectionSlots`, `StealRounds` and
-  `MaxLossesPerTeam` are settled but absent from the live `Leagues` row.
-  `draft/open` never reads them, so it **opens anyway** and silently yields a
-  draft with no steal segment and uncapped losses. Worse, only `ProtectionSlots`
-  has a writer at all. Details and line references in [mordus.md](mordus.md);
-  this is the most dangerous gap before the October MVP.
+- **Les Mordus' three off-season numbers are still not entered on the live
+  league.** `protection.slots`, `draft.steal.rounds` and
+  `draft.steal.maxLossesPerTeam` are settled ([mordus.md](mordus.md)) and now
+  all three are on the rules panel, so entering them is a five-minute job for
+  the commissioner. Until that happens `draft/open` **refuses** rather than
+  opening a draft with no steal segment, so the danger is gone and only the
+  data entry is left.
 
 - **`period-rollup` scores a league whatever its phase.** It iterates every
   league and knows nothing about `LeagueSeasonPhase`, so a copy sitting in
@@ -87,11 +88,6 @@ date-related behaviour as a bug**. See [testmode.md](testmode.md).
   today — the draft order is frozen at creation — but its standings will not
   stay at zero, and [offseason.md](offseason.md) says a league outside
   `InSeason` should not be scored.
-
-- **The scale can change mid-season and nothing records what it used to be.**
-  Point values live on `League` and mutate in place, so a lifetime pool has no
-  way to answer "what were season 2's rules?". `LeagueSeasons` is where that
-  would land. Not urgent, but it gets harder every season.
 
 - **There is no error boundary anywhere in the frontend.** One throw in one
   component takes the whole screen down rather than that component — which is
@@ -129,5 +125,3 @@ date-related behaviour as a bug**. See [testmode.md](testmode.md).
   session and phone photos. Only the `AZURE_CREDENTIALS` GitHub secret would
   need replacing.
 
-- **`LeagueEndpoints.cs:184` tells the user to "run `recompute` to restate
-  them".** That job does not exist. Here the *code* is the thing that lies.

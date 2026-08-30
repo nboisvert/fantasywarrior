@@ -33,11 +33,12 @@ events a league must be able to pay apart. The franchise total is read off the
 **Active lineup 9 F + 4 D + 1 G**, plus the Équipe slot. The bench has no fixed
 size (observed reserves run 7 to 20) and active ↔ reserve swaps every week.
 **Roster 23 min, 35 max**, cap **$134M**, a contractless player counting $1M
-(`League.DefaultCapHit`), **3 rookie draft rounds** a year.
+(`cap.defaultCapHit`), **3 rookie draft rounds** a year.
 
-Rules are applied through the commissioner-only rules panel
-(`PATCH /api/leagues/{joinCode}/rules`); the cap is not on that endpoint and is
-set at league creation or by `seed-mordus --cap`. Jobs and endpoints in
+Every one of these is a field of the league's rules document — what each means
+and where it is enforced is in [league-rules.md](league-rules.md). They are set
+through the commissioner-only rules panel (`PATCH /api/leagues/{joinCode}/rules`)
+and written by `seed-mordus` when it builds the league. Jobs and endpoints in
 [deployment.md](deployment.md).
 
 ## Off-season rules
@@ -50,33 +51,21 @@ whose first two rounds are steal rounds. Mechanics live in
 
 | Rule | Value | Where |
 |---|---|---|
-| Protectable players per GM | 9 | `League.ProtectionSlots` |
-| Steal rounds (so 2 steals per team) | 2 | `League.StealRounds` |
-| Maximum losses per team | 2 | `League.MaxLossesPerTeam` |
-| Auto-protected, goalie | ≤ 50 career NHL games | `ProtectionRules` |
-| Auto-protected, skater | ≤ 100 career NHL games | `ProtectionRules` |
-| Auto-protection costs a slot | No — free | |
-| Unclaimed exposed players | Stay on their team | |
+| Protectable players per GM | 9 | `protection.slots` |
+| Steal rounds (so 2 steals per team) | 2 | `draft.steal.rounds` |
+| Maximum losses per team | 2 | `draft.steal.maxLossesPerTeam` |
+| Auto-protected, goalie | ≤ 50 career NHL games | `protection.auto.goalieMaxCareerGames` |
+| Auto-protected, skater | ≤ 100 career NHL games | `protection.auto.skaterMaxCareerGames` |
+| Auto-protection costs a slot | No — free | `protection.auto.enabled` |
+| Unclaimed exposed players | Stay on their team | `protection.afterDraft` |
 
-> ⚠️ **Decided, not entered.** All three columns are `NULL` on the Mordus
-> `Leagues` row: `seed-mordus` writes the cap, roster bounds, active slots and
-> `DraftRounds = 3`, nothing else, and no migration fills them in. **Les Mordus
-> cannot run a real off-season in this state**, for two different reasons on the
-> two paths:
->
-> - `POST /protections/autofill` reads `ProtectionSlots` and refuses without it —
->   "Set the league's protection slots first, in the rules panel"
->   (`DraftEndpoints.cs:191`). No protection can be recorded at all.
-> - `POST /draft/open` **never reads `ProtectionSlots`.** It gates on
->   `DraftRounds > 0` and on the pick count equalling teams × `DraftRounds`
->   (`DraftEndpoints.cs:350`), both of which Les Mordus can satisfy. It opens —
->   and then `StealRounds` null falls through `?? 0`, so the draft is all-rookie
->   with no steal segment and `MaxLossesPerTeam` null means uncapped losses.
->
-> The rules panel writes `ProtectionSlots` only; **`StealRounds` and
-> `MaxLossesPerTeam` have no writer in the UI or the API at all**, the one path
-> today being `clone-league --steal-rounds / --max-losses`, which sets them on a
-> copy and never touches the live league.
+> All seven are fields of the league's rules document and all seven are on the
+> rules panel, so an off-season can be configured entirely from the app.
+> `draft/open` refuses a steal segment with no protection slots, and refuses one
+> whose protection slate is empty: a half-configured off-season stops rather than
+> running as an all-rookie draft with uncapped losses. Whether the live league's
+> document *carries* these values is a status question — see
+> [project_status.md](project_status.md).
 
 Two thresholds rather than one because a goalie plays about half his club's
 games: measured at the skaters' bar he would stay untouchable twice as long. With

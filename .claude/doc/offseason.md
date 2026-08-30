@@ -74,8 +74,8 @@ protected would silently become stealable. `SeasonPhaseRules.CanTrade` refuses
 and accepting, so both paths refuse identically.
 
 **`PreSeason` exists because a team can leave the draft out of bounds in either
-direction** — under `RosterMin` (two players lost, one drafted back) or over
-`RosterMax` (an already-full team that steals without ever shedding anyone). It
+direction** — under `roster.min` (two players lost, one drafted back) or over
+`roster.max` (an already-full team that steals without ever shedding anyone). It
 is the window to trade back into shape before lineups matter again.
 
 Entering `InSeason` advances `Leagues.Season` and clears the protection slate;
@@ -88,18 +88,19 @@ in advance in [deployment.md](deployment.md).
 ## 3. Protections
 
 Between seasons each GM shelters a limited number of players —
-`League.ProtectionSlots`, one slot per player, on `RosterSpots.ProtectionStatus`.
+`protection.slots`, one slot per player, on `RosterSpots.ProtectionStatus`.
 Everyone else is exposed and can be stolen during the steal rounds; an exposed
 player nobody claims stays put, having never moved. A protection is worth exactly
 one off-season: `protection-reset` clears the slate on the way into `InSeason`.
 
 **The slate is written by an autofill, and that is a default rather than a
 choice.** `POST .../protections/autofill` (commissioner-only, `Protecting` only,
-refused unless `ProtectionSlots` is set, `?preview=true` to see it without
+refused unless `protection.slots` is set, `?preview=true` to see it without
 writing) protects each roster's top scorers from the season just ended, ranked
-**under the league's own scale** — on raw NHL points a goalie's season is zero and
-no goalie would ever be protected — and bounded to the simulated day like every
-other season total. `ProtectionAutofill.Choose` is the pure part, ties broken on
+**under the scale that season was scored under** — on raw NHL points a goalie's
+season is zero and no goalie would ever be protected, and points belong to the
+rules they were earned under — and bounded to the simulated day like every other
+season total. `ProtectionAutofill.Choose` is the pure part, ties broken on
 `PlayerId` so two runs pick the same men. The protection screen does not exist,
 so **no GM can contradict the default**.
 
@@ -108,7 +109,8 @@ NHL experience — separate bars for goalies and skaters, since a goalie plays
 roughly half his club's games — is out of reach without spending a slot, which is
 what stops the pool becoming a prospect raid every summer. What is stored is the
 measurement, `Players.CareerNhlGames`, written by `career-sync`; the verdict is
-`ProtectionRules.IsAutoProtected`, so a threshold moves without rewriting a row.
+`ProtectionRules.IsAutoProtected` against the league's own bars
+(`protection.auto`), so a threshold moves without rewriting a row.
 A slot is only spent on someone the draft could actually take —
 `ProtectionAutofill.NeedsASlot` skips anyone already untouchable, since a slot
 burnt there would be wasted and would expose the veteran it should have covered.
@@ -143,6 +145,15 @@ at a time.
 | Order | reverse standings, linear (not a snake) | `DraftPick.CurrentTeamId` |
 | Pool | the *other* teams' exposed players | unrostered players |
 | Consumes | nothing | one `DraftPick` |
+
+**Opening the room is where the rules are checked, and it refuses.**
+`POST .../draft/open` will not open a draft it cannot run: not on a draft or
+protection rule the room does not honour (see
+[league-rules.md](league-rules.md)), not on a steal segment with no protection
+slots — every veteran would be exposed — and not on one whose protection slate
+is still empty. Each refusal names the rule at fault. The alternative is worse
+than an error: a draft that opens and quietly turns out to have no steal segment
+is only discovered when a GM asks where his turn went.
 
 **The order is frozen when the room opens and never re-read.**
 `POST .../draft/open` is the only moment the standings are consulted: it writes
@@ -181,10 +192,10 @@ spends its entitlement.
 `(LeagueSeasonId, PlayerId)`, and the same rule in `DraftPool` so the pool never
 offers a row the database will then refuse.
 
-**Neither `RosterMin` nor `RosterMax` is enforced on a selection.**
+**Neither `roster.min` nor `roster.max` is enforced on a selection.**
 `DraftRules.ValidateSelection` delegates to `TradeRules.Validate` with both bounds
 passed as null, deliberately: a selection only ever runs during `Drafting`,
-`PreSeason` always follows, and a team already at `RosterMax` before its steal
+`PreSeason` always follows, and a team already at `roster.max` before its steal
 turn could otherwise never take anyone, with no way to shed a player inside the
 draft. **The salary cap still applies** — a different rule, `capAmount` passed
 through unchanged. Trades keep enforcing both bounds; the loosening is the

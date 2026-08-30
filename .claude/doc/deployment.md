@@ -214,7 +214,6 @@ this is the map. Almost every job takes `--dry-run` — use it.
 | Need | Command |
 |---|---|
 | Apply the schema | `db-migrate [--list]` |
-| Convert a league's rules into its season documents | `rules-backfill [--league <joinCode>]` |
 | Declare a season's dates | `season-init --season 20262027 --start 2026-10-06 --end 2027-04-15` |
 | List what is declared | `season-init` |
 | Generate a season's calendar | `period-init --season 20262027` |
@@ -227,12 +226,33 @@ this is the map. Almost every job takes `--dry-run` — use it.
 | Move a week's lock | `UPDATE Periods SET LockUtc = … WHERE Season = … AND Number = …` |
 | Un-bank to recompute | `UPDATE RosterAssignments SET IsFinalized = 0` and `UPDATE Periods SET FinalizedUtc = NULL`, then `nightly --backfill-from N` |
 
-**`rules-backfill` must run once after the migration that adds
-`LeagueSeasons.Rules`**, and before anything reads a rule. The column defaults to
-`'{}'`, which reads as "never written" rather than as a league's defaults, and
-every reader refuses on it — so skipping this step fails loudly instead of
-serving a configuration nobody chose. It is idempotent and only fills blanks;
-`--force` overwrites documents already written and is for a re-import.
+### Moving a live database onto the rules document
+
+A database that predates `LeagueSeasons.Rules` needs **two deploys**, in this
+order. It is not optional and the schema enforces it: `DropLegacyLeagueRules`
+refuses to apply while any season still holds the `'{}'` default, because after
+it the columns the conversion reads are gone.
+
+1. Deploy **`2db7f52`** (*Every consumer reads the season's rules…*), then, in one
+   sitting:
+   ```powershell
+   dotnet run --project backend/FantasyWarrior.Jobs -- db-migrate
+   dotnet run --project backend/FantasyWarrior.Jobs -- rules-backfill --dry-run
+   dotnet run --project backend/FantasyWarrior.Jobs -- rules-backfill
+   ```
+   Between the migration and the backfill every league's rules read as "never
+   written" and the app refuses to trade, score or draft — seconds, not hours, so
+   run the two together.
+2. Deploy **`4653b13`** (*Delete the old home…*) and `db-migrate` again. The
+   guard passes, the columns and `LeagueScoringRules` go, and `vStandings` is
+   rebuilt reading `cap.defaultCapHit` out of the document.
+
+A **fresh** database skips all of this: `seed-mordus` and league creation both
+write the document as they build the season, and `rules-backfill` no longer
+exists after step 2 — it went with the columns it read.
+
+Once converted, Les Mordus' three off-season numbers are entered from the rules
+panel like any other rule.
 
 **`period-init` is idempotent and runs nightly**, after `stats-sync` and before
 scoring. It appends weeks the calendar is missing and refreshes `GameCount` on
@@ -247,8 +267,7 @@ no games — and says which command to run.
 
 A full-season backfill is an ordinary operation on Azure SQL — no read quota to
 spare. There is **no `set-league-rules`, no `sim-reset` and no `recompute` job**,
-whatever other text may claim; `LeagueEndpoints.cs:184` still tells the user to
-run `recompute`, and that message is wrong. Season replay commands live in
+whatever other text may claim. Season replay commands live in
 [testmode.md](testmode.md).
 
 ### Rebuilding the database from nothing
@@ -325,7 +344,7 @@ In one transaction, with `@l` = its `LeagueId`, delete in this order (foreign
 keys make it load-bearing): `DraftSelections` (by its `LeagueSeasonId`s),
 `RosterAssignments` (by its `RosterSpotId`s), `TeamPeriodLineups` (by its
 `TeamId`s), `RosterSpots`, `TradeVotes` and `TradeAssets` (by its `TradeId`s),
-`Trades`, `Messages`, `DraftPicks`, `LeagueScoringRules`, `LeagueMembers`,
+`Trades`, `Messages`, `DraftPicks`, `LeagueSeasons`, `LeagueMembers`,
 `LeagueSeasons`, `Teams`, `Leagues` — the last eleven all `WHERE LeagueId = @l`.
 
 ---

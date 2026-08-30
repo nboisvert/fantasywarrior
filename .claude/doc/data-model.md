@@ -215,31 +215,16 @@ LastLoginUtc, LastSeenUtc
 > surveillance feature nobody asked for.
 
 **`Leagues`** — `LeagueId`, Name, Season, CommissionerUserId (FK), **`JoinCode`
-(unique, short)**, CapAmount, DefaultCapHit, RosterMin, RosterMax, ProtectionSlots
-(null), StealRounds (null), MaxLossesPerTeam (null), DraftRounds (null),
-ActiveForwards, ActiveDefense, ActiveGoalies, CreatedUtc. Les Mordus' own values:
-[mordus.md](mordus.md). The `JoinCode` is what the API exposes as `id`; the
+(unique, short)**, CreatedUtc. The `JoinCode` is what the API exposes as `id`; the
 frontend treats `league.id` as an opaque string and keeps it in `localStorage`, so
 it is looked up on essentially every request.
 
-> **`DefaultCapHit`** — what a player with no contract on file costs against the
-> cap. "No contract" is not a data gap to wait out: it is a real, permanent state
-> for an unsigned free agent and for a drafted prospect, and a keeper pool holds
-> plenty of both. Not nullable — every league needs an answer, and null would only
-> be "$0" spelled at greater length. Set it to 0 to count them as free.
-
-> **`ProtectionSlots`** — how many roster spots a GM may protect before the steal
-> draft; a player who qualifies for `IsAutoProtected` does not spend one.
-> **`StealRounds`** sizes the steal segment **without generating a single row**: a
-> steal turn is not tradable, so every team has exactly that many and there is
-> nothing to own. **`MaxLossesPerTeam`** caps what one team may lose across a whole
-> steal draft, closing the pool from underneath while the draft runs — which is why
-> the available list is recomputed each turn and never cached. On all three,
-> **null means the league does not have that rule, not zero.**
->
-> **`StealRounds` is deliberately independent of `DraftRounds`**: they size two
-> different drafts that run back to back, and seeing them diverge is not an error.
-> `DraftRounds` generates one `DraftPicks` row per team per round.
+> **It carries no rules.** The cap, roster bounds, the scale, protections and the
+> draft were ten columns here plus a `LeagueScoringRules` table, all mutated in
+> place. They are one document per season on `LeagueSeasons.Rules` — see
+> [league-rules.md](league-rules.md) for the catalogue and
+> [mordus.md](mordus.md) for Les Mordus own values. What is left here is
+> identity and membership.
 
 **`LeagueSeasons`** — `LeagueSeasonId`, LeagueId (FK cascade), Season, Number,
 Phase (tinyint: Preparing/Protecting/Drafting/PreSeason/InSeason/Complete),
@@ -282,10 +267,6 @@ row per league, a real constraint rather than a sentence in a doc
 
 **`LeagueMembers`** — PK (LeagueId, UserId), JoinedUtc → index (UserId), which is
 "my leagues", the first query every session makes.
-
-**`LeagueScoringRules`** — PK (LeagueId, StatKey), PointValue (float). One row per
-stat rather than columns: that is what lets a commissioner score blocked shots or
-hits without a schema change.
 
 **`Teams`** — `TeamId`, LeagueId (FK cascade), OwnerUserId (FK), Name,
 FranchiseAbbrev (FK NhlTeams, null), CreatedUtc → unique (LeagueId, OwnerUserId)
