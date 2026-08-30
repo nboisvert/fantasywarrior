@@ -44,6 +44,14 @@ public sealed class Period
     /// Regular-season games in this window. Zero means a break week (Olympics,
     /// All-Star) so the UI can say "pause" instead of an unexplained 0 points.
     /// The 2025-26 season has two, 9–22 February 2026 for Milan-Cortina.
+    ///
+    /// <b>It also reads zero for a week whose games are simply not imported
+    /// yet</b> — the normal state of a season built from its declared dates
+    /// before a puck drops. The two are indistinguishable here, which is why
+    /// this is the one field <c>period-init</c> may rewrite: boundaries are
+    /// immutable because points are banked against them, but a count is a
+    /// display hint with nothing banked on it, so it catches up as the schedule
+    /// imports. Finalized weeks are left alone regardless.
     /// </summary>
     public int GameCount { get; set; }
 

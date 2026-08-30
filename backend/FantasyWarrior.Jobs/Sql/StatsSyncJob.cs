@@ -125,9 +125,33 @@ public sealed class StatsSyncJob(NhlApiClient nhl, FantasyWarriorDbContext db)
             Console.WriteLine($"  {dateStr}: {games.Count} games, {dayLines} player lines");
         }
 
+        await StampSchedulesAsync(from, to, ct);
+
         Console.WriteLine($"\n{totalGames} games, {totalLines} player lines"
             + (callUps > 0 ? $", {callUps} player(s) created from boxscores." : "."));
         return (totalGames, totalLines);
+    }
+
+    /// <summary>
+    /// Records that a declared season now has games behind it. That is the one
+    /// distinction <c>period-init</c> cannot make on its own: "no games this
+    /// week" and "no games imported yet" both read as zero, and only this
+    /// timestamp separates them.
+    ///
+    /// Only seasons already declared are stamped — this job discovers dates,
+    /// not seasons, and inventing a <c>Seasons</c> row from a stray game would
+    /// declare a calendar nobody published.
+    /// </summary>
+    private async Task StampSchedulesAsync(DateOnly from, DateOnly to, CancellationToken ct)
+    {
+        var seasons = await db.Seasons
+            .Where(s => s.RegularSeasonStart <= to && from <= s.RegularSeasonEnd)
+            .ToListAsync(ct);
+        if (seasons.Count == 0) return;
+
+        var now = DateTime.UtcNow;
+        foreach (var season in seasons) season.ScheduleImportedUtc = now;
+        await db.SaveChangesAsync(ct);
     }
 
     /// <summary>

@@ -214,6 +214,8 @@ this is the map. Almost every job takes `--dry-run` — use it.
 | Need | Command |
 |---|---|
 | Apply the schema | `db-migrate [--list]` |
+| Declare a season's dates | `season-init --season 20262027 --start 2026-10-06 --end 2027-04-15` |
+| List what is declared | `season-init` |
 | Generate a season's calendar | `period-init --season 20262027` |
 | Generate a league's draft picks | `draft-picks-init --league <joinCode> [--year YYYY]` |
 | Run the scoring (nightly entry point) | `nightly` |
@@ -223,6 +225,17 @@ this is the map. Almost every job takes `--dry-run` — use it.
 | Clear a league's protections | `protection-reset --league <joinCode>` |
 | Move a week's lock | `UPDATE Periods SET LockUtc = … WHERE Season = … AND Number = …` |
 | Un-bank to recompute | `UPDATE RosterAssignments SET IsFinalized = 0` and `UPDATE Periods SET FinalizedUtc = NULL`, then `nightly --backfill-from N` |
+
+**`period-init` is idempotent and runs nightly**, after `stats-sync` and before
+scoring. It appends weeks the calendar is missing and refreshes `GameCount` on
+weeks that are not finalized — the counts on a season built from declared dates
+start at zero and catch up as the schedule imports. **Boundaries are never
+moved**: points are banked against them.
+
+Opening a new season is therefore two commands, in this order:
+`season-init --season <s> --start … --end …`, then `period-init --season <s>`.
+The second refuses only when neither source knows anything — no declared row and
+no games — and says which command to run.
 
 A full-season backfill is an ordinary operation on Azure SQL — no read quota to
 spare. There is **no `set-league-rules`, no `sim-reset` and no `recompute` job**,
@@ -236,6 +249,7 @@ run `recompute`, and that message is wrong. Season replay commands live in
 dotnet run --project backend/FantasyWarrior.Jobs -- db-migrate
 dotnet run --project backend/FantasyWarrior.Jobs -- player-sync --season 20252026
 dotnet run --project backend/FantasyWarrior.Jobs -- stats-sync --from 2025-10-07 --to 2026-04-16  # ~10 min
+# 20252026 is seeded by the migration; season-init is only needed for a new season.
 dotnet run --project backend/FantasyWarrior.Jobs -- period-init --season 20252026
 dotnet run --project backend/FantasyWarrior.Jobs -- player-resolve            # before seeding
 dotnet run --project backend/FantasyWarrior.Jobs -- draft-sync

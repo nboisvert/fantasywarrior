@@ -12,7 +12,7 @@ the solution. Your AI agent name is **Macklin Softwarini**.
 - **Database**: **Azure SQL** (serverless, free tier) via **EF Core 10**.
 - **API**: **.NET 10 minimal API**, Docker, on **Azure Container Apps** (scales to zero), resource group `fw`, same region as the database.
 - **Auth**: none yet. The API trusts the username the client sends. Firebase Auth is the intended replacement.
-- **Batch jobs**: .NET console apps on **GitHub Actions cron** (`daily-jobs.yml`: db-migrate → stats-sync → nightly → player-sync → draft-sync → news-sync).
+- **Batch jobs**: .NET console apps on **GitHub Actions cron** (`daily-jobs.yml`: db-migrate → stats-sync → period-init → nightly → player-sync → draft-sync → news-sync).
 - **Realtime**: **SignalR** (`LiveHub`) carries presence, direct messages and the live draft board. Push-only — clients never call hub methods; a REST endpoint persists, then pushes. **One replica, no backplane** — that ceiling is a correctness requirement, not a budget one.
 - **CI/CD**: GitHub Actions (frontend → GitHub Pages, API → Container Apps via ghcr.io). See [deployment.md](.claude/doc/deployment.md) for what ships on which trigger.
 

@@ -61,6 +61,15 @@ jobs:
           if [ -n "${{ inputs.from }}" ]; then ARGS="--from ${{ inputs.from }} --to ${{ inputs.to || inputs.from }}"; fi
           dotnet run --project backend/FantasyWarrior.Jobs -c Release -- stats-sync $ARGS
 
+      # After stats-sync and before scoring, because both of the things it does
+      # depend on the games that just landed: it appends any week the calendar
+      # is still missing, and refreshes GameCount on the weeks it already has.
+      # A season's calendar is built from its declared dates, so before its
+      # schedule is imported every week reads as a break week -- this is what
+      # makes those counts catch up. Boundaries are never moved.
+      - name: Period calendar
+        run: dotnet run --project backend/FantasyWarrior.Jobs -c Release -- period-init
+
       # One command on purpose: the order inside it -- score the current week,
       # bank finished weeks, then execute accepted trades effective next week --
       # is a correctness requirement, and as separate steps here nothing stopped

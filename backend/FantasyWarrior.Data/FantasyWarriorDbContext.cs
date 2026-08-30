@@ -38,6 +38,7 @@ public sealed class FantasyWarriorDbContext(DbContextOptions<FantasyWarriorDbCon
     public DbSet<NewsItem> NewsItems => Set<NewsItem>();
 
     // --- calendar ---
+    public DbSet<NhlSeason> Seasons => Set<NhlSeason>();
     public DbSet<Period> Periods => Set<Period>();
     public DbSet<SimulationState> SimulationState => Set<SimulationState>();
 

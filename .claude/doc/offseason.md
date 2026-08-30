@@ -16,13 +16,20 @@ entering 2026 or 2027?" unanswerable.
 | **The league's season** | "Les Mordus, season 4" | Per league | A `LeagueSeasons` row |
 | **The draft year** | `2026` | Per league | Derived — `Season.StartYear(s)` |
 
-**The NHL season stays a value, not a table.** It is the NHL's own identifier,
-the one its API returns — the same argument as `Player.PlayerId`. A `Seasons`
-table would add no attribute the string does not give, and the one thing ever
-asked of it, succession, is a pure function: `Core/Seasons/Season.cs` — validity,
-start/end year, next/previous, the September rollover, the `"2026-27"` display
-form. `IsValid` earns its place because the season is free text in the database,
-so `"2025-2026"` would otherwise create a ghost season in silence.
+**The NHL season stays a value, and the `Seasons` table carries its dates.** The
+string is the NHL's own identifier — the same argument as `Player.PlayerId` — so
+it remains the key on every table, with no foreign key anywhere. Succession is a
+pure function: `Core/Seasons/Season.cs` — validity, start/end year,
+next/previous, the September rollover, the `"2026-27"` display form. `IsValid`
+earns its place because the season is free text in the database, so
+`"2025-2026"` would otherwise create a ghost season in silence.
+
+What the string cannot carry is **when the season runs**, which is why the table
+exists: the weekly calendar used to be derived from the games already imported,
+so next season's weeks could not exist until the NHL published its schedule and
+`stats-sync` had fetched it. `Seasons` holds the published dates; `Games` hold
+what happened; `SeasonBounds.Resolve` reconciles them. See
+[data-model.md](data-model.md).
 
 **A draft is named for the calendar year it is held in, a season for the two
 years it spans**, so `DraftPick.Year` is `Season.StartYear` of the season being

@@ -145,6 +145,31 @@ PlayerId filtered `WHERE ResolvedUtc IS NULL`, this table's only query.
 
 ## Calendar
 
+**`Seasons`** — `Season` (PK, char(8)), RegularSeasonStart, RegularSeasonEnd,
+PlayoffStart (null), PlayoffEnd (null), ScheduleImportedUtc (null). Written by
+`season-init` from the schedule the NHL publishes; `20252026` is seeded by the
+migration that creates the table.
+
+> **The season string stays the key; the table carries what the string cannot.**
+> `"20262027"` is the NHL's own identifier and is already the join value on
+> `Games`, `PlayerGameStats`, `PlayerContracts`, `PlayerCareerSeasonStats`,
+> `Periods`, `SimulationState`, `Leagues` and `LeagueSeasons`, and succession
+> arithmetic is a pure function (`Core/Seasons/Season.cs`). What it cannot carry
+> is **dates** — and dates are what let a calendar exist before its games do.
+>
+> **Nothing has a foreign key to it.** A constraint on 51k `PlayerGameStats`
+> rows would guarantee only what the string already does, and would force an
+> insert order on every sync job. The link is a value the application keeps
+> honest, the same posture as `Leagues.Season` → `LeagueSeasons`.
+>
+> **Declared, not observed.** These dates are the published schedule, which is
+> why they exist months before a game does. `Games` say what actually happened.
+> `SeasonBounds.Resolve` takes the **union** of the two — a rescheduled game
+> outside every period would score for nobody, and stopping at the last game
+> played would leave the rest of the season with no weeks at all.
+> `ScheduleImportedUtc`, stamped by `stats-sync`, is the one thing separating
+> "no games that week" from "no games imported yet".
+
 **`Periods`** — `PeriodId`, Season, Number, StartDate, EndDate, LockUtc, GameCount,
 FinalizedUtc, CreatedUtc → unique (Season, Number); index (Season, StartDate) =
 "which week is it". Global, append-only, never deleted: deleting one would restate

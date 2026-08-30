@@ -1,8 +1,10 @@
 using FantasyWarrior.Core.Messaging;
 using FantasyWarrior.Core.Scoring;
+using FantasyWarrior.Core.Seasons;
 using FantasyWarrior.Core.Time;
 using FantasyWarrior.Data;
 using FantasyWarrior.Data.Entities;
+using FantasyWarrior.Data.Seasons;
 using Microsoft.EntityFrameworkCore;
 
 namespace FantasyWarrior.Api;
@@ -50,10 +52,49 @@ public static class LeagueEndpoints
             return Results.Ok(rows);
         });
 
-        app.MapPost("/api/leagues", async (CreateLeagueRequest req, FantasyWarriorDbContext db) =>
+        // The declared NHL calendar, newest first — what a league-creation
+        // screen picks from instead of typing an eight-digit string. Public:
+        // it is the NHL's schedule, not anyone's pool data.
+        app.MapGet("/api/seasons", async (FantasyWarriorDbContext db) =>
+        {
+            var rows = await db.Seasons.AsNoTracking()
+                .OrderByDescending(s => s.Season)
+                .ToListAsync();
+
+            // Season.Display is a pure string function with no SQL translation,
+            // so the shaping happens here rather than in the query.
+            return Results.Ok(rows.Select(s => new
+            {
+                season = s.Season,
+                display = Season.Display(s.Season),
+                regularSeasonStart = s.RegularSeasonStart,
+                regularSeasonEnd = s.RegularSeasonEnd,
+                playoffStart = s.PlayoffStart,
+                playoffEnd = s.PlayoffEnd,
+                // "We hold this season's games" — the difference between a
+                // calendar that can be scored and one that is only declared.
+                scheduleImported = s.ScheduleImportedUtc is not null,
+            }));
+        });
+
+        app.MapPost("/api/leagues", async (
+            CreateLeagueRequest req, FantasyWarriorDbContext db, SimulationClockService clock) =>
         {
             if (string.IsNullOrWhiteSpace(req.Name) || string.IsNullOrWhiteSpace(req.Username))
                 return Results.BadRequest(new { error = "Name and username are required." });
+
+            // The column is free text, so "2025-2026" would create a phantom
+            // season nothing else in the app could ever join to.
+            if (req.Season is not null && !Season.IsValid(req.Season))
+                return Results.BadRequest(new
+                {
+                    error = $"\"{req.Season}\" is not a valid NHL season. Expected a form like 20262027.",
+                });
+
+            // No season given: the one the declared calendar says we are in,
+            // rather than a hardcoded string that goes stale every September.
+            var season = req.Season
+                ?? await SeasonLookup.CurrentOrGuessAsync(db, await clock.TodayEtAsync());
 
             var username = Queries.Normalize(req.Username);
             var user = await db.Users.FirstOrDefaultAsync(u => u.Username == username);
@@ -68,7 +109,7 @@ public static class LeagueEndpoints
             var league = new League
             {
                 Name = req.Name.Trim(),
-                Season = req.Season ?? "20262027",
+                Season = season,
                 JoinCode = await UniqueCodeAsync(db),
                 CommissionerUserId = user.UserId,
                 CapAmount = req.CapAmount,

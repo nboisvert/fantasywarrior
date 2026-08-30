@@ -16,7 +16,7 @@
 | App | https://nboisvert.github.io/fantasywarrior/ (GitHub Pages) |
 | API | https://fantasy-warrior-api.calmhill-00a494fd.canadacentral.azurecontainerapps.io |
 | Database | Azure SQL serverless, free tier, resource group `fw` |
-| Nightly cron | `daily-jobs.yml` — db-migrate → stats-sync → nightly → player-sync → draft-sync → news-sync |
+| Nightly cron | `daily-jobs.yml` — db-migrate → stats-sync → period-init → nightly → player-sync → draft-sync → news-sync |
 
 See [deployment.md](deployment.md) for how a deploy happens, the jobs and the
 runbooks.
@@ -54,6 +54,7 @@ date-related behaviour as a bug**. See [testmode.md](testmode.md).
 | GM-to-GM direct messages and live presence (SignalR) | Done |
 | Draft picks — tradable, one year ahead | Done |
 | Season-lifecycle foundation — `Season`, `LeagueSeasons`, the six phases, the trade freeze, the palmarès | Done |
+| Season calendar — the `Seasons` table, `season-init`, a weekly calendar that can be built from declared dates before a single game is imported | Done |
 | Interactive live draft — steal rounds then rookie rounds, one room, asynchronous, no pick clock | Done |
 | Off-season protections — `ProtectionSlots`, the autofill default, the public protection slates | **Written, but no GM-facing screen.** See below. |
 | Cap and roster-size enforcement | **Partial.** The cap is enforced on trades and on draft picks. `RosterMin`/`RosterMax` are enforced on trades only — `DraftRules.ValidateSelection` deliberately passes both as null (`DraftRules.cs:54`), because `PreSeason` exists to repair a roster that came out of a draft off-bounds. No other path changes a roster. |

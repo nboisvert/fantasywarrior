@@ -1,6 +1,7 @@
 using FantasyWarrior.Core.Seasons;
 using FantasyWarrior.Core.Time;
 using FantasyWarrior.Data;
+using FantasyWarrior.Data.Seasons;
 using FantasyWarrior.Jobs.CapWages;
 using FantasyWarrior.Jobs.News;
 using FantasyWarrior.Jobs.Nhl;
@@ -40,9 +41,18 @@ using FantasyWarrior.Jobs.Sql;
 //   news-sync [--rotowire-url <u>] [--rotowire-injuries-url <u>] [--fantasysp-url <u>]
 //
 // --- calendar and scoring ---
+//   season-init [--season 20262027 --start YYYY-MM-DD --end YYYY-MM-DD]
+//               [--playoff-start] [--playoff-end] [--dry-run]
+//     Declares an NHL season's dates, from the schedule the NHL publishes. With
+//     no --season it lists what is declared. This is what lets period-init build
+//     next season's calendar before a single game has been synced, and what
+//     every job's --season default resolves against.
 //   period-init [--season 20252026] [--dry-run]
-//     The weekly calendar, derived from the games we hold. Append-only:
-//     moving a boundary would restate points teams already own.
+//     The weekly calendar, over the declared dates and the games we hold
+//     reconciled (SeasonBounds). Boundaries are append-only — moving one would
+//     restate points teams already own — but GameCount is refreshed on weeks
+//     that are not finalized, so a calendar built before the schedule arrived
+//     stops reading as a season of break weeks.
 //   nightly [--dry-run] [--backfill-from N]
 //     THE nightly entry point, and the only place the correct order lives:
 //     score the current week -> bank finished weeks -> execute accepted
@@ -113,7 +123,12 @@ static string? GetOption(string[] args, string name)
     return index >= 0 && index + 1 < args.Length ? args[index + 1] : null;
 }
 
-static string CurrentSeason() => Season.CurrentOn(DateOnly.FromDateTime(DateTime.UtcNow));
+// Which season a job means when it is not told. The declared calendar answers
+// it when we have one; Season.CurrentOn — a hardcoded September cutover — stays
+// as the documented fallback for an empty Seasons table rather than remaining
+// the default answer it used to be.
+static async Task<string> CurrentSeasonAsync(FantasyWarriorDbContext db) =>
+    await SeasonLookup.CurrentOrGuessAsync(db, DateOnly.FromDateTime(DateTime.UtcNow));
 
 // An identifiable User-Agent, per the vendor guide — never a browser's, since
 // the point is that these sites can see who is calling.
@@ -145,7 +160,7 @@ switch (job)
         using var http = NewHttp();
         await using var db = DataServiceCollectionExtensions.CreateContext();
         return await new PlayerSyncJob(new NhlApiClient(http), db)
-            .RunAsync(GetOption(args, "--season") ?? CurrentSeason(), dryRun);
+            .RunAsync(GetOption(args, "--season") ?? await CurrentSeasonAsync(db), dryRun);
     }
 
     case "stats-sync":
@@ -217,10 +232,22 @@ switch (job)
         ]);
     }
 
+    case "season-init":
+    {
+        await using var db = DataServiceCollectionExtensions.CreateContext();
+        return await new SeasonInitJob(db).RunAsync(
+            GetOption(args, "--season"),
+            GetOption(args, "--start"),
+            GetOption(args, "--end"),
+            GetOption(args, "--playoff-start"),
+            GetOption(args, "--playoff-end"),
+            dryRun);
+    }
+
     case "period-init":
     {
         await using var db = DataServiceCollectionExtensions.CreateContext();
-        return await new PeriodInitJob(db).RunAsync(GetOption(args, "--season") ?? CurrentSeason(), dryRun);
+        return await new PeriodInitJob(db).RunAsync(GetOption(args, "--season") ?? await CurrentSeasonAsync(db), dryRun);
     }
 
     case "draft-picks-init":
@@ -228,7 +255,7 @@ switch (job)
         await using var db = DataServiceCollectionExtensions.CreateContext();
         // Year defaults to the season after the current one: picks are always
         // generated one year ahead, never for the season being played.
-        var defaultYear = Season.StartYear(CurrentSeason()) + 1;
+        var defaultYear = Season.StartYear(await CurrentSeasonAsync(db)) + 1;
         return await new DraftPicksInitJob(db).RunAsync(
             GetOption(args, "--league"),
             int.TryParse(GetOption(args, "--year"), out var draftYear) ? draftYear : defaultYear,
@@ -270,7 +297,7 @@ switch (job)
         await using var db = DataServiceCollectionExtensions.CreateContext();
         return await new SeedMordusJob(db).RunAsync(
             file: GetOption(args, "--file") ?? "data/mordus-rosters.json",
-            season: GetOption(args, "--season") ?? CurrentSeason(),
+            season: GetOption(args, "--season") ?? await CurrentSeasonAsync(db),
             commissioner: GetOption(args, "--commissioner") ?? "nick",
             // The league's real cap (Nick, 2026-08-05). It was seeded at
             // $115M — the NHL's own number — which is not the rule the Mordus
@@ -313,7 +340,7 @@ switch (job)
             return 0;
         }
         if (GetOption(args, "--set") is { } set)
-            await clock.SetAsync(DateOnly.Parse(set), GetOption(args, "--season") ?? CurrentSeason());
+            await clock.SetAsync(DateOnly.Parse(set), GetOption(args, "--season") ?? await CurrentSeasonAsync(db));
         var state = await clock.StateAsync();
         Console.WriteLine(state is null
             ? "No simulation running — real clock."

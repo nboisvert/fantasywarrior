@@ -4,6 +4,39 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace FantasyWarrior.Data.Configurations;
 
+public sealed class NhlSeasonConfiguration : IEntityTypeConfiguration<NhlSeason>
+{
+    public void Configure(EntityTypeBuilder<NhlSeason> b)
+    {
+        b.ToTable("Seasons");
+        // The NHL's own identifier, the same argument that keeps Player.PlayerId
+        // the NHL's id: a surrogate key here would only add a second name for
+        // the value every other table already stores.
+        b.HasKey(x => x.Season);
+        b.Property(x => x.Season).HasMaxLength(8).IsFixedLength().IsUnicode(false).ValueGeneratedNever();
+
+        // Deliberately no foreign key from Games, Periods, PlayerGameStats,
+        // PlayerContracts, Leagues or LeagueSeasons: the season string is
+        // already the join value on all of them, and a constraint on 51k stat
+        // rows would guarantee nothing new while forcing an insert order on
+        // every sync job. See NhlSeason.
+
+        // The season already played and banked. Seeded rather than left to a
+        // manual `season-init` so a fresh database is immediately consistent
+        // with the 51k game lines it is about to receive: these are the dates
+        // the imported Games already describe, so declared and observed agree
+        // and period-init's behaviour is unchanged. Playoff dates stay null —
+        // nothing scores playoffs, and inventing them would be recording a
+        // guess as a published fact.
+        b.HasData(new NhlSeason
+        {
+            Season = "20252026",
+            RegularSeasonStart = new DateOnly(2025, 10, 7),
+            RegularSeasonEnd = new DateOnly(2026, 4, 16),
+        });
+    }
+}
+
 public sealed class PeriodConfiguration : IEntityTypeConfiguration<Period>
 {
     public void Configure(EntityTypeBuilder<Period> b)
