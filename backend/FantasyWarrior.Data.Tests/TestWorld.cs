@@ -1,3 +1,5 @@
+using FantasyWarrior.Core.Rules;
+using FantasyWarrior.Core.Seasons;
 using FantasyWarrior.Data.Entities;
 
 namespace FantasyWarrior.Data.Tests;
@@ -15,6 +17,15 @@ public sealed class TestWorld(FantasyWarriorDbContext db)
     private static int _counter;
 
     public League League { get; private set; } = null!;
+
+    /// <summary>
+    /// The season row, and with it the rules. Every league needs one: rules live
+    /// here now, and every consumer refuses a league that has none.
+    /// </summary>
+    public LeagueSeason Season { get; private set; } = null!;
+
+    /// <summary>Shortcut to <see cref="Season"/>.Rules -- what a test edits.</summary>
+    public RuleSet Rules => Season.Rules;
 
     public List<Team> Teams { get; } = [];
 
@@ -41,13 +52,24 @@ public sealed class TestWorld(FantasyWarriorDbContext db)
             Season = season,
             JoinCode = JoinCodes.New(),
             CommissionerUserId = commissioner.UserId,
-            CapAmount = 100_000_000,
-            ActiveForwards = 2,
-            ActiveDefense = 1,
-            ActiveGoalies = 1,
             CreatedUtc = now,
         };
         db.Leagues.Add(League);
+        await db.SaveChangesAsync();
+
+        var rules = RuleSetDefaults.ForNewLeague();
+        rules.Cap.Max = 100_000_000;
+        rules.Lineup.Slots = new PositionCounts { Forwards = 2, Defense = 1, Goalies = 1 };
+        Season = new LeagueSeason
+        {
+            LeagueId = League.LeagueId,
+            Season = season,
+            Number = 1,
+            Phase = LeagueSeasonPhase.InSeason,
+            Rules = rules,
+            StartedUtc = now,
+        };
+        db.LeagueSeasons.Add(Season);
         await db.SaveChangesAsync();
 
         for (var i = 0; i < teams; i++)

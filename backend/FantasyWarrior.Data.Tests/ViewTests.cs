@@ -219,7 +219,7 @@ public class ViewTests
         await using var db = SqlFixture.NewContext();
         var world = await new TestWorld(db).CreateAsync();
 
-        world.League.DefaultCapHit = 2_500_000;
+        world.Rules.Cap.DefaultCapHit = 2_500_000;
         await db.SaveChangesAsync();
 
         await world.AddSpotAsync(world.Teams[0], await world.AddPlayerAsync("C", capHit: 9_000_000));
@@ -239,7 +239,7 @@ public class ViewTests
 
         // The behaviour every league had before 2026-08-05, still reachable —
         // as a rule now, not as an assumption baked into the view.
-        world.League.DefaultCapHit = 0;
+        world.Rules.Cap.DefaultCapHit = 0;
         await db.SaveChangesAsync();
 
         await world.AddSpotAsync(world.Teams[0], await world.AddPlayerAsync("C", capHit: 9_000_000));

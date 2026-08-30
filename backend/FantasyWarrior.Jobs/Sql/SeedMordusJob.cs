@@ -142,18 +142,6 @@ public sealed class SeedMordusJob(FantasyWarriorDbContext db)
             Season = season,
             JoinCode = await UniqueJoinCodeAsync(ct),
             CommissionerUserId = commissionerUser.UserId,
-            CapAmount = capAmount,
-            RosterMin = 23,
-            RosterMax = 35,
-            // Three rounds a year, Les Mordus' own rule. It used to be set by
-            // hand through the rules PATCH after a seed, which meant every
-            // wipe-and-reseed silently produced a league with no draft — and
-            // `draft-picks-init` reads this, so it generated nothing and the
-            // trade sheet lost its Draft picks section without a word.
-            DraftRounds = 3,
-            ActiveForwards = data.ActiveSlots.Forwards,
-            ActiveDefense = data.ActiveSlots.Defense,
-            ActiveGoalies = data.ActiveSlots.Goalies,
             CreatedUtc = now,
         };
         db.Leagues.Add(league);

@@ -22,6 +22,22 @@ public class RuleSetStorageTests
         return (db, world);
     }
 
+    /// <summary>
+    /// Reshapes the world's own season row rather than adding a second one:
+    /// TestWorld already creates one, and (LeagueId, Number) is unique.
+    /// </summary>
+    private static async Task<LeagueSeason> SetSeasonAsync(
+        FantasyWarriorDbContext db, TestWorld world, int number,
+        LeagueSeasonPhase phase, RuleSet rules)
+    {
+        world.Season.Number = number;
+        world.Season.Phase = phase;
+        world.Season.Rules = rules;
+        await db.SaveChangesAsync();
+        return world.Season;
+    }
+
+    /// <summary>A second row, for the season being prepared.</summary>
     private static async Task<LeagueSeason> AddSeasonAsync(
         FantasyWarriorDbContext db, int leagueId, string season, int number,
         LeagueSeasonPhase phase, RuleSet? rules = null)
@@ -46,9 +62,7 @@ public class RuleSetStorageTests
         var (db, world) = await WorldAsync();
         await using var _ = db;
 
-        var row = await AddSeasonAsync(
-            db, world.League.LeagueId, world.League.Season, 1,
-            LeagueSeasonPhase.InSeason, MordusRules());
+        var row = await SetSeasonAsync(db, world, 1, LeagueSeasonPhase.InSeason, MordusRules());
 
         db.ChangeTracker.Clear();
         var read = await db.LeagueSeasons.AsNoTracking()
@@ -71,9 +85,7 @@ public class RuleSetStorageTests
         var (db, world) = await WorldAsync();
         await using var _ = db;
 
-        var row = await AddSeasonAsync(
-            db, world.League.LeagueId, world.League.Season, 1,
-            LeagueSeasonPhase.InSeason, MordusRules());
+        var row = await SetSeasonAsync(db, world, 1, LeagueSeasonPhase.InSeason, MordusRules());
 
         row.Rules.Protection.Slots = 11;
         row.Rules.Scoring.Values[StatKeys.Hits] = 0.5;
@@ -95,8 +107,7 @@ public class RuleSetStorageTests
         var (db, world) = await WorldAsync();
         await using var _ = db;
 
-        var row = await AddSeasonAsync(
-            db, world.League.LeagueId, world.League.Season, 1, LeagueSeasonPhase.InSeason);
+        var row = world.Season;
         await db.Database.ExecuteSqlAsync(
             $"UPDATE LeagueSeasons SET Rules = '{{}}' WHERE LeagueSeasonId = {row.LeagueSeasonId}");
 
@@ -116,8 +127,7 @@ public class RuleSetStorageTests
         var (db, world) = await WorldAsync();
         await using var _ = db;
 
-        var row = await AddSeasonAsync(
-            db, world.League.LeagueId, world.League.Season, 1, LeagueSeasonPhase.InSeason);
+        var row = world.Season;
         await db.Database.ExecuteSqlAsync(
             $"UPDATE LeagueSeasons SET Rules = '{{}}' WHERE LeagueSeasonId = {row.LeagueSeasonId}");
         db.ChangeTracker.Clear();
@@ -142,8 +152,7 @@ public class RuleSetStorageTests
         preparing.Protection.Slots = 12;
         preparing.Scoring.Values[StatKeys.Goals] = 3;
 
-        await AddSeasonAsync(
-            db, world.League.LeagueId, world.League.Season, 3, LeagueSeasonPhase.Complete, played);
+        await SetSeasonAsync(db, world, 3, LeagueSeasonPhase.Complete, played);
         await AddSeasonAsync(
             db, world.League.LeagueId, Season.Next(world.League.Season), 4,
             LeagueSeasonPhase.Protecting, preparing);
@@ -168,8 +177,7 @@ public class RuleSetStorageTests
 
         var old = MordusRules();
         old.Cap.Max = 115_000_000;
-        await AddSeasonAsync(
-            db, world.League.LeagueId, world.League.Season, 3, LeagueSeasonPhase.Complete, old);
+        await SetSeasonAsync(db, world, 3, LeagueSeasonPhase.Complete, old);
         await AddSeasonAsync(
             db, world.League.LeagueId, Season.Next(world.League.Season), 4,
             LeagueSeasonPhase.InSeason, MordusRules());
@@ -189,8 +197,7 @@ public class RuleSetStorageTests
         var (db, world) = await WorldAsync();
         await using var _ = db;
 
-        await AddSeasonAsync(
-            db, world.League.LeagueId, world.League.Season, 3, LeagueSeasonPhase.Complete, MordusRules());
+        await SetSeasonAsync(db, world, 3, LeagueSeasonPhase.Complete, MordusRules());
         var preparing = await AddSeasonAsync(
             db, world.League.LeagueId, Season.Next(world.League.Season), 4,
             LeagueSeasonPhase.Protecting, MordusRules());
@@ -216,8 +223,7 @@ public class RuleSetStorageTests
         var (db, world) = await WorldAsync();
         await using var _ = db;
 
-        await AddSeasonAsync(
-            db, world.League.LeagueId, world.League.Season, 3, LeagueSeasonPhase.Complete, MordusRules());
+        await SetSeasonAsync(db, world, 3, LeagueSeasonPhase.Complete, MordusRules());
         db.ChangeTracker.Clear();
 
         var error = await Assert.ThrowsAsync<RuleSetUnavailableException>(

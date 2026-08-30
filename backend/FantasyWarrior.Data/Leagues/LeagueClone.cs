@@ -56,33 +56,15 @@ public static class LeagueClone
             Season = source.Season,
             JoinCode = await UniqueJoinCodeAsync(db, ct),
             CommissionerUserId = source.CommissionerUserId,
-            CapAmount = source.CapAmount,
-            DefaultCapHit = source.DefaultCapHit,
-            RosterMin = source.RosterMin,
-            RosterMax = source.RosterMax,
-            DraftRounds = source.DraftRounds,
-            ProtectionSlots = source.ProtectionSlots,
-            StealRounds = source.StealRounds,
-            MaxLossesPerTeam = source.MaxLossesPerTeam,
-            ActiveForwards = source.ActiveForwards,
-            ActiveDefense = source.ActiveDefense,
-            ActiveGoalies = source.ActiveGoalies,
             CreatedUtc = now,
         };
         db.Leagues.Add(league);
         await db.SaveChangesAsync(ct);
 
-        var rules = await db.LeagueScoringRules
-            .AsNoTracking()
-            .Where(r => r.LeagueId == source.LeagueId)
-            .ToListAsync(ct);
-        foreach (var rule in rules)
-            db.LeagueScoringRules.Add(new LeagueScoringRule
-            {
-                LeagueId = league.LeagueId,
-                StatKey = rule.StatKey,
-                PointValue = rule.PointValue,
-            });
+        // The rules are not copied here: they live on a LeagueSeason, and
+        // which season the copy prepares is the caller's decision -- CloneLeagueJob
+        // writes the document onto the row it creates, with its own overrides
+        // applied.
 
         var sourceTeams = await db.Teams
             .AsNoTracking()

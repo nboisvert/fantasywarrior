@@ -16,18 +16,15 @@ public class LeagueCloneTests
     private static readonly DateOnly Today = new(2025, 12, 23);
 
     [SqlFact]
-    public async Task Copies_RulesTeamsAndOpenSpots()
+    public async Task Copies_TeamsAndOpenSpots_ButNotTheRules()
     {
         await using var db = SqlFixture.NewContext();
         var world = await new TestWorld(db).CreateAsync();
 
-        db.LeagueScoringRules.Add(new LeagueScoringRule
-        {
-            LeagueId = world.League.LeagueId, StatKey = "goals", PointValue = 3,
-        });
-        world.League.ProtectionSlots = 9;
-        world.League.StealRounds = 2;
-        world.League.MaxLossesPerTeam = 2;
+        world.Rules.Scoring.Values["goals"] = 3;
+        world.Rules.Protection.Slots = 9;
+        world.Rules.Draft.Steal.Rounds = 2;
+        world.Rules.Draft.Steal.MaxLossesPerTeam = 2;
         await db.SaveChangesAsync();
 
         var held = await world.AddPlayerAsync();
@@ -41,17 +38,13 @@ public class LeagueCloneTests
         Assert.Equal(1, clone.FranchiseSpots);
         Assert.NotEqual(world.League.JoinCode, clone.League.JoinCode);
 
-        // The rules a draft reads, carried over — without them the copy would
-        // price protections and steals differently from the league it came from.
-        Assert.Equal(9, clone.League.ProtectionSlots);
-        Assert.Equal(2, clone.League.StealRounds);
-        Assert.Equal(2, clone.League.MaxLossesPerTeam);
-        Assert.Equal(world.League.CapAmount, clone.League.CapAmount);
-
-        var scale = await db.LeagueScoringRules
-            .Where(r => r.LeagueId == clone.League.LeagueId)
-            .ToDictionaryAsync(r => r.StatKey, r => r.PointValue);
-        Assert.Equal(3, scale["goals"]);
+        // **The rules are deliberately NOT copied here.** They live on a
+        // LeagueSeason, and which season the copy prepares is a decision only
+        // the caller can make -- CloneLeagueJob writes the document onto the row
+        // it creates, with its own overrides applied. A copy that carried a
+        // season row would also break the "one open season per league" index
+        // the moment the job added its own.
+        Assert.Empty(await db.LeagueSeasons.Where(s => s.LeagueId == clone.League.LeagueId).ToListAsync());
 
         var teams = await db.Teams.Where(t => t.LeagueId == clone.League.LeagueId).ToListAsync();
         Assert.Equal(2, teams.Count);

@@ -186,21 +186,6 @@ public sealed class LeagueMemberConfiguration : IEntityTypeConfiguration<LeagueM
     }
 }
 
-public sealed class LeagueScoringRuleConfiguration : IEntityTypeConfiguration<LeagueScoringRule>
-{
-    public void Configure(EntityTypeBuilder<LeagueScoringRule> b)
-    {
-        b.ToTable("LeagueScoringRules");
-        b.HasKey(x => new { x.LeagueId, x.StatKey });
-        b.Property(x => x.StatKey).HasMaxLength(20).IsUnicode(false).IsRequired();
-
-        b.HasOne(x => x.League)
-            .WithMany(l => l!.ScoringRules)
-            .HasForeignKey(x => x.LeagueId)
-            .OnDelete(DeleteBehavior.Cascade);
-    }
-}
-
 public sealed class TeamConfiguration : IEntityTypeConfiguration<Team>
 {
     public void Configure(EntityTypeBuilder<Team> b)

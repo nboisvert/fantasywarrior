@@ -40,6 +40,10 @@ public static class LeagueEndpoints
         app.MapGet("/api/users/{username}/leagues", async (string username, FantasyWarriorDbContext db) =>
         {
             var normalized = Queries.Normalize(username);
+            // The cap comes off the season being scored, not off the league —
+            // it is a rule, and rules have a season. Resolved in memory because
+            // the rules are one JSON document behind a value converter, and
+            // "my leagues" is a handful of rows however many pools someone is in.
             var rows = await db.LeagueMembers
                 .Where(m => m.User!.Username == normalized)
                 .Select(m => new
@@ -47,11 +51,22 @@ public static class LeagueEndpoints
                     id = m.League!.JoinCode,
                     m.League.Name,
                     m.League.Season,
-                    m.League.CapAmount,
+                    Rules = m.League.Seasons
+                        .Where(s => s.Season == m.League.Season)
+                        .Select(s => s.Rules)
+                        .FirstOrDefault(),
                     members = m.League.Members.Count,
                 })
                 .ToListAsync();
-            return Results.Ok(rows);
+
+            return Results.Ok(rows.Select(r => new
+            {
+                r.id,
+                r.Name,
+                r.Season,
+                capAmount = r.Rules?.Cap.Max,
+                r.members,
+            }));
         });
 
         // The declared NHL calendar, newest first — what a league-creation
@@ -114,23 +129,13 @@ public static class LeagueEndpoints
                 Season = season,
                 JoinCode = await UniqueCodeAsync(db),
                 CommissionerUserId = user.UserId,
-                CapAmount = req.CapAmount,
-                // Defaults matching what a new Firestore league used to get.
-                ActiveForwards = 0, ActiveDefense = 0, ActiveGoalies = 0,
                 CreatedUtc = now,
             };
             db.Leagues.Add(league);
             await db.SaveChangesAsync();
 
-            foreach (var (key, value) in new (string, double)[]
-                     {
-                         (StatKeys.Goals, 1), (StatKeys.Assists, 1),
-                         (StatKeys.Wins, 2), (StatKeys.OtLosses, 1), (StatKeys.Shutouts, 0),
-                     })
-                db.LeagueScoringRules.Add(new LeagueScoringRule
-                {
-                    LeagueId = league.LeagueId, StatKey = key, PointValue = value,
-                });
+            var rules = RuleSetDefaults.ForNewLeague();
+            rules.Cap.Max = req.CapAmount;
 
             // Its first season, opened here rather than by a separate command.
             // A league with no LeagueSeason row has nowhere to keep its rules,
@@ -142,7 +147,7 @@ public static class LeagueEndpoints
                 Season = season,
                 Number = 1,
                 Phase = LeagueSeasonPhase.Preparing,
-                Rules = RuleSetDefaults.ForNewLeague(),
+                Rules = rules,
                 StartedUtc = now,
             });
 

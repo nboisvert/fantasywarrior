@@ -17,20 +17,18 @@ namespace FantasyWarrior.Data.Tests;
 [Collection(SqlCollection.Name)]
 public class DraftSelectionConstraintTests
 {
+    /// <summary>
+    /// The world's own season, moved into Drafting. Reshaped rather than added
+    /// alongside: a league plays each NHL season once (unique on LeagueId,
+    /// Season) and only one of its rows is ever not Complete.
+    /// </summary>
     private static async Task<LeagueSeason> SeasonAsync(
         FantasyWarriorDbContext db, TestWorld world, int number = 2)
     {
-        var season = new LeagueSeason
-        {
-            LeagueId = world.League.LeagueId,
-            Season = world.League.Season,
-            Number = number,
-            Phase = LeagueSeasonPhase.Drafting,
-            StartedUtc = DateTime.UtcNow,
-        };
-        db.LeagueSeasons.Add(season);
+        world.Season.Number = number;
+        world.Season.Phase = LeagueSeasonPhase.Drafting;
         await db.SaveChangesAsync();
-        return season;
+        return world.Season;
     }
 
     private static DraftSelection Steal(
@@ -186,7 +184,7 @@ public class DraftSelectionConstraintTests
             // A league season is unique on its NHL season too, which is the
             // point: a league plays each one once.
             Season = Season.Previous(world.League.Season),
-            Number = 1,
+            Number = 0,
             Phase = LeagueSeasonPhase.Complete,
             StartedUtc = DateTime.UtcNow,
         };

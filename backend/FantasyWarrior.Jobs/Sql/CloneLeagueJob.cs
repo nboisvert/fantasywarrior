@@ -167,7 +167,7 @@ public sealed class CloneLeagueJob(FantasyWarriorDbContext db)
         db.LeagueSeasons.Add(leagueSeason);
         await db.SaveChangesAsync(ct);
 
-        var picks = await CreatePicksAsync(clone, year, ct);
+        var picks = await CreatePicksAsync(clone, year, cloneRules.Draft.RookieRounds ?? 0, ct);
         Console.WriteLine($"  {picks.Count} draft picks for {year}.");
 
         if (!drafting)
@@ -202,7 +202,7 @@ public sealed class CloneLeagueJob(FantasyWarriorDbContext db)
     private static string Show(int? value) => value?.ToString() ?? "not set";
 
     private async Task<List<DraftPick>> CreatePicksAsync(
-        LeagueCloneResult clone, int year, CancellationToken ct)
+        LeagueCloneResult clone, int year, int rounds, CancellationToken ct)
     {
         var now = DateTime.UtcNow;
         var picks = new List<DraftPick>();
@@ -211,7 +211,7 @@ public sealed class CloneLeagueJob(FantasyWarriorDbContext db)
         // had traded some away: a pick's value is tied to the season it drafts
         // for, and this copy drafts for one the source never traded against.
         foreach (var teamId in clone.TeamIdBySourceTeamId.Values)
-            for (var round = 1; round <= clone.League.DraftRounds; round++)
+            for (var round = 1; round <= rounds; round++)
                 picks.Add(new DraftPick
                 {
                     LeagueId = clone.League.LeagueId,

@@ -83,12 +83,6 @@ using FantasyWarrior.Jobs.Sql;
 //     unambiguous — the rest is reported, never guessed.
 //
 // --- league setup ---
-//   rules-backfill [--league <joinCode>] [--force] [--dry-run]
-//     Writes every LeagueSeason's rules document from the columns that used to
-//     hold them. Run once after the migration that adds the column: until it
-//     has, a league's rules read as "never written" and every consumer refuses
-//     rather than serving a configuration nobody chose. Only fills blanks;
-//     --force overwrites documents already written.
 //   seed-mordus [--file data/mordus-rosters.json] [--season] [--commissioner]
 //               [--cap] [--dry-run] [--no-opening-lineup]
 //     Creates "Les Mordus" from the rosters imported out of Nick's PoolExpert
@@ -236,13 +230,6 @@ switch (job)
             new NewsSource("rotowire_html", ct => rotowire.GetInjuryItemsAsync(rotoInj, ct), HasReliablePublishedDate: true, IsInjuryList: true),
             new NewsSource("fantasysp", ct => fantasySp.GetInjuryItemsAsync(fspUrl, ct), HasReliablePublishedDate: false, IsInjuryList: true),
         ]);
-    }
-
-    case "rules-backfill":
-    {
-        await using var db = DataServiceCollectionExtensions.CreateContext();
-        return await new RulesBackfillJob(db).RunAsync(
-            GetOption(args, "--league"), args.Contains("--force"), dryRun);
     }
 
     case "season-init":

@@ -34,7 +34,7 @@ public sealed class WipePoolsJob(FantasyWarriorDbContext db)
             ("DraftPicks", await db.DraftPicks.CountAsync(ct)),
             ("RosterSpots", await db.RosterSpots.CountAsync(ct)),
             ("Teams", await db.Teams.CountAsync(ct)),
-            ("LeagueScoringRules", await db.LeagueScoringRules.CountAsync(ct)),
+            ("LeagueSeasons", await db.LeagueSeasons.CountAsync(ct)),
             ("LeagueMembers", await db.LeagueMembers.CountAsync(ct)),
             ("Leagues", await db.Leagues.CountAsync(ct)),
             ("Users", await db.Users.CountAsync(ct)),
@@ -78,7 +78,7 @@ public sealed class WipePoolsJob(FantasyWarriorDbContext db)
             await db.TeamPeriodLineups.ExecuteDeleteAsync(ct);
             await db.Trades.ExecuteDeleteAsync(ct);
             await db.DraftPicks.ExecuteDeleteAsync(ct);
-            await db.LeagueScoringRules.ExecuteDeleteAsync(ct);
+            await db.LeagueSeasons.ExecuteDeleteAsync(ct);
             await db.LeagueMembers.ExecuteDeleteAsync(ct);
             await db.Teams.ExecuteDeleteAsync(ct);
             await db.Leagues.ExecuteDeleteAsync(ct);

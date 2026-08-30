@@ -46,7 +46,6 @@ public sealed class FantasyWarriorDbContext(DbContextOptions<FantasyWarriorDbCon
     public DbSet<User> Users => Set<User>();
     public DbSet<League> Leagues => Set<League>();
     public DbSet<LeagueMember> LeagueMembers => Set<LeagueMember>();
-    public DbSet<LeagueScoringRule> LeagueScoringRules => Set<LeagueScoringRule>();
     public DbSet<Team> Teams => Set<Team>();
     public DbSet<RosterSpot> RosterSpots => Set<RosterSpot>();
     public DbSet<RosterAssignment> RosterAssignments => Set<RosterAssignment>();
