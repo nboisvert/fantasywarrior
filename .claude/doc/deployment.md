@@ -228,28 +228,33 @@ this is the map. Almost every job takes `--dry-run` — use it.
 
 ### Moving a live database onto the rules document
 
-A database that predates `LeagueSeasons.Rules` needs **two deploys**, in this
-order. It is not optional and the schema enforces it: `DropLegacyLeagueRules`
-refuses to apply while any season still holds the `'{}'` default, because after
-it the columns the conversion reads are gone.
+A database that predates `LeagueSeasons.Rules` is converted by `rules-backfill`,
+which lives on commit **`2db7f52`** and no later: it reads the columns that
+`DropLegacyLeagueRules` removes, so it went with them. The schema enforces the
+order rather than trusting anyone to remember it — that migration **refuses to
+apply** while any season still holds the `'{}'` default, and says so.
 
-1. Deploy **`2db7f52`** (*Every consumer reads the season's rules…*), then, in one
-   sitting:
-   ```powershell
-   dotnet run --project backend/FantasyWarrior.Jobs -- db-migrate
-   dotnet run --project backend/FantasyWarrior.Jobs -- rules-backfill --dry-run
-   dotnet run --project backend/FantasyWarrior.Jobs -- rules-backfill
-   ```
-   Between the migration and the backfill every league's rules read as "never
-   written" and the app refuses to trade, score or draft — seconds, not hours, so
-   run the two together.
-2. Deploy **`4653b13`** (*Delete the old home…*) and `db-migrate` again. The
-   guard passes, the columns and `LeagueScoringRules` go, and `vStandings` is
-   rebuilt reading `cap.defaultCapHit` out of the document.
+**Run it all locally against production before pushing**, which is how every
+migration here is applied anyway:
 
-A **fresh** database skips all of this: `seed-mordus` and league creation both
-write the document as they build the season, and `rules-backfill` no longer
-exists after step 2 — it went with the columns it read.
+```powershell
+git checkout 2db7f52          # the last commit that still has rules-backfill
+dotnet run --project backend/FantasyWarrior.Jobs -- db-migrate          # adds the column
+dotnet run --project backend/FantasyWarrior.Jobs -- rules-backfill --dry-run
+dotnet run --project backend/FantasyWarrior.Jobs -- rules-backfill
+
+git checkout main
+dotnet run --project backend/FantasyWarrior.Jobs -- db-migrate          # guard passes; drops the old home
+```
+
+Adding the column is backward-compatible, so the **currently deployed** API keeps
+serving throughout — nothing is down at any point. Push only once the last
+`db-migrate` is green: a deploy ahead of the conversion would put an API that
+reads the document in front of a database that has none, and every league read
+refuses.
+
+A **fresh** database skips all of this. `seed-mordus` and league creation both
+write the document as they build the season.
 
 Once converted, Les Mordus' three off-season numbers are entered from the rules
 panel like any other rule.
