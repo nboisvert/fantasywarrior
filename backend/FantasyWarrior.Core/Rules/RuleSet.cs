@@ -299,13 +299,24 @@ public sealed class ProtectionConfig
 /// </summary>
 public sealed class AutoProtectConfig
 {
+    /// <summary>Les Mordus' bar, and the one every league started from when it was a constant.</summary>
+    public const int DefaultSkaterMaxCareerGames = 100;
+
+    /// <inheritdoc cref="DefaultSkaterMaxCareerGames"/>
+    public const int DefaultGoalieMaxCareerGames = 50;
+
+    /// <summary>False exposes everyone the GM has not spent a slot on, however green.</summary>
     public bool Enabled { get; set; } = true;
 
     /// <summary>A forward or defenceman at or under this many career NHL games cannot be drafted away.</summary>
-    public int SkaterMaxCareerGames { get; set; } = 100;
+    public int SkaterMaxCareerGames { get; set; } = DefaultSkaterMaxCareerGames;
 
     /// <summary>A goalie at or under this many career NHL games cannot be drafted away.</summary>
-    public int GoalieMaxCareerGames { get; set; } = 50;
+    public int GoalieMaxCareerGames { get; set; } = DefaultGoalieMaxCareerGames;
+
+    /// <summary>The bar this position group is measured against.</summary>
+    public int BarFor(string positionGroup) =>
+        positionGroup == "G" ? GoalieMaxCareerGames : SkaterMaxCareerGames;
 }
 
 /// <summary>Where an unclaimed exposed player ends up once the draft closes.</summary>

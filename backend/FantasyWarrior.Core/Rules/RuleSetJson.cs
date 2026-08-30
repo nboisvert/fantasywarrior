@@ -47,4 +47,12 @@ public static class RuleSetJson
         string.IsNullOrWhiteSpace(json)
             ? new RuleSet()
             : JsonSerializer.Deserialize<RuleSet>(json, Options) ?? new RuleSet();
+
+    /// <summary>
+    /// An independent copy. Two <c>LeagueSeason</c> rows must never share one
+    /// graph: a later edit to either would silently change the other, and the
+    /// whole point of storing rules per season is that a season's rules stop
+    /// moving once it is played.
+    /// </summary>
+    public static RuleSet Copy(RuleSet rules) => Deserialize(Serialize(rules));
 }

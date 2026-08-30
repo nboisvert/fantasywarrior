@@ -1,3 +1,5 @@
+using FantasyWarrior.Core.Rules;
+
 namespace FantasyWarrior.Core.Drafts;
 
 /// <summary>
@@ -51,15 +53,21 @@ public static class ProtectionAutofill
     /// every time the commissioner pressed the button.
     /// </summary>
     /// <param name="slots">
-    /// <c>League.ProtectionSlots</c>. Zero protects nobody, which is a real
-    /// configuration and not an error.
+    /// The league's <c>protection.slots</c>. Zero protects nobody, which is a
+    /// real configuration and not an error.
     /// </param>
-    public static IReadOnlyList<int> Choose(IEnumerable<ProtectionCandidate> candidates, int slots)
+    /// <param name="auto">
+    /// The league's auto-protection bars. A slot spent on someone the draft
+    /// already cannot take is a slot wasted, and it would expose the veteran it
+    /// should have covered — so these decide who is even a candidate.
+    /// </param>
+    public static IReadOnlyList<int> Choose(
+        IEnumerable<ProtectionCandidate> candidates, int slots, AutoProtectConfig auto)
     {
         if (slots <= 0) return [];
 
         return candidates
-            .Where(NeedsASlot)
+            .Where(c => NeedsASlot(c, auto))
             .GroupBy(c => c.TeamId)
             .SelectMany(team => team
                 .OrderByDescending(c => c.Points)
@@ -73,10 +81,10 @@ public static class ProtectionAutofill
     /// Is this man exposed unless a slot is spent on him? False for everyone the
     /// draft already cannot touch.
     /// </summary>
-    public static bool NeedsASlot(ProtectionCandidate c) =>
+    public static bool NeedsASlot(ProtectionCandidate c, AutoProtectConfig auto) =>
         // A franchise may only ever move against another franchise, so the draft
         // has no way to take one — DraftPool says the same thing first.
         c.PositionGroup != "T"
         && c.CareerNhlGames is { } games
-        && !ProtectionRules.IsAutoProtected(c.PositionGroup, games);
+        && !ProtectionRules.IsAutoProtected(c.PositionGroup, games, auto);
 }

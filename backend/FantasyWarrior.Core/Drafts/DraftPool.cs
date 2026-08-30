@@ -1,3 +1,5 @@
+using FantasyWarrior.Core.Rules;
+
 namespace FantasyWarrior.Core.Drafts;
 
 /// <summary>
@@ -54,7 +56,8 @@ public static class DraftPool
     /// never told "no" without being told why.
     /// </summary>
     public static string? IneligibleReason(
-        DraftCandidate candidate, DraftSegment segment, int pickingTeamId, int? maxLossesPerTeam)
+        DraftCandidate candidate, DraftSegment segment, int pickingTeamId, int? maxLossesPerTeam,
+        AutoProtectConfig auto)
     {
         // The Équipe slot holds a franchise, not a player. It may only ever move
         // against another franchise (see TradeRules.ValidateFranchiseBalance),
@@ -71,13 +74,14 @@ public static class DraftPool
 
         return segment switch
         {
-            DraftSegment.Steal => StealReason(candidate, pickingTeamId, maxLossesPerTeam),
+            DraftSegment.Steal => StealReason(candidate, pickingTeamId, maxLossesPerTeam, auto),
             DraftSegment.Rookie => RookieReason(candidate),
             _ => "Unknown draft segment.",
         };
     }
 
-    private static string? StealReason(DraftCandidate c, int pickingTeamId, int? maxLossesPerTeam)
+    private static string? StealReason(
+        DraftCandidate c, int pickingTeamId, int? maxLossesPerTeam, AutoProtectConfig auto)
     {
         if (c.OwnerTeamId is null)
             return "He is unrostered — he belongs to the rookie rounds, not the steal rounds.";
@@ -96,7 +100,7 @@ public static class DraftPool
         if (c.CareerNhlGames is not { } games)
             return "His NHL experience is unknown, so he cannot be drafted.";
 
-        if (ProtectionRules.IsAutoProtected(c.PositionGroup, games))
+        if (ProtectionRules.IsAutoProtected(c.PositionGroup, games, auto))
             return "He is auto-protected — too few career NHL games.";
 
         if (maxLossesPerTeam is { } max && c.OwnerLossesSoFar >= max)
@@ -112,8 +116,9 @@ public static class DraftPool
 
     /// <summary>Whether this player may be taken on this turn.</summary>
     public static bool IsEligible(
-        DraftCandidate candidate, DraftSegment segment, int pickingTeamId, int? maxLossesPerTeam) =>
-        IneligibleReason(candidate, segment, pickingTeamId, maxLossesPerTeam) is null;
+        DraftCandidate candidate, DraftSegment segment, int pickingTeamId, int? maxLossesPerTeam,
+        AutoProtectConfig auto) =>
+        IneligibleReason(candidate, segment, pickingTeamId, maxLossesPerTeam, auto) is null;
 
     /// <summary>
     /// The pool for one turn. Input order is preserved — the caller has already
@@ -124,8 +129,9 @@ public static class DraftPool
         IEnumerable<DraftCandidate> candidates,
         DraftSegment segment,
         int pickingTeamId,
-        int? maxLossesPerTeam) =>
+        int? maxLossesPerTeam,
+        AutoProtectConfig auto) =>
         candidates
-            .Where(c => IsEligible(c, segment, pickingTeamId, maxLossesPerTeam))
+            .Where(c => IsEligible(c, segment, pickingTeamId, maxLossesPerTeam, auto))
             .ToList();
 }

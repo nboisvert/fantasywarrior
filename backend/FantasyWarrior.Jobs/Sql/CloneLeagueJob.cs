@@ -1,4 +1,5 @@
 using FantasyWarrior.Core.Drafts;
+using FantasyWarrior.Core.Rules;
 using FantasyWarrior.Core.Seasons;
 using FantasyWarrior.Data;
 using FantasyWarrior.Data.Entities;
@@ -78,13 +79,29 @@ public sealed class CloneLeagueJob(FantasyWarriorDbContext db)
             return 1;
         }
 
+        if (sourceSeason.Rules.IsUnwritten)
+        {
+            Console.Error.WriteLine(
+                $"{source.Name}'s rules were never written, so there is nothing to copy. "
+                + "Run `rules-backfill` first.");
+            return 1;
+        }
+
+        // The copy's own rules from here on. A copy, not the source's graph:
+        // this job overrides three of them, and sharing would edit a live pool.
+        var cloneRules = RuleSetJson.Copy(sourceSeason.Rules);
+
         // Which season the copy prepares. If the source is playing the season
         // League.Season names, the copy prepares the one after it — that is the
         // off-season being rehearsed. If the source is already past that (it is
         // itself protecting or drafting), the copy mirrors the same row.
-        protectionSlots ??= source.ProtectionSlots;
-        stealRounds ??= source.StealRounds;
-        maxLosses ??= source.MaxLossesPerTeam;
+        protectionSlots ??= cloneRules.Protection.Slots;
+        stealRounds ??= cloneRules.Draft.Steal.Rounds;
+        maxLosses ??= cloneRules.Draft.Steal.MaxLossesPerTeam;
+
+        cloneRules.Protection.Slots = protectionSlots;
+        cloneRules.Draft.Steal.Rounds = stealRounds ?? 0;
+        cloneRules.Draft.Steal.MaxLossesPerTeam = maxLosses;
 
         var playingNow = sourceSeason.Season == source.Season;
         var season = playingNow ? Season.Next(sourceSeason.Season) : sourceSeason.Season;
@@ -100,11 +117,11 @@ public sealed class CloneLeagueJob(FantasyWarriorDbContext db)
             + $"draft year {year}, today {today:yyyy-MM-dd}.");
         Console.WriteLine($"  Off-season rules: protection slots {Show(protectionSlots)}, "
             + $"steal rounds {Show(stealRounds)}, max losses {Show(maxLosses)}, "
-            + $"draft rounds {Show(source.DraftRounds)}.");
+            + $"draft rounds {Show(cloneRules.Draft.RookieRounds)}.");
 
         if (drafting)
         {
-            if (source.DraftRounds is not > 0)
+            if (cloneRules.Draft.RookieRounds is not > 0)
             {
                 Console.Error.WriteLine($"{source.Name} has no draft rounds configured — nothing to open.");
                 return 1;
@@ -132,13 +149,6 @@ public sealed class CloneLeagueJob(FantasyWarriorDbContext db)
 
         var clone = await LeagueClone.CreateAsync(db, source, name, today, everyOwnerJoins, ct);
 
-        // The copy's rules, not the source's — the source is a live pool and
-        // this job never edits it.
-        clone.League.ProtectionSlots = protectionSlots;
-        clone.League.StealRounds = stealRounds;
-        clone.League.MaxLossesPerTeam = maxLosses;
-        await db.SaveChangesAsync(ct);
-
         Console.WriteLine($"  {clone.TeamIdBySourceTeamId.Count} teams, "
             + $"{clone.PlayerSpots} players, {clone.FranchiseSpots} franchise slots"
             + $"{(everyOwnerJoins ? "" : " — commissioner only, nobody else sees it")}.");
@@ -149,6 +159,9 @@ public sealed class CloneLeagueJob(FantasyWarriorDbContext db)
             Season = season,
             Number = number,
             Phase = LeagueSeasonPhase.Protecting,
+            // The copy's rules, not the source's — the source is a live pool and
+            // this job never edits it.
+            Rules = cloneRules,
             StartedUtc = DateTime.UtcNow,
         };
         db.LeagueSeasons.Add(leagueSeason);
@@ -169,7 +182,8 @@ public sealed class CloneLeagueJob(FantasyWarriorDbContext db)
         // day. Shared code, not a second implementation — a sandbox protected by
         // a different rule would be rehearsing a draft nobody will run.
         var slate = await ProtectionSlate.AutofillAsync(
-            db, clone.League.LeagueId, Season.Previous(season), protectionSlots!.Value,
+            db, clone.League.LeagueId, Season.Previous(season),
+            cloneRules.Protection, cloneRules.Scoring.Values,
             (await clock.StateAsync())?.AsOfDate, write: true, ct);
         Console.WriteLine($"  {slate.Protected} protected ({slate.Slots} per team), "
             + $"{slate.Free} safe on NHL experience, {slate.Exposed} exposed.");

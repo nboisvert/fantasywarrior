@@ -1,4 +1,5 @@
 using FantasyWarrior.Core.Drafts;
+using FantasyWarrior.Core.Rules;
 using FantasyWarrior.Core.Seasons;
 using FantasyWarrior.Data;
 using FantasyWarrior.Data.Entities;
@@ -24,7 +25,19 @@ public sealed record DraftContext(
     IReadOnlyList<DraftSelection> Selections,
     IReadOnlyDictionary<int, Team> TeamsById)
 {
-    public int StealRounds => League.StealRounds ?? 0;
+    /// <summary>
+    /// The rules of the season being <b>prepared</b> — this draft's own. Read
+    /// off the <c>LeagueSeason</c> row already loaded, so every draft endpoint
+    /// answers under one document rather than re-resolving and possibly
+    /// disagreeing mid-draft.
+    /// </summary>
+    public RuleSet Rules => Season.Rules;
+
+    public int StealRounds => Rules.Draft.Steal.Rounds;
+
+    public int? MaxLossesPerTeam => Rules.Draft.Steal.MaxLossesPerTeam;
+
+    public AutoProtectConfig AutoProtect => Rules.Protection.Auto;
 
     public int SelectionsMade => Selections.Count;
 
@@ -139,7 +152,7 @@ public static class DraftContextLoader
 
         var eligible = rows
             .Where(r => DraftPool.IsEligible(
-                r.Candidate, turn.Segment, turn.TeamId, ctx.League.MaxLossesPerTeam))
+                r.Candidate, turn.Segment, turn.TeamId, ctx.MaxLossesPerTeam, ctx.AutoProtect))
             .ToList();
 
         var capHits = await Queries.CapHitsAsync(

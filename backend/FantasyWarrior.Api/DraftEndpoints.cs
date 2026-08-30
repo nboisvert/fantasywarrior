@@ -1,7 +1,9 @@
 using FantasyWarrior.Core.Drafts;
+using FantasyWarrior.Core.Rules;
 using FantasyWarrior.Core.Seasons;
 using FantasyWarrior.Data;
 using FantasyWarrior.Data.Entities;
+using FantasyWarrior.Data.Leagues;
 using FantasyWarrior.Data.Rosters;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Data.SqlClient;
@@ -146,13 +148,13 @@ public static class DraftEndpoints
                     pickerCapBefore: await CapOfAsync(db, me.TeamId),
                     pickerCountBefore: await CountOfAsync(db, me.TeamId),
                     incomingCapHit: chosen.CapHit,
-                    defaultCapHit: league.DefaultCapHit,
-                    capAmount: league.CapAmount)
+                    defaultCapHit: ctx.Rules.Cap.DefaultCapHit,
+                    capAmount: ctx.Rules.Cap.Max)
                 .ToList();
 
             if (victimTeamId is { } victim)
                 errors.AddRange(DraftRules.ValidateLoss(
-                    ctx.TeamName(victim), ctx.LossesOf(victim), league.MaxLossesPerTeam));
+                    ctx.TeamName(victim), ctx.LossesOf(victim), ctx.MaxLossesPerTeam));
 
             if (errors.Count > 0)
                 return Results.BadRequest(new { error = string.Join(" ", errors), errors });
@@ -188,7 +190,13 @@ public static class DraftEndpoints
                     error = $"Protections are set during Protecting, not {season.Phase}.",
                 });
 
-            if (league.ProtectionSlots is not { } slots)
+            if (season.Rules.IsUnwritten)
+                return Results.BadRequest(new
+                {
+                    error = "This league's rules were never written. Run `rules-backfill`.",
+                });
+
+            if (season.Rules.Protection.Slots is not { } slots)
                 return Results.BadRequest(new
                 {
                     error = "Set the league's protection slots first, in the rules panel.",
@@ -204,10 +212,18 @@ public static class DraftEndpoints
             // sitting in December would rank players on games nobody has played.
             var asOf = (await clock.StateAsync())?.AsOfDate;
 
+            // Ranked under the scale that season was actually scored under, not
+            // under next season's: points belong to the rules they were earned
+            // under, which is the whole reason a scale change restates nothing.
+            // A league in its very first off-season has no prior document, and
+            // the prepared season's scale is then the only one there is.
+            var rankingScale = await RankingScaleAsync(db, league, lastSeason, season.Rules);
+
             // The reading, the ranking and the write all live in ProtectionSlate
             // so that clone-league produces the same slate this button does.
             var slate = await ProtectionSlate.AutofillAsync(
-                db, league.LeagueId, lastSeason, slots, asOf, write: preview != true);
+                db, league.LeagueId, lastSeason, season.Rules.Protection, rankingScale,
+                asOf, write: preview != true);
 
             var body = new
             {
@@ -264,6 +280,11 @@ public static class DraftEndpoints
                 })
                 .ToListAsync();
 
+            // The prepared season's rules: this pane describes the draft about
+            // to run, so its slots and its auto-protection bars are the ones
+            // that decide who is exposed.
+            var rules = await RuleSetResolver.ForActiveSeasonAsync(db, league.LeagueId);
+
             var caps = await Queries.CapHitsAsync(
                 db, league.Season, held.Select(h => h.PlayerId).Distinct().ToList());
 
@@ -281,16 +302,17 @@ public static class DraftEndpoints
                     ShortName = DraftFormat.ShortName(h.FirstName, h.LastName),
                     h.Position,
                     h.PositionGroup,
-                    CapHit = caps.TryGetValue(h.PlayerId, out var cap) ? cap : league.DefaultCapHit,
+                    CapHit = caps.TryGetValue(h.PlayerId, out var cap) ? cap : rules.Cap.DefaultCapHit,
                     Kind = ProtectionRules.KindOf(
                         h.PositionGroup, h.CareerNhlGames,
-                        h.ProtectionStatus == RosterProtectionStatus.Protected),
+                        h.ProtectionStatus == RosterProtectionStatus.Protected,
+                        rules.Protection.Auto),
                 })
                 .ToLookup(h => h.TeamId);
 
             return Results.Ok(new
             {
-                slots = league.ProtectionSlots,
+                slots = rules.Protection.Slots,
                 teams = teams
                     .OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
                     .Select(t =>
@@ -347,8 +369,52 @@ public static class DraftEndpoints
                     error = $"A draft opens from Protecting, not {season.Phase}.",
                 });
 
-            if (league.DraftRounds is not > 0)
+            if (season.Rules.IsUnwritten)
+                return Results.BadRequest(new
+                {
+                    error = "This league's rules were never written. Run `rules-backfill`.",
+                });
+
+            var rules = season.Rules;
+
+            // The failure this whole endpoint used to have. It read neither
+            // ProtectionSlots nor StealRounds, so a league that had decided both
+            // and entered neither opened anyway — and `?? 0` downstream turned
+            // that into an all-rookie draft with uncapped losses, silently.
+            // Everything below refuses instead, and says which rule is at fault.
+            foreach (var gap in RuleSetCapabilities.Unsupported(rules)
+                         .Where(g => g.Path.StartsWith("draft.") || g.Path.StartsWith("protection.")))
+                return Results.BadRequest(new
+                {
+                    error = $"This league's {gap.Path} is set to something the draft room cannot run. "
+                          + gap.Message,
+                });
+
+            if (rules.Draft.RookieRounds is not > 0)
                 return Results.BadRequest(new { error = "Set the league's draft rounds first." });
+
+            if (rules.Draft.Steal.Rounds > 0)
+            {
+                if (rules.Protection.Slots is null)
+                    return Results.BadRequest(new
+                    {
+                        error = "This league has steal rounds but no protection slots, so every "
+                              + "veteran would be exposed. Set the protection slots first.",
+                    });
+
+                // Slots set and nothing protected means the slate was never
+                // written. Opening here would run the steal segment against a
+                // league where the only shelter is the auto-protection bar.
+                var anyProtected = await db.RosterSpots.AnyAsync(
+                    s => s.LeagueId == league.LeagueId
+                         && s.ProtectionStatus == RosterProtectionStatus.Protected);
+                if (!anyProtected && rules.Protection.Slots > 0)
+                    return Results.BadRequest(new
+                    {
+                        error = "Nobody is protected yet, and this draft has steal rounds. "
+                              + "Run the protection autofill first.",
+                    });
+            }
 
             var year = Season.StartYear(season.Season);
 
@@ -364,10 +430,10 @@ public static class DraftEndpoints
             // A team added after the picks were generated would have no
             // entitlement and no steal turn, and would silently shift the
             // derived team count for everyone else.
-            if (picks.Count != teamIds.Count * league.DraftRounds)
+            if (picks.Count != teamIds.Count * rules.Draft.RookieRounds)
                 return Results.BadRequest(new
                 {
-                    error = $"Expected {teamIds.Count * league.DraftRounds} picks for {year} "
+                    error = $"Expected {teamIds.Count * rules.Draft.RookieRounds} picks for {year} "
                           + $"but found {picks.Count}. Run draft-picks-init first.",
                 });
 
@@ -565,8 +631,8 @@ public static class DraftEndpoints
             year = Season.StartYear(ctx.Season.Season),
             seasonNumber = ctx.Season.Number,
             stealRounds = ctx.StealRounds,
-            draftRounds = ctx.League.DraftRounds ?? 0,
-            maxLossesPerTeam = ctx.League.MaxLossesPerTeam,
+            draftRounds = ctx.Rules.Draft.RookieRounds ?? 0,
+            maxLossesPerTeam = ctx.MaxLossesPerTeam,
             segment = turn?.Segment.ToString().ToLowerInvariant(),
             round = turn?.Round,
             totalTurns = stealTurns + ctx.Picks.Count,
@@ -683,6 +749,29 @@ public static class DraftEndpoints
 
     // ---- helpers ----
 
+    /// <summary>
+    /// The scale to rank an ended season's points under: that season's own.
+    ///
+    /// Points belong to the rules they were earned under — the whole reason
+    /// storing rules per season removes the "changing the scale restates the
+    /// past" problem. A league in its very first off-season has no prior
+    /// document at all, and the prepared season's scale is then the only one
+    /// there is.
+    /// </summary>
+    private static async Task<IReadOnlyDictionary<string, double>> RankingScaleAsync(
+        FantasyWarriorDbContext db, League league, string lastSeason, RuleSet prepared)
+    {
+        try
+        {
+            return (await RuleSetResolver.ForSeasonAsync(db, league.LeagueId, lastSeason))
+                .Scoring.Values;
+        }
+        catch (RuleSetUnavailableException)
+        {
+            return prepared.Scoring.Values;
+        }
+    }
+
     private static async Task<string> ReasonAsync(
         FantasyWarriorDbContext db, DraftContext ctx, DraftTurn turn, long playerId)
     {
@@ -708,7 +797,7 @@ public static class DraftEndpoints
             ctx.TakenPlayerIds.Contains(playerId));
 
         return DraftPool.IneligibleReason(
-            candidate, turn.Segment, turn.TeamId, ctx.League.MaxLossesPerTeam)
+            candidate, turn.Segment, turn.TeamId, ctx.MaxLossesPerTeam, ctx.AutoProtect)
             ?? "He is no longer available.";
     }
 

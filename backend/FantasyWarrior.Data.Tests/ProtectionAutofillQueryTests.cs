@@ -1,4 +1,5 @@
 using FantasyWarrior.Core.Drafts;
+using FantasyWarrior.Core.Rules;
 using FantasyWarrior.Data.Entities;
 using FantasyWarrior.Data.Rosters;
 using Microsoft.EntityFrameworkCore;
@@ -88,7 +89,7 @@ public class ProtectionAutofillQueryTests
         var candidates = await CandidatesAsync(db, world.League.LeagueId);
         // Points are all zero here, so the tie-break decides — which is the
         // property that makes this reproducible at all.
-        var chosen = ProtectionAutofill.Choose(candidates, slots: 2);
+        var chosen = ProtectionAutofill.Choose(candidates, slots: 2, new AutoProtectConfig());
         Assert.Equal(2, chosen.Count);
 
         await db.RosterSpots

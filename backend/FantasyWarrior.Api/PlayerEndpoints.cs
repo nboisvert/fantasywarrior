@@ -1,9 +1,11 @@
 using FantasyWarrior.Core.Drafts;
 using FantasyWarrior.Core.Players;
+using FantasyWarrior.Core.Rules;
 using FantasyWarrior.Core.Scoring;
 using FantasyWarrior.Core.Time;
 using FantasyWarrior.Data;
 using FantasyWarrior.Data.Entities;
+using FantasyWarrior.Data.Leagues;
 using Microsoft.EntityFrameworkCore;
 
 namespace FantasyWarrior.Api;
@@ -40,11 +42,17 @@ public static class PlayerEndpoints
             }));
         });
 
+        // `league` is optional and only decides whether the card can answer
+        // "auto-protected". The bars are a league rule now, so a card opened
+        // outside any league has no basis to answer and says nothing rather
+        // than reporting one pool's threshold as a fact about the player.
         app.MapGet("/api/players/{playerId:long}", async (
-            long playerId, FantasyWarriorDbContext db, SimulationClockService clock) =>
+            long playerId, string? league, FantasyWarriorDbContext db, SimulationClockService clock) =>
         {
             var player = await db.Players.AsNoTracking().FirstOrDefaultAsync(p => p.PlayerId == playerId);
             if (player is null) return Results.NotFound(new { error = "Player not found." });
+
+            var autoProtect = await AutoProtectFor(db, league);
 
             // During a season replay the card must show what was known on the
             // simulated day — otherwise a November card reports April totals and
@@ -123,9 +131,9 @@ public static class PlayerEndpoints
                 // put an AUTO badge on a veteran. The card shows nothing on
                 // null rather than guessing.
                 careerNhlGames = player.CareerNhlGames,
-                autoProtected = player.CareerNhlGames is { } careerGames
+                autoProtected = player.CareerNhlGames is { } careerGames && autoProtect is { } bars
                     ? ProtectionRules.IsAutoProtected(
-                        PositionGroups.CodeFrom(player.Position), careerGames)
+                        PositionGroups.CodeFrom(player.Position), careerGames, bars)
                     : (bool?)null,
                 isGoalie = player.Position == "G",
                 season,
@@ -321,6 +329,33 @@ public static class PlayerEndpoints
             await db.SaveChangesAsync();
             return Results.Ok();
         });
+    }
+
+    /// <summary>
+    /// A league's auto-protection bars, or null when no league was named or the
+    /// code names none.
+    ///
+    /// It reads the season being <b>prepared</b>, because that is the draft
+    /// these bars would govern. A league whose rules were never converted
+    /// answers null rather than throwing: the player card is a read, and a
+    /// missing badge is a far better failure than a card that will not open.
+    /// </summary>
+    private static async Task<AutoProtectConfig?> AutoProtectFor(
+        FantasyWarriorDbContext db, string? leagueCode)
+    {
+        if (string.IsNullOrWhiteSpace(leagueCode)) return null;
+
+        var league = await Queries.LeagueByCodeAsync(db, leagueCode);
+        if (league is null) return null;
+
+        try
+        {
+            return (await RuleSetResolver.ForActiveSeasonAsync(db, league.LeagueId)).Protection.Auto;
+        }
+        catch (RuleSetUnavailableException)
+        {
+            return null;
+        }
     }
 }
 

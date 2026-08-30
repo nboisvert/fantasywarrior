@@ -1,4 +1,5 @@
 using FantasyWarrior.Core.Drafts;
+using FantasyWarrior.Core.Rules;
 using FantasyWarrior.Core.Scoring;
 using FantasyWarrior.Data.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -35,11 +36,26 @@ public static class ProtectionSlate
     /// 2025-26 schedule; unbounded, a replay sitting in December would rank
     /// players on games nobody has played.
     /// </param>
+    /// <param name="protection">
+    /// The <b>prepared</b> season's protection rules: how many slots a GM has,
+    /// and the bars that put a player out of reach for free. They govern the
+    /// draft about to run, so they come from the season being prepared — not
+    /// from the one whose points are being ranked.
+    /// </param>
+    /// <param name="rankingScale">
+    /// The scale <paramref name="lastSeason"/> was actually scored under. Points
+    /// are ranked under the rules they were earned under, which is the whole
+    /// reason a scale change no longer restates anything. On raw NHL points a
+    /// goalie's season is zero and no goalie would ever be protected.
+    /// </param>
     /// <param name="write">False to price the slate without touching a row.</param>
     public static async Task<ProtectionSlateResult> AutofillAsync(
-        FantasyWarriorDbContext db, int leagueId, string lastSeason, int slots,
+        FantasyWarriorDbContext db, int leagueId, string lastSeason,
+        ProtectionConfig protection, IReadOnlyDictionary<string, double> rankingScale,
         DateOnly? asOf, bool write, CancellationToken ct = default)
     {
+        var slots = protection.Slots ?? 0;
+
         // The same filter the steal pool uses (DraftContextLoader), so what gets
         // protected is exactly what would otherwise be takeable. PlayerId != null
         // drops the franchise slots.
@@ -60,22 +76,18 @@ public static class ProtectionSlate
         var totals = await SeasonTotalsQuery.ForAsync(
             db, lastSeason, held.Select(h => h.PlayerId).Distinct().ToList(), asOf, ct);
 
-        var scale = await db.LeagueScoringRules
-            .Where(r => r.LeagueId == leagueId)
-            .ToDictionaryAsync(r => r.StatKey, r => r.PointValue, ct);
-
         var candidates = held
             .Select(h => new ProtectionCandidate(
                 h.RosterSpotId, h.TeamId, h.PlayerId, h.PositionGroup, h.CareerNhlGames,
                 // Absent from the totals means he did not play: a real zero, not
                 // a gap. StatLine.Empty scores 0 under any scale.
                 Points: totals.TryGetValue(h.PlayerId, out var t)
-                    ? StatColumns.ToStatLine(t).Score(scale)
+                    ? StatColumns.ToStatLine(t).Score(rankingScale)
                     : 0d))
             .ToList();
 
-        var chosen = ProtectionAutofill.Choose(candidates, slots);
-        var free = candidates.Count(c => !ProtectionAutofill.NeedsASlot(c));
+        var chosen = ProtectionAutofill.Choose(candidates, slots, protection.Auto);
+        var free = candidates.Count(c => !ProtectionAutofill.NeedsASlot(c, protection.Auto));
 
         var result = new ProtectionSlateResult(
             Slots: slots,

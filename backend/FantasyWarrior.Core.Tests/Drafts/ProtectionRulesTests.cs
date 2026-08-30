@@ -1,9 +1,13 @@
 using FantasyWarrior.Core.Drafts;
+using FantasyWarrior.Core.Rules;
 
 namespace FantasyWarrior.Core.Tests.Drafts;
 
 public class ProtectionRulesTests
 {
+    /// <summary>Les Mordus' bars, which are also the defaults every league starts from.</summary>
+    private static readonly AutoProtectConfig Auto = new();
+
     // --- skaters: the bar is 100, inclusive ---
 
     [Theory]
@@ -11,9 +15,9 @@ public class ProtectionRulesTests
     [InlineData("D")]
     public void Skater_IsAutoProtected_UpToAndIncludingTheThreshold(string group)
     {
-        Assert.True(ProtectionRules.IsAutoProtected(group, 99));
-        Assert.True(ProtectionRules.IsAutoProtected(group, 100));
-        Assert.False(ProtectionRules.IsAutoProtected(group, 101));
+        Assert.True(ProtectionRules.IsAutoProtected(group, 99, Auto));
+        Assert.True(ProtectionRules.IsAutoProtected(group, 100, Auto));
+        Assert.False(ProtectionRules.IsAutoProtected(group, 101, Auto));
     }
 
     // --- goalies: the bar is 50, inclusive ---
@@ -21,9 +25,9 @@ public class ProtectionRulesTests
     [Fact]
     public void Goalie_IsAutoProtected_UpToAndIncludingTheThreshold()
     {
-        Assert.True(ProtectionRules.IsAutoProtected("G", 49));
-        Assert.True(ProtectionRules.IsAutoProtected("G", 50));
-        Assert.False(ProtectionRules.IsAutoProtected("G", 51));
+        Assert.True(ProtectionRules.IsAutoProtected("G", 49, Auto));
+        Assert.True(ProtectionRules.IsAutoProtected("G", 50, Auto));
+        Assert.False(ProtectionRules.IsAutoProtected("G", 51, Auto));
     }
 
     /// <summary>
@@ -34,8 +38,8 @@ public class ProtectionRulesTests
     [Fact]
     public void AtSeventyFiveGames_TheSkaterIsProtectedAndTheGoalieIsNot()
     {
-        Assert.True(ProtectionRules.IsAutoProtected("F", 75));
-        Assert.False(ProtectionRules.IsAutoProtected("G", 75));
+        Assert.True(ProtectionRules.IsAutoProtected("F", 75, Auto));
+        Assert.False(ProtectionRules.IsAutoProtected("G", 75, Auto));
     }
 
     // --- the ends ---
@@ -46,13 +50,13 @@ public class ProtectionRulesTests
     [InlineData("G")]
     public void APlayerWhoHasNeverPlayedIsAutoProtected(string group)
     {
-        Assert.True(ProtectionRules.IsAutoProtected(group, 0));
+        Assert.True(ProtectionRules.IsAutoProtected(group, 0, Auto));
     }
 
     [Fact]
     public void AVeteranIsNot()
     {
-        Assert.False(ProtectionRules.IsAutoProtected("F", 1300));
+        Assert.False(ProtectionRules.IsAutoProtected("F", 1300, Auto));
     }
 
     /// <summary>
@@ -63,8 +67,8 @@ public class ProtectionRulesTests
     [Fact]
     public void AFranchiseIsNeverAutoProtected()
     {
-        Assert.False(ProtectionRules.IsAutoProtected("T", 0));
-        Assert.False(ProtectionRules.IsAutoProtected("T", 1300));
+        Assert.False(ProtectionRules.IsAutoProtected("T", 0, Auto));
+        Assert.False(ProtectionRules.IsAutoProtected("T", 1300, Auto));
     }
 
     // --- which shelter, for the Protections screen ---
@@ -72,13 +76,13 @@ public class ProtectionRulesTests
     [Fact]
     public void KindOf_AVeteranNobodyProtectedIsExposed()
     {
-        Assert.Equal(ProtectionKind.Exposed, ProtectionRules.KindOf("F", 400, protectedByGm: false));
+        Assert.Equal(ProtectionKind.Exposed, ProtectionRules.KindOf("F", 400, protectedByGm: false, Auto));
     }
 
     [Fact]
     public void KindOf_ASlotBeatsEverythingElse()
     {
-        Assert.Equal(ProtectionKind.ByGm, ProtectionRules.KindOf("F", 400, protectedByGm: true));
+        Assert.Equal(ProtectionKind.ByGm, ProtectionRules.KindOf("F", 400, protectedByGm: true, Auto));
     }
 
     /// <summary>
@@ -89,14 +93,14 @@ public class ProtectionRulesTests
     [Fact]
     public void KindOf_ASlotSpentOnAnAlreadySafeProspectStillReadsAsHisChoice()
     {
-        Assert.Equal(ProtectionKind.ByGm, ProtectionRules.KindOf("F", 10, protectedByGm: true));
+        Assert.Equal(ProtectionKind.ByGm, ProtectionRules.KindOf("F", 10, protectedByGm: true, Auto));
     }
 
     [Fact]
     public void KindOf_TooFewGamesIsFreeAndNobodyChoseIt()
     {
-        Assert.Equal(ProtectionKind.Auto, ProtectionRules.KindOf("F", 100, protectedByGm: false));
-        Assert.Equal(ProtectionKind.Auto, ProtectionRules.KindOf("G", 50, protectedByGm: false));
+        Assert.Equal(ProtectionKind.Auto, ProtectionRules.KindOf("F", 100, protectedByGm: false, Auto));
+        Assert.Equal(ProtectionKind.Auto, ProtectionRules.KindOf("G", 50, protectedByGm: false, Auto));
     }
 
     /// <summary>
@@ -106,13 +110,13 @@ public class ProtectionRulesTests
     [Fact]
     public void KindOf_NeverSyncedIsItsOwnAnswer()
     {
-        Assert.Equal(ProtectionKind.Unknown, ProtectionRules.KindOf("F", null, protectedByGm: false));
+        Assert.Equal(ProtectionKind.Unknown, ProtectionRules.KindOf("F", null, protectedByGm: false, Auto));
     }
 
     [Fact]
     public void KindOf_AFranchiseIsOutOfReachWithoutSpendingAnything()
     {
-        Assert.Equal(ProtectionKind.Auto, ProtectionRules.KindOf("T", null, protectedByGm: false));
+        Assert.Equal(ProtectionKind.Auto, ProtectionRules.KindOf("T", null, protectedByGm: false, Auto));
     }
 
     /// <summary>
@@ -135,8 +139,8 @@ public class ProtectionRulesTests
             PlayerId: 1, PositionGroup: group, CareerNhlGames: career,
             OwnerTeamId: 2, ProtectedByGm: protectedByGm, OwnerLossesSoFar: 0);
 
-        var takeable = DraftPool.IsEligible(candidate, DraftSegment.Steal, pickingTeamId: 1, maxLossesPerTeam: 2);
-        var kind = ProtectionRules.KindOf(group, career, protectedByGm);
+        var takeable = DraftPool.IsEligible(candidate, DraftSegment.Steal, pickingTeamId: 1, maxLossesPerTeam: 2, Auto);
+        var kind = ProtectionRules.KindOf(group, career, protectedByGm, Auto);
 
         Assert.Equal(takeable, kind == ProtectionKind.Exposed);
     }

@@ -1,9 +1,12 @@
 using FantasyWarrior.Core.Drafts;
+using FantasyWarrior.Core.Rules;
 
 namespace FantasyWarrior.Core.Tests.Drafts;
 
 public class DraftPoolTests
 {
+    private static readonly AutoProtectConfig Auto = new();
+
     private const int Me = 1;
     private const int Rival = 2;
 
@@ -16,10 +19,10 @@ public class DraftPoolTests
         new(id, pos, career, null, false, 0);
 
     private static string? Steal(DraftCandidate c, int? max = 2) =>
-        DraftPool.IneligibleReason(c, DraftSegment.Steal, Me, max);
+        DraftPool.IneligibleReason(c, DraftSegment.Steal, Me, max, Auto);
 
     private static string? Rookie(DraftCandidate c) =>
-        DraftPool.IneligibleReason(c, DraftSegment.Rookie, Me, 2);
+        DraftPool.IneligibleReason(c, DraftSegment.Rookie, Me, 2, Auto);
 
     [Fact]
     public void Steal_ARivalsUnprotectedVeteranIsFairGame()
@@ -125,7 +128,7 @@ public class DraftPoolTests
             Rostered(id: 3, owner: 3, losses: 0),
         };
 
-        var available = DraftPool.Available(drained, DraftSegment.Steal, Me, maxLossesPerTeam: 2);
+        var available = DraftPool.Available(drained, DraftSegment.Steal, Me, maxLossesPerTeam: 2, Auto);
 
         Assert.Single(available);
         Assert.Equal(3, available[0].PlayerId);
@@ -177,7 +180,7 @@ public class DraftPoolTests
         // The caller has already sorted this the way the screen wants.
         var candidates = new[] { Rostered(id: 9), Rostered(id: 3), Rostered(id: 7) };
 
-        var available = DraftPool.Available(candidates, DraftSegment.Steal, Me, 2);
+        var available = DraftPool.Available(candidates, DraftSegment.Steal, Me, 2, Auto);
 
         Assert.Equal([9L, 3L, 7L], available.Select(c => c.PlayerId));
     }
@@ -188,6 +191,6 @@ public class DraftPoolTests
         // 14 teams x 2 losses is exactly 28 turns: the pool really can close.
         var allDrained = new[] { Rostered(id: 1, losses: 2), Rostered(id: 2, losses: 2) };
 
-        Assert.Empty(DraftPool.Available(allDrained, DraftSegment.Steal, Me, 2));
+        Assert.Empty(DraftPool.Available(allDrained, DraftSegment.Steal, Me, 2, Auto));
     }
 }

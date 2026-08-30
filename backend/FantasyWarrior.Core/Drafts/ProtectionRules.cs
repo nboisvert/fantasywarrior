@@ -1,3 +1,5 @@
+using FantasyWarrior.Core.Rules;
+
 namespace FantasyWarrior.Core.Drafts;
 
 /// <summary>
@@ -49,12 +51,6 @@ public enum ProtectionKind : byte
 
 public static class ProtectionRules
 {
-    /// <summary>A goalie at or under this many career NHL games cannot be drafted away.</summary>
-    public const int MaxCareerGamesGoalie = 50;
-
-    /// <summary>A forward or defenceman at or under this many career NHL games cannot be drafted away.</summary>
-    public const int MaxCareerGamesSkater = 100;
-
     /// <summary>
     /// Is this player untouchable on experience alone?
     /// </summary>
@@ -71,13 +67,19 @@ public static class ProtectionRules
     /// unknown, not zero, and unknown must not reach this method — see
     /// <c>Player.CareerNhlGames</c>.
     /// </param>
-    public static bool IsAutoProtected(string positionGroup, int careerNhlGames) =>
-        positionGroup switch
-        {
-            "T" => false,
-            "G" => careerNhlGames <= MaxCareerGamesGoalie,
-            _ => careerNhlGames <= MaxCareerGamesSkater,
-        };
+    /// <param name="auto">
+    /// The league's own bars, off its <c>RuleSet</c>. Passed rather than
+    /// defaulted: two leagues can measure experience differently, and a default
+    /// here would quietly apply one pool's rule to another's draft.
+    /// </param>
+    public static bool IsAutoProtected(string positionGroup, int careerNhlGames, AutoProtectConfig auto)
+    {
+        // A franchise may only ever move against another franchise, so no draft
+        // can take one and no rule needs to say so twice.
+        if (positionGroup == "T") return false;
+
+        return auto.Enabled && careerNhlGames <= auto.BarFor(positionGroup);
+    }
 
     /// <summary>
     /// Which of the three shelters a rostered player is standing under, if any.
@@ -92,7 +94,7 @@ public static class ProtectionRules
     /// to the rookie rounds, where none of this applies.
     /// </summary>
     public static ProtectionKind KindOf(
-        string positionGroup, int? careerNhlGames, bool protectedByGm)
+        string positionGroup, int? careerNhlGames, bool protectedByGm, AutoProtectConfig auto)
     {
         // A franchise cannot be drafted at all, and no slot was spent saying so.
         if (positionGroup == "T") return ProtectionKind.Auto;
@@ -100,7 +102,7 @@ public static class ProtectionRules
         if (protectedByGm) return ProtectionKind.ByGm;
         if (careerNhlGames is not { } games) return ProtectionKind.Unknown;
 
-        return IsAutoProtected(positionGroup, games)
+        return IsAutoProtected(positionGroup, games, auto)
             ? ProtectionKind.Auto
             : ProtectionKind.Exposed;
     }

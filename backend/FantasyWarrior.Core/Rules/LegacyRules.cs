@@ -1,4 +1,3 @@
-using FantasyWarrior.Core.Drafts;
 
 namespace FantasyWarrior.Core.Rules;
 
@@ -108,12 +107,11 @@ public static class LegacyRules
         {
             Slots = legacy.ProtectionSlots,
             SlotsByPosition = null,
-            Auto = new AutoProtectConfig
-            {
-                Enabled = true,
-                SkaterMaxCareerGames = ProtectionRules.MaxCareerGamesSkater,
-                GoalieMaxCareerGames = ProtectionRules.MaxCareerGamesGoalie,
-            },
+            // The two consts ProtectionRules used to carry, which no league
+            // could see from its own settings. They are this class's defaults
+            // now, so every converted league keeps the bars it was already
+            // playing under.
+            Auto = new AutoProtectConfig(),
             AfterDraft = AfterDraftDisposition.StayWithTeam,
         },
 

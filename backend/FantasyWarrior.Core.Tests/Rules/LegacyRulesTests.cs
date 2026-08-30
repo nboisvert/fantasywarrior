@@ -1,4 +1,3 @@
-using FantasyWarrior.Core.Drafts;
 using FantasyWarrior.Core.Rules;
 using FantasyWarrior.Core.Scoring;
 
@@ -109,8 +108,8 @@ public class LegacyRulesTests
         var rules = LegacyRules.ToRuleSet(MordusToday());
 
         Assert.True(rules.Protection.Auto.Enabled);
-        Assert.Equal(ProtectionRules.MaxCareerGamesSkater, rules.Protection.Auto.SkaterMaxCareerGames);
-        Assert.Equal(ProtectionRules.MaxCareerGamesGoalie, rules.Protection.Auto.GoalieMaxCareerGames);
+        Assert.Equal(AutoProtectConfig.DefaultSkaterMaxCareerGames, rules.Protection.Auto.SkaterMaxCareerGames);
+        Assert.Equal(AutoProtectConfig.DefaultGoalieMaxCareerGames, rules.Protection.Auto.GoalieMaxCareerGames);
     }
 
     [Fact]
