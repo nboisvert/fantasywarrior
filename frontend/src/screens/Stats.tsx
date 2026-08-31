@@ -106,11 +106,13 @@ function LineupToggle({
 
   // The mark carries shape *and* position *and* colour, so it never depends on
   // colour alone; the aria-label above states it in words.
+  //
+  // "gone" (leaving the roster, e.g. via trade) reuses "out"'s red down
+  // arrow rather than a distinct glyph (2026-08-30, per Nick) — one mark for
+  // "not in next week's active lineup", whatever the reason.
   const flag = pending && (
     <span className={`lineup-pending lineup-pending-${pending}`} aria-hidden="true">
-      {pending === "in" ? <ArrowUpIcon size={13} />
-        : pending === "out" ? <ArrowDownIcon size={13} />
-        : <LogOutIcon size={13} />}
+      {pending === "in" ? <ArrowUpIcon size={13} /> : <ArrowDownIcon size={13} />}
     </span>
   );
 
@@ -283,16 +285,18 @@ function InjuryMark({ status, type }: { status: InjuryStatus; type: string | nul
 /** The trade mark, sitting after the name (and after the injury mark, if both
  * apply — a player can be hurt and already promised away at once).
  *
- * Rose/log-out for leaving, green/log-in for arriving — the same pairing this
- * screen already uses for next week's lineup arrow (`.lineup-pending-in/-out`),
- * so it reads as a continuation of an existing convention rather than a new
- * one. Icon + aria-label always accompany the colour. */
+ * Leaving uses the same red down arrow as `.lineup-pending-out`/`-gone`
+ * (2026-08-30, per Nick) — the toggle a few pixels to its left already
+ * carries that mark for the same reason, and a GM should never see one
+ * without the other. Arriving keeps its own log-in glyph; only the
+ * departure side was asked to match. Icon + aria-label always accompany the
+ * colour. */
 function TradeMarkIcon({ direction }: { direction: "out" | "in" }) {
   const { t } = useLanguage();
   const label = direction === "out" ? t("stats.leavingViaTrade") : t("stats.arrivingViaTrade");
   return (
     <span className={`stats-trade stats-trade-${direction}`} role="img" aria-label={label} title={label}>
-      {direction === "out" ? <LogOutIcon size={11} /> : <LogInIcon size={11} />}
+      {direction === "out" ? <ArrowDownIcon size={11} /> : <LogInIcon size={11} />}
     </span>
   );
 }
