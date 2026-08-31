@@ -212,7 +212,9 @@ function LineupPicker({
           </span>
         )}
 
-        {options.map((o) => (
+        {/* A free spot means there's nobody to bench to make room — offering a
+            swap list anyway would suggest a trade-off that doesn't exist. */}
+        {(entry.active || !slotIsFree) && options.map((o) => (
           <button
             key={o.spotId}
             type="button"
@@ -867,7 +869,12 @@ function RosterGrid({
                       // lock is irrelevant, since a tap never touches it.
                       editable={!!lineupEditable}
                       busy={saving}
-                      pending={pendingFor?.(lineupEntry) ?? null}
+                      // An accepted trade is known before the nightly job
+                      // executes it and next week's own lineup catches up —
+                      // same "gone" mark either way, so a traded-out player
+                      // never shows the name-row icon without the toggle
+                      // agreeing.
+                      pending={r.tradeMark === "out" ? "gone" : (pendingFor?.(lineupEntry) ?? null)}
                       onToggle={(spotId) => onToggleLineup?.(spotId)}
                     />
                   ) : (
@@ -1268,6 +1275,17 @@ export function Stats({
     (nextLineup?.hidden ? [] : (nextLineup?.entries ?? [])).map((e) => [e.spotId, e]),
   );
 
+  /** Incoming players have no *current* lineup row — they're not on the
+   * roster this week — so the Incoming grid's toggle shows next week's entry
+   * directly rather than comparing two weeks the way the Roster grid's does.
+   * No `pendingFor` passed alongside it: there's nothing to compare against,
+   * so no in/out/gone arrow, just the plain active/benched icon. */
+  const nextLineupByPlayer = new Map<number, LineupEntry>(
+    (nextLineup?.hidden ? [] : (nextLineup?.entries ?? []))
+      .filter((e): e is LineupEntry & { playerId: number } => e.playerId != null && !!e.arriving)
+      .map((e) => [e.playerId, e]),
+  );
+
   /** In, out, gone, or unchanged when the week rolls over. Null while next week
    * has not loaded — a mark that guessed would be worse than no mark. */
   const pendingFor = (entry: LineupEntry): PendingChange => {
@@ -1417,7 +1435,10 @@ export function Stats({
               title={t("stats.incomingTitle")}
               subtitle={t("stats.incomingSubtitle", { count: incomingRows.length })}
               emptyLabel={t("stats.incomingEmpty")}
+              lineupByPlayer={nextLineupByPlayer}
+              lineupEditable={!!nextLineup && !nextLineup.locked && nextLineup.isOwner}
               saving={saving}
+              onToggleLineup={setPickerSpotId}
               onOpenPlayer={setOpenPlayerId}
               openPeriodsFor={openPeriodsFor}
               periodsByPlayer={periodsByPlayer}

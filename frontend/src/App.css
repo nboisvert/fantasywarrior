@@ -561,7 +561,7 @@
   flex-direction: column;
   gap: 0.35rem;
   padding: 0.9rem 0.9rem calc(0.9rem + env(safe-area-inset-bottom));
-  background: var(--elevated);
+  background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-bottom: none;
   border-radius: 16px 16px 0 0;
@@ -735,7 +735,7 @@
   font: 700 0.58rem/1 var(--font-body);
   letter-spacing: 0;
   /* Separates the chip from the icon strokes underneath it. */
-  box-shadow: 0 0 0 2px var(--elevated);
+  box-shadow: 0 0 0 2px var(--bg-elevated);
 }
 
 /* ---------- login ---------- */
