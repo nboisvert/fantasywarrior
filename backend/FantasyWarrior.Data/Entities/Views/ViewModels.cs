@@ -87,6 +87,7 @@ public sealed class TeamPeriodScoreView
     public string Season { get; set; } = "";
     public double ActivePoints { get; set; }
     public double BenchPoints { get; set; }
+    public int ActiveGamesPlayed { get; set; }
     public bool IsFinalized { get; set; }
 }
 

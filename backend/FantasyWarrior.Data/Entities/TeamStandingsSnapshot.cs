@@ -29,6 +29,9 @@ public sealed class TeamStandingsSnapshot
     /// on AsOfDate's games.</summary>
     public double LastNightPoints { get; set; }
 
+    /// <summary>Games played by the active roster specifically on AsOfDate.</summary>
+    public int LastNightGamesPlayed { get; set; }
+
     public DateTime CreatedUtc { get; set; }
 
     public Team? Team { get; set; }

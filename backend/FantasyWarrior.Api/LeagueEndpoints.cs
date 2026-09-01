@@ -302,7 +302,7 @@ public static class LeagueEndpoints
                 ? []
                 : await db.TeamPeriodScores
                     .Where(v => v.PeriodId == currentPeriod.PeriodId)
-                    .ToDictionaryAsync(v => v.TeamId, v => new { v.ActivePoints, v.BenchPoints });
+                    .ToDictionaryAsync(v => v.TeamId, v => new { v.ActivePoints, v.BenchPoints, v.ActiveGamesPlayed });
 
             // The two most recent nightly snapshots per team — last night's
             // points, and the pair the rank-movement pill compares. Never
@@ -326,6 +326,17 @@ public static class LeagueEndpoints
             var nhlPoints = await Queries.NhlPointsAsync(
                 db, league.Season, openSpots.Select(s => s.PlayerId).Distinct().ToList(),
                 (await clock.StateAsync())?.AsOfDate);
+
+            // How many of each team's rostered players are hurt or suspended
+            // right now — the Standings screen's Extra/Injury column. Same
+            // source Stats.tsx reads per player (Queries.InjuriesAsync),
+            // rolled up to a team count here instead of a row marker.
+            var injuries = await Queries.InjuriesAsync(
+                db, openSpots.Select(s => (long)s.PlayerId).Distinct().ToList());
+            var injuredCountByTeam = openSpots
+                .Where(s => injuries.ContainsKey(s.PlayerId))
+                .GroupBy(s => s.TeamId)
+                .ToDictionary(g => g.Key, g => g.Count());
 
             // Who owns which franchise *right now* — the Équipe spot, not
             // Teams.FranchiseAbbrev. The two start equal and are meant to be
@@ -459,15 +470,23 @@ public static class LeagueEndpoints
                             goals = s?.RosterGoals ?? 0,
                             assists = s?.RosterAssists ?? 0,
                             gamesPlayed = s?.RosterGamesPlayed ?? 0,
-                            // Last night's fantasy points and the rank-movement
-                            // delta, both from the nightly snapshot — null
-                            // before this league's first snapshot exists.
+                            // Last night's fantasy points and games, and the
+                            // rank-movement delta, all from the nightly
+                            // snapshot — null before this league's first
+                            // snapshot exists.
                             lastNightPoints = snapshotsByTeam.TryGetValue(t.TeamId, out var snaps) && snaps.Count > 0
                                 ? snaps[0].LastNightPoints
                                 : (double?)null,
+                            lastNightGamesPlayed = snapshotsByTeam.TryGetValue(t.TeamId, out var snapsG) && snapsG.Count > 0
+                                ? snapsG[0].LastNightGamesPlayed
+                                : (int?)null,
                             rankChange = snapshotsByTeam.TryGetValue(t.TeamId, out var snaps2) && snaps2.Count == 2
                                 ? snaps2[1].Rank - snaps2[0].Rank
                                 : (int?)null,
+                            // This week's games played by the active roster —
+                            // periodPoints below is the same window's points.
+                            periodGamesPlayed = week?.ActiveGamesPlayed ?? 0,
+                            injuredCount = injuredCountByTeam.GetValueOrDefault(t.TeamId),
                             capTotal = s?.CapTotal ?? 0,
                             // How much of capTotal is the league's DefaultCapHit
                             // standing in for a contract nobody has on file. The

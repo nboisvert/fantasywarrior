@@ -1321,15 +1321,33 @@
   background: var(--bg-elevated);
 }
 
-/* The flex layout lives on the button inside the cell, never on the <td>
-   itself — a flex <td> under border-collapse fights the row's own height
-   sync with its siblings (the exact trap .stats-col-player's own comment
-   documents). */
-.standings-col-team button {
+/* The flex layout lives on this inner wrapper, never on the <td> itself — a
+   flex <td> under border-collapse fights the row's own height sync with its
+   siblings (the exact trap .stats-col-player's own comment documents). */
+.standings-col-team-inner {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  width: 100%;
+  gap: 0.4rem;
+  height: 100%;
+}
+
+/* Plain rank number — no circle, no podium colours (2026-09-01, per Nick:
+   "just plain ranking"). The podium badge stays exactly as it was for
+   Palmares, which still uses it; this is a new, separate look. */
+.standings-rank-plain {
+  flex-shrink: 0;
+  width: 1.4rem;
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  text-align: right;
+}
+
+.standings-team-btn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
   background: none;
   border: none;
   padding: 0;
@@ -1339,7 +1357,7 @@
   text-align: left;
 }
 
-.standings-col-team button:focus-visible {
+.standings-team-btn:focus-visible {
   outline: 2px solid var(--ice);
   outline-offset: 2px;
 }
@@ -1352,6 +1370,149 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Same glyph, same behaviour, same class shape as .stats-periods-btn — a
+   second, independent copy under its own prefix (Standings doesn't share
+   markup with the Team grid). */
+.standings-periods-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: rgba(139, 150, 171, 0.5);
+  cursor: pointer;
+  transition: color 150ms, background-color 150ms;
+}
+
+.standings-periods-btn:hover,
+.standings-periods-btn:focus-visible {
+  color: var(--text);
+}
+
+.standings-periods-btn.open {
+  color: var(--ice-bright);
+  background: rgba(56, 189, 248, 0.12);
+}
+
+/* ---------- standings: sortable headers ---------- */
+
+.standings-sortable {
+  padding: 0 !important;
+}
+
+.standings-sort-btn {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.2rem;
+  width: 100%;
+  padding: 0.55rem 0.5rem;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+
+.standings-sort-btn:hover,
+.standings-sort-btn:focus-visible {
+  color: var(--text);
+}
+
+.standings-sortable.accent .standings-sort-btn:hover {
+  color: var(--ice-bright);
+}
+
+.standings-sort-dir {
+  font-size: 0.55rem;
+  color: var(--ice-bright);
+}
+
+/* ---------- standings: week-by-week panel — same shape as .player-periods,
+   its own prefix, no shared markup with the Team grid. ---------- */
+
+.team-periods-row > td {
+  padding: 0;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.team-periods {
+  padding: 0.5rem 0.7rem 0.6rem;
+  position: sticky;
+  left: 0;
+  max-width: 22rem;
+}
+
+.team-periods-empty {
+  padding: 0.6rem 0.7rem;
+  font-size: 0.78rem;
+}
+
+.team-periods-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.team-periods-table th {
+  padding: 0 0.35rem 0.25rem;
+  color: var(--text-muted);
+  font: 600 0.62rem var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-align: right;
+}
+
+.team-periods-table th:first-child {
+  text-align: left;
+}
+
+.team-periods-table td {
+  padding: 0.18rem 0.35rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.team-periods-table td:first-child {
+  text-align: left;
+}
+
+.team-periods-week {
+  font-weight: 700;
+}
+
+.team-periods-pts {
+  color: var(--ice-bright);
+  font-weight: 700;
+}
+
+.team-periods-totals {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin-top: 0.45rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.team-periods-totals strong {
+  color: var(--ice-bright);
+}
+
+.team-periods-bench {
+  color: var(--danger);
 }
 
 .standings-rank-pill {

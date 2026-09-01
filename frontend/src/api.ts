@@ -112,10 +112,29 @@ export interface TeamDto {
   /** Fantasy points earned specifically on last night's games, from the
    * nightly snapshot — null before this league's first snapshot exists. */
   lastNightPoints: number | null;
+  /** Games played by the active roster specifically last night — same
+   * snapshot, same null-before-first-night rule. */
+  lastNightGamesPlayed: number | null;
   /** previousRank - currentRank from the two most recent nightly snapshots;
    * positive = moved up, negative = moved down, null with fewer than 2
    * snapshots to compare. */
   rankChange: number | null;
+  /** Games played by the active roster this week — same window as periodPoints. */
+  periodGamesPlayed: number;
+  /** How many rostered players are currently hurt or suspended. */
+  injuredCount: number;
+}
+
+/** One week of a team's history — Standings' week-by-week panel. */
+export interface TeamPeriodRow {
+  periodIndex: number;
+  startDate: string;
+  endDate: string;
+  gameCount: number;
+  finalized: boolean;
+  activePoints: number;
+  benchPoints: number;
+  gamesPlayed: number;
 }
 
 /** Which of these rules the app actually enforces; a path here is inert. */
@@ -794,6 +813,12 @@ export const api = {
   teamSeasonStats: (leagueId: string, username: string) =>
     request<TeamSeasonStats>(
       `/api/leagues/${encodeURIComponent(leagueId)}/teams/${encodeURIComponent(username)}/season-stats`,
+    ),
+  /** A team's whole season, week by week — Standings' panel. Fetched on
+   * demand, same reasoning as playerPeriods below. */
+  teamPeriods: (leagueId: string, username: string) =>
+    request<{ periods: TeamPeriodRow[] }>(
+      `/api/leagues/${encodeURIComponent(leagueId)}/teams/${encodeURIComponent(username)}/periods`,
     ),
   /** One player's season with this team, week by week. Fetched on demand —
    * a roster is twenty-odd players and this is only ever wanted for one. */

@@ -476,6 +476,40 @@ public static class LineupEndpoints
             });
         });
 
+        // The team-level counterpart of the per-player periods route above —
+        // Standings' week-by-week panel, not Stats' per-player one. Reads
+        // vTeamPeriodScores directly rather than summing RosterAssignments
+        // itself: that view is exactly this aggregation already, kept
+        // correct by the same migration this endpoint's ActiveGamesPlayed
+        // column rode in on.
+        app.MapGet("/api/leagues/{leagueId}/teams/{username}/periods", async (
+            string leagueId, string username, FantasyWarriorDbContext db) =>
+        {
+            var league = await Queries.LeagueByCodeAsync(db, leagueId);
+            if (league is null) return Results.NotFound(new { error = "League not found." });
+
+            var team = await Queries.TeamAsync(db, league.LeagueId, Queries.Normalize(username));
+            if (team is null) return Results.NotFound(new { error = "Team not found." });
+
+            var rows = await db.TeamPeriodScores
+                .Where(v => v.TeamId == team.TeamId && v.Season == league.Season)
+                .Join(db.Periods, v => v.PeriodId, p => p.PeriodId, (v, p) => new
+                {
+                    periodIndex = p.Number,
+                    startDate = p.StartDate,
+                    endDate = p.EndDate,
+                    gameCount = p.GameCount,
+                    finalized = v.IsFinalized,
+                    activePoints = v.ActivePoints,
+                    benchPoints = v.BenchPoints,
+                    gamesPlayed = v.ActiveGamesPlayed,
+                })
+                .OrderBy(r => r.periodIndex)
+                .ToListAsync();
+
+            return Results.Ok(new { periods = rows });
+        });
+
         app.MapGet("/api/leagues/{leagueId}/teams/{username}/season-stats", async (
             string leagueId, string username, FantasyWarriorDbContext db, SimulationClockService clock) =>
         {

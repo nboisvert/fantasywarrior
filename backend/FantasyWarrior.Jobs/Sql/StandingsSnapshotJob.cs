@@ -73,6 +73,7 @@ public sealed class StandingsSnapshotJob(FantasyWarriorDbContext db)
         // seasons) — nothing was played, so there is nothing to score. Rank
         // is still worth recording for the movement pill.
         var pointsByTeam = new Dictionary<int, double>();
+        var gamesByTeam = new Dictionary<int, int>();
         if (period is not null)
         {
             var rules = await RuleSetResolver.ForScoringAsync(db, league, ct);
@@ -114,10 +115,11 @@ public sealed class StandingsSnapshotJob(FantasyWarriorDbContext db)
 
             foreach (var spot in activeSpots)
             {
-                var points = spot.IsFranchise
-                    ? FranchiseResults.For(spot.FranchiseAbbrev!, games).Score(scale)
-                    : StatLine.Sum(byPlayer[spot.PlayerId!.Value].Select(StatColumns.ToStatLine)).Score(scale);
-                pointsByTeam[spot.TeamId] = pointsByTeam.GetValueOrDefault(spot.TeamId) + points;
+                var stats = spot.IsFranchise
+                    ? FranchiseResults.For(spot.FranchiseAbbrev!, games)
+                    : StatLine.Sum(byPlayer[spot.PlayerId!.Value].Select(StatColumns.ToStatLine));
+                pointsByTeam[spot.TeamId] = pointsByTeam.GetValueOrDefault(spot.TeamId) + stats.Score(scale);
+                gamesByTeam[spot.TeamId] = gamesByTeam.GetValueOrDefault(spot.TeamId) + stats[StatKeys.GamesPlayed];
             }
         }
 
@@ -129,10 +131,12 @@ public sealed class StandingsSnapshotJob(FantasyWarriorDbContext db)
         foreach (var (teamId, rank) in ranked)
         {
             var points = pointsByTeam.GetValueOrDefault(teamId);
+            var gamesPlayed = gamesByTeam.GetValueOrDefault(teamId);
             if (existingSnapshots.TryGetValue(teamId, out var row))
             {
                 row.Rank = rank;
                 row.LastNightPoints = points;
+                row.LastNightGamesPlayed = gamesPlayed;
             }
             else
             {
@@ -142,6 +146,7 @@ public sealed class StandingsSnapshotJob(FantasyWarriorDbContext db)
                     AsOfDate = lastStatDate,
                     Rank = rank,
                     LastNightPoints = points,
+                    LastNightGamesPlayed = gamesPlayed,
                     CreatedUtc = DateTime.UtcNow,
                 });
             }
