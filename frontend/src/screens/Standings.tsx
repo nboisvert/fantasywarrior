@@ -2,7 +2,7 @@ import { Fragment, useState } from "react";
 import type { ReactNode } from "react";
 import { api, formatCapCompact } from "../api";
 import type { LeagueDetail, TeamDto, TeamPeriodRow } from "../api";
-import { ArrowDownIcon, ArrowUpIcon, CalendarIcon, CrossIcon, TrophyIcon } from "../components/Icons";
+import { ArrowDownIcon, ArrowUpIcon, CalendarIcon, ChevronDownIcon, CrossIcon, TrophyIcon } from "../components/Icons";
 import { useLanguage } from "../i18n/LanguageContext";
 
 /** The rank-movement pill, now its own "Last Night" sub-column rather than a
@@ -112,7 +112,9 @@ function SortableHead({
     >
       <button type="button" className="standings-sort-btn" aria-label={ariaLabel} onClick={() => onSort(colKey)}>
         {label}
-        {active && <span className="standings-sort-dir">{dir === "asc" ? "▲" : "▼"}</span>}
+        {active && (
+          <ChevronDownIcon size={12} className={`standings-sort-icon${dir === "asc" ? " asc" : ""}`} />
+        )}
       </button>
     </th>
   );
@@ -283,11 +285,11 @@ export function Standings({
                         </button>
                       </div>
                     </td>
-                    <td className="standings-group-start">{team.gamesPlayed}</td>
-                    <td>{team.goals}</td>
-                    <td>{team.assists}</td>
-                    <td className="standings-col-spotlight">{team.score}</td>
-                    <td>{team.ptsPerGame != null ? team.ptsPerGame.toFixed(2) : t("standings.noStats")}</td>
+                    <td className="accent standings-group-start">{team.gamesPlayed}</td>
+                    <td className="accent">{team.goals}</td>
+                    <td className="accent">{team.assists}</td>
+                    <td className="accent standings-col-spotlight">{team.score}</td>
+                    <td className="accent">{team.ptsPerGame != null ? team.ptsPerGame.toFixed(2) : t("standings.noStats")}</td>
                     <td className="standings-group-start">
                       {team.lastNightGamesPlayed != null ? team.lastNightGamesPlayed : t("standings.noStats")}
                     </td>

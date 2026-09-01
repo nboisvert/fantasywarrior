@@ -1312,12 +1312,26 @@
   background: rgba(56, 189, 248, 0.06);
 }
 
+/* Row divider between every body row — .stats-grid has this and Standings
+   was missing it (2026-09-01, per Nick: the bordering didn't match). */
+.standings-grid tbody tr + tr td {
+  border-top: 1px solid var(--border);
+}
+
+/* The Fantasy group's data cells, not just its headers — .stats-grid colours
+   its whole Pool/Fantasy column group this way, headers and body alike. */
+.standings-grid th.accent,
+.standings-grid td.accent {
+  color: var(--ice-bright);
+  font-weight: 700;
+}
+
 .standings-col-team {
   position: sticky;
   left: 0;
   z-index: 2;
   text-align: left;
-  min-width: 11rem;
+  min-width: 9.5rem;
   background: var(--bg-elevated);
 }
 
@@ -1331,15 +1345,15 @@
   height: 100%;
 }
 
-/* Plain rank number — no circle, no podium colours (2026-09-01, per Nick:
-   "just plain ranking"). The podium badge stays exactly as it was for
+/* Plain rank number — no circle, no podium colours, and (2026-09-01, per
+   Nick, a second pass: it still looked mismatched with a display font)
+   no special typeface either — the same plain grid font every other
+   number in this table uses. The podium badge stays exactly as it was for
    Palmares, which still uses it; this is a new, separate look. */
 .standings-rank-plain {
   flex-shrink: 0;
   width: 1.4rem;
   color: var(--text-muted);
-  font-family: var(--font-display);
-  font-size: 0.85rem;
   text-align: right;
 }
 
@@ -1362,14 +1376,21 @@
   outline-offset: 2px;
 }
 
+.standings-team-btn:hover .standings-team-name {
+  color: var(--ice-bright);
+}
+
+/* Same weight/transition as .stats-player-name, no special typeface — the
+   grid's own base font, same as every other identity cell in this app
+   (2026-09-01, per Nick: this was drifting from the Team grid's look). */
 .standings-team-name {
   flex: 1;
   min-width: 0;
-  font-family: var(--font-display);
-  letter-spacing: 0.02em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: 600;
+  transition: color 0.2s;
 }
 
 /* Same glyph, same behaviour, same class shape as .stats-periods-btn — a
@@ -1408,19 +1429,21 @@
 }
 
 .standings-sort-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
   gap: 0.2rem;
   width: 100%;
+  height: 100%;
   padding: 0.55rem 0.5rem;
-  background: none;
   border: none;
+  background: none;
   color: inherit;
   font: inherit;
   text-transform: inherit;
   letter-spacing: inherit;
   cursor: pointer;
+  white-space: nowrap;
+  justify-content: flex-end;
 }
 
 .standings-sort-btn:hover,
@@ -1432,9 +1455,22 @@
   color: var(--ice-bright);
 }
 
-.standings-sort-dir {
-  font-size: 0.55rem;
-  color: var(--ice-bright);
+/* Same chevron, same rotate-on-ascending treatment as .stats-sort-icon —
+   text glyphs (▲/▼) were the first pass and read as a different UI
+   language (2026-09-01, per Nick). */
+.standings-sort-icon {
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.standings-sort-icon.asc {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .standings-sort-icon {
+    transition: none;
+  }
 }
 
 /* ---------- standings: week-by-week panel — same shape as .player-periods,
