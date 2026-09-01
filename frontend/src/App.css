@@ -1234,6 +1234,151 @@
   color: var(--text-muted);
 }
 
+/* ---------- standings grid (2026-09-01, per Nick: "un tableau ressemblant
+   à celui de teams") — a real table, mirroring .stats-grid's conventions
+   (Stats.tsx) under its own .standings- prefix rather than sharing classes:
+   this is a separate <table>, not one more grid the Team screen's
+   multi-table width-sync hook needs to know about. The classes above
+   (.standing-row/.standing-info/.standing-points/.standings-list/.rank)
+   stay exactly as they are — Palmares.tsx still renders its podium list
+   with them, so retiring them here would break that screen too. */
+
+.standings-grid-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.standings-grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.standings-grid th,
+.standings-grid td {
+  padding: 0.55rem 0.5rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.standings-grid thead th {
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  border-bottom: 1px solid var(--border);
+}
+
+.standings-group-row th {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  border-bottom: 1px solid var(--border);
+}
+
+.standings-grid .standings-group-th {
+  text-align: center;
+  border-left: 1px solid var(--border);
+}
+
+.standings-group-th.accent {
+  color: var(--ice-bright);
+}
+
+/* First column of each group, carried down through every row — same
+   vertical-divider convention as .stats-group-start, minus the scroll-snap
+   properties (Standings has far fewer columns than the Team grid; see
+   Standings.tsx's own note on why plain overflow-x is enough here). */
+.standings-grid .standings-group-start {
+  border-left: 1px solid var(--border);
+}
+
+/* PTS is the one number that actually determines rank — same "headline
+   column gets a background tint" treatment .stats-col-spotlight uses for
+   its own Fantasy-point column. */
+.standings-grid td.standings-col-spotlight {
+  background: rgba(56, 189, 248, 0.1);
+}
+
+.standings-grid thead th.standings-col-spotlight {
+  background: rgba(56, 189, 248, 0.16);
+}
+
+.standings-grid tr.mine td {
+  background: rgba(56, 189, 248, 0.06);
+}
+
+.standings-col-team {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  text-align: left;
+  min-width: 11rem;
+  background: var(--bg-elevated);
+}
+
+/* The flex layout lives on the button inside the cell, never on the <td>
+   itself — a flex <td> under border-collapse fights the row's own height
+   sync with its siblings (the exact trap .stats-col-player's own comment
+   documents). */
+.standings-col-team button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.standings-col-team button:focus-visible {
+  outline: 2px solid var(--ice);
+  outline-offset: 2px;
+}
+
+.standings-team-name {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-display);
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.standings-rank-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  flex-shrink: 0;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.standings-rank-pill.up {
+  color: var(--success);
+  background: rgba(34, 197, 94, 0.14);
+}
+
+.standings-rank-pill.down {
+  color: var(--danger);
+  background: rgba(244, 63, 94, 0.14);
+}
+
+.standings-rank-pill.neutral {
+  color: var(--text-muted);
+}
+
 /* ---------- team name + cap gauge ----------
    Originally the Roster screen's header (redesigned 2026-07-22: points made
    the headline, adjustments a pill, cap gauge given real "available $ / %

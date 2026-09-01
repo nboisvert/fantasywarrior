@@ -103,6 +103,19 @@ export interface TeamDto {
   benchScore: number;
   /** Banked from every finished week; never moves again. */
   finalizedScore: number;
+  /** Raw skater goals/assists summed across the active roster this season —
+   * the classic stat-line counts, not fantasy-weighted. */
+  goals: number;
+  assists: number;
+  /** Games played by the active roster this season. */
+  gamesPlayed: number;
+  /** Fantasy points earned specifically on last night's games, from the
+   * nightly snapshot — null before this league's first snapshot exists. */
+  lastNightPoints: number | null;
+  /** previousRank - currentRank from the two most recent nightly snapshots;
+   * positive = moved up, negative = moved down, null with fewer than 2
+   * snapshots to compare. */
+  rankChange: number | null;
 }
 
 /** Which of these rules the app actually enforces; a path here is inert. */

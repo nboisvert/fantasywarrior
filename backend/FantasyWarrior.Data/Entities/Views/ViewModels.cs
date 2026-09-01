@@ -117,6 +117,12 @@ public sealed class StandingsView
 
     public int RosterGamesPlayed { get; set; }
 
+    /// <summary>Raw skater totals summed across the active roster, all season —
+    /// the classic stat-line counts, not fantasy-weighted. See Standings screen.</summary>
+    public int RosterGoals { get; set; }
+
+    public int RosterAssists { get; set; }
+
     /// <summary>Players held <b>today</b> — spots whose stint covers this game day.</summary>
     public int PlayerCount { get; set; }
 

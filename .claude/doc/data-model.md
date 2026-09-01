@@ -356,6 +356,22 @@ upserts on this key instead of accumulating
 **`TeamPeriodLineups`** — PK (TeamId, PeriodId), SetBy (`auto` | username),
 SubmittedUtc → carries the "automatic lineup" information the UI shows.
 
+**`TeamStandingsSnapshots`** — `TeamStandingsSnapshotId` (bigint), TeamId (FK
+cascade), AsOfDate, Rank, LastNightPoints, CreatedUtc → unique (TeamId, AsOfDate)
+— the upsert key, a rerun of the nightly job for the same night updates rather
+than duplicates; index (TeamId, AsOfDate DESC) INCLUDE (Rank, LastNightPoints)
+for "this team's two most recent nights". Written once a night by
+`StandingsSnapshotJob` (nightly's own step [4/4]), read back by the Standings
+screen's rank-movement pill.
+
+> **The one place the app stores a fact "as of a past night" rather than
+> deriving it live.** Rank movement always compares a team's two most recent
+> rows here, never live `vStandings` against one snapshot — between two
+> nightly runs the two already agree, since nothing else moves standings
+> intraday, so a live comparison would read "no movement" almost always. A
+> team with fewer than two rows has nothing to compare yet, which the API
+> reports as `null`, not as "no movement".
+
 **`DraftPicks`** — `DraftPickId`, LeagueId (FK cascade), Year, Round, PickInRound
 (null), OriginalTeamId (FK), CurrentTeamId (FK), PlayerId (FK null), UsedUtc,
 CreatedUtc → unique (LeagueId, Year, Round, OriginalTeamId) — one pick per team per
@@ -468,7 +484,7 @@ Their definitions live in the migration that creates them.
 | `vPlayerSeasonStats` | season totals per player (`GameType = 2` — regular season only, by rule) |
 | `vRosterSpotTotals` | points and games per spot **this season**, active and bench separated |
 | `vTeamPeriodScores` | active/bench points per team per week → the weekly history |
-| `vStandings` | SUM per team, cap and roster size **today** and **committed**, roster games |
+| `vStandings` | SUM per team, cap and roster size **today** and **committed**, roster games, plus raw skater totals (goals/assists) across the active roster |
 | `vPoolerTradeRecord` | per team: processed trades won/lost/fair by member vote, plus a 0-100 `TraderRating` centred at 50 — null until one decided trade, so "no data" and "dead even" never look alike |
 | `vCockcoinBalance` | SUM of `CockcoinAwards` per user |
 

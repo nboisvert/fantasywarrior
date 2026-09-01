@@ -54,6 +54,7 @@ date-related behaviour as a bug**. See [testmode.md](testmode.md).
 | GM-to-GM direct messages and live presence (SignalR) | Done |
 | Draft picks — tradable, one year ahead | Done |
 | Cockcoin — Fibonacci milestone rewards for chat/trade offers, a done-deal bonus, and scheduled Cockman campaigns (evergreen welcome message shipped) | Done. See [cockman-concept.md](cockman-concept.md). |
+| Standings screen — a real table (GP/G/A/PTS/PTS-G, last night, this week) with a rank-movement pill backed by a nightly standings snapshot | Done. |
 | Season-lifecycle foundation — `Season`, `LeagueSeasons`, the six phases, the trade freeze, the palmarès | Done |
 | Season calendar — the `Seasons` table, `season-init`, a weekly calendar that can be built from declared dates before a single game is imported | Done |
 | League rules — the whole catalogue as one versioned document per season, its validation, the "not enforced yet" badge, and the rules panel that writes it | Done. Catalogue in [league-rules.md](league-rules.md); what is modelled but inert is listed there. |

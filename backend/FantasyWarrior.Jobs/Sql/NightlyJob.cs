@@ -13,6 +13,7 @@ namespace FantasyWarrior.Jobs.Sql;
 /// <item>score the current week</item>
 /// <item>bank any week whose grace day has passed</item>
 /// <item>prepare the week ahead: carry its lineups forward, land due trades</item>
+/// <item>snapshot standings for the rank-movement pill</item>
 /// </list>
 ///
 /// That order is load-bearing, though less delicately than it once was. Step 3
@@ -59,17 +60,23 @@ public sealed class NightlyJob(FantasyWarriorDbContext db)
             Console.WriteLine($"[backfill] {banked} week(s) banked.\n");
         }
 
-        Console.WriteLine("[1/3] Scoring the current week");
+        Console.WriteLine("[1/4] Scoring the current week");
         await new PeriodRollupJob(db).RunAsync(null, dryRun, now, null, ct);
 
-        Console.WriteLine("\n[2/3] Banking finished weeks");
+        Console.WriteLine("\n[2/4] Banking finished weeks");
         banked += await BankAsync(lastStatDate, dryRun, null, now, ct);
 
-        Console.WriteLine("\n[3/3] Preparing the week ahead");
+        Console.WriteLine("\n[3/4] Preparing the week ahead");
         if (dryRun)
             Console.WriteLine("  (skipped in dry run)");
         else
             await new WeekAheadJob(db).RunAsync(PoolClock.TodayEt(now), ct);
+
+        Console.WriteLine("\n[4/4] Snapshotting standings");
+        if (dryRun)
+            Console.WriteLine("  (skipped in dry run)");
+        else
+            await new StandingsSnapshotJob(db).RunAsync(null, dryRun, now, ct);
 
         Console.WriteLine($"\n===== nightly done ({banked} week(s) banked) =====");
         return 0;

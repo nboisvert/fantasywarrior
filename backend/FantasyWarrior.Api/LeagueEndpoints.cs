@@ -304,6 +304,18 @@ public static class LeagueEndpoints
                     .Where(v => v.PeriodId == currentPeriod.PeriodId)
                     .ToDictionaryAsync(v => v.TeamId, v => new { v.ActivePoints, v.BenchPoints });
 
+            // The two most recent nightly snapshots per team — last night's
+            // points, and the pair the rank-movement pill compares. Never
+            // compared against live standings; see TeamStandingsSnapshot's
+            // own doc comment for why.
+            var teamIds = teams.Select(t => t.TeamId).ToList();
+            var recentSnapshots = await db.TeamStandingsSnapshots
+                .Where(x => teamIds.Contains(x.TeamId))
+                .OrderByDescending(x => x.AsOfDate)
+                .ToListAsync();
+            var snapshotsByTeam = recentSnapshots.GroupBy(x => x.TeamId)
+                .ToDictionary(g => g.Key, g => g.Take(2).ToList());
+
             // Player spots only: everything below is NHL points and cap hits,
             // neither of which an Équipe spot has. The franchises come back on
             // their own a few lines down.
@@ -440,6 +452,22 @@ public static class LeagueEndpoints
                             ptsPerGame = s is { RosterGamesPlayed: > 0 }
                                 ? Math.Round(s.Score / s.RosterGamesPlayed, 2)
                                 : (double?)null,
+                            // Raw skater totals across the active roster, all
+                            // season — the classic stat-line counts, distinct
+                            // from the fantasy-weighted score above. Standings
+                            // screen's Fantasy column group.
+                            goals = s?.RosterGoals ?? 0,
+                            assists = s?.RosterAssists ?? 0,
+                            gamesPlayed = s?.RosterGamesPlayed ?? 0,
+                            // Last night's fantasy points and the rank-movement
+                            // delta, both from the nightly snapshot — null
+                            // before this league's first snapshot exists.
+                            lastNightPoints = snapshotsByTeam.TryGetValue(t.TeamId, out var snaps) && snaps.Count > 0
+                                ? snaps[0].LastNightPoints
+                                : (double?)null,
+                            rankChange = snapshotsByTeam.TryGetValue(t.TeamId, out var snaps2) && snaps2.Count == 2
+                                ? snaps2[1].Rank - snaps2[0].Rank
+                                : (int?)null,
                             capTotal = s?.CapTotal ?? 0,
                             // How much of capTotal is the league's DefaultCapHit
                             // standing in for a contract nobody has on file. The

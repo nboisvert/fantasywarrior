@@ -61,6 +61,7 @@ public sealed class FantasyWarriorDbContext(DbContextOptions<FantasyWarriorDbCon
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<CockmanCampaign> CockmanCampaigns => Set<CockmanCampaign>();
     public DbSet<CockmanCampaignView> CockmanCampaignViews => Set<CockmanCampaignView>();
+    public DbSet<TeamStandingsSnapshot> TeamStandingsSnapshots => Set<TeamStandingsSnapshot>();
 
     // --- views: everything above the assignment grain is derived, never stored.
     // See Team's remarks for why.

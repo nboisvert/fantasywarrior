@@ -60,6 +60,11 @@ using FantasyWarrior.Jobs.Sql;
 //   period-rollup [--league <id>] [--week N] [--dry-run]
 //     Scores one week into RosterAssignment rows. Everything above that grain
 //     is a view, so this writes nothing else.
+//   standings-snapshot [--league <id>] [--dry-run]
+//     Writes one TeamStandingsSnapshot per team for last night — rank and
+//     what the active roster scored specifically that day. Also runs as
+//     nightly's own step [4/4]; standalone here for testing without touching
+//     scoring, banking or trade execution.
 //   protection-reset --league <joinCode> [--dry-run]
 //     Clears every off-season protection in a league. A protection is worth one
 //     summer and expires when the season it guarded begins, which is why the
@@ -283,6 +288,14 @@ switch (job)
             dryRun: dryRun,
             nowOverride: null,
             onlyPeriodNumber: int.TryParse(GetOption(args, "--week"), out var week) ? week : null);
+    }
+
+    case "standings-snapshot":
+    {
+        await using var db = DataServiceCollectionExtensions.CreateContext();
+        return await new StandingsSnapshotJob(db).RunAsync(
+            onlyLeagueId: int.TryParse(GetOption(args, "--league"), out var snapLeague) ? snapLeague : null,
+            dryRun: dryRun);
     }
 
     case "nightly":
