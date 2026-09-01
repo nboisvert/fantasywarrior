@@ -143,12 +143,13 @@ public static class MessageEndpoints
             // count landing on a Fibonacci number earns the sender cockcoin.
             var sentCount = await db.Messages.CountAsync(m =>
                 m.LeagueId == league.LeagueId && m.SenderUserId == me.UserId && m.RecipientUserId == other.UserId);
-            if (FibonacciMilestones.RewardForCount(sentCount) is { } milestoneAmount)
+            int? milestoneAmount = FibonacciMilestones.RewardForCount(sentCount);
+            if (milestoneAmount is not null)
             {
                 db.CockcoinAwards.Add(new CockcoinAward
                 {
                     UserId = me.UserId,
-                    Amount = milestoneAmount,
+                    Amount = milestoneAmount.Value,
                     Reason = CockcoinReasons.ChatMessageMilestone,
                     AwardedUtc = DateTime.UtcNow,
                 });
@@ -173,7 +174,14 @@ public static class MessageEndpoints
                 .Groups(LiveHub.UserGroup(other.UserId), LiveHub.UserGroup(me.UserId))
                 .SendAsync("message", payload);
 
-            return Results.Ok(payload);
+            // The HTTP response carries cockcoinAwarded for the sender's own
+            // UI to react to; the broadcast above never does — the recipient
+            // earned nothing and should see nothing.
+            return Results.Ok(new
+            {
+                payload.id, payload.leagueId, payload.from, payload.to, payload.body, payload.sentUtc,
+                cockcoinAwarded = milestoneAmount ?? 0,
+            });
         });
 
         // Opening a thread marks whatever it holds as read. Idempotent, and

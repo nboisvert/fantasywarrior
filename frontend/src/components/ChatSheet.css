@@ -322,6 +322,7 @@
 /* ---------- composer ---------- */
 
 .chat-composer {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.5rem;

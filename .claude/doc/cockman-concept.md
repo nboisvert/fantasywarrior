@@ -112,8 +112,17 @@ to the cockcoin balance in `ProfileMenu`, popping the same small-card style
   fetched lazily on open) as "N cockcoin" next to the `CockcoinIcon`.
 - **The "wow" moment**: `CockcoinReward` (`frontend\src\components\CockcoinReward.tsx`)
   is a generic floating "+N cockcoin" pop — scale-bounce in, drift up, fade
-  out, ~1.5s, mobile-game style. `TradeVoteWidget` is the first (only) caller;
-  meant to be reused by every future earning action below.
+  out, 3s, mobile-game style — with an optional second, quieter line naming
+  *why* it fired (2026-09-01, per Nick: "involve the user"), passed
+  pre-translated by the caller (the component looks nothing up itself, since
+  every call site already knows its own reason). Every synchronous earning
+  action shows it inline over wherever the action happened: `TradeVoteWidget`
+  (over the widget), `ChatSheet` (over the composer), `Trades` (over the
+  header, since `CreateTradeSheet` closes before a 3s animation could ever
+  finish, so the reward is lifted to the parent screen instead of shown
+  inside the closing sheet). The done-deal bonus — the one earning path with
+  no live action to anchor over, landing overnight while the GM is offline —
+  gets its own full-screen celebration instead; see below.
 
 ## Earning paths and campaigns — now real (2026-08-31)
 
@@ -134,6 +143,22 @@ to the cockcoin balance in `ProfileMenu`, popping the same small-card style
 - **Done deal bonus** (`CockcoinReasons.DoneDeal`, flat 10 CK): both GMs earn
   it the moment their trade reaches `TradeStatus.Processed` — awarded in
   `WeekAheadJob.cs`'s nightly landing loop, not tied to the Fibonacci curve.
+  No live connection exists to push this to (the Jobs project doesn't
+  reference the API project or `IHubContext<LiveHub>`, and the GM is offline
+  at 09:30 UTC anyway), so it needs its own surfacing mechanism to get a "wow"
+  moment at all: `CockcoinAward` carries a nullable `AcknowledgedUtc`, and
+  `GET /api/users/{username}/cockcoin/pending-reward` sums every
+  unacknowledged `done-deal` award for that user (several trades landing the
+  same night become one pop, not a queue — they carry no per-item content
+  worth separating) while `POST .../pending-reward/ack` marks all of them
+  acknowledged in one write. `DoneDealRewardGate` (mirrors
+  `CockmanCampaignGate`'s "fetch once per mount" shape, no league scope)
+  shows `DoneDealRewardPopup` when something's pending — a full-screen
+  celebration card (cloned modal mechanics from `CockmanCampaignPopup`)
+  wrapping an unmodified `CockcoinReward`, scaled up via a `transform` on its
+  *container* rather than the reward itself — the reward's own `transform` is
+  fully owned by its keyframe animation for the whole 3s run, so overriding
+  it directly gets clobbered the instant the animation starts.
 - **Cockman campaigns** — the generalized shape the "library of bonus-entry
   prompt types" idea grew into: a scheduled message with an optional
   multiple-choice question and cockcoin reward, shown once per user while its

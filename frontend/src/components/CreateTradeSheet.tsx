@@ -321,7 +321,7 @@ export function CreateTradeSheet({
   league: LeagueDetail;
   username: string;
   onClose: () => void;
-  onCreated: () => void;
+  onCreated: (cockcoinAwarded: number) => void;
 }) {
   const { t } = useLanguage();
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -499,7 +499,7 @@ export function CreateTradeSheet({
     setSubmitting(true);
     setError("");
     try {
-      await api.proposeTrade(
+      const res = await api.proposeTrade(
         league.id,
         username,
         counterparty,
@@ -510,7 +510,7 @@ export function CreateTradeSheet({
         myFranchise ? (myTeam?.franchise?.abbrev ?? null) : null,
         theirFranchise ? (counterpartyTeam?.franchise?.abbrev ?? null) : null,
       );
-      onCreated();
+      onCreated(res.cockcoinAwarded);
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("createTradeSheet.couldNotPropose"));

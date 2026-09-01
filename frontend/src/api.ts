@@ -700,6 +700,13 @@ export interface LiveMessage {
   sentUtc: string;
 }
 
+/** sendMessage's own HTTP response — distinct from LiveMessage, which is
+ * also what the live-pushed copy uses; cockcoinAwarded is sender-only and
+ * must never ride the broadcast the recipient also receives. */
+export interface SendMessageResult extends LiveMessage {
+  cockcoinAwarded: number;
+}
+
 /** A scheduled Cockman notification due for the current user. `key` is the
  * i18n lookup — the row itself carries no copy, see cockmanCampaigns.ts. */
 export interface CockmanCampaignDto {
@@ -885,7 +892,7 @@ export const api = {
     franchiseFromProposer: string | null = null,
     franchiseFromCounterparty: string | null = null,
   ) =>
-    request<{ id: string }>(`/api/leagues/${encodeURIComponent(leagueId)}/trades`, {
+    request<{ id: string; cockcoinAwarded: number }>(`/api/leagues/${encodeURIComponent(leagueId)}/trades`, {
       method: "POST",
       body: JSON.stringify({
         username,
@@ -912,6 +919,17 @@ export const api = {
    * server already turns that into 0 rather than an absent value. */
   cockcoinBalance: (username: string) =>
     request<{ balance: number }>(`/api/users/${encodeURIComponent(username)}/cockcoin`),
+
+  /** The done-deal bonus is awarded overnight — this is what's due to be
+   * shown (summed across every trade that landed since it was last
+   * acknowledged), or null if nothing is pending. */
+  pendingCockcoinReward: (username: string) =>
+    request<{ amount: number } | null>(`/api/users/${encodeURIComponent(username)}/cockcoin/pending-reward`),
+  ackPendingCockcoinReward: (username: string) =>
+    request<{ ok: boolean; acked: number }>(
+      `/api/users/${encodeURIComponent(username)}/cockcoin/pending-reward/ack`,
+      { method: "POST" },
+    ),
 
   /** The one Cockman campaign due for this user right now, or null — the
    * server already excludes anything already seen and anything outside its
@@ -944,7 +962,7 @@ export const api = {
   /** The response is the stored message. It also arrives over the live channel
    * a moment later — the sheet dedupes on `id` rather than guessing which wins. */
   sendMessage: (leagueId: string, username: string, to: string, body: string) =>
-    request<LiveMessage>(`/api/leagues/${encodeURIComponent(leagueId)}/messages`, {
+    request<SendMessageResult>(`/api/leagues/${encodeURIComponent(leagueId)}/messages`, {
       method: "POST",
       body: JSON.stringify({ username, to, body }),
     }),

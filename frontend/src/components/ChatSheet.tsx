@@ -20,6 +20,7 @@ import type { ChatMessage, Conversation } from "../api";
 import { useLive } from "../live/LiveProvider";
 import { useLanguage } from "../i18n/LanguageContext";
 import { ArrowLeftIcon, MessageSquareIcon, SendIcon, XIcon } from "./Icons";
+import { CockcoinReward } from "./CockcoinReward";
 import "./ChatSheet.css";
 
 /** Right-hand stamp on a conversation row: a time today, a weekday this week,
@@ -69,6 +70,10 @@ export function ChatSheet({
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  // The cockcoin reward pop, showing only for the moment it takes to play
+  // its animation (CockcoinReward.onDone clears it) — set when a sent
+  // message lands on a Fibonacci milestone.
+  const [reward, setReward] = useState<number | null>(null);
 
   const sheetRef = useRef<HTMLDivElement>(null);
   const firstFocusRef = useRef<HTMLButtonElement>(null);
@@ -221,6 +226,7 @@ export function ChatSheet({
         if (prev.some((x) => x.id === sent.id)) return prev;
         return [...prev, { id: sent.id, fromMe: true, body: sent.body, sentUtc: sent.sentUtc }];
       });
+      if (sent.cockcoinAwarded > 0) setReward(sent.cockcoinAwarded);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -371,6 +377,13 @@ export function ChatSheet({
               >
                 <SendIcon size={18} />
               </button>
+              {reward != null && (
+                <CockcoinReward
+                  amount={reward}
+                  reason={t("cockcoinReward.reasonChatMessage")}
+                  onDone={() => setReward(null)}
+                />
+              )}
             </div>
           </>
         )}

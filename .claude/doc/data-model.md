@@ -434,10 +434,17 @@ RecipientUserId (FK), Body (nvarchar 1000), SentUtc, ReadUtc (null)
 > constraint at all.
 
 **`CockcoinAwards`** — `CockcoinAwardId` (bigint), UserId (FK cascade), Amount,
-Reason (short stable code, not display text), AwardedUtc → index (UserId). A ledger,
+Reason (short stable code, not display text), AwardedUtc, AcknowledgedUtc
+(nullable) → index (UserId); index (UserId, Reason, AcknowledgedUtc). A ledger,
 not a mutable running total: a balance derived by SUM over an honest event log
 cannot drift, and it doubles as a free audit trail. See
 [cockman-concept.md](cockman-concept.md).
+
+> **`AcknowledgedUtc` only matters for an award earned asynchronously** — the
+> done-deal bonus, credited overnight with nobody watching. An award shown
+> synchronously in response to the GM's own action (a vote, a milestone) never
+> sets it; the reward pop for those plays immediately and there is nothing left
+> to acknowledge later.
 
 **`CockmanCampaigns`** — `CockmanCampaignId`, Key (unique — the i18n lookup;
 copy itself lives in the frontend dictionary, not this row), HasQuestion,

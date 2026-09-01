@@ -186,7 +186,9 @@ export function TradeVoteWidget({
         </div>
       )}
 
-      {reward != null && <CockcoinReward amount={reward} onDone={() => setReward(null)} />}
+      {reward != null && (
+        <CockcoinReward amount={reward} reason={t("cockcoinReward.reasonTradeVote")} onDone={() => setReward(null)} />
+      )}
     </div>
   );
 }

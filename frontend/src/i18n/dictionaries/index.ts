@@ -19,6 +19,7 @@ import * as cockmanCampaigns from "./cockmanCampaigns";
 import * as cockcoinInfo from "./cockcoinInfo";
 import * as toast from "./toast";
 import * as cockcoinReward from "./cockcoinReward";
+import * as doneDealReward from "./doneDealReward";
 import * as trades from "./trades";
 import * as createTradeSheet from "./createTradeSheet";
 import * as tradeVoteWidget from "./tradeVoteWidget";
@@ -47,6 +48,7 @@ export const dictionaries = {
     cockcoinInfo: cockcoinInfo.en,
     toast: toast.en,
     cockcoinReward: cockcoinReward.en,
+    doneDealReward: doneDealReward.en,
     trades: trades.en,
     createTradeSheet: createTradeSheet.en,
     tradeVoteWidget: tradeVoteWidget.en,
@@ -74,6 +76,7 @@ export const dictionaries = {
     cockcoinInfo: cockcoinInfo.fr,
     toast: toast.fr,
     cockcoinReward: cockcoinReward.fr,
+    doneDealReward: doneDealReward.fr,
     trades: trades.fr,
     createTradeSheet: createTradeSheet.fr,
     tradeVoteWidget: tradeVoteWidget.fr,

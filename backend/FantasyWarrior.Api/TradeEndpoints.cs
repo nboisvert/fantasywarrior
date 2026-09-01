@@ -205,11 +205,12 @@ public static class TradeEndpoints
             var offerCount = await db.Trades.CountAsync(x =>
                 x.LeagueId == league.LeagueId && x.ProposerTeamId == proposerTeam.TeamId
                 && x.CounterpartyTeamId == counterpartyTeam.TeamId);
-            if (FibonacciMilestones.RewardForCount(offerCount) is { } milestoneAmount)
+            int? milestoneAmount = FibonacciMilestones.RewardForCount(offerCount);
+            if (milestoneAmount is not null)
                 db.CockcoinAwards.Add(new CockcoinAward
                 {
                     UserId = proposerTeam.OwnerUserId,
-                    Amount = milestoneAmount,
+                    Amount = milestoneAmount.Value,
                     Reason = CockcoinReasons.TradeOfferMilestone,
                     AwardedUtc = DateTime.UtcNow,
                 });
@@ -252,7 +253,7 @@ public static class TradeEndpoints
                 });
             await db.SaveChangesAsync();
 
-            return Results.Ok(new { id = trade.TradeId.ToString() });
+            return Results.Ok(new { id = trade.TradeId.ToString(), cockcoinAwarded = milestoneAmount ?? 0 });
         });
 
         // What a team holds. Picks only ever exist one season ahead, so there

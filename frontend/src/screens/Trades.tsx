@@ -17,6 +17,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api, topPlayersByNhlPoints, tradeRating } from "../api";
 import type { LeagueDetail, Trade, TradePlayer } from "../api";
 import { ArrowLeftRightIcon } from "../components/Icons";
+import { CockcoinReward } from "../components/CockcoinReward";
 import { CreateTradeSheet } from "../components/CreateTradeSheet";
 import { TradeVoteWidget } from "../components/TradeVoteWidget";
 import { LoadingLogo } from "../components/LoadingLogo";
@@ -47,6 +48,10 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
   const [trades, setTrades] = useState<Trade[] | null>(null);
   const [error, setError] = useState("");
   const [showCreate, setShowCreate] = useState(false);
+  // The proposal sheet closes the instant it submits, before the cockcoin
+  // reward pop could ever finish its animation — so the reward is lifted
+  // here instead of shown inside the sheet.
+  const [reward, setReward] = useState<number | null>(null);
   // A set, not a single id — expanding one card no longer collapses another
   // (2026-08-03, per Nick: comparing two trades meant losing your place in
   // the first one every time you opened a second).
@@ -276,6 +281,9 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
           <ArrowLeftRightIcon size={16} />
           {t("trades.proposeTrade")}
         </button>
+        {reward != null && (
+          <CockcoinReward amount={reward} reason={t("cockcoinReward.reasonTradeOffer")} onDone={() => setReward(null)} />
+        )}
       </div>
 
       {error && <p className="error-banner">{error}</p>}
@@ -346,7 +354,10 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
           league={league}
           username={username}
           onClose={() => setShowCreate(false)}
-          onCreated={load}
+          onCreated={(cockcoinAwarded) => {
+            load();
+            if (cockcoinAwarded > 0) setReward(cockcoinAwarded);
+          }}
         />
       )}
     </section>

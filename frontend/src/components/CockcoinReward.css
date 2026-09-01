@@ -10,8 +10,9 @@
   left: 50%;
   top: 0;
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.15rem;
   font-family: var(--font-display);
   font-size: 1.5rem;
   font-weight: 700;
@@ -23,6 +24,12 @@
   animation: cockcoin-reward-pop 3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
+.cockcoin-reward-top {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 /* "+N CK" carries the base span's full size/weight/glow; "cockcoin" trails
    as a quieter unit label, same amount-then-ticker-then-word hierarchy as
    the bank display (2026-08-03, per Nick: CK is the currency symbol now). */
@@ -31,6 +38,16 @@
   font-weight: 600;
   opacity: 0.75;
   text-shadow: none;
+}
+
+/* Why it fired — even quieter than the "cockcoin" label, a second line so a
+   GM connects the pop to what they just did (2026-09-01, per Nick). */
+.cockcoin-reward-reason {
+  font-size: 0.5em;
+  font-weight: 500;
+  opacity: 0.55;
+  text-shadow: none;
+  letter-spacing: 0.02em;
 }
 
 @keyframes cockcoin-reward-pop {

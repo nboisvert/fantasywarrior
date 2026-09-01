@@ -24,5 +24,11 @@ public sealed class CockcoinAward
 
     public DateTime AwardedUtc { get; set; }
 
+    /// <summary>Set once this award has been shown to the GM and dismissed —
+    /// only meaningful for awards earned asynchronously (e.g. the done-deal
+    /// bonus, awarded overnight with nobody watching). Awards shown
+    /// synchronously in response to the GM's own action never need this.</summary>
+    public DateTime? AcknowledgedUtc { get; set; }
+
     public User? User { get; set; }
 }

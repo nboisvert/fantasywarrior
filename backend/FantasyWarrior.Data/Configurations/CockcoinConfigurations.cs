@@ -14,6 +14,8 @@ public sealed class CockcoinAwardConfiguration : IEntityTypeConfiguration<Cockco
 
         // The balance view's whole query; every lookup is "this user's awards".
         b.HasIndex(x => x.UserId);
+        // The pending-reward query: this user's unacknowledged done-deal awards.
+        b.HasIndex(x => new { x.UserId, x.Reason, x.AcknowledgedUtc });
 
         b.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
     }

@@ -1,0 +1,93 @@
+/* DoneDealRewardPopup — same centered-dialog shell as CockmanCampaignPopup.css,
+   reading as a celebration card. .ddr-stage gives the (unmodified)
+   CockcoinReward room to play its pop-drift-fade animation at a bigger scale
+   than its inline uses, since this is the one earning moment with no live
+   action to anchor over — it has to carry the "wow" on its own. */
+
+.ddr-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(4, 7, 15, 0.72);
+  backdrop-filter: blur(3px);
+  animation: fade-in 180ms ease-out;
+}
+
+.ddr-card {
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.5rem 1.25rem 2.25rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: 18px;
+  box-shadow: 0 0 64px rgba(251, 191, 36, 0.16), 0 8px 32px rgba(0, 0, 0, 0.5);
+  text-align: center;
+  /* Not clipped: the scaled-up reward's upward drift is meant to breathe
+     past the stage's own box, not get cut off at the card edge. */
+  overflow: visible;
+}
+
+.ddr-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  color: var(--text-muted);
+  cursor: pointer;
+  z-index: 1;
+  transition: color 0.15s, background-color 0.15s;
+}
+
+.ddr-close:hover {
+  color: var(--text);
+  background: var(--surface-strong);
+}
+
+.ddr-close:focus-visible {
+  outline: 2px solid var(--ice);
+  outline-offset: 2px;
+}
+
+.ddr-title {
+  font: 1.15rem var(--font-display);
+  letter-spacing: 0.03em;
+  color: var(--gold);
+  text-shadow: 0 0 14px rgba(251, 191, 36, 0.35);
+}
+
+/* Scaling the stage itself (not .cockcoin-reward) is what makes this work:
+   the reward's own transform is fully owned by its keyframe animation for
+   its whole 3s run, so a static override on the element itself would just
+   be clobbered the instant the animation starts. A scaled ancestor renders
+   everything inside it — including the running animation — bigger, with no
+   fight over which rule wins. */
+.ddr-stage {
+  position: relative;
+  width: 100%;
+  height: 90px;
+  margin-top: 0.5rem;
+  transform: scale(1.6);
+  transform-origin: top center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ddr-overlay {
+    animation: none;
+  }
+}
