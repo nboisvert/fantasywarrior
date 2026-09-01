@@ -5,6 +5,7 @@ export const en = {
   reasonTradeVote: "for rating a trade",
   reasonChatMessage: "for chatting",
   reasonTradeOffer: "for the offer",
+  reasonTradeAccept: "for accepting",
   reasonDoneDeal: "deal completed",
 };
 
@@ -13,5 +14,6 @@ export const fr = {
   reasonTradeVote: "pour ta cote sur l'échange",
   reasonChatMessage: "pour avoir jasé",
   reasonTradeOffer: "pour l'offre",
+  reasonTradeAccept: "pour avoir accepté",
   reasonDoneDeal: "échange complété",
 };

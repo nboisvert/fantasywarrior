@@ -393,11 +393,35 @@ public static class TradeEndpoints
                 // serverless tier drops connections on resume, and a retry must
                 // replay the whole swap rather than half of it.
                 var strategy = db.Database.CreateExecutionStrategy();
+                int? acceptMilestoneAmount = null;
                 await strategy.ExecuteAsync(async () =>
                 {
                     await using var tx = await db.Database.BeginTransactionAsync();
                     await TradeExecution.ApplyAsync(db, trade, effective, nextPeriod);
                     await db.SaveChangesAsync();
+
+                    // The Nth trade this counterparty has accepted from this
+                    // specific proposer — the symmetric peer of the propose-side
+                    // milestone, earned by the acceptor instead. Counted after
+                    // the save above so this trade's own new Accepted row is
+                    // already on the table.
+                    var acceptCount = await db.Trades.CountAsync(x =>
+                        x.LeagueId == trade.LeagueId && x.ProposerTeamId == trade.ProposerTeamId
+                        && x.CounterpartyTeamId == trade.CounterpartyTeamId
+                        && (x.Status == TradeStatus.Accepted || x.Status == TradeStatus.Processed));
+                    acceptMilestoneAmount = FibonacciMilestones.RewardForCount(acceptCount);
+                    if (acceptMilestoneAmount is not null)
+                    {
+                        db.CockcoinAwards.Add(new CockcoinAward
+                        {
+                            UserId = trade.CounterpartyTeam!.Owner!.UserId,
+                            Amount = acceptMilestoneAmount.Value,
+                            Reason = CockcoinReasons.TradeOfferAccepted,
+                            AwardedUtc = DateTime.UtcNow,
+                        });
+                        await db.SaveChangesAsync();
+                    }
+
                     await tx.CommitAsync();
                 });
 
@@ -406,6 +430,7 @@ public static class TradeEndpoints
                     ok = true, status = "accepted",
                     effectiveDate = effective,
                     note = $"Rosters change on {effective:MMMM d}, when week {nextPeriod.Number} opens.",
+                    cockcoinAwarded = acceptMilestoneAmount ?? 0,
                 });
             }
 

@@ -52,6 +52,7 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
   // reward pop could ever finish its animation — so the reward is lifted
   // here instead of shown inside the sheet.
   const [reward, setReward] = useState<number | null>(null);
+  const [rewardReason, setRewardReason] = useState("");
   // A set, not a single id — expanding one card no longer collapses another
   // (2026-08-03, per Nick: comparing two trades meant losing your place in
   // the first one every time you opened a second).
@@ -95,7 +96,11 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
   const respond = async (tradeId: string, accept: boolean) => {
     setBusyId(tradeId);
     try {
-      await api.respondTrade(league.id, tradeId, username, accept);
+      const res = await api.respondTrade(league.id, tradeId, username, accept);
+      if (res.cockcoinAwarded && res.cockcoinAwarded > 0) {
+        setRewardReason(t("cockcoinReward.reasonTradeAccept"));
+        setReward(res.cockcoinAwarded);
+      }
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("trades.couldNotRespond"));
@@ -282,7 +287,7 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
           {t("trades.proposeTrade")}
         </button>
         {reward != null && (
-          <CockcoinReward amount={reward} reason={t("cockcoinReward.reasonTradeOffer")} onDone={() => setReward(null)} />
+          <CockcoinReward amount={reward} reason={rewardReason} onDone={() => setReward(null)} />
         )}
       </div>
 
@@ -356,7 +361,10 @@ export function Trades({ league, username }: { league: LeagueDetail; username: s
           onClose={() => setShowCreate(false)}
           onCreated={(cockcoinAwarded) => {
             load();
-            if (cockcoinAwarded > 0) setReward(cockcoinAwarded);
+            if (cockcoinAwarded > 0) {
+              setRewardReason(t("cockcoinReward.reasonTradeOffer"));
+              setReward(cockcoinAwarded);
+            }
           }}
         />
       )}

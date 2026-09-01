@@ -24,6 +24,13 @@ public static class CockcoinReasons
     /// amount — see <see cref="FibonacciMilestones.RewardForCount"/>.</summary>
     public const string TradeOfferMilestone = "trade-offer-milestone";
 
+    /// <summary>The symmetric milestone for accepting: the Nth trade this
+    /// counterparty has accepted from this specific proposer, same
+    /// (league, proposer, counterparty) pairing and curve as
+    /// <see cref="TradeOfferMilestone"/>, earned by the acceptor instead of
+    /// the proposer.</summary>
+    public const string TradeOfferAccepted = "trade-offer-accepted-milestone";
+
     /// <summary>A trade reaching <c>TradeStatus.Processed</c> — awarded to
     /// both GMs.</summary>
     public const string DoneDeal = "done-deal";

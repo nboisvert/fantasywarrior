@@ -138,8 +138,15 @@ to the cockcoin balance in `ProfileMenu`, popping the same small-card style
     right after the message itself is saved.
   - **Trade offers** (`CockcoinReasons.TradeOfferMilestone`): same curve,
     scoped per (LeagueId, ProposerTeamId, CounterpartyTeamId) — a new curve
-    per opponent, mirroring chat rooms. Only the proposer earns. Checked in
-    `TradeEndpoints.cs`'s propose handler.
+    per opponent, mirroring chat rooms. The proposer earns it on send,
+    checked in `TradeEndpoints.cs`'s propose handler.
+  - **Accepting** (`CockcoinReasons.TradeOfferAccepted`, 2026-09-01, per
+    Nick — "click should pop the same as vote"): the symmetric milestone for
+    the *counterparty*, same (proposer, counterparty) pairing and curve,
+    counting trades this counterparty has accepted from this specific
+    proposer (`Status == Accepted || Status == Processed`). Checked in
+    `TradeEndpoints.cs`'s respond/accept handler, after the roster swap's own
+    `SaveChangesAsync` so the count includes this trade's own new row.
 - **Done deal bonus** (`CockcoinReasons.DoneDeal`, flat 10 CK): both GMs earn
   it the moment their trade reaches `TradeStatus.Processed` — awarded in
   `WeekAheadJob.cs`'s nightly landing loop, not tied to the Fibonacci curve.

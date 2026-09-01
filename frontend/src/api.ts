@@ -912,7 +912,7 @@ export const api = {
       }),
     }),
   respondTrade: (leagueId: string, tradeId: string, username: string, accept: boolean) =>
-    request<{ ok: boolean; status: TradeStatus }>(
+    request<{ ok: boolean; status: TradeStatus; cockcoinAwarded?: number }>(
       `/api/leagues/${encodeURIComponent(leagueId)}/trades/${encodeURIComponent(tradeId)}/respond`,
       { method: "POST", body: JSON.stringify({ username, accept }) },
     ),
