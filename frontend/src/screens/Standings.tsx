@@ -5,33 +5,25 @@ import type { LeagueDetail, TeamDto, TeamPeriodRow } from "../api";
 import { ArrowDownIcon, ArrowUpIcon, CalendarIcon, ChevronDownIcon, CrossIcon, TrophyIcon } from "../components/Icons";
 import { useLanguage } from "../i18n/LanguageContext";
 
-/** The rank-movement pill, now its own "Last Night" sub-column rather than a
- * mark next to the team name (2026-09-01, per Nick). `null` ("nothing to
- * compare yet") and `0` ("compared, no movement") render the same dash but
- * carry different aria-labels — two different facts, not one collapsed
- * into the other. */
-function RankPill({ change }: { change: number | null }) {
+/** The rank-movement indicator, now a corner badge on the rank digit itself
+ * rather than its own column (2026-09-01, per Nick) — same overlay technique
+ * as the Team grid's pending-lineup-change badge (.lineup-toggle/.lineup-pending
+ * in Stats.tsx/App.css): absent entirely when there's nothing to flag, rather
+ * than a dash placeholder. */
+function RankChangeBadge({ change }: { change: number | null }) {
   const { t } = useLanguage();
-  if (change === null)
-    return (
-      <span className="standings-rank-pill neutral" aria-hidden="true">
-        —
-      </span>
-    );
-  if (change === 0)
-    return (
-      <span className="standings-rank-pill neutral" aria-label={t("standings.rankSame")}>
-        —
-      </span>
-    );
+  if (!change) return null;
   const up = change > 0;
   const label = up
     ? t("standings.rankUp", { spots: change })
     : t("standings.rankDown", { spots: Math.abs(change) });
   return (
-    <span className={`standings-rank-pill ${up ? "up" : "down"}`} aria-label={label} title={label}>
+    <span
+      className={`standings-rank-change-badge standings-rank-change-badge-${up ? "up" : "down"}`}
+      aria-label={label}
+      title={label}
+    >
       {up ? <ArrowUpIcon size={12} /> : <ArrowDownIcon size={12} />}
-      {Math.abs(change)}
     </span>
   );
 }
@@ -231,7 +223,7 @@ export function Standings({
               <tr className="standings-group-row">
                 <th className="standings-col-team" rowSpan={2} scope="col" />
                 <GroupHead label={t("standings.groupFantasy")} span={5} accent />
-                <GroupHead label={t("standings.groupLastNight")} span={3} />
+                <GroupHead label={t("standings.groupLastNight")} span={2} />
                 <GroupHead label={t("standings.groupThisWeek")} span={2} />
                 <GroupHead label={t("standings.groupExtra")} span={2} />
               </tr>
@@ -243,7 +235,6 @@ export function Standings({
                 <SortableHead label="PTS/G" colKey="ptsPerGame" active={sort.key === "ptsPerGame"} dir={sort.dir} onSort={sort.toggle} accent />
                 <SortableHead label="GP" colKey="lastNightGamesPlayed" active={sort.key === "lastNightGamesPlayed"} dir={sort.dir} onSort={sort.toggle} groupStart />
                 <SortableHead label="PTS" colKey="lastNightPoints" active={sort.key === "lastNightPoints"} dir={sort.dir} onSort={sort.toggle} />
-                <SortableHead label="±" colKey="rankChange" active={sort.key === "rankChange"} dir={sort.dir} onSort={sort.toggle} />
                 <SortableHead label="GP" colKey="periodGamesPlayed" active={sort.key === "periodGamesPlayed"} dir={sort.dir} onSort={sort.toggle} groupStart />
                 <SortableHead label="PTS" colKey="periodPoints" active={sort.key === "periodPoints"} dir={sort.dir} onSort={sort.toggle} />
                 <SortableHead
@@ -264,7 +255,10 @@ export function Standings({
                   <tr className={team.ownerUsername === username ? "mine" : undefined}>
                     <td className="standings-col-team">
                       <div className="standings-col-team-inner">
-                        <span className="standings-rank-plain">{team.rank}</span>
+                        <span className="standings-rank-plain">
+                          {team.rank}
+                          <RankChangeBadge change={team.rankChange} />
+                        </span>
                         <button
                           type="button"
                           className="standings-team-btn"
@@ -294,9 +288,6 @@ export function Standings({
                       {team.lastNightGamesPlayed != null ? team.lastNightGamesPlayed : t("standings.noStats")}
                     </td>
                     <td>{team.lastNightPoints != null ? team.lastNightPoints : t("standings.noStats")}</td>
-                    <td>
-                      <RankPill change={team.rankChange} />
-                    </td>
                     <td className="standings-group-start">{league.currentPeriod ? team.periodGamesPlayed : t("standings.noStats")}</td>
                     <td>{league.currentPeriod ? team.periodPoints : t("standings.noStats")}</td>
                     <td className="standings-group-start">
@@ -306,7 +297,7 @@ export function Standings({
                   </tr>
                   {openPeriodsFor === team.ownerUsername && (
                     <tr className="team-periods-row">
-                      <td colSpan={13}>
+                      <td colSpan={12}>
                         {periodsByTeam[team.ownerUsername] ? (
                           <TeamPeriods periods={periodsByTeam[team.ownerUsername]} />
                         ) : (

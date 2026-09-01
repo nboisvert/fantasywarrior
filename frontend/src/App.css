@@ -1349,12 +1349,25 @@
    Nick, a second pass: it still looked mismatched with a display font)
    no special typeface either — the same plain grid font every other
    number in this table uses. The podium badge stays exactly as it was for
-   Palmares, which still uses it; this is a new, separate look. */
+   Palmares, which still uses it; this is a new, separate look.
+
+   Sized well past the row's own text (2026-09-01, per Nick, a third pass)
+   without growing the row: .standings-periods-btn (1.35rem/21.6px) is the
+   real height ceiling for this flex row, not the 0.82rem body text, so the
+   digit can paint far bigger than that as long as its net footprint
+   (box + margin) stays at or under 21.6px — same trick .lineup-toggle uses
+   on the Team grid (font-size 1.6rem/25.6px, line-height 1, margin -0.125rem
+   top/bottom: 25.6 - 2 - 2 = 21.6px net). `position: relative` anchors the
+   rank-change badge overlaid on top of it. */
 .standings-rank-plain {
+  position: relative;
   flex-shrink: 0;
-  width: 1.4rem;
+  width: 2rem;
   color: var(--text-muted);
   font-weight: 700;
+  font-size: 1.6rem;
+  line-height: 1;
+  margin: -0.125rem 0;
   text-align: left;
 }
 
@@ -1501,12 +1514,21 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Header and body share the same cell padding as .stats-grid (the reference
+   table) — 0.55rem/0.5rem, spelled out here rather than left to inherit from
+   .standings-grid's own thead rule, so this header's look doesn't depend on
+   which selector happens to win the cascade against the outer grid's (the
+   th padding was fixed to match the row cells below but the header's own
+   padding was missed the first time, 2026-09-01, per Nick — this panel
+   still looked off, tighter above "WEEK" than the Team screen's). */
 .team-periods-table th {
-  padding: 0 0.35rem 0.25rem;
+  padding: 0.55rem 0.5rem;
   color: var(--text-muted);
-  font: 600 0.62rem var(--font-body);
+  font-size: 0.66rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
+  border-bottom: 1px solid var(--border);
   text-align: right;
 }
 
@@ -1514,9 +1536,6 @@
   text-align: left;
 }
 
-/* Same cell padding as .stats-grid td (the reference table), measured and
-   matched exactly — 0.55rem/0.5rem gives the same row height as the Team
-   screen's week-by-week panel (2026-09-01, per Nick, raised twice now). */
 .team-periods-table td {
   padding: 0.55rem 0.5rem;
   text-align: right;
@@ -1555,29 +1574,33 @@
   color: var(--danger);
 }
 
-.standings-rank-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.15rem;
-  flex-shrink: 0;
-  padding: 0.15rem 0.4rem;
-  border-radius: 999px;
-  font-size: 0.7rem;
-  font-weight: 700;
+/* Rank-change badge, overlaid on the (now much bigger) rank digit — same
+   corner-badge technique as .lineup-pending on the Team grid: a bare glyph
+   (no pill chip), heavier stroke, and a background-matched drop-shadow halo
+   so it reads as an annotation on the digit rather than a second icon beside
+   it. Absent entirely when there's nothing to flag, same as .lineup-pending
+   (2026-09-01, per Nick — replaces the old standalone "±" column). */
+.standings-rank-change-badge {
+  position: absolute;
+  display: flex;
+  stroke-width: 4;
+  filter:
+    drop-shadow(0 0 1.5px var(--bg-elevated))
+    drop-shadow(0 0 1.5px var(--bg-elevated))
+    drop-shadow(0 0 1.5px var(--bg-elevated));
+  pointer-events: none;
 }
 
-.standings-rank-pill.up {
+.standings-rank-change-badge-up {
+  top: 0;
+  right: 2px;
   color: var(--success);
-  background: rgba(34, 197, 94, 0.14);
 }
 
-.standings-rank-pill.down {
+.standings-rank-change-badge-down {
+  bottom: 0;
+  right: 2px;
   color: var(--danger);
-  background: rgba(244, 63, 94, 0.14);
-}
-
-.standings-rank-pill.neutral {
-  color: var(--text-muted);
 }
 
 /* ---------- team name + cap gauge ----------
