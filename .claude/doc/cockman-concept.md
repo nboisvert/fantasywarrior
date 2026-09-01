@@ -112,17 +112,27 @@ to the cockcoin balance in `ProfileMenu`, popping the same small-card style
   fetched lazily on open) as "N cockcoin" next to the `CockcoinIcon`.
 - **The "wow" moment**: `CockcoinReward` (`frontend\src\components\CockcoinReward.tsx`)
   is a generic floating "+N cockcoin" pop — scale-bounce in, drift up, fade
-  out, 3s, mobile-game style — with an optional second, quieter line naming
-  *why* it fired (2026-09-01, per Nick: "involve the user"), passed
+  out, 4.5s (2026-08-03: doubled from the first pass; 2026-09-01, per Nick:
+  another +50%), mobile-game style — with an optional second, quieter line
+  naming *why* it fired (2026-09-01, per Nick: "involve the user"), passed
   pre-translated by the caller (the component looks nothing up itself, since
-  every call site already knows its own reason). Every synchronous earning
-  action shows it inline over wherever the action happened: `TradeVoteWidget`
-  (over the widget), `ChatSheet` (over the composer), `Trades` (over the
-  header, since `CreateTradeSheet` closes before a 3s animation could ever
-  finish, so the reward is lifted to the parent screen instead of shown
-  inside the closing sheet). The done-deal bonus — the one earning path with
-  no live action to anchor over, landing overnight while the GM is offline —
-  gets its own full-screen celebration instead; see below.
+  every call site already knows its own reason). `position: fixed`,
+  dead-centered on the viewport (2026-09-01, per Nick: "toujours en plein
+  centre de l'écran") rather than anchored over whichever element triggered
+  it — a caller no longer needs its own `position: relative` wrapper for
+  this to show correctly (several still carry one from before this change;
+  harmless, just unused). The one place that's still deliberately different
+  is `DoneDealRewardPopup`'s `.ddr-stage`, whose own `transform` makes it the
+  containing block for the reward's `position: fixed` instead of the true
+  viewport — CSS's normal rule for a transformed ancestor, and exactly the
+  "bigger, inside its own card" effect that popup wants. Every synchronous
+  earning action fires it the same way: `TradeVoteWidget`, `ChatSheet`
+  (after `send()`), `Trades` (after `CreateTradeSheet`'s `onCreated` and
+  after accepting an offer — `CreateTradeSheet` itself closes before the
+  animation could ever finish, so that one reward is lifted to the parent
+  screen rather than shown inside the closing sheet). The done-deal bonus —
+  the one earning path with no live action to fire it — gets its own
+  full-screen celebration card wrapping this same component; see below.
 
 ## Earning paths and campaigns — now real (2026-08-31)
 

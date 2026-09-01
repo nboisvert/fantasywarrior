@@ -1,14 +1,26 @@
 /* Pop in with a little overshoot, hold, drift up while fading — the classic
    mobile-game "you just earned something" beat (2026-08-03, per Nick:
    "vraiment style petit jeu vidéo de téléphone"). One run, no loop;
-   onAnimationEnd unmounts it. Bigger and twice as long as the first pass
-   (2026-08-03, per Nick: "met le plus en évidence... doit durer le double
-   de temps") — the drift distance grows with it so it still reads as
-   travelling the whole time instead of hanging in place. */
+   onAnimationEnd unmounts it.
+
+   Fixed and screen-centered (2026-09-01, per Nick: "toujours en plein
+   centre de l'écran") rather than anchored over whichever element triggered
+   it — every caller used to need its own `position: relative` wrapper for
+   this to float over; that's no longer required (harmless if still
+   present), since `position: fixed` centers on the viewport regardless of
+   where in the tree this renders. The one exception is DoneDealRewardPopup,
+   whose `.ddr-stage` has its own `transform` — CSS makes a transformed
+   ancestor the containing block for a `position: fixed` descendant, so the
+   reward centers on that stage instead of the true viewport there, which is
+   the intended "bigger, inside its own celebration card" treatment.
+
+   Duration escalated twice now (2026-08-03: doubled from the first pass;
+   2026-09-01, per Nick: another +50%) — the drift distance stays what it
+   was, so a longer run reads as travelling slower, not further. */
 .cockcoin-reward {
-  position: absolute;
+  position: fixed;
+  top: 50%;
   left: 50%;
-  top: 0;
   display: inline-flex;
   flex-direction: column;
   align-items: center;
@@ -20,8 +32,8 @@
   text-shadow: 0 0 18px rgba(245, 166, 35, 0.75);
   white-space: nowrap;
   pointer-events: none;
-  z-index: 30;
-  animation: cockcoin-reward-pop 3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  z-index: 250;
+  animation: cockcoin-reward-pop 4.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .cockcoin-reward-top {
@@ -53,34 +65,34 @@
 @keyframes cockcoin-reward-pop {
   0% {
     opacity: 0;
-    transform: translate(-50%, 0) scale(0.3);
+    transform: translate(-50%, -50%) scale(0.3);
   }
   12% {
     opacity: 1;
-    transform: translate(-50%, -14px) scale(1.3);
+    transform: translate(-50%, calc(-50% - 14px)) scale(1.3);
   }
   22% {
-    transform: translate(-50%, -8px) scale(1);
+    transform: translate(-50%, calc(-50% - 8px)) scale(1);
   }
   75% {
     opacity: 1;
-    transform: translate(-50%, -64px) scale(1);
+    transform: translate(-50%, calc(-50% - 64px)) scale(1);
   }
   100% {
     opacity: 0;
-    transform: translate(-50%, -88px) scale(1);
+    transform: translate(-50%, calc(-50% - 88px)) scale(1);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .cockcoin-reward {
-    animation: cockcoin-reward-fade 2.2s ease forwards;
+    animation: cockcoin-reward-fade 3.3s ease forwards;
   }
 
   @keyframes cockcoin-reward-fade {
     0% {
       opacity: 0;
-      transform: translate(-50%, -10px) scale(1);
+      transform: translate(-50%, -50%);
     }
     15% {
       opacity: 1;
@@ -90,7 +102,7 @@
     }
     100% {
       opacity: 0;
-      transform: translate(-50%, -10px) scale(1);
+      transform: translate(-50%, -50%);
     }
   }
 }
