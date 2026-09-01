@@ -512,6 +512,18 @@
   font-size: 0.9rem;
 }
 
+/* ---------- add-to-roster (free agent claim) ---------- */
+
+.pc-add {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pc-add-btn {
+  width: 100%;
+}
+
 /* ---------- injury banner (2026-08-04) ----------
 
    Full width under the header, above the bio: it explains the rose edge the

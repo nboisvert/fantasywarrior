@@ -5,9 +5,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { JSX, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
-import { posGroup, posGroupClass } from "../api";
+import { api, posGroup, posGroupClass } from "../api";
 import { useLanguage } from "../i18n/LanguageContext";
-import { CrossIcon, ExternalLinkIcon, GavelIcon, ShieldIcon, XIcon } from "./Icons";
+import { CrossIcon, ExternalLinkIcon, GavelIcon, PlusIcon, ShieldIcon, XIcon } from "./Icons";
 import "./PlayerCard.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5099";
@@ -534,11 +534,26 @@ function Skeleton() {
  *   better than reporting one pool's threshold as a fact about the player.
  */
 export function PlayerCard(
-  { playerId, leagueId, onClose }:
-  { playerId: number; leagueId?: string; onClose: () => void },
+  { playerId, leagueId, username, canAddToRoster, onAdded, onClose }:
+  {
+    playerId: number;
+    leagueId?: string;
+    /** Whoever adding is for. Required, alongside `canAddToRoster`, to show
+     * the free-agent "Add to my team" button — the card has no way to tell a
+     * free agent from a rostered one on its own, so the caller decides. */
+    username?: string;
+    canAddToRoster?: boolean;
+    /** Fired after a successful add, so the caller can refresh the league
+     * (roster count, free-agent list) — this card has no reason to hold its
+     * own copy of either. */
+    onAdded?: () => void;
+    onClose: () => void;
+  },
 ): JSX.Element {
   const { t } = useLanguage();
   const [player, setPlayer] = useState<PlayerDetail | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"stats" | "last10" | "career" | "news">("stats");
@@ -625,6 +640,22 @@ export function PlayerCard(
       setNewsError(t("playerCard.couldNotLoadNews"));
     } finally {
       setNewsLoading(false);
+    }
+  }
+
+  /** Claims the free agent for `username`'s team. The endpoint is the source
+   * of truth on whether there's room — this only surfaces what it says. */
+  async function handleAdd() {
+    if (!leagueId || !username) return;
+    setAdding(true);
+    setAddError("");
+    try {
+      await api.addToRoster(leagueId, username, playerId);
+      onAdded?.();
+      onClose();
+    } catch (err) {
+      setAddError(err instanceof Error ? err.message : t("playerCard.couldNotAddPlayer"));
+      setAdding(false);
     }
   }
 
@@ -738,6 +769,21 @@ export function PlayerCard(
                   </div>
                 </div>
               </div>
+
+              {canAddToRoster && (
+                <div className="pc-add">
+                  <button
+                    type="button"
+                    className="btn pc-add-btn"
+                    onClick={() => void handleAdd()}
+                    disabled={adding}
+                  >
+                    <PlusIcon size={18} />
+                    {adding ? t("playerCard.adding") : t("playerCard.addToRoster")}
+                  </button>
+                  {addError && <p className="error-banner">{addError}</p>}
+                </div>
+              )}
 
               {player.injury != null && <InjuryBanner injury={player.injury} t={t} />}
 

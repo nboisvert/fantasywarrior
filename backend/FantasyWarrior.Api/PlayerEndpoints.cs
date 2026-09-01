@@ -6,6 +6,7 @@ using FantasyWarrior.Core.Time;
 using FantasyWarrior.Data;
 using FantasyWarrior.Data.Entities;
 using FantasyWarrior.Data.Leagues;
+using FantasyWarrior.Data.Rosters;
 using Microsoft.EntityFrameworkCore;
 
 namespace FantasyWarrior.Api;
@@ -292,6 +293,32 @@ public static class PlayerEndpoints
                 return taken.TeamId == team.TeamId
                     ? Results.BadRequest(new { error = "Player already on this roster." })
                     : Results.Conflict(new { error = $"{player.FullName} is already on team '{taken.TeamName}'." });
+
+            // The league's own roster cap, when it has one. Read against the
+            // season being scored — the same rules a lineup, the salary cap and
+            // a trade already act on — since a free-agent pickup is an in-season
+            // move, unlike a draft selection (DraftRules deliberately skips this
+            // same check for the opposite reason: the off-season has PreSeason
+            // to trade a roster back into shape before it matters again).
+            RuleSet? ruleSet;
+            try
+            {
+                ruleSet = await RuleSetResolver.ForScoringAsync(db, league);
+            }
+            catch (RuleSetUnavailableException)
+            {
+                ruleSet = null;
+            }
+            if (ruleSet?.Roster.Max is { } max)
+            {
+                var count = await db.RosterSpots
+                    .Where(s => s.TeamId == team.TeamId && s.PlayerId != null)
+                    .Where(RosterWindow.Committed())
+                    .CountAsync();
+                if (count >= max)
+                    return Results.Conflict(
+                        new { error = $"{team.Name} already has {count} players, the maximum this league allows." });
+            }
 
             db.RosterSpots.Add(new RosterSpot
             {

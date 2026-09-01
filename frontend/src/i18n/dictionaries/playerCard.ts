@@ -38,6 +38,9 @@ export const en = {
   couldNotLoadPlayer: "Could not load player.",
   couldNotLoadCareer: "Could not load career stats.",
   couldNotLoadNews: "Could not load news.",
+  addToRoster: "Add to my team",
+  adding: "Adding…",
+  couldNotAddPlayer: "Could not add player.",
 };
 
 export const fr = {
@@ -73,4 +76,7 @@ export const fr = {
   couldNotLoadPlayer: "Impossible de charger le joueur.",
   couldNotLoadCareer: "Impossible de charger les statistiques de carrière.",
   couldNotLoadNews: "Impossible de charger les nouvelles.",
+  addToRoster: "Ajouter à mon équipe",
+  adding: "Ajout en cours…",
+  couldNotAddPlayer: "Impossible d'ajouter le joueur.",
 };

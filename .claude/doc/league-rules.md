@@ -28,7 +28,7 @@ read path, and its entry points *are* the three questions:
 
 | Method | Which row | Who reads it |
 |---|---|---|
-| `ForScoringAsync` | `Season == League.Season` — the season being **played** | scoring, lineups, the free-agent leaderboard |
+| `ForScoringAsync` | `Season == League.Season` — the season being **played** | scoring, lineups, the free-agent leaderboard, a free-agent claim's `RosterMax` check |
 | `ForActiveSeasonAsync` | the row that is not `Complete` — the season being **prepared** | protections, the draft, trades, `draft-picks-init` |
 | `ForSeasonAsync` | any named season | the history |
 | `ForEditingAsync` | the prepared season, tracked | `PATCH /rules` |
@@ -212,8 +212,13 @@ slate — each naming the rule at fault.
 | `freeAgency.movesPerPeriod` | count, null = unlimited | null | **badge** |
 | `freeAgency.windows[]` | named date ranges | empty | **badge** |
 
-There is no add or drop path at all. `GET /free-agents` is a read-only
-leaderboard ranked under the league's own scale.
+`GET /free-agents` is a read-only leaderboard ranked under the league's own
+scale. `POST /teams/{username}/roster` claims a free agent onto a roster —
+refused if he is already owned, or if the team is already at `roster.max` —
+and `DELETE /teams/{username}/roster/{playerId}` releases one; GM Office's Top
+Free Agents section is the one UI path to the add, from the player card. None
+of the four rules in the table above gate either endpoint — `mode`, `allow`,
+`movesPerPeriod` and `windows` are all still **badge**.
 
 ## Validation
 

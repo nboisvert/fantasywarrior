@@ -60,10 +60,10 @@ date-related behaviour as a bug**. See [testmode.md](testmode.md).
 | League rules — the whole catalogue as one versioned document per season, its validation, the "not enforced yet" badge, and the rules panel that writes it | Done. Catalogue in [league-rules.md](league-rules.md); what is modelled but inert is listed there. |
 | Interactive live draft — steal rounds then rookie rounds, one room, asynchronous, no pick clock | Done |
 | Off-season protections — `ProtectionSlots`, the autofill default, the public protection slates | **Written, but no GM-facing screen.** See below. |
-| Cap and roster-size enforcement | **Partial.** The cap is enforced on trades and on draft picks. `RosterMin`/`RosterMax` are enforced on trades only — `DraftRules.ValidateSelection` deliberately passes both as null (`DraftRules.cs:54`), because `PreSeason` exists to repair a roster that came out of a draft off-bounds. No other path changes a roster. |
+| Cap and roster-size enforcement | **Partial.** The cap is enforced on trades and on draft picks. `RosterMin` is enforced on trades only. `RosterMax` is enforced on trades and on a free-agent add — `DraftRules.ValidateSelection` deliberately passes both as null (`DraftRules.cs:54`), because `PreSeason` exists to repair a roster that came out of a draft off-bounds. |
 | **Protection screen** — a GM contradicting the autofill's default | **Not built.** `GET /protections` reads and `POST /protections/autofill` writes the whole league at once; nothing lets one GM choose his own nine. It is a player-row list and owes the CLAUDE.md player-row ask before a line is written. |
 | Real authentication | Todo |
-| Free agency | Todo. `GET /free-agents` is a read-only leaderboard, not a claim path. |
+| Free agency | **Partial.** `POST /teams/{username}/roster` claims a free agent onto a roster (refused if already owned or the roster is at `RosterMax`); GM Office's Top Free Agents is the one UI path to it, via the player card's "Add to my team" button. `freeAgency.mode`/`allow`/`movesPerPeriod`/`windows` are not read by it at all — see [league-rules.md](league-rules.md). There is still no drop UI, though `DELETE /teams/{username}/roster/{playerId}` exists. |
 | 🏁 **Season-tracking MVP in prod for early October 2026** (NHL 2026-27) | — |
 
 ## Open items

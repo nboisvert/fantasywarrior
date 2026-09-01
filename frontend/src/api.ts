@@ -849,6 +849,14 @@ export const api = {
       `/api/leagues/${encodeURIComponent(leagueId)}/free-agents` +
         `${limit ? `?limit=${limit}` : ""}`,
     ),
+  /** Pick up a free agent — effective today, not at a week boundary. Refused
+   * (409) if the player is already owned or the roster is already at the
+   * league's own maximum. */
+  addToRoster: (leagueId: string, username: string, playerId: number) =>
+    request<PlayerDto>(
+      `/api/leagues/${encodeURIComponent(leagueId)}/teams/${encodeURIComponent(username)}/roster`,
+      { method: "POST", body: JSON.stringify({ playerId }) },
+    ),
   /** The draft room's one read. Answers `running: false` outside the Drafting
    * phase rather than 404-ing, so the nav learns from the same call. */
   draft: (leagueId: string, username: string) =>

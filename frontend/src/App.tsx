@@ -311,7 +311,9 @@ export default function App() {
           </p>
         )}
         {tab !== "settings" && leagueId && !league && !error && <LoadingLogo label={t("app.loadingLeague")} />}
-        {league && tab === "dashboard" && <Dashboard league={league} username={username} />}
+        {league && tab === "dashboard" && (
+          <Dashboard league={league} username={username} onRosterChanged={refreshLeague} />
+        )}
         {league && tab === "standings" && showPalmares && (
           <Palmares leagueId={league.id} onClose={() => setShowPalmares(false)} />
         )}

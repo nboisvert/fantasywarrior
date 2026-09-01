@@ -76,9 +76,16 @@ function ordinal(n: number, lang: Language): string {
   }
 }
 
-export function Dashboard({ league, username }: { league: LeagueDetail; username: string }) {
+export function Dashboard(
+  { league, username, onRosterChanged }:
+  { league: LeagueDetail; username: string; onRosterChanged?: () => void },
+) {
   const { lang, t } = useLanguage();
-  const [openPlayerId, setOpenPlayerId] = useState<number | null>(null);
+  // Which section opened the card decides whether it may offer "Add to my
+  // team" — a Top Reserve player is already on this roster, a Top Free
+  // Agents one never is, and the card itself has no way to tell the two
+  // apart on its own.
+  const [openPlayer, setOpenPlayer] = useState<{ id: number; isFreeAgent: boolean } | null>(null);
 
   const myIndex = league.teams.findIndex((t) => t.ownerUsername === username);
   const myTeam = myIndex >= 0 ? league.teams[myIndex] : undefined;
@@ -137,10 +144,23 @@ export function Dashboard({ league, username }: { league: LeagueDetail; username
         </p>
       </div>
 
-      <TopReserve league={league} username={username} onOpenPlayer={setOpenPlayerId} />
-      <TopFreeAgents league={league} onOpenPlayer={setOpenPlayerId} />
+      <TopReserve
+        league={league}
+        username={username}
+        onOpenPlayer={(id) => setOpenPlayer({ id, isFreeAgent: false })}
+      />
+      <TopFreeAgents league={league} onOpenPlayer={(id) => setOpenPlayer({ id, isFreeAgent: true })} />
 
-      {openPlayerId != null && <PlayerCard playerId={openPlayerId} leagueId={league.id} onClose={() => setOpenPlayerId(null)} />}
+      {openPlayer != null && (
+        <PlayerCard
+          playerId={openPlayer.id}
+          leagueId={league.id}
+          username={username}
+          canAddToRoster={openPlayer.isFreeAgent}
+          onAdded={onRosterChanged}
+          onClose={() => setOpenPlayer(null)}
+        />
+      )}
     </section>
   );
 }
