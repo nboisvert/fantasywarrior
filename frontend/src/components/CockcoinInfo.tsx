@@ -56,6 +56,7 @@ export function CockcoinInfo() {
                 </div>
               </div>
               <p className="muted cockcoin-info-footnote">{t("cockcoinInfo.footnote")}</p>
+              <p className="muted cockcoin-info-footnote">{t("cockcoinInfo.dismissiveLine")}</p>
               <button type="button" className="btn-outline" onClick={() => setOpen(false)}>
                 {t("cockcoinInfo.gotIt")}
               </button>

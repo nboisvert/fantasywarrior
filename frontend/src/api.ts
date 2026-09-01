@@ -722,8 +722,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { "Content-Type": "application/json" },
     ...init,
   });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+  // A "nothing due" endpoint (e.g. Results.Ok((object?)null) in minimal API)
+  // can come back with a genuinely empty body rather than the JSON literal
+  // "null" — res.json() throws on that, and falling back to {} would make an
+  // absent value look like a real, field-less object to the caller (every
+  // property reads as undefined instead of the response being null). null is
+  // the honest default for "nothing parsed".
+  const body = await res.json().catch(() => null);
+  if (!res.ok) throw new Error((body as { error?: string } | null)?.error ?? `HTTP ${res.status}`);
   return body as T;
 }
 
