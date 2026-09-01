@@ -25,6 +25,7 @@ import { NewsTicker } from "./components/NewsTicker";
 import { ChatSheet } from "./components/ChatSheet";
 import DraftRoom from "./screens/DraftRoom";
 import { ToastHost } from "./components/Toast";
+import { CockmanCampaignGate } from "./components/CockmanCampaignGate";
 import { LiveProvider, useLive } from "./live/LiveProvider";
 import { useLanguage } from "./i18n/LanguageContext";
 import "./App.css";
@@ -422,6 +423,7 @@ export default function App() {
 
       <UnreadBridge username={username} onIncoming={refreshUnread} />
       {draftRunning && <DraftBridge onDraft={setDraftTurn} />}
+      <CockmanCampaignGate username={username} />
 
       <ToastHost />
 

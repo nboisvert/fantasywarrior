@@ -90,6 +90,7 @@ TradeEndpoints.Map(app);
 DraftEndpoints.Map(app);
 PlayerEndpoints.Map(app);
 CockcoinEndpoints.Map(app);
+CockmanCampaignEndpoints.Map(app);
 MessageEndpoints.Map(app);
 TestModeEndpoints.Map(app);
 

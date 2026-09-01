@@ -1,3 +1,4 @@
+using FantasyWarrior.Core.Cockcoin;
 using FantasyWarrior.Core.Messaging;
 using FantasyWarrior.Data;
 using FantasyWarrior.Data.Entities;
@@ -137,6 +138,22 @@ public static class MessageEndpoints
             };
             db.Messages.Add(message);
             await db.SaveChangesAsync();
+
+            // The Nth message in this room, sender's side only — a milestone
+            // count landing on a Fibonacci number earns the sender cockcoin.
+            var sentCount = await db.Messages.CountAsync(m =>
+                m.LeagueId == league.LeagueId && m.SenderUserId == me.UserId && m.RecipientUserId == other.UserId);
+            if (FibonacciMilestones.RewardForCount(sentCount) is { } milestoneAmount)
+            {
+                db.CockcoinAwards.Add(new CockcoinAward
+                {
+                    UserId = me.UserId,
+                    Amount = milestoneAmount,
+                    Reason = CockcoinReasons.ChatMessageMilestone,
+                    AwardedUtc = DateTime.UtcNow,
+                });
+                await db.SaveChangesAsync();
+            }
 
             // Persist first, then push. A message the recipient saw but that
             // never landed in the table would be worse than a slow one.

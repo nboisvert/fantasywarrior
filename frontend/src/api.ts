@@ -700,6 +700,16 @@ export interface LiveMessage {
   sentUtc: string;
 }
 
+/** A scheduled Cockman notification due for the current user. `key` is the
+ * i18n lookup — the row itself carries no copy, see cockmanCampaigns.ts. */
+export interface CockmanCampaignDto {
+  id: string;
+  key: string;
+  hasQuestion: boolean;
+  choiceKeys: string[] | null;
+  rewardAmount: number | null;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     headers: { "Content-Type": "application/json" },
@@ -902,6 +912,22 @@ export const api = {
    * server already turns that into 0 rather than an absent value. */
   cockcoinBalance: (username: string) =>
     request<{ balance: number }>(`/api/users/${encodeURIComponent(username)}/cockcoin`),
+
+  /** The one Cockman campaign due for this user right now, or null — the
+   * server already excludes anything already seen and anything outside its
+   * scheduled window, so there's nothing left to filter on this side. */
+  cockmanCampaign: (username: string) =>
+    request<CockmanCampaignDto | null>(`/api/users/${encodeURIComponent(username)}/cockman/campaign`),
+  dismissCockmanCampaign: (username: string, campaignId: string) =>
+    request<{ ok: boolean }>(
+      `/api/users/${encodeURIComponent(username)}/cockman/campaign/${encodeURIComponent(campaignId)}/dismiss`,
+      { method: "POST" },
+    ),
+  answerCockmanCampaign: (username: string, campaignId: string, choiceKey: string) =>
+    request<{ ok: boolean; cockcoinAwarded: number; cockcoinBalance: number }>(
+      `/api/users/${encodeURIComponent(username)}/cockman/campaign/${encodeURIComponent(campaignId)}/answer`,
+      { method: "POST", body: JSON.stringify({ choiceKey }) },
+    ),
 
   /** Every other GM in the league, whether or not anything has ever been said —
    * a pool of fourteen is a contact list and an inbox at once. Already sorted

@@ -1,0 +1,110 @@
+/* CockmanCampaignPopup — same centered-dialog shell as CockcoinInfo.css,
+   since this is a one-time interrupt announcement, not a docked chat widget.
+   56px avatar: a step up from the 48px chat header (which shares space with
+   a name/subtitle) and the 32px inline quote icon — here the avatar can be
+   the card's visual focus without competing for header room. */
+
+.gcc-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(4, 7, 15, 0.68);
+  backdrop-filter: blur(3px);
+  animation: fade-in 180ms ease-out;
+}
+
+.gcc-card {
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1.4rem 1.25rem 1.25rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: 18px;
+  box-shadow: 0 0 48px rgba(251, 191, 36, 0.1), 0 8px 32px rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+
+.gcc-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, background-color 0.15s;
+}
+
+.gcc-close:hover {
+  color: var(--text);
+  background: var(--surface-strong);
+}
+
+.gcc-close:focus-visible {
+  outline: 2px solid var(--ice);
+  outline-offset: 2px;
+}
+
+.gcc-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 2px solid var(--gold);
+  box-shadow: 0 0 16px rgba(251, 191, 36, 0.45);
+}
+
+.gcc-title {
+  font: 1rem var(--font-display);
+  letter-spacing: 0.03em;
+  color: var(--gold);
+}
+
+.gcc-message {
+  margin: 0.2rem 0 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.gcc-question {
+  margin: 0.3rem 0 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.gcc-choices {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.3rem;
+}
+
+.gcc-dismiss {
+  margin-top: 0.5rem;
+  min-width: 120px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gcc-overlay {
+    animation: none;
+  }
+}

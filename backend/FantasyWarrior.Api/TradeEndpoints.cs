@@ -199,6 +199,21 @@ public static class TradeEndpoints
             db.Trades.Add(trade);
             await db.SaveChangesAsync();
 
+            // The Nth offer from this proposer to this counterparty — a
+            // milestone count landing on a Fibonacci number earns the
+            // proposer cockcoin. Rides the handler's own later SaveChanges.
+            var offerCount = await db.Trades.CountAsync(x =>
+                x.LeagueId == league.LeagueId && x.ProposerTeamId == proposerTeam.TeamId
+                && x.CounterpartyTeamId == counterpartyTeam.TeamId);
+            if (FibonacciMilestones.RewardForCount(offerCount) is { } milestoneAmount)
+                db.CockcoinAwards.Add(new CockcoinAward
+                {
+                    UserId = proposerTeam.OwnerUserId,
+                    Amount = milestoneAmount,
+                    Reason = CockcoinReasons.TradeOfferMilestone,
+                    AwardedUtc = DateTime.UtcNow,
+                });
+
             foreach (var playerId in fromProposer)
                 db.TradeAssets.Add(new TradeAsset
                 {

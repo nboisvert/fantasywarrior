@@ -15,6 +15,7 @@ import * as leagueGate from "./leagueGate";
 import * as newsTicker from "./newsTicker";
 import * as chatSheet from "./chatSheet";
 import * as cockmanChat from "./cockmanChat";
+import * as cockmanCampaigns from "./cockmanCampaigns";
 import * as cockcoinInfo from "./cockcoinInfo";
 import * as toast from "./toast";
 import * as cockcoinReward from "./cockcoinReward";
@@ -42,6 +43,7 @@ export const dictionaries = {
     newsTicker: newsTicker.en,
     chatSheet: chatSheet.en,
     cockmanChat: cockmanChat.en,
+    cockmanCampaigns: cockmanCampaigns.en,
     cockcoinInfo: cockcoinInfo.en,
     toast: toast.en,
     cockcoinReward: cockcoinReward.en,
@@ -68,6 +70,7 @@ export const dictionaries = {
     newsTicker: newsTicker.fr,
     chatSheet: chatSheet.fr,
     cockmanChat: cockmanChat.fr,
+    cockmanCampaigns: cockmanCampaigns.fr,
     cockcoinInfo: cockcoinInfo.fr,
     toast: toast.fr,
     cockcoinReward: cockcoinReward.fr,

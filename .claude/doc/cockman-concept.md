@@ -4,10 +4,12 @@
 > spec to build against blindly; check with Nick before turning a new idea
 > below into actual code, same as any other feature.
 >
-> Started 2026-07-27. Status: **cockcoin is now a real, persisted balance**
-> (2026-08-03) — the chat/mascot half is still UI mock only, no real AI. See
-> `project_status.md`'s entries for what's actually implemented. Everything
-> below the "Implemented so far" line is idea/concept only, not built.
+> Started 2026-07-27. Status: cockcoin is a real, persisted balance with
+> several earning paths and a scheduled-notification system (Cockman
+> campaigns) — see "Earning paths and campaigns" below. The chat/mascot
+> widget (`CockmanChat.tsx`) is still UI mock only, no real AI. See
+> `project_status.md`'s entries for what's actually implemented. Only the
+> "Open / not yet decided" section at the bottom is idea/concept, not built.
 
 ## The pitch
 
@@ -102,9 +104,10 @@ to the cockcoin balance in `ProfileMenu`, popping the same small-card style
   displayed 0 ("everyone starts at 0").
 - **Reasons** live in `FantasyWarrior.Core.Cockcoin.CockcoinReasons` (a plain
   set of constants, not a validated whitelist like `StatKeys` — nothing here
-  is ever user-supplied). First and only one so far: `TradeVote` = 2 cockcoin,
-  awarded server-side in the same transaction as the vote itself
-  (`TradeEndpoints.cs`'s vote handler), never a separate client-triggered call.
+  is ever user-supplied). `TradeVote` = 2 cockcoin, awarded server-side in the
+  same transaction as the vote itself (`TradeEndpoints.cs`'s vote handler),
+  never a separate client-triggered call. See "Earning paths" below for the
+  rest.
 - **Display**: the balance shows in `ProfileMenu`'s panel header (top-right,
   fetched lazily on open) as "N cockcoin" next to the `CockcoinIcon`.
 - **The "wow" moment**: `CockcoinReward` (`frontend\src\components\CockcoinReward.tsx`)
@@ -112,13 +115,60 @@ to the cockcoin balance in `ProfileMenu`, popping the same small-card style
   out, ~1.5s, mobile-game style. `TradeVoteWidget` is the first (only) caller;
   meant to be reused by every future earning action below.
 
+## Earning paths and campaigns — now real (2026-08-31)
+
+- **Fibonacci milestones**: chat messages and trade offers both earn cockcoin
+  on the same curve — `FantasyWarrior.Core.Cockcoin.FibonacciMilestones`
+  (pure, unit-tested) rewards a running count landing on a Fibonacci number
+  (1, 2, 3, 5, 8, ...): 5 CK the first time, 2 CK every milestone after. No
+  cap — the check keeps working at any count, milestones just get rarer.
+  - **Chat** (`CockcoinReasons.ChatMessageMilestone`): the count is per "room"
+    — the (LeagueId, SenderUserId, RecipientUserId) tuple `Messages` is
+    already scoped to — so chatting with a new fellow GM starts its own curve.
+    Only the sender earns. Checked in `MessageEndpoints.cs`'s send handler,
+    right after the message itself is saved.
+  - **Trade offers** (`CockcoinReasons.TradeOfferMilestone`): same curve,
+    scoped per (LeagueId, ProposerTeamId, CounterpartyTeamId) — a new curve
+    per opponent, mirroring chat rooms. Only the proposer earns. Checked in
+    `TradeEndpoints.cs`'s propose handler.
+- **Done deal bonus** (`CockcoinReasons.DoneDeal`, flat 10 CK): both GMs earn
+  it the moment their trade reaches `TradeStatus.Processed` — awarded in
+  `WeekAheadJob.cs`'s nightly landing loop, not tied to the Fibonacci curve.
+- **Cockman campaigns** — the generalized shape the "library of bonus-entry
+  prompt types" idea grew into: a scheduled message with an optional
+  multiple-choice question and cockcoin reward, shown once per user while its
+  window is open. `CockmanCampaign`/`CockmanCampaignView`
+  (`backend\FantasyWarrior.Data\Entities\`) hold structure and scheduling
+  only — a stable `Key`, whether there's a question, valid choice keys, the
+  reward, `StartUtc`/`EndUtc` (null = forever) — the actual bilingual copy
+  lives in the frontend's `cockmanCampaigns` i18n dictionary, keyed by `Key`,
+  same convention as every other Cockman line. `CockmanCampaignView`'s mere
+  existence for a (campaign, user) pair means "seen": that's the entire
+  mechanism stopping a campaign from reappearing once dismissed or answered.
+  `FantasyWarrior.Core.Cockman.CampaignSelection` (pure, unit-tested) decides
+  which one campaign, if any, is due for a user right now — earliest active,
+  unseen window wins, and a campaign whose window has already closed is
+  simply never shown, which is what stops a brand-new user from being handed
+  a backlog of every past campaign at once. No admin screen yet: a new
+  campaign is a migration (`CockmanCampaignSeed.cs`, same pattern as
+  `NhlTeamSeed.cs`) plus a dictionary entry.
+  - **Welcome campaign** (`Key = "welcome"`): evergreen (no `EndUtc`),
+    message-only (no question/reward), shown once to every user on first
+    login, naming the four bottom-nav destinations in one line.
+  - `CockmanCampaignGate` (mounted in `App.tsx` next to `UnreadBridge`) fetches
+    the due campaign once per session and renders `CockmanCampaignPopup` — a
+    centered dialog (`CockcoinInfo`'s shell shape, not the docked chat
+    widget), 56px gold-bordered avatar.
+
 ## Open / not yet decided
 
 - What "exclusive content" concretely is.
-- Further bonus-entry prompt types beyond the first one, and whether/how each
-  one becomes a real `CockcoinReasons` entry with its own award amount.
+- Whether/when campaigns need an admin screen to create — seeded in code for
+  now, revisit if the backlog of ideas in this doc grows past what a
+  migration-per-campaign can keep up with.
 - No retroactive backfill: votes cast before this shipped earned nothing —
-  forward-looking only, per Nick.
+  forward-looking only, per Nick. Same posture for every earning path added
+  since.
 - Whether Cockman ever says anything league-specific/dynamic beyond the
   league name and a random pooler's name (e.g. reacting to standings, recent
   trades, etc.) — nothing like that exists yet, would need real data wiring

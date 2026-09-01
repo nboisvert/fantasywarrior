@@ -1,3 +1,4 @@
+using FantasyWarrior.Core.Cockcoin;
 using FantasyWarrior.Core.Lineups;
 using FantasyWarrior.Core.Rules;
 using FantasyWarrior.Data;
@@ -103,6 +104,15 @@ public sealed class WeekAheadJob(FantasyWarriorDbContext db)
         }
 
         var due = accepted.Where(t => t.EffectiveDate is { } d && d <= today).ToList();
+
+        // Both GMs' owners, looked up once for every trade landing tonight —
+        // the "done deal" bonus is flat and goes to both sides.
+        var dueTeamIds = due.SelectMany(t => new[] { t.ProposerTeamId, t.CounterpartyTeamId }).Distinct().ToList();
+        var owners = dueTeamIds.Count == 0
+            ? new Dictionary<int, int>()
+            : await db.Teams.Where(t => dueTeamIds.Contains(t.TeamId))
+                .ToDictionaryAsync(t => t.TeamId, t => t.OwnerUserId, ct);
+
         foreach (var trade in due)
         {
             trade.Status = TradeStatus.Processed;
@@ -112,6 +122,15 @@ public sealed class WeekAheadJob(FantasyWarriorDbContext db)
             var franchises = trade.Assets.Count(a => a.AssetType == TradeAssetType.Franchise);
             Console.WriteLine($"  trade {trade.TradeId}: {players} player(s), {picks} pick(s)"
                 + (franchises == 0 ? "" : $", {franchises} franchise(s)") + " — landed");
+
+            foreach (var teamId in new[] { trade.ProposerTeamId, trade.CounterpartyTeamId })
+                db.CockcoinAwards.Add(new CockcoinAward
+                {
+                    UserId = owners[teamId],
+                    Amount = CockcoinReasons.DoneDealAmount,
+                    Reason = CockcoinReasons.DoneDeal,
+                    AwardedUtc = DateTime.UtcNow,
+                });
         }
         if (due.Count > 0) await db.SaveChangesAsync(ct);
 

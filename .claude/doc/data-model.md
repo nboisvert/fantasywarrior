@@ -439,6 +439,17 @@ not a mutable running total: a balance derived by SUM over an honest event log
 cannot drift, and it doubles as a free audit trail. See
 [cockman-concept.md](cockman-concept.md).
 
+**`CockmanCampaigns`** — `CockmanCampaignId`, Key (unique — the i18n lookup;
+copy itself lives in the frontend dictionary, not this row), HasQuestion,
+ChoiceKeys (JSON, nullable), RewardAmount (nullable), StartUtc, EndUtc
+(nullable = forever), CreatedUtc → CHECK: RewardAmount requires HasQuestion —
+a message-only campaign has nothing for a reward to answer.
+
+**`CockmanCampaignViews`** — PK (CockmanCampaignId, UserId), ViewedUtc,
+ChosenAnswer (nullable), RewardedUtc (nullable). One row per user per
+campaign, ever: its mere existence is "seen", so a campaign can never
+reappear once dismissed or answered.
+
 ## Views
 
 Mapped keyless so LINQ can compose filters onto them (`.Where(x => x.LeagueId ==
