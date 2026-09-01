@@ -232,7 +232,8 @@ export const CockcoinIcon = ({ size = 20, className }: IconProps) => (
   />
 );
 
-/** Lucide `circle-check` — a player in this week's active lineup. */
+/** Lucide `circle-check` — an "is this trade legal" verdict, not a player's
+ * lineup state (that's JerseyIcon/JerseyOutlineIcon below). */
 export const CircleCheckIcon = ({ size = 20, className }: IconProps) => (
   <Icon size={size} className={className}>
     <circle cx="12" cy="12" r="10" />
@@ -240,10 +241,31 @@ export const CircleCheckIcon = ({ size = 20, className }: IconProps) => (
   </Icon>
 );
 
-/** Lucide `circle` — a player on the bench this week. */
-export const CircleIcon = ({ size = 20, className }: IconProps) => (
+const jerseyPath =
+  "M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z";
+
+/** Lucide `shirt`, filled — a player in this week's active lineup. Solid
+ * rather than stroked so "active" reads as a silhouette, not just a colour,
+ * against JerseyOutlineIcon below. */
+export const JerseyIcon = ({ size = 20, className }: IconProps) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    className={className}
+    aria-hidden="true"
+  >
+    <path d={jerseyPath} />
+  </svg>
+);
+
+/** Lucide `shirt`, outline — a player on the bench this week. Same glyph as
+ * JerseyIcon, stroke only, so benched reads as the hollow of active rather
+ * than an unrelated shape. */
+export const JerseyOutlineIcon = ({ size = 20, className }: IconProps) => (
   <Icon size={size} className={className}>
-    <circle cx="12" cy="12" r="10" />
+    <path d={jerseyPath} />
   </Icon>
 );
 

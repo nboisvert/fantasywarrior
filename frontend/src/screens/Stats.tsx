@@ -30,8 +30,8 @@ import { PlayerCard } from "../components/PlayerCard";
 import { useLanguage } from "../i18n/LanguageContext";
 import type { Vars } from "../i18n/LanguageContext";
 import {
-  ArrowDownIcon, ArrowLeftIcon, ArrowUpIcon, ChevronDownIcon, CircleCheckIcon, CircleIcon, InfoIcon,
-  CalendarIcon, CrossIcon, GavelIcon, LogInIcon, LogOutIcon,
+  ArrowDownIcon, ArrowLeftIcon, ArrowUpIcon, ChevronDownIcon, InfoIcon,
+  CalendarIcon, CrossIcon, GavelIcon, JerseyIcon, JerseyOutlineIcon, LogInIcon, LogOutIcon,
 } from "../components/Icons";
 
 /** Slots used per position group, for the "9/9 F · 4/4 D · 1/1 G" counter. */
@@ -73,10 +73,11 @@ type PendingChange = "in" | "out" | "gone" | null;
 /** Active/bench control on a player row.
  *
  * The icon is **this week's** state — who is scoring for you right now. The
- * corner arrow is next week's: green up for a player joining the lineup, red
- * down for one dropping out. Two weeks in one control, but only one of them
- * can still be changed, which is why tapping opens next week's picker while
- * the icon keeps showing today.
+ * corner mark is next week's: green up for a player joining the lineup, red
+ * down for one dropping to the bench, red door-out for one leaving the team
+ * altogether. Two weeks in one control, but only one of them can still be
+ * changed, which is why tapping opens next week's picker while the icon
+ * keeps showing today.
  */
 function LineupToggle({
   entry, editable, busy, pending, onToggle,
@@ -102,17 +103,18 @@ function LineupToggle({
     : "";
   const label = `${entry.name} — ${now}${change}${canTap ? t("stats.lineupTapHint") : ""}`;
   const className = `lineup-toggle${entry.active ? " on" : ""}${canTap ? "" : " static"}`;
-  const icon = entry.active ? <CircleCheckIcon size={16} /> : <CircleIcon size={16} />;
+  const icon = entry.active ? <JerseyIcon size={16} /> : <JerseyOutlineIcon size={16} />;
 
   // The mark carries shape *and* position *and* colour, so it never depends on
   // colour alone; the aria-label above states it in words.
   //
-  // "gone" (leaving the roster, e.g. via trade) reuses "out"'s red down
-  // arrow rather than a distinct glyph (2026-08-30, per Nick) — one mark for
-  // "not in next week's active lineup", whatever the reason.
+  // "gone" (leaving the roster, e.g. via trade) gets the door-out glyph, not
+  // "out"'s arrow — a departure is a different fact than a bench call, and
+  // this corner mark is only ever a complement to the jersey icon, never a
+  // stand-in for it.
   const flag = pending && (
     <span className={`lineup-pending lineup-pending-${pending}`} aria-hidden="true">
-      {pending === "in" ? <ArrowUpIcon size={13} /> : <ArrowDownIcon size={13} />}
+      {pending === "in" ? <ArrowUpIcon size={13} /> : pending === "gone" ? <LogOutIcon size={13} /> : <ArrowDownIcon size={13} />}
     </span>
   );
 
@@ -285,18 +287,18 @@ function InjuryMark({ status, type }: { status: InjuryStatus; type: string | nul
 /** The trade mark, sitting after the name (and after the injury mark, if both
  * apply — a player can be hurt and already promised away at once).
  *
- * Leaving uses the same red down arrow as `.lineup-pending-out`/`-gone`
- * (2026-08-30, per Nick) — the toggle a few pixels to its left already
- * carries that mark for the same reason, and a GM should never see one
- * without the other. Arriving keeps its own log-in glyph; only the
- * departure side was asked to match. Icon + aria-label always accompany the
- * colour. */
+ * Leaving uses the same door-out glyph as `.lineup-pending-gone` — the
+ * toggle a few pixels to its left already carries that mark for the same
+ * reason, and a GM should never see one without the other. A trade-out is
+ * always a real departure, never a mere bench call, so it never shares
+ * ground with plain `-out`'s arrow the way the toggle's flag does. Arriving
+ * keeps its own log-in glyph. Icon + aria-label always accompany the colour. */
 function TradeMarkIcon({ direction }: { direction: "out" | "in" }) {
   const { t } = useLanguage();
   const label = direction === "out" ? t("stats.leavingViaTrade") : t("stats.arrivingViaTrade");
   return (
     <span className={`stats-trade stats-trade-${direction}`} role="img" aria-label={label} title={label}>
-      {direction === "out" ? <ArrowDownIcon size={11} /> : <LogInIcon size={11} />}
+      {direction === "out" ? <LogOutIcon size={11} /> : <LogInIcon size={11} />}
     </span>
   );
 }
@@ -341,8 +343,8 @@ function PlayerPeriods({ data, isGoalie }: { data: PlayerPeriodsDto; isGoalie: b
               </td>
               <td>
                 {p.active
-                  ? <CircleCheckIcon size={13} className="player-periods-in" />
-                  : <CircleIcon size={13} className="player-periods-out" />}
+                  ? <JerseyIcon size={13} className="player-periods-in" />
+                  : <JerseyOutlineIcon size={13} className="player-periods-out" />}
               </td>
               {/* A break week has no games at all; a zero there is the schedule,
                   not the player. */}

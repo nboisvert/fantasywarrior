@@ -526,10 +526,9 @@
   right: 1px;
   color: var(--danger);
 }
-/* Same red down arrow as "out" (2026-08-30, per Nick) — leaving the roster
-   reads as one more way to end up not in next week's active lineup, not a
-   separate mark. The GM can't undo this one by tapping, unlike a plain
-   bench, but that's stated in the row's aria-label, not the glyph. */
+/* He is not dropping out of the lineup, he is leaving the roster — same rose
+   as an exit, but the log-out glyph rather than a down arrow, because the GM
+   cannot undo this one by tapping. */
 .lineup-pending-gone {
   bottom: 0;
   right: 1px;
