@@ -424,7 +424,7 @@ export default function App() {
 
       <UnreadBridge username={username} onIncoming={refreshUnread} />
       {draftRunning && <DraftBridge onDraft={setDraftTurn} />}
-      <CockmanCampaignGate username={username} />
+      {league && <CockmanCampaignGate username={username} league={league} />}
       <DoneDealRewardGate username={username} />
 
       <ToastHost />

@@ -5,22 +5,51 @@
 // as a single centered announcement card, same shell shape as
 // CockcoinInfo.tsx's dialog, rather than the docked chat widget — this is an
 // interrupt, not a conversation.
+//
+// The message is three short beats (2026-09-01, per Nick — reworked from the
+// original one-liner, based on CockmanChat's own intro): an in-character
+// intro naming the league (same "President of {league}" line CockmanChat
+// opens with), a stats line naming this GM's actual league — how many GMs,
+// who's running it — and a call to action naming Trades and the weekly
+// lineup, with the jersey icon inline the same way CockmanChat inlines the
+// cockcoin icon into its own copy. Every campaign is expected to supply
+// `${key}Intro` / `${key}Stats` / `${key}Cta` in the cockmanCampaigns
+// dictionary.
 
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
-import type { CockmanCampaignDto } from "../api";
+import type { CockmanCampaignDto, LeagueDetail } from "../api";
 import cockmanAvatar from "../assets/cockman.png";
 import { useLanguage } from "../i18n/LanguageContext";
-import { XIcon } from "./Icons";
+import { JerseyIcon, XIcon } from "./Icons";
 import "./CockmanCampaignPopup.css";
+
+/** Renders the CTA line with the jersey icon inlined at the `%jersey%`
+ * token — the token is language-neutral, so the icon lands correctly
+ * regardless of where each translation puts it. */
+function CtaText({ text }: { text: string }) {
+  const parts = text.split("%jersey%");
+  return (
+    <>
+      {parts.map((part, i) => (
+        <span key={i}>
+          {part}
+          {i < parts.length - 1 && <JerseyIcon size={16} className="gcc-cta-icon" />}
+        </span>
+      ))}
+    </>
+  );
+}
 
 export function CockmanCampaignPopup({
   campaign,
+  league,
   onDismiss,
   onAnswer,
 }: {
   campaign: CockmanCampaignDto;
+  league: LeagueDetail;
   onDismiss: () => void;
   onAnswer: (choiceKey: string) => void;
 }) {
@@ -64,12 +93,10 @@ export function CockmanCampaignPopup({
     }
   };
 
-  const message = t(`cockmanCampaigns.${campaign.key}Message`, {
-    office: t("app.navGmOffice"),
-    standings: t("app.navStandings"),
-    team: t("app.navTeam"),
-    trades: t("app.navTrades"),
-  });
+  const admin = league.commissionerUsername.charAt(0).toUpperCase() + league.commissionerUsername.slice(1);
+  const intro = t(`cockmanCampaigns.${campaign.key}Intro`, { league: league.name });
+  const stats = t(`cockmanCampaigns.${campaign.key}Stats`, { gmCount: league.teams.length, admin, league: league.name });
+  const cta = t(`cockmanCampaigns.${campaign.key}Cta`, { trades: t("app.navTrades") });
 
   return createPortal(
     <div className="gcc-overlay">
@@ -81,7 +108,11 @@ export function CockmanCampaignPopup({
         <span id="gcc-title" className="gcc-title">
           {t("cockmanCampaigns.title")}
         </span>
-        <p className="gcc-message">{message}</p>
+        <p className="gcc-message">{intro}</p>
+        <p className="gcc-message gcc-message-stats">{stats}</p>
+        <p className="gcc-message gcc-message-cta">
+          <CtaText text={cta} />
+        </p>
 
         {campaign.hasQuestion && campaign.choiceKeys && (
           <>

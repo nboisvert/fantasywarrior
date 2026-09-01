@@ -179,7 +179,17 @@ to the cockcoin balance in `ProfileMenu`, popping the same small-card style
   `NhlTeamSeed.cs`) plus a dictionary entry.
   - **Welcome campaign** (`Key = "welcome"`): evergreen (no `EndUtc`),
     message-only (no question/reward), shown once to every user on first
-    login, naming the four bottom-nav destinations in one line.
+    login. Three beats (2026-09-01, per Nick — reworked from the original
+    one-liner, based on `CockmanChat`'s own scripted intro): an in-character
+    opener naming the league (the same "President of {league}" line
+    `CockmanChat` opens with), a stats line naming this GM's *actual* league
+    (GM count, commissioner — `CockmanCampaignGate` takes a `LeagueDetail`
+    now, not just a username, so the popup has real numbers to quote), and a
+    call to action on Trades and the weekly lineup, with the jersey icon
+    inlined into the CTA the same way `CockmanChat` inlines the cockcoin icon
+    into its own copy (`CockmanCampaignPopup`'s `CtaText` splits on a
+    language-neutral `%jersey%` token). Every campaign's dictionary entry is
+    expected to supply `${key}Intro` / `${key}Stats` / `${key}Cta`.
   - `CockmanCampaignGate` (mounted in `App.tsx` next to `UnreadBridge`) fetches
     the due campaign once per session and renders `CockmanCampaignPopup` — a
     centered dialog (`CockcoinInfo`'s shell shape, not the docked chat

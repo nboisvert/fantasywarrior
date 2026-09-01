@@ -83,6 +83,27 @@
   color: var(--text);
 }
 
+/* The league-stats line — a fact, not a pitch, so it reads quieter than the
+   intro and the CTA around it. */
+.gcc-message-stats {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+/* The call to action — the one line meant to actually send the GM
+   somewhere, so it gets the gold treatment the rest of the copy doesn't. */
+.gcc-message-cta {
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.gcc-cta-icon {
+  display: inline-block;
+  vertical-align: -3px;
+  margin: 0 0.15rem;
+  filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.4));
+}
+
 .gcc-question {
   margin: 0.3rem 0 0;
   font-size: 0.86rem;
