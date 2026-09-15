@@ -2,7 +2,7 @@ import { Fragment, useState } from "react";
 import type { ReactNode } from "react";
 import { api, formatCapCompact } from "../api";
 import type { LeagueDetail, TeamDto, TeamPeriodRow } from "../api";
-import { ArrowDownIcon, ArrowUpIcon, CalendarIcon, ChevronDownIcon, CrossIcon, TrophyIcon } from "../components/Icons";
+import { ArrowDownIcon, ArrowUpIcon, CalendarIcon, ChevronDownIcon, CrossIcon, FlameIcon, TrophyIcon } from "../components/Icons";
 import { useLanguage } from "../i18n/LanguageContext";
 
 /** The rank-movement indicator, now a corner badge on the rank digit itself
@@ -26,6 +26,26 @@ function RankChangeBadge({ change }: { change: number | null }) {
       {up ? <ArrowUpIcon size={12} /> : <ArrowDownIcon size={12} />}
     </span>
   );
+}
+
+/** The flame on the night's — or the week's — best cell. Same corner-badge
+ * technique as RankChangeBadge above, gold instead of green/rose: it marks a
+ * lead, not a direction. Monochrome and stroke-only, per the Night Arena
+ * icon rule (Nick, 2026-09-15). */
+function HotBadge({ label }: { label: string }) {
+  return (
+    <span className="standings-hot-badge" aria-label={label} title={label}>
+      <FlameIcon size={11} />
+    </span>
+  );
+}
+
+/** The value the flame goes on, or null when there is nothing to crown: a
+ * column of nulls, or a night where nobody scored — zero is not a lead.
+ * Ties all light up rather than the table picking a winner arbitrarily. */
+function hotValue(values: (number | null)[]): number | null {
+  const best = values.reduce<number | null>((max, v) => (v != null && (max == null || v > max) ? v : max), null);
+  return best != null && best > 0 ? best : null;
 }
 
 /* ---------- sorting — same shape as Stats.tsx's own useSort, duplicated
@@ -181,6 +201,11 @@ export function Standings({
   const rows: StandingsRow[] = league.teams.map((team, i) => ({ ...team, rank: i + 1 }));
   const sort = useSort<StandingsRow>(rows, "score");
 
+  // Computed over the whole league, not the sorted view: the hottest cell is
+  // the same cell whichever column the table is sorted by.
+  const hotLastNight = hotValue(rows.map((r) => r.lastNightPoints));
+  const hotThisWeek = league.currentPeriod ? hotValue(rows.map((r) => r.periodPoints)) : null;
+
   // Which team's week-by-week panel is open, and what has been fetched so
   // far. Cached per team: reopening a row should not re-ask.
   const [openPeriodsFor, setOpenPeriodsFor] = useState<string | null>(null);
@@ -287,9 +312,15 @@ export function Standings({
                     <td className="standings-group-start">
                       {team.lastNightGamesPlayed != null ? team.lastNightGamesPlayed : t("standings.noStats")}
                     </td>
-                    <td>{team.lastNightPoints != null ? team.lastNightPoints : t("standings.noStats")}</td>
+                    <td className={hotLastNight != null && team.lastNightPoints === hotLastNight ? "standings-cell-hot" : undefined}>
+                      {team.lastNightPoints != null ? team.lastNightPoints : t("standings.noStats")}
+                      {hotLastNight != null && team.lastNightPoints === hotLastNight && <HotBadge label={t("standings.hotLastNight")} />}
+                    </td>
                     <td className="standings-group-start">{league.currentPeriod ? team.periodGamesPlayed : t("standings.noStats")}</td>
-                    <td>{league.currentPeriod ? team.periodPoints : t("standings.noStats")}</td>
+                    <td className={hotThisWeek != null && team.periodPoints === hotThisWeek ? "standings-cell-hot" : undefined}>
+                      {league.currentPeriod ? team.periodPoints : t("standings.noStats")}
+                      {hotThisWeek != null && team.periodPoints === hotThisWeek && <HotBadge label={t("standings.hotThisWeek")} />}
+                    </td>
                     <td className="standings-group-start">
                       {team.injuredCount > 0 ? team.injuredCount : <span className="muted">—</span>}
                     </td>

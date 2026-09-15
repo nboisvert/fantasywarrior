@@ -1318,6 +1318,38 @@
   border-top: 1px solid var(--border);
 }
 
+/* The night's and the week's best PTS cell (2026-09-15, per Nick). Gold
+   rather than the ice tint .standings-col-spotlight uses: the spotlight marks
+   a column that always matters, this marks a cell that happens to lead right
+   now, and the two can sit in the same row without reading as the same thing.
+   Declared after tr.mine, at equal specificity, so the tint still reads on
+   your own row. */
+.standings-grid tbody td.standings-cell-hot {
+  position: relative;
+  background: rgba(251, 191, 36, 0.12);
+  /* outline, not an inset box-shadow: cells in a border-collapse table
+     don't paint box-shadows reliably. */
+  outline: 1px solid rgba(251, 191, 36, 0.3);
+  outline-offset: -1px;
+  color: var(--gold);
+  font-weight: 700;
+}
+
+/* Same bare-glyph corner badge as .standings-rank-change-badge — no chip, no
+   fill, just the stroke with a background-matched halo so it reads as an
+   annotation on the cell. Top-left because the number is right-aligned. */
+.standings-hot-badge {
+  position: absolute;
+  top: 2px;
+  left: 3px;
+  display: flex;
+  color: var(--gold);
+  filter:
+    drop-shadow(0 0 1.5px var(--bg-elevated))
+    drop-shadow(0 0 1.5px var(--bg-elevated));
+  pointer-events: none;
+}
+
 /* The Fantasy group's data cells, not just its headers — .stats-grid colours
    its whole Pool/Fantasy column group this way, headers and body alike. */
 .standings-grid th.accent,
