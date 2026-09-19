@@ -143,8 +143,16 @@ public static class DraftContextLoader
     /// quota closes a whole roster out of the pool the moment its team reaches
     /// the limit, so the answer for a given player changes as other people pick.
     /// </summary>
+    /// <param name="ranking">
+    /// Last season's points, scored under its own scale — the room's own list
+    /// wants them, the selections endpoint does not, so this is opt-in rather
+    /// than always fetched: a pick is committed far more often than the pane is
+    /// opened, and there is no reason to pay for a number nobody reads.
+    /// </param>
     public static async Task<IReadOnlyList<DraftPoolRow>> AvailableAsync(
-        FantasyWarriorDbContext db, DraftContext ctx, DraftTurn turn, CancellationToken ct = default)
+        FantasyWarriorDbContext db, DraftContext ctx, DraftTurn turn,
+        (string LastSeason, IReadOnlyDictionary<string, double> Scale, DateOnly? AsOf)? ranking = null,
+        CancellationToken ct = default)
     {
         var rows = turn.Segment == DraftSegment.Steal
             ? await RosteredAsync(db, ctx, ct)
@@ -158,10 +166,18 @@ public static class DraftContextLoader
         var capHits = await Queries.CapHitsAsync(
             db, ctx.League.Season, eligible.Select(r => r.Candidate.PlayerId).ToList(), ct);
 
+        IReadOnlyDictionary<long, SeasonTotals>? totals = null;
+        if (ranking is { } r0)
+            totals = await SeasonTotalsQuery.ForAsync(
+                db, r0.LastSeason, eligible.Select(r => r.Candidate.PlayerId).ToList(), r0.AsOf, ct);
+
         return eligible
             .Select(r => r with
             {
                 CapHit = capHits.TryGetValue(r.Candidate.PlayerId, out var c) ? c : null,
+                LastSeasonPoints = ranking is { } rk && totals!.TryGetValue(r.Candidate.PlayerId, out var t)
+                    ? StatColumns.ToStatLine(t).Score(rk.Scale)
+                    : null,
             })
             // Most expensive first: in a capped league the salary is the first
             // thing a GM reads on a draft row, so it is what the list sorts by.
@@ -271,4 +287,11 @@ public sealed record DraftPoolRow(
     string? NhlTeam,
     string? OwnerTeamName,
     string? OwnerUsername,
-    long? CapHit);
+    long? CapHit,
+    /// <summary>
+    /// Fantasy points from the season just played, scored under that season's
+    /// own scale — null when the caller did not ask for it (see
+    /// <see cref="DraftContextLoader.AvailableAsync"/>'s <c>ranking</c>
+    /// parameter) or when he did not play that season at all.
+    /// </summary>
+    double? LastSeasonPoints = null);

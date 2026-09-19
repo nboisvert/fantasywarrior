@@ -58,7 +58,7 @@ public static class DraftEndpoints
         // DraftContextLoader.AvailableAsync for why it cannot be cached.
         app.MapGet("/api/leagues/{leagueId}/draft/available", async (
             string leagueId, string? username, string? search, string? pos, int? limit,
-            FantasyWarriorDbContext db) =>
+            FantasyWarriorDbContext db, SimulationClockService clock) =>
         {
             var league = await Queries.LeagueByCodeAsync(db, leagueId);
             if (league is null) return Results.NotFound(new { error = "League not found." });
@@ -70,7 +70,15 @@ public static class DraftEndpoints
             var turn = ctx.OnTheClock;
             if (turn is null) return Results.Ok(Array.Empty<object>());
 
-            var rows = await DraftContextLoader.AvailableAsync(db, ctx, turn);
+            // Last season's points, under the scale it was actually scored
+            // under — the room's own list is the one screen that reads
+            // LastSeasonPoints, so it is the only caller that asks for it.
+            var lastSeason = Season.Previous(ctx.Season.Season);
+            var rankingScale = await RankingScaleAsync(db, league, lastSeason, ctx.Rules);
+            var asOf = (await clock.StateAsync())?.AsOfDate;
+
+            var rows = await DraftContextLoader.AvailableAsync(
+                db, ctx, turn, (lastSeason, rankingScale, asOf));
 
             if (!string.IsNullOrWhiteSpace(search))
                 rows = [.. rows.Where(r => r.ShortName.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase))];
@@ -745,6 +753,7 @@ public static class DraftEndpoints
         nhlTeam = r.NhlTeam,
         ownerTeamName = r.OwnerTeamName,
         ownerUsername = r.OwnerUsername,
+        lastSeasonPoints = r.LastSeasonPoints,
     };
 
     // ---- helpers ----

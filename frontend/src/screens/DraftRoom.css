@@ -149,74 +149,89 @@
   outline-offset: 1px;
 }
 
-/* The player row. One line (Nick, 2026-08-25): compact position letter, short
-   name, the GM who holds him, cap hit right. Dense enough that a GM can scan a
-   pool of hundreds without scrolling past the same player twice. */
-.draft-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
+/* The available pool, as a real grid (Nick, 2026-09-19) — headers name the
+   three value columns (PTS last season, cap hit, PTS per $1M) rather than
+   leaving a GM to guess what the numbers on the right mean. Same posture as
+   the Team and Standings grids: a sticky-free table, since five columns fit a
+   360px phone without the horizontal scroll those wider grids need. */
+.draft-grid-scroll {
+  overflow-x: auto;
 }
 
-.draft-row {
-  display: grid;
-  grid-template-columns: 1.2rem minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 0.55rem;
+.draft-grid {
   width: 100%;
-  min-height: 44px;
-  padding: 0.35rem 0.5rem;
-  border: 0;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+.draft-grid th,
+.draft-grid td {
+  padding: 0.4rem 0.4rem;
   border-bottom: 1px solid var(--border);
-  background: transparent;
-  color: var(--text);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.draft-grid thead th {
+  padding-top: 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.draft-grid-col-player {
   text-align: left;
-  font-size: 0.88rem;
-  cursor: pointer;
+  min-width: 7rem;
+}
+
+.draft-grid-col-from {
+  text-align: left;
+  max-width: 7rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.draft-grid-col-num {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+td.draft-grid-col-player {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 /* Browsing the pool while you wait is the point of an asynchronous draft, so a
    row that is not yours is still readable — it just stops being a button. */
-.draft-row[aria-disabled="true"] {
-  cursor: default;
+tr.inactive {
   opacity: 0.75;
 }
 
-.draft-row:not([aria-disabled="true"]):hover {
-  background: var(--surface);
+.draft-grid-name-btn {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
 }
 
-.draft-row:focus-visible {
+.draft-grid-name-btn[aria-disabled="true"] {
+  cursor: default;
+  color: var(--text-muted);
+}
+
+.draft-grid-name-btn:focus-visible {
   outline: 2px solid var(--ice);
-  outline-offset: -2px;
-}
-
-.draft-row-pos {
-  font-weight: 800;
-  font-size: 0.8rem;
-}
-
-.draft-row-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.draft-row-owner {
-  font-size: 0.76rem;
-  color: var(--text-muted);
-  max-width: 7.5rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.draft-row-cap {
-  font-variant-numeric: tabular-nums;
-  font-size: 0.82rem;
-  color: var(--text-muted);
+  outline-offset: 1px;
 }
 
 .draft-empty {

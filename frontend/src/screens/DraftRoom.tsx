@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   api,
   formatCapCompact,
+  formatPtsPerDollar,
   posGroupClass,
   type AutofillResult,
   type DraftCandidate,
@@ -345,33 +346,55 @@ export default function DraftRoom({
               )}
             </div>
           ) : (
-            <ul className="draft-list">
-              {pool.map((c) => (
-                <li key={c.playerId}>
-                  <button
-                    className="draft-row"
-                    disabled={!mine || busy}
-                    aria-disabled={!mine}
-                    aria-label={t("draftRoom.draftRowAria", {
-                      name: c.shortName,
-                      from: c.ownerTeamName ?? undefined,
-                      cap: formatCapCompact(c.capHit),
-                    })}
-                    onClick={() => mine && setConfirming(c)}
-                  >
-                    <span className={`draft-row-pos pos-compact-${posGroupClass(c.position)}`}>
-                      {c.positionGroup}
-                    </span>
-                    <span className="draft-row-name">{c.shortName}</span>
-                    {/* The GM who holds him is what matters in a steal round.
-                        In the rookie rounds nobody does, so the NHL club takes
-                        the column back. */}
-                    <span className="draft-row-owner">{c.ownerTeamName ?? c.nhlTeam ?? "—"}</span>
-                    <span className="draft-row-cap">{formatCapCompact(c.capHit)}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <div className="draft-grid-scroll">
+              <table className="draft-grid">
+                <thead>
+                  <tr>
+                    <th scope="col" className="draft-grid-col-player">
+                      {t("draftRoom.colPlayer")}
+                    </th>
+                    <th scope="col" className="draft-grid-col-from">
+                      {t("draftRoom.colFrom")}
+                    </th>
+                    <th scope="col" className="draft-grid-col-num">PTS</th>
+                    <th scope="col" className="draft-grid-col-num">$</th>
+                    <th scope="col" className="draft-grid-col-num">PTS/$M</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pool.map((c) => (
+                    <tr key={c.playerId} className={mine ? undefined : "inactive"}>
+                      <td className="draft-grid-col-player">
+                        <span className={`pos-compact-${posGroupClass(c.position)}`}>{c.positionGroup}</span>
+                        <button
+                          type="button"
+                          className="draft-grid-name-btn"
+                          disabled={!mine || busy}
+                          aria-disabled={!mine}
+                          aria-label={t("draftRoom.draftRowAria", {
+                            name: c.shortName,
+                            from: c.ownerTeamName ?? undefined,
+                            cap: formatCapCompact(c.capHit),
+                          })}
+                          onClick={() => mine && setConfirming(c)}
+                        >
+                          {c.shortName}
+                        </button>
+                      </td>
+                      {/* The GM who holds him is what matters in a steal round.
+                          In the rookie rounds nobody does, so the NHL club
+                          takes the column back. */}
+                      <td className="draft-grid-col-from">{c.ownerTeamName ?? c.nhlTeam ?? "—"}</td>
+                      <td className="draft-grid-col-num">
+                        {c.lastSeasonPoints != null ? Math.round(c.lastSeasonPoints) : "—"}
+                      </td>
+                      <td className="draft-grid-col-num">{formatCapCompact(c.capHit)}</td>
+                      <td className="draft-grid-col-num">{formatPtsPerDollar(c.lastSeasonPoints, c.capHit)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </>
       )}
