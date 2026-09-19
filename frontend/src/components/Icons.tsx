@@ -330,3 +330,17 @@ export const GavelIcon = ({ size = 20, className }: IconProps) => (
     <path d="m21 11-8-8" />
   </Icon>
 );
+
+/** Lucide `sparkles` — the draft grid's value column (pace-adjusted points
+ * per $1M). An icon rather than a "PTS/$M" header: the column is a read-at-a-
+ * glance signal ("this pick is a bargain"), and the header carries no other
+ * text label in this grid either. */
+export const SparklesIcon = ({ size = 20, className }: IconProps) => (
+  <Icon size={size} className={className}>
+    <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
+    <path d="M20 3v4" />
+    <path d="M22 5h-4" />
+    <path d="M4 17v2" />
+    <path d="M5 18H3" />
+  </Icon>
+);

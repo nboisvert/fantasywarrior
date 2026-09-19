@@ -513,10 +513,17 @@ export interface DraftCandidate extends DraftPlayerRef {
   /** The GM who holds him. Null in the rookie rounds, where nobody does — the
    * row then falls back to the NHL club. */
   ownerTeamName: string | null;
+  /** His owner's three-letter franchise code — the compact form the grid's
+   * "From" column actually shows. Null in the rookie rounds, same as
+   * {@link ownerTeamName}. */
+  ownerAbbrev: string | null;
   ownerUsername: string | null;
   /** Fantasy points from the season just played, scored under that season's
    * own scale. Null when he did not play it at all. */
   lastSeasonPoints: number | null;
+  /** Last season paced to 82 games (skaters) or wins × 2 (goalies) — feeds
+   * the value column, deliberately different from {@link lastSeasonPoints}. */
+  pacePoints: number | null;
 }
 
 /** One row of the palmarès — one season this league has played. */
@@ -1041,13 +1048,13 @@ export function formatCapCompact(amount: number | null | undefined): string {
   return `${sign}$${abs}`;
 }
 
-/** Points per $1M of cap — value-for-money in a capped draft, read at a
- * glance rather than as the tiny raw ratio (points per dollar is well under
- * 0.0001 for anyone). `null` when either side of the ratio is missing, or
- * the player carries no cap hit to divide by. */
-export function formatPtsPerDollar(points: number | null, capHit: number | null): string {
-  if (points == null || capHit == null || capHit <= 0) return "—";
-  return (points / (capHit / 1_000_000)).toFixed(1);
+/** Points per $1M of cap, already divided — value-for-money in a capped
+ * draft, read at a glance rather than as the tiny raw ratio (points per
+ * dollar is well under 0.0001 for anyone). The division itself lives with
+ * the caller (it is also a sort key, not just a display string); this only
+ * formats. `null` in, "—" out. */
+export function formatPtsPerDollar(valuePerM: number | null): string {
+  return valuePerM == null ? "—" : valuePerM.toFixed(1);
 }
 
 /** "20262027" -> "2026-27" */

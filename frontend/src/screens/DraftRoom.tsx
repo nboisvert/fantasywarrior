@@ -29,17 +29,103 @@ import {
 } from "../api";
 import { useLive } from "../live/LiveProvider";
 import { useLanguage } from "../i18n/LanguageContext";
-import { ListOrderedIcon } from "../components/Icons";
+import { ChevronDownIcon, ListOrderedIcon, SparklesIcon } from "../components/Icons";
 import { PositionFilterControl, type PositionFilter } from "./Stats";
 import "./DraftRoom.css";
 
 type Pane = "available" | "board" | "teams" | "protections";
+
+/** A pool candidate plus the two fields the Available grid sorts by that the
+ * server doesn't hand over as a single number/string — see where it's built. */
+interface AvailableRow extends DraftCandidate {
+  from: string;
+  valuePerM: number | null;
+}
 
 /** "S1.4", "R2.11" — the segment, its round, and the slot inside that round.
  * Steal and rookie rounds are numbered independently, so the letter is not
  * decoration: S2.1 and R2.1 are two different turns. */
 function turnLabel(t: DraftTurnRow): string {
   return `${t.segment === "steal" ? "S" : "R"}${t.round}.${t.pickInRound}`;
+}
+
+/* ---------- sorting — same shape as Stats.tsx's/Standings.tsx's own useSort,
+   duplicated rather than shared: a screen-local concern, not a cross-screen
+   one. ---------- */
+
+type SortDir = "asc" | "desc";
+
+function compareNullable(a: number | null, b: number | null, dir: SortDir): number {
+  if (a == null && b == null) return 0;
+  if (a == null) return 1;
+  if (b == null) return -1;
+  return dir === "asc" ? a - b : b - a;
+}
+
+function useSort<T extends object>(rows: T[], initialKey: keyof T) {
+  const [key, setKey] = useState<keyof T>(initialKey);
+  const [dir, setDir] = useState<SortDir>("desc");
+
+  const toggle = (k: string) => {
+    const typedKey = k as keyof T;
+    if (typedKey === key) setDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setKey(typedKey);
+      setDir("desc");
+    }
+  };
+
+  const sorted = [...rows].sort((a, b) => {
+    const av = a[key];
+    const bv = b[key];
+    if (typeof av === "number" || av == null || typeof bv === "number" || bv == null) {
+      return compareNullable(av as number | null, bv as number | null, dir);
+    }
+    const cmp = String(av).localeCompare(String(bv));
+    return dir === "asc" ? cmp : -cmp;
+  });
+
+  return { sorted, key: key as string, dir, toggle };
+}
+
+function DraftSortableHead({
+  label,
+  ariaLabel,
+  title,
+  colKey,
+  active,
+  dir,
+  onSort,
+  className,
+}: {
+  label: React.ReactNode;
+  /** Only needed when `label` isn't plain text (the value column's icon). */
+  ariaLabel?: string;
+  title?: string;
+  colKey: string;
+  active: boolean;
+  dir: SortDir;
+  onSort: (k: string) => void;
+  className?: string;
+}) {
+  return (
+    <th
+      scope="col"
+      className={`draft-grid-sortable${className ? ` ${className}` : ""}`}
+      aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}
+    >
+      <button
+        type="button"
+        className="draft-grid-sort-btn"
+        aria-label={ariaLabel}
+        title={title}
+        onClick={() => onSort(colKey)}
+      >
+        {label}
+        {active && <ChevronDownIcon size={12} className={`draft-grid-sort-icon${dir === "asc" ? " asc" : ""}`} />}
+      </button>
+    </th>
+  );
 }
 
 export default function DraftRoom({
@@ -184,6 +270,21 @@ export default function DraftRoom({
     if (!state?.totalTurns) return null;
     return { made: state.turnsMade ?? 0, total: state.totalTurns };
   }, [state]);
+
+  // The two columns the grid itself computes rather than the server: `from`
+  // collapses the owner/NHL-club fallback into one sortable string, and
+  // `valuePerM` is the value column's actual number (pace points per $1M) —
+  // formatPtsPerDollar only ever formats it for display.
+  const availableRows = useMemo<AvailableRow[]>(
+    () =>
+      pool.map((c) => ({
+        ...c,
+        from: c.ownerAbbrev ?? c.nhlTeam ?? "—",
+        valuePerM: c.pacePoints != null && c.capHit ? c.pacePoints / (c.capHit / 1_000_000) : null,
+      })),
+    [pool],
+  );
+  const availableSort = useSort<AvailableRow>(availableRows, "capHit");
 
   if (loading) return <p className="empty-state">{t("draftRoom.loadingRoom")}</p>;
 
@@ -333,7 +434,7 @@ export default function DraftRoom({
             <PositionFilterControl value={pos} onChange={setPos} />
           </div>
 
-          {pool.length === 0 ? (
+          {availableRows.length === 0 ? (
             <div className="draft-empty">
               <p className="empty-state">
                 {t("draftRoom.nobodyAvailable")}
@@ -350,19 +451,52 @@ export default function DraftRoom({
               <table className="draft-grid">
                 <thead>
                   <tr>
-                    <th scope="col" className="draft-grid-col-player">
-                      {t("draftRoom.colPlayer")}
-                    </th>
-                    <th scope="col" className="draft-grid-col-from">
-                      {t("draftRoom.colFrom")}
-                    </th>
-                    <th scope="col" className="draft-grid-col-num">PTS</th>
-                    <th scope="col" className="draft-grid-col-num">$</th>
-                    <th scope="col" className="draft-grid-col-num">PTS/$M</th>
+                    <DraftSortableHead
+                      label={t("draftRoom.colPlayer")}
+                      colKey="shortName"
+                      active={availableSort.key === "shortName"}
+                      dir={availableSort.dir}
+                      onSort={availableSort.toggle}
+                      className="draft-grid-col-player"
+                    />
+                    <DraftSortableHead
+                      label={t("draftRoom.colFrom")}
+                      colKey="from"
+                      active={availableSort.key === "from"}
+                      dir={availableSort.dir}
+                      onSort={availableSort.toggle}
+                      className="draft-grid-col-from"
+                    />
+                    <DraftSortableHead
+                      label="PTS"
+                      colKey="lastSeasonPoints"
+                      active={availableSort.key === "lastSeasonPoints"}
+                      dir={availableSort.dir}
+                      onSort={availableSort.toggle}
+                      className="draft-grid-col-num draft-grid-col-spotlight"
+                    />
+                    <DraftSortableHead
+                      label="$"
+                      colKey="capHit"
+                      active={availableSort.key === "capHit"}
+                      dir={availableSort.dir}
+                      onSort={availableSort.toggle}
+                      className="draft-grid-col-num"
+                    />
+                    <DraftSortableHead
+                      label={<SparklesIcon size={13} className="draft-grid-value-icon" />}
+                      ariaLabel={t("draftRoom.colValueAria")}
+                      title={t("draftRoom.colValueAria")}
+                      colKey="valuePerM"
+                      active={availableSort.key === "valuePerM"}
+                      dir={availableSort.dir}
+                      onSort={availableSort.toggle}
+                      className="draft-grid-col-num"
+                    />
                   </tr>
                 </thead>
                 <tbody>
-                  {pool.map((c) => (
+                  {availableSort.sorted.map((c) => (
                     <tr key={c.playerId} className={mine ? undefined : "inactive"}>
                       <td className="draft-grid-col-player">
                         <span className={`pos-compact-${posGroupClass(c.position)}`}>{c.positionGroup}</span>
@@ -383,13 +517,17 @@ export default function DraftRoom({
                       </td>
                       {/* The GM who holds him is what matters in a steal round.
                           In the rookie rounds nobody does, so the NHL club
-                          takes the column back. */}
-                      <td className="draft-grid-col-from">{c.ownerTeamName ?? c.nhlTeam ?? "—"}</td>
-                      <td className="draft-grid-col-num">
+                          takes the column back — both already three letters,
+                          which is what keeps this column from crowding out
+                          the player name next to it. */}
+                      <td className="draft-grid-col-from" title={c.ownerTeamName ?? undefined}>
+                        {c.from}
+                      </td>
+                      <td className="draft-grid-col-num draft-grid-col-spotlight">
                         {c.lastSeasonPoints != null ? Math.round(c.lastSeasonPoints) : "—"}
                       </td>
                       <td className="draft-grid-col-num">{formatCapCompact(c.capHit)}</td>
-                      <td className="draft-grid-col-num">{formatPtsPerDollar(c.lastSeasonPoints, c.capHit)}</td>
+                      <td className="draft-grid-col-num">{formatPtsPerDollar(c.valuePerM)}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -54,6 +54,12 @@ public sealed record DraftContext(
     public string TeamName(int teamId) =>
         TeamsById.TryGetValue(teamId, out var t) ? t.Name : "Unknown";
 
+    /// <summary>The three-letter franchise code a GM's team carries — falls
+    /// back to his full name for the rare team with none, rather than a blank
+    /// "From" cell.</summary>
+    public string TeamAbbrev(int teamId) =>
+        TeamsById.TryGetValue(teamId, out var t) ? t.FranchiseAbbrev ?? t.Name : "—";
+
     /// <summary>Everyone who has already changed hands in this draft.</summary>
     public HashSet<long> TakenPlayerIds =>
         [.. Selections.Where(s => s.PlayerId is not null).Select(s => s.PlayerId!.Value)];
@@ -172,18 +178,45 @@ public static class DraftContextLoader
                 db, r0.LastSeason, eligible.Select(r => r.Candidate.PlayerId).ToList(), r0.AsOf, ct);
 
         return eligible
-            .Select(r => r with
+            .Select(r =>
             {
-                CapHit = capHits.TryGetValue(r.Candidate.PlayerId, out var c) ? c : null,
-                LastSeasonPoints = ranking is { } rk && totals!.TryGetValue(r.Candidate.PlayerId, out var t)
-                    ? StatColumns.ToStatLine(t).Score(rk.Scale)
-                    : null,
+                var t = totals is not null && totals.TryGetValue(r.Candidate.PlayerId, out var tt) ? tt : null;
+                return r with
+                {
+                    CapHit = capHits.TryGetValue(r.Candidate.PlayerId, out var c) ? c : null,
+                    LastSeasonPoints = ranking is { } rk && t is not null
+                        ? StatColumns.ToStatLine(t).Score(rk.Scale)
+                        : null,
+                    PacePoints = t is not null ? PacePointsOf(t, r.Candidate.PositionGroup) : null,
+                };
             })
             // Most expensive first: in a capped league the salary is the first
             // thing a GM reads on a draft row, so it is what the list sorts by.
             .OrderByDescending(r => r.CapHit ?? 0)
             .ThenBy(r => r.ShortName, StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    /// <summary>
+    /// Last season's production, paced to a full 82-game season rather than
+    /// what he actually banked — an injury-shortened season should not read as
+    /// a quiet one. A skater's rate (goals + assists per game he played) times
+    /// 82; a goalie's <c>wins × 2</c> outright, with no rate applied (Nick,
+    /// 2026-09-19) — a goalie's win total already is his season, and games
+    /// started/relieved make a per-game rate a much noisier number than a
+    /// skater's is.
+    ///
+    /// Deliberately not the league's scored <see cref="StatLine.Score"/>: this
+    /// is a value read (drives the pool's "points per $1M" column), and a
+    /// skater's raw NHL points read the same across leagues, while
+    /// <see cref="LastSeasonPoints"/> stays the number actually banked under
+    /// this league's own scale.
+    /// </summary>
+    private static double? PacePointsOf(SeasonTotals t, string positionGroup)
+    {
+        if (positionGroup == "G") return t.Wins * 2.0;
+        if (t.GamesPlayed <= 0) return null;
+        return (double)(t.Goals + t.Assists) / t.GamesPlayed * 82.0;
     }
 
     /// <summary>Every player held by a team in this league, with his owner.</summary>
@@ -227,6 +260,7 @@ public static class DraftContextLoader
                 Position: h.Position,
                 NhlTeam: h.NhlTeam,
                 OwnerTeamName: ctx.TeamName(h.TeamId),
+                OwnerAbbrev: ctx.TeamAbbrev(h.TeamId),
                 OwnerUsername: ctx.OwnerUsername(h.TeamId),
                 CapHit: null))
             .ToList();
@@ -269,6 +303,7 @@ public static class DraftContextLoader
                 Position: p.Position,
                 NhlTeam: p.NhlTeam,
                 OwnerTeamName: null,
+                OwnerAbbrev: null,
                 OwnerUsername: null,
                 CapHit: null))
             .ToList();
@@ -286,6 +321,11 @@ public sealed record DraftPoolRow(
     string Position,
     string? NhlTeam,
     string? OwnerTeamName,
+    /// <summary>His team's three-letter franchise code — the "From" column's
+    /// actual display text, short enough that the column does not have to
+    /// carry a whole team name. Null in the rookie rounds, same as
+    /// <see cref="OwnerTeamName"/>.</summary>
+    string? OwnerAbbrev,
     string? OwnerUsername,
     long? CapHit,
     /// <summary>
@@ -294,4 +334,12 @@ public sealed record DraftPoolRow(
     /// <see cref="DraftContextLoader.AvailableAsync"/>'s <c>ranking</c>
     /// parameter) or when he did not play that season at all.
     /// </summary>
-    double? LastSeasonPoints = null);
+    double? LastSeasonPoints = null,
+    /// <summary>
+    /// Last season's production paced to 82 games (skaters) or wins × 2
+    /// (goalies) — see <see cref="DraftContextLoader.PacePointsOf"/>. Feeds
+    /// the pool's points-per-$1M column; deliberately a different number from
+    /// <see cref="LastSeasonPoints"/>, which stays what he actually banked
+    /// under this league's scale.
+    /// </summary>
+    double? PacePoints = null);

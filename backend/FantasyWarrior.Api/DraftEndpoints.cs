@@ -752,8 +752,10 @@ public static class DraftEndpoints
         capHit = r.CapHit,
         nhlTeam = r.NhlTeam,
         ownerTeamName = r.OwnerTeamName,
+        ownerAbbrev = r.OwnerAbbrev,
         ownerUsername = r.OwnerUsername,
         lastSeasonPoints = r.LastSeasonPoints,
+        pacePoints = r.PacePoints,
     };
 
     // ---- helpers ----

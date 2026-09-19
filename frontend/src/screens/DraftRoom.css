@@ -149,36 +149,97 @@
   outline-offset: 1px;
 }
 
-/* The available pool, as a real grid (Nick, 2026-09-19) — headers name the
-   three value columns (PTS last season, cap hit, PTS per $1M) rather than
-   leaving a GM to guess what the numbers on the right mean. Same posture as
-   the Team and Standings grids: a sticky-free table, since five columns fit a
-   360px phone without the horizontal scroll those wider grids need. */
+/* The available pool, as a real grid (Nick, 2026-09-19) — same visual style
+   as .stats-grid/.standings-grid (border, radius, cell padding, header
+   type), deliberately without their sticky column and scroll-snap: those
+   solve a *wide* grid's problem, and five columns already fit a 360px phone
+   with nothing to scroll. */
 .draft-grid-scroll {
   overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
 }
 
 .draft-grid {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.86rem;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .draft-grid th,
 .draft-grid td {
-  padding: 0.4rem 0.4rem;
-  border-bottom: 1px solid var(--border);
+  padding: 0.55rem 0.5rem;
   text-align: right;
   white-space: nowrap;
 }
 
 .draft-grid thead th {
-  padding-top: 0;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--text-muted);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  border-bottom: 1px solid var(--border);
+}
+
+.draft-grid tbody tr + tr td {
+  border-top: 1px solid var(--border);
+}
+
+/* Sortable headers — same shape as .stats-sort-btn/.standings-sort-btn: the
+   button carries the header's own padding (the `<th>` gives it up entirely)
+   so the whole cell is the tap target, not just its text. */
+.draft-grid-sortable {
+  padding: 0 !important;
+}
+
+.draft-grid-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  width: 100%;
+  height: 100%;
+  padding: 0.55rem 0.5rem;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  justify-content: flex-end;
+}
+
+.draft-grid-sortable.draft-grid-col-player .draft-grid-sort-btn,
+.draft-grid-sortable.draft-grid-col-from .draft-grid-sort-btn {
+  justify-content: flex-start;
+}
+
+.draft-grid-sort-btn:hover,
+.draft-grid-sort-btn:focus-visible {
+  color: var(--text);
+}
+
+.draft-grid-sortable.draft-grid-col-spotlight .draft-grid-sort-btn:hover {
+  color: var(--ice-bright);
+}
+
+.draft-grid-sort-icon {
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.draft-grid-sort-icon.asc {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .draft-grid-sort-icon {
+    transition: none;
+  }
 }
 
 .draft-grid-col-player {
@@ -186,15 +247,34 @@
   min-width: 7rem;
 }
 
+/* His franchise code, not his name — a three-letter column reads as one unit
+   next to the NHL club abbreviation the rookie rounds fall back to, and
+   leaves the player name the width it needs. The full name is still one tap
+   away (the row's own aria-label, and `title` for a hover). */
 .draft-grid-col-from {
   text-align: left;
-  max-width: 7rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  width: 2.6rem;
 }
 
 .draft-grid-col-num {
-  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+/* The headline number, same treatment as .stats-grid's own Pool PTS column —
+   a tint, not just tinted text, so it reads as THE stat at a glance. */
+.draft-grid td.draft-grid-col-spotlight {
+  background: rgba(56, 189, 248, 0.1);
+  color: var(--ice-bright);
+}
+
+.draft-grid thead th.draft-grid-col-spotlight {
+  background: rgba(56, 189, 248, 0.16);
+  color: var(--ice-bright);
+}
+
+.draft-grid-value-icon {
+  display: block;
+  margin-inline-start: auto;
   color: var(--text-muted);
 }
 
