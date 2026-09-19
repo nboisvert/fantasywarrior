@@ -121,6 +121,26 @@ public static class DraftPool
         IneligibleReason(candidate, segment, pickingTeamId, maxLossesPerTeam, auto) is null;
 
     /// <summary>
+    /// Whether this player is untouchable this steal turn <b>only</b> because
+    /// his team has already hit the segment's loss cap — every other reason
+    /// for exclusion (already taken, protected, auto-protected, unknown NHL
+    /// games) means he was never in play this round regardless of the cap.
+    ///
+    /// Exists so the room can show a maxed-out team's remaining roster struck
+    /// through rather than have it silently vanish from the pool (Nick,
+    /// 2026-09-19): a GM should see *why* a name disappeared, not wonder where
+    /// it went.
+    /// </summary>
+    public static bool IsMaxedOutOnly(
+        DraftCandidate candidate, int pickingTeamId, int? maxLossesPerTeam, AutoProtectConfig auto)
+    {
+        if (maxLossesPerTeam is not { } max || candidate.OwnerLossesSoFar < max) return false;
+        // Would he be eligible if the cap did not exist? Passing null skips
+        // exactly that one check in StealReason.
+        return StealReason(candidate, pickingTeamId, null, auto) is null;
+    }
+
+    /// <summary>
     /// The pool for one turn. Input order is preserved — the caller has already
     /// sorted it the way the screen wants, and re-sorting here would silently
     /// override that.

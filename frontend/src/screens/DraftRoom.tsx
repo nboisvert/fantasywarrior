@@ -30,6 +30,7 @@ import {
 import { useLive } from "../live/LiveProvider";
 import { useLanguage } from "../i18n/LanguageContext";
 import { ChevronDownIcon, ListOrderedIcon, SparklesIcon } from "../components/Icons";
+import { PlayerCard } from "../components/PlayerCard";
 import { PositionFilterControl, type PositionFilter } from "./Stats";
 import "./DraftRoom.css";
 
@@ -144,6 +145,7 @@ export default function DraftRoom({
   const [search, setSearch] = useState("");
   const [pos, setPos] = useState<PositionFilter>("ALL");
   const [confirming, setConfirming] = useState<DraftCandidate | null>(null);
+  const [openPlayerId, setOpenPlayerId] = useState<number | null>(null);
   const [passing, setPassing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -496,40 +498,87 @@ export default function DraftRoom({
                   </tr>
                 </thead>
                 <tbody>
-                  {availableSort.sorted.map((c) => (
-                    <tr key={c.playerId} className={mine ? undefined : "inactive"}>
-                      <td className="draft-grid-col-player">
-                        <span className={`pos-compact-${posGroupClass(c.position)}`}>{c.positionGroup}</span>
-                        <button
-                          type="button"
-                          className="draft-grid-name-btn"
-                          disabled={!mine || busy}
-                          aria-disabled={!mine}
-                          aria-label={t("draftRoom.draftRowAria", {
-                            name: c.shortName,
-                            from: c.ownerTeamName ?? undefined,
-                            cap: formatCapCompact(c.capHit),
-                          })}
-                          onClick={() => mine && setConfirming(c)}
-                        >
-                          {c.shortName}
-                        </button>
-                      </td>
-                      {/* The GM who holds him is what matters in a steal round.
-                          In the rookie rounds nobody does, so the NHL club
-                          takes the column back — both already three letters,
-                          which is what keeps this column from crowding out
-                          the player name next to it. */}
-                      <td className="draft-grid-col-from" title={c.ownerTeamName ?? undefined}>
-                        {c.from}
-                      </td>
-                      <td className="draft-grid-col-num draft-grid-col-spotlight">
-                        {c.lastSeasonPoints != null ? Math.round(c.lastSeasonPoints) : "—"}
-                      </td>
-                      <td className="draft-grid-col-num">{formatCapCompact(c.capHit)}</td>
-                      <td className="draft-grid-col-num">{formatPtsPerDollar(c.valuePerM)}</td>
-                    </tr>
-                  ))}
+                  {availableSort.sorted.map((c) => {
+                    // Struck-through rows (his own team hit the loss cap) are
+                    // never a draft target, on top of the usual "not your
+                    // turn" gate — but his name still opens his player page
+                    // either way, that action never depends on whose turn it is.
+                    const takeable = mine && !busy && !c.unavailable;
+                    return (
+                      <tr
+                        key={c.playerId}
+                        className={
+                          [!mine && "inactive", c.unavailable && "unavailable"].filter(Boolean).join(" ") ||
+                          undefined
+                        }
+                        role={takeable ? "button" : undefined}
+                        tabIndex={takeable ? 0 : undefined}
+                        aria-label={
+                          takeable
+                            ? t("draftRoom.draftRowAria", {
+                                name: c.shortName,
+                                from: c.ownerTeamName ?? undefined,
+                                cap: formatCapCompact(c.capHit),
+                              })
+                            : undefined
+                        }
+                        onClick={() => takeable && setConfirming(c)}
+                        onKeyDown={(e) => {
+                          if (!takeable || (e.key !== "Enter" && e.key !== " ")) return;
+                          e.preventDefault();
+                          setConfirming(c);
+                        }}
+                      >
+                        <td className="draft-grid-col-player">
+                          <span className={`pos-compact-${posGroupClass(c.position)}`}>{c.positionGroup}</span>
+                          <span className="draft-grid-name-col">
+                            <button
+                              type="button"
+                              className="draft-grid-name-btn"
+                              aria-label={t("draftRoom.viewPlayerAria", { name: c.shortName })}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenPlayerId(c.playerId);
+                              }}
+                            >
+                              {c.shortName}
+                            </button>
+                            {/* His current NHL club, normally — but a struck
+                                row already says everything with the strike,
+                                so this line explains why instead. */}
+                            <span className="draft-grid-name-sub">
+                              {c.unavailable ? t("draftRoom.unavailableTag") : (c.nhlTeam ?? "—")}
+                            </span>
+                          </span>
+                        </td>
+                        {/* The GM who holds him is what matters in a steal
+                            round. In the rookie rounds nobody does, so the NHL
+                            club takes the column back — both already three
+                            letters, which is what keeps this column from
+                            crowding out the player name next to it. The pill
+                            is his *owner's* steal losses so far this segment —
+                            informational below the cap, and the reason a
+                            struck row is struck once it reads 2. */}
+                        <td className="draft-grid-col-from" title={c.ownerTeamName ?? undefined}>
+                          {c.from}
+                          {c.ownerLossesSoFar > 0 && (
+                            <span
+                              className="draft-grid-loss-pill"
+                              title={t("draftRoom.lossPillAria", { count: c.ownerLossesSoFar })}
+                              aria-label={t("draftRoom.lossPillAria", { count: c.ownerLossesSoFar })}
+                            >
+                              {c.ownerLossesSoFar}
+                            </span>
+                          )}
+                        </td>
+                        <td className="draft-grid-col-num draft-grid-col-spotlight">
+                          {c.lastSeasonPoints != null ? Math.round(c.lastSeasonPoints) : "—"}
+                        </td>
+                        <td className="draft-grid-col-num">{formatCapCompact(c.capHit)}</td>
+                        <td className="draft-grid-col-num">{formatPtsPerDollar(c.valuePerM)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -718,6 +767,10 @@ export default function DraftRoom({
           onCancel={() => setPassing(false)}
           onConfirm={() => void select(null)}
         />
+      )}
+
+      {openPlayerId != null && (
+        <PlayerCard playerId={openPlayerId} leagueId={league.id} onClose={() => setOpenPlayerId(null)} />
       )}
     </div>
   );

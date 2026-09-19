@@ -518,12 +518,20 @@ export interface DraftCandidate extends DraftPlayerRef {
    * {@link ownerTeamName}. */
   ownerAbbrev: string | null;
   ownerUsername: string | null;
+  /** How many players his owner has already lost this steal segment — 0 in
+   * the rookie rounds, where nobody owns anybody. Drives the "From" column's
+   * loss-count pill. */
+  ownerLossesSoFar: number;
   /** Fantasy points from the season just played, scored under that season's
    * own scale. Null when he did not play it at all. */
   lastSeasonPoints: number | null;
   /** Last season paced to 82 games (skaters) or wins × 2 (goalies) — feeds
    * the value column, deliberately different from {@link lastSeasonPoints}. */
   pacePoints: number | null;
+  /** True when he is shown only so a GM can see why he is gone: his own team
+   * hit the steal segment's loss cap. Never actually pickable — the room
+   * strikes the row through rather than letting it silently vanish. */
+  unavailable: boolean;
 }
 
 /** One row of the palmarès — one season this league has played. */

@@ -169,15 +169,28 @@ public static class DraftContextLoader
                 r.Candidate, turn.Segment, turn.TeamId, ctx.MaxLossesPerTeam, ctx.AutoProtect))
             .ToList();
 
+        // A maxed-out team's remaining roster, shown struck through rather
+        // than simply missing — see IsMaxedOutOnly. Steal-only: the rookie
+        // rounds have no owner, so there is no team to have maxed out.
+        var maxedOut = turn.Segment == DraftSegment.Steal
+            ? rows
+                .Where(r => DraftPool.IsMaxedOutOnly(
+                    r.Candidate, turn.TeamId, ctx.MaxLossesPerTeam, ctx.AutoProtect))
+                .Select(r => r with { IsUnavailable = true })
+                .ToList()
+            : [];
+
+        var shown = eligible.Concat(maxedOut).ToList();
+
         var capHits = await Queries.CapHitsAsync(
-            db, ctx.League.Season, eligible.Select(r => r.Candidate.PlayerId).ToList(), ct);
+            db, ctx.League.Season, shown.Select(r => r.Candidate.PlayerId).ToList(), ct);
 
         IReadOnlyDictionary<long, SeasonTotals>? totals = null;
         if (ranking is { } r0)
             totals = await SeasonTotalsQuery.ForAsync(
-                db, r0.LastSeason, eligible.Select(r => r.Candidate.PlayerId).ToList(), r0.AsOf, ct);
+                db, r0.LastSeason, shown.Select(r => r.Candidate.PlayerId).ToList(), r0.AsOf, ct);
 
-        return eligible
+        return shown
             .Select(r =>
             {
                 var t = totals is not null && totals.TryGetValue(r.Candidate.PlayerId, out var tt) ? tt : null;
@@ -342,4 +355,11 @@ public sealed record DraftPoolRow(
     /// <see cref="LastSeasonPoints"/>, which stays what he actually banked
     /// under this league's scale.
     /// </summary>
-    double? PacePoints = null);
+    double? PacePoints = null,
+    /// <summary>
+    /// True for a row included only so the room can show it struck through —
+    /// his own team has hit the steal segment's loss cap. See
+    /// <see cref="DraftPool.IsMaxedOutOnly"/>. Never true outside the steal
+    /// segment.
+    /// </summary>
+    bool IsUnavailable = false);

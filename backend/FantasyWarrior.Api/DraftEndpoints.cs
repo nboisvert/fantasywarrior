@@ -754,8 +754,10 @@ public static class DraftEndpoints
         ownerTeamName = r.OwnerTeamName,
         ownerAbbrev = r.OwnerAbbrev,
         ownerUsername = r.OwnerUsername,
+        ownerLossesSoFar = r.Candidate.OwnerLossesSoFar,
         lastSeasonPoints = r.LastSeasonPoints,
         pacePoints = r.PacePoints,
+        unavailable = r.IsUnavailable,
     };
 
     // ---- helpers ----

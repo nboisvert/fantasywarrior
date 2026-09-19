@@ -193,4 +193,34 @@ public class DraftPoolTests
 
         Assert.Empty(DraftPool.Available(allDrained, DraftSegment.Steal, Me, 2, Auto));
     }
+
+    [Fact]
+    public void MaxedOutOnly_TrueOnceHisTeamHitsTheCap()
+    {
+        Assert.True(DraftPool.IsMaxedOutOnly(Rostered(losses: 2), Me, 2, Auto));
+    }
+
+    [Fact]
+    public void MaxedOutOnly_FalseBelowTheCap()
+    {
+        Assert.False(DraftPool.IsMaxedOutOnly(Rostered(losses: 1), Me, 2, Auto));
+    }
+
+    [Fact]
+    public void MaxedOutOnly_FalseWithNoCapAtAll()
+    {
+        Assert.False(DraftPool.IsMaxedOutOnly(Rostered(losses: 9), Me, null, Auto));
+    }
+
+    [Fact]
+    public void MaxedOutOnly_FalseWhenSomeOtherReasonAlreadyExcludesHim()
+    {
+        // Protected and at the cap: the cap is not why he is off the table, so
+        // this must not claim it is.
+        Assert.False(DraftPool.IsMaxedOutOnly(
+            Rostered(losses: 2, protectedByGm: true), Me, 2, Auto));
+
+        // Your own roster, at the cap: same reasoning.
+        Assert.False(DraftPool.IsMaxedOutOnly(Rostered(losses: 2, owner: Me), Me, 2, Auto));
+    }
 }
