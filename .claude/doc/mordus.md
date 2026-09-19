@@ -14,6 +14,21 @@ franchise each. `LeagueSeasons` says season **3**, confirmed by the source PDF's
 title. Usernames are the GM's first name, disambiguated by a surname initial on
 a collision (`jonathan` / `jonathanr`).
 
+## Mordus2
+
+Les Mordus itself is mid-replay of 2025-26 (`testmode.md`) and cannot have its
+phase touched — advancing it would freeze a draft order fourteen real GMs then
+live with, over a season that has not finished being replayed for stats
+purposes. **Mordus2** is the standalone league that carries the real
+2026-2027 off-season instead: the real current rosters, salaries and
+draft-pick trades, which Nick tracks in his own spreadsheet outside the app
+rather than through Les Mordus's live rows, and the 14 GMs' actual protection
+choices, gathered as photos over Messenger. It is rebuilt from that
+spreadsheet — checked in as [`data/mordus2.json`](../../data/mordus2.json) —
+by `seed-mordus2`, landing directly in `Drafting`. See
+[deployment.md](deployment.md) for the job and what each field in the data
+file means.
+
 ## Scoring scale
 
 | Stat | Pts | | Stat | Pts |

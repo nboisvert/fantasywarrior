@@ -351,6 +351,57 @@ keys make it load-bearing): `DraftSelections` (by its `LeagueSeasonId`s),
 `TeamId`s), `RosterSpots`, `TradeVotes` and `TradeAssets` (by its `TradeId`s),
 `Trades`, `Messages`, `DraftPicks`, `LeagueSeasons`, `LeagueMembers`,
 `LeagueSeasons`, `Teams`, `Leagues` — the last eleven all `WHERE LeagueId = @l`.
+`seed-mordus2` (below) runs exactly this same order itself, scoped to
+whichever league is currently named "Mordus2", before every rebuild.
+
+### Rebuilding Mordus2 from Nick's own spreadsheet — `seed-mordus2`
+
+Les Mordus' real current rosters, 2026-2027 salaries and draft-pick trades live
+in Nick's own spreadsheet outside the app, not in Les Mordus's live rows —
+`clone-league` copies the *live* rows, which is the wrong source once real GMs
+have traded picks or players the app's Les Mordus instance does not (yet, or
+ever) reflect. `seed-mordus2` imports directly from that spreadsheet instead,
+extracted once to the checked-in [`data/mordus2.json`](../../data/mordus2.json)
+(same posture as `seed-mordus` and its PDF-derived roster file — reviewable,
+re-runnable, no binary in the loop at seed time).
+
+```powershell
+dotnet run --project backend/FantasyWarrior.Jobs -- seed-mordus2 --dry-run
+dotnet run --project backend/FantasyWarrior.Jobs -- seed-mordus2
+```
+
+- **Wipes any existing "Mordus2" first**, scoped to that one `LeagueId` — the
+  same delete order as the manual `clone-league` teardown above. Never touches
+  Les Mordus or any other league.
+- **Resolves every roster and protection name to a `Players.PlayerId`** before
+  writing anything — exact match, then a Nom/Prénom-swap check (the
+  spreadsheet has a few transposed rows), then nickname/transliteration
+  matches gated tightly enough that two different people sharing a surname
+  (Kasperi Kapanen vs. Oliver Kapanen) are never merged. Anything still
+  unresolved stops a real run and is printed, never guessed — an entry can
+  carry an explicit `"playerId"` in the data file to skip resolution outright,
+  for the rare case even the NHL search endpoint cannot disambiguate (see the
+  Elias Pettersson comment in the data file).
+- **Off-season numbers (protection slots, steal rounds, max losses) come from
+  mordus.md, not from whatever Les Mordus's live `LeagueSeason.Rules` carries**
+  — that row is known to sit NULL/0 on exactly these fields (a data gap, not a
+  rule), and copying it verbatim would hand Mordus2 a draft with no steal
+  rounds. Everything else (cap, lineup slots, scoring scale) is copied from
+  the live row as-is.
+- **Lands directly in `Drafting`, never `Protecting`.** The protections in the
+  data file are the real GMs' own choices, photographed off Messenger — there
+  is nothing left for a protection window to do.
+- **Draft-pick ownership comes from the spreadsheet's own trade record**, not
+  reset to each team's original pick the way `clone-league --drafting` does —
+  `data/mordus2.json`'s `picks` array is `(round, originalFranchiseAbbrev,
+  ownedByFranchiseAbbrev)`, and the order is the spreadsheet's own draft order,
+  not recomputed from any league's standings.
+
+**`add-player --id --first --last --pos [--team] [--birth] [--status]`** is the
+one-row escape hatch `seed-mordus2`'s own resolver reaches for when the NHL
+search endpoint returns several real players for one name and a human has
+confirmed which NHL id is meant (`api-web.nhle.com/v1/player/{id}/landing`
+gives the id). Refuses if the id already exists. Not part of the nightly chain.
 
 ---
 

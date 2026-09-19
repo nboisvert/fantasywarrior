@@ -1,0 +1,2753 @@
+{
+  "commissioner": "nick",
+  "season": "20262027",
+  "seasonNumber": 4,
+  "draftYear": 2026,
+  "draftOrder": [
+    "OTT",
+    "CAR",
+    "DAL",
+    "VGK",
+    "EDM",
+    "COL",
+    "DET",
+    "NYR",
+    "WSH",
+    "TOR",
+    "NSH",
+    "LAK",
+    "FLA",
+    "MTL"
+  ],
+  "teams": [
+    {
+      "username": "antoine",
+      "franchise": "Caroline Hurricanes",
+      "franchiseAbbrev": "CAR",
+      "roster": [
+        {
+          "lastName": "Huberdeau",
+          "firstName": "Jonathan",
+          "nhlTeam": "Calgary",
+          "protected": true
+        },
+        {
+          "lastName": "Meier",
+          "firstName": "Timo",
+          "nhlTeam": "New Jersey",
+          "protected": true
+        },
+        {
+          "lastName": "Buchnevich",
+          "firstName": "Pavel",
+          "nhlTeam": "St-Louis",
+          "protected": false
+        },
+        {
+          "lastName": "Vilardi",
+          "firstName": "Gabriel",
+          "nhlTeam": "Winnipeg",
+          "protected": true
+        },
+        {
+          "lastName": "Lafreniere",
+          "firstName": "Alexis",
+          "nhlTeam": "NY Rangers",
+          "protected": true
+        },
+        {
+          "lastName": "Granlund",
+          "firstName": "Mikael",
+          "nhlTeam": "Anaheim",
+          "protected": false
+        },
+        {
+          "lastName": "Eklund",
+          "firstName": "William",
+          "nhlTeam": "Ottawa",
+          "protected": true
+        },
+        {
+          "lastName": "Wyttenbach",
+          "firstName": "Ethan",
+          "nhlTeam": "Calgary",
+          "protected": false
+        },
+        {
+          "lastName": "Hagens",
+          "firstName": "James",
+          "nhlTeam": "Boston",
+          "protected": false
+        },
+        {
+          "lastName": "Catton",
+          "firstName": "Berkley",
+          "nhlTeam": "Seattle",
+          "protected": false
+        },
+        {
+          "lastName": "Brandsegg-Nygard",
+          "firstName": "Michael",
+          "nhlTeam": "Detroit",
+          "protected": false
+        },
+        {
+          "lastName": "Iginla",
+          "firstName": "Tij",
+          "nhlTeam": "Utah",
+          "protected": false
+        },
+        {
+          "lastName": "Nyman",
+          "firstName": "Jani",
+          "nhlTeam": "Seattle",
+          "protected": false
+        },
+        {
+          "lastName": "Firkus",
+          "firstName": "Jagger",
+          "nhlTeam": "Seattle",
+          "protected": false
+        },
+        {
+          "lastName": "Geekie",
+          "firstName": "Connor",
+          "nhlTeam": "Tampa Bay",
+          "protected": false
+        },
+        {
+          "lastName": "Reschny",
+          "firstName": "Cole",
+          "nhlTeam": "Calgary",
+          "protected": false
+        },
+        {
+          "lastName": "Zharovsky",
+          "firstName": "Alexander",
+          "nhlTeam": "Montreal",
+          "protected": false
+        },
+        {
+          "lastName": "Jones",
+          "firstName": "Seth",
+          "nhlTeam": "Chicago",
+          "protected": true
+        },
+        {
+          "lastName": "Broberg",
+          "firstName": "Phillip",
+          "nhlTeam": "St-Louis",
+          "protected": true
+        },
+        {
+          "lastName": "Hutson",
+          "firstName": "Cole",
+          "nhlTeam": "Washington",
+          "protected": false
+        },
+        {
+          "lastName": "Willander",
+          "firstName": "Tom",
+          "nhlTeam": "Vancouver",
+          "protected": false
+        },
+        {
+          "lastName": "Parekh",
+          "firstName": "Zayne",
+          "nhlTeam": "Calgary",
+          "protected": false
+        },
+        {
+          "lastName": "Sandin Pellikka",
+          "firstName": "Alex",
+          "nhlTeam": "Detroit",
+          "protected": false
+        },
+        {
+          "lastName": "Molendyk",
+          "firstName": "Tanner",
+          "nhlTeam": "Nashville",
+          "protected": false
+        },
+        {
+          "lastName": "Korchinski",
+          "firstName": "Kevin",
+          "nhlTeam": "Chicago",
+          "protected": true
+        },
+        {
+          "lastName": "Smith",
+          "firstName": "Jackson",
+          "nhlTeam": "Columbus",
+          "protected": false
+        },
+        {
+          "lastName": "Sorokin",
+          "firstName": "Ilya",
+          "nhlTeam": "NY Islanders",
+          "protected": true
+        },
+        {
+          "lastName": "Hill",
+          "firstName": "Adin",
+          "nhlTeam": "Vegas",
+          "protected": false
+        },
+        {
+          "lastName": "Jarry",
+          "firstName": "Tristan",
+          "nhlTeam": "Edmonton",
+          "protected": false
+        },
+        {
+          "lastName": "Annunen",
+          "firstName": "Justus",
+          "nhlTeam": "Nashville",
+          "protected": false
+        },
+        {
+          "lastName": "Nabokov",
+          "firstName": "Ilya",
+          "nhlTeam": "Colorado",
+          "protected": false
+        }
+      ]
+    },
+    {
+      "username": "nick",
+      "franchise": "Colorado Avalanche",
+      "franchiseAbbrev": "COL",
+      "roster": [
+        {
+          "lastName": "Eichel",
+          "firstName": "Jack",
+          "nhlTeam": "Vegas",
+          "protected": true
+        },
+        {
+          "lastName": "Pettersson",
+          "firstName": "Elias",
+          "nhlTeam": "Vancouver",
+          "protected": false,
+          "playerId": 8480012
+        },
+        {
+          "lastName": "Panarin",
+          "firstName": "Artemi",
+          "nhlTeam": "Los Angeles",
+          "protected": true
+        },
+        {
+          "lastName": "Aho",
+          "firstName": "Sebastian",
+          "nhlTeam": "Caroline",
+          "protected": true
+        },
+        {
+          "lastName": "Kyrou",
+          "firstName": "Jordan",
+          "nhlTeam": "Washington",
+          "protected": true
+        },
+        {
+          "lastName": "Fiala",
+          "firstName": "Kevin",
+          "nhlTeam": "Los Angeles",
+          "protected": false
+        },
+        {
+          "lastName": "Holloway",
+          "firstName": "Dylan",
+          "nhlTeam": "St-Louis",
+          "protected": true
+        },
+        {
+          "lastName": "Thompson",
+          "firstName": "Tage",
+          "nhlTeam": "Buffalo",
+          "protected": true
+        },
+        {
+          "lastName": "Nugent-Hopkins",
+          "firstName": "Ryan",
+          "nhlTeam": "Edmonton",
+          "protected": false
+        },
+        {
+          "lastName": "Drouin",
+          "firstName": "Jonathan",
+          "nhlTeam": "NY Islanders",
+          "protected": false
+        },
+        {
+          "lastName": "Connelly",
+          "firstName": "Trevor",
+          "nhlTeam": "Vegas",
+          "protected": false
+        },
+        {
+          "lastName": "Michkov",
+          "firstName": "Matvei",
+          "nhlTeam": "Philadelphie",
+          "protected": true
+        },
+        {
+          "lastName": "Parascak",
+          "firstName": "Terik",
+          "nhlTeam": "Washington",
+          "protected": false
+        },
+        {
+          "lastName": "Sennecke",
+          "firstName": "Beckett",
+          "nhlTeam": "Anaheim",
+          "protected": false
+        },
+        {
+          "lastName": "Perfetti",
+          "firstName": "Cole",
+          "nhlTeam": "Winnipeg",
+          "protected": false
+        },
+        {
+          "lastName": "Robertson",
+          "firstName": "Nicolas",
+          "nhlTeam": "Pittsburgh",
+          "protected": false
+        },
+        {
+          "lastName": "Hage",
+          "firstName": "Michael",
+          "nhlTeam": "Montreal",
+          "protected": false
+        },
+        {
+          "lastName": "Chychrun",
+          "firstName": "Jakob",
+          "nhlTeam": "Washington",
+          "protected": true
+        },
+        {
+          "lastName": "Faber",
+          "firstName": "Brock",
+          "nhlTeam": "Minnesota",
+          "protected": true
+        },
+        {
+          "lastName": "Letang",
+          "firstName": "Kris",
+          "nhlTeam": "Pittsburgh",
+          "protected": false
+        },
+        {
+          "lastName": "Mukhamadullin",
+          "firstName": "Shakir",
+          "nhlTeam": "Edmonton",
+          "protected": false
+        },
+        {
+          "lastName": "Klingberg",
+          "firstName": "John",
+          "nhlTeam": "San Jose",
+          "protected": false
+        },
+        {
+          "lastName": "Skinner",
+          "firstName": "Stuart",
+          "nhlTeam": "Pittsburgh",
+          "protected": false
+        },
+        {
+          "lastName": "Hofer",
+          "firstName": "Joel",
+          "nhlTeam": "St-Louis",
+          "protected": false
+        }
+      ]
+    },
+    {
+      "username": "dany",
+      "franchise": "Dallas Stars",
+      "franchiseAbbrev": "DAL",
+      "roster": [
+        {
+          "lastName": "Carlsson",
+          "firstName": "Leo",
+          "nhlTeam": "Anaheim",
+          "protected": true
+        },
+        {
+          "lastName": "Kempe",
+          "firstName": "Adrian",
+          "nhlTeam": "Los Angeles",
+          "protected": true
+        },
+        {
+          "lastName": "Point",
+          "firstName": "Brayden",
+          "nhlTeam": "Tampa Bay",
+          "protected": true
+        },
+        {
+          "lastName": "Dubois",
+          "firstName": "Pierre-Luc",
+          "nhlTeam": "Washington",
+          "protected": false
+        },
+        {
+          "lastName": "Thomas",
+          "firstName": "Robert",
+          "nhlTeam": "St-Louis",
+          "protected": true
+        },
+        {
+          "lastName": "Benson",
+          "firstName": "Zach",
+          "nhlTeam": "Buffalo",
+          "protected": true
+        },
+        {
+          "lastName": "Guenther",
+          "firstName": "Dylan",
+          "nhlTeam": "Utah",
+          "protected": true
+        },
+        {
+          "lastName": "Strome",
+          "firstName": "Dylan",
+          "nhlTeam": "Washington",
+          "protected": true
+        },
+        {
+          "lastName": "Batherson",
+          "firstName": "Drake",
+          "nhlTeam": "Ottawa",
+          "protected": true
+        },
+        {
+          "lastName": "Quinn",
+          "firstName": "Jack",
+          "nhlTeam": "Buffalo",
+          "protected": false
+        },
+        {
+          "lastName": "Evangelista",
+          "firstName": "Luke",
+          "nhlTeam": "Nashville",
+          "protected": false
+        },
+        {
+          "lastName": "Leonard",
+          "firstName": "Ryan",
+          "nhlTeam": "Washington",
+          "protected": false
+        },
+        {
+          "lastName": "Helenius",
+          "firstName": "Konsta",
+          "nhlTeam": "Buffalo",
+          "protected": false
+        },
+        {
+          "lastName": "Blake",
+          "firstName": "Jackson",
+          "nhlTeam": "Caroline",
+          "protected": false
+        },
+        {
+          "lastName": "Savoie",
+          "firstName": "Matthew",
+          "nhlTeam": "Edmonton",
+          "protected": false
+        },
+        {
+          "lastName": "Kasper",
+          "firstName": "Marco",
+          "nhlTeam": "Detroit",
+          "protected": false
+        },
+        {
+          "lastName": "Surin",
+          "firstName": "Yegor",
+          "nhlTeam": "Nashville",
+          "protected": false
+        },
+        {
+          "lastName": "Hughes",
+          "firstName": "Luke",
+          "nhlTeam": "New Jersey",
+          "protected": true
+        },
+        {
+          "lastName": "Power",
+          "firstName": "Owen",
+          "nhlTeam": "Buffalo",
+          "protected": false
+        },
+        {
+          "lastName": "Hronek",
+          "firstName": "Filip",
+          "nhlTeam": "Vancouver",
+          "protected": false
+        },
+        {
+          "lastName": "York",
+          "firstName": "Cam",
+          "nhlTeam": "Philadelphie",
+          "protected": false
+        },
+        {
+          "lastName": "Samuelsson",
+          "firstName": "Mattias",
+          "nhlTeam": "Buffalo",
+          "protected": false
+        },
+        {
+          "lastName": "Levshunov",
+          "firstName": "Artyum",
+          "nhlTeam": "Chicago",
+          "protected": false
+        },
+        {
+          "lastName": "Rinzel",
+          "firstName": "Sam",
+          "nhlTeam": "Chicago",
+          "protected": false
+        },
+        {
+          "lastName": "Cagnoni",
+          "firstName": "Luca",
+          "nhlTeam": "San Jose",
+          "protected": false
+        },
+        {
+          "lastName": "Vejmelka",
+          "firstName": "Karel",
+          "nhlTeam": "Utah",
+          "protected": false
+        },
+        {
+          "lastName": "Montembault",
+          "firstName": "Samuel",
+          "nhlTeam": "Montreal",
+          "protected": false
+        },
+        {
+          "lastName": "Kochetkov",
+          "firstName": "Pyotr",
+          "nhlTeam": "Caroline",
+          "protected": false
+        }
+      ]
+    },
+    {
+      "username": "yvan",
+      "franchise": "Detroit Red Wings",
+      "franchiseAbbrev": "DET",
+      "roster": [
+        {
+          "lastName": "Konecny",
+          "firstName": "Travis",
+          "nhlTeam": "Philadelphie",
+          "protected": false
+        },
+        {
+          "lastName": "Crosby",
+          "firstName": "Sidney",
+          "nhlTeam": "Pittsburgh",
+          "protected": true
+        },
+        {
+          "lastName": "Larkin",
+          "firstName": "Dylan",
+          "nhlTeam": "Detroit",
+          "protected": true
+        },
+        {
+          "lastName": "Hertl",
+          "firstName": "Tomas",
+          "nhlTeam": "Vegas",
+          "protected": false
+        },
+        {
+          "lastName": "Debrincat",
+          "firstName": "Alex",
+          "nhlTeam": "Detroit",
+          "protected": true
+        },
+        {
+          "lastName": "Landeskog",
+          "firstName": "Gabriel",
+          "nhlTeam": "Colorado",
+          "protected": false
+        },
+        {
+          "lastName": "Duchesne",
+          "firstName": "Matt",
+          "nhlTeam": "Dallas",
+          "protected": false
+        },
+        {
+          "lastName": "Lehkonen",
+          "firstName": "Arturi",
+          "nhlTeam": "Colorado",
+          "protected": false
+        },
+        {
+          "lastName": "Marchenko",
+          "firstName": "Kirill",
+          "nhlTeam": "Columbus",
+          "protected": true
+        },
+        {
+          "lastName": "Protas",
+          "firstName": "Aliaksei",
+          "nhlTeam": "Washington",
+          "protected": true
+        },
+        {
+          "lastName": "Svechkov",
+          "firstName": "Fedor",
+          "nhlTeam": "Colorado",
+          "protected": false
+        },
+        {
+          "lastName": "Boisvert",
+          "firstName": "Sacha",
+          "nhlTeam": "Chicago",
+          "protected": false
+        },
+        {
+          "lastName": "Honzek",
+          "firstName": "Samuel",
+          "nhlTeam": "Calgary",
+          "protected": false
+        },
+        {
+          "lastName": "Danielson",
+          "firstName": "Nate",
+          "nhlTeam": "Detroit",
+          "protected": false
+        },
+        {
+          "lastName": "Ohgren",
+          "firstName": "Liam",
+          "nhlTeam": "Vancouver",
+          "protected": false
+        },
+        {
+          "lastName": "Finnie",
+          "firstName": "Emmitt",
+          "nhlTeam": "Detroit",
+          "protected": false
+        },
+        {
+          "lastName": "Zegras",
+          "firstName": "Trevor",
+          "nhlTeam": "Philadelphie",
+          "protected": true
+        },
+        {
+          "lastName": "McMicheal",
+          "firstName": "Connor",
+          "nhlTeam": "St-Louis",
+          "protected": false
+        },
+        {
+          "lastName": "Lysell",
+          "firstName": "Fabian",
+          "nhlTeam": "Boston",
+          "protected": false
+        },
+        {
+          "lastName": "Seider",
+          "firstName": "Moritz",
+          "nhlTeam": "Detroit",
+          "protected": true
+        },
+        {
+          "lastName": "Rielly",
+          "firstName": "Morgan",
+          "nhlTeam": "Toronto",
+          "protected": false
+        },
+        {
+          "lastName": "Byram",
+          "firstName": "Bowen",
+          "nhlTeam": "Chicago",
+          "protected": true
+        },
+        {
+          "lastName": "Sandin",
+          "firstName": "Rasmus",
+          "nhlTeam": "Washington",
+          "protected": false
+        },
+        {
+          "lastName": "Silayev",
+          "firstName": "Anton",
+          "nhlTeam": "New Jersey",
+          "protected": false
+        },
+        {
+          "lastName": "Drysdale",
+          "firstName": "Jamie",
+          "nhlTeam": "Philadelphie",
+          "protected": false
+        },
+        {
+          "lastName": "Oettinger",
+          "firstName": "Jake",
+          "nhlTeam": "Dallas",
+          "protected": true
+        },
+        {
+          "lastName": "Schmid",
+          "firstName": "Akira",
+          "nhlTeam": "Panthers",
+          "protected": false
+        }
+      ]
+    },
+    {
+      "username": "michel",
+      "franchise": "Edmonton Oilers",
+      "franchiseAbbrev": "EDM",
+      "roster": [
+        {
+          "lastName": "Nylander",
+          "firstName": "William",
+          "nhlTeam": "Toronto",
+          "protected": true
+        },
+        {
+          "lastName": "Tuch",
+          "firstName": "Alex",
+          "nhlTeam": "Washington",
+          "protected": true
+        },
+        {
+          "lastName": "Raymond",
+          "firstName": "Lucas",
+          "nhlTeam": "Detroit",
+          "protected": true
+        },
+        {
+          "lastName": "Slafkovsky",
+          "firstName": "Juraj",
+          "nhlTeam": "Montreal",
+          "protected": true
+        },
+        {
+          "lastName": "Keller",
+          "firstName": "Clayton",
+          "nhlTeam": "Utah",
+          "protected": true
+        },
+        {
+          "lastName": "Kadri",
+          "firstName": "Nazem",
+          "nhlTeam": "Colorado",
+          "protected": false
+        },
+        {
+          "lastName": "Byfield",
+          "firstName": "Quinton",
+          "nhlTeam": "Los Angeles",
+          "protected": true
+        },
+        {
+          "lastName": "Tippett",
+          "firstName": "Owen",
+          "nhlTeam": "Philadelphie",
+          "protected": false
+        },
+        {
+          "lastName": "Teravainen",
+          "firstName": "Teuvo",
+          "nhlTeam": "Chicago",
+          "protected": false
+        },
+        {
+          "lastName": "Foerster",
+          "firstName": "Tyson",
+          "nhlTeam": "Philadelphie",
+          "protected": false
+        },
+        {
+          "lastName": "Neighbours",
+          "firstName": "Jake",
+          "nhlTeam": "St-Louis",
+          "protected": false
+        },
+        {
+          "lastName": "Lapierre",
+          "firstName": "Hendrix",
+          "nhlTeam": "Washington",
+          "protected": false
+        },
+        {
+          "lastName": "McQueen",
+          "firstName": "Roger",
+          "nhlTeam": "Anaheim",
+          "protected": false
+        },
+        {
+          "lastName": "Eklund",
+          "firstName": "Viktor",
+          "nhlTeam": "NYIslanders",
+          "protected": false
+        },
+        {
+          "lastName": "But",
+          "firstName": "Daniil",
+          "nhlTeam": "Utah",
+          "protected": false
+        },
+        {
+          "lastName": "Moore",
+          "firstName": "Oliver",
+          "nhlTeam": "Chicago",
+          "protected": false
+        },
+        {
+          "lastName": "Miroschnichenko",
+          "firstName": "Ivan",
+          "nhlTeam": "Washington",
+          "protected": false
+        },
+        {
+          "lastName": "Ostlund",
+          "firstName": "Noah",
+          "nhlTeam": "Buffalo",
+          "protected": false
+        },
+        {
+          "lastName": "Wright",
+          "firstName": "Shane",
+          "nhlTeam": "Seattle",
+          "protected": false
+        },
+        {
+          "lastName": "Johansson",
+          "firstName": "Marcus",
+          "nhlTeam": "Minnesota",
+          "protected": false
+        },
+        {
+          "lastName": "Lindstrom",
+          "firstName": "Cayden",
+          "nhlTeam": "Columbus",
+          "protected": false
+        },
+        {
+          "lastName": "Artomonov",
+          "firstName": "Nikita",
+          "nhlTeam": "Caroline",
+          "protected": false
+        },
+        {
+          "lastName": "Bolduc",
+          "firstName": "Zachary",
+          "nhlTeam": "Montreal",
+          "protected": false
+        },
+        {
+          "lastName": "Andersson",
+          "firstName": "Rasmus",
+          "nhlTeam": "Vegas",
+          "protected": false
+        },
+        {
+          "lastName": "Hugues",
+          "firstName": "Quinn",
+          "nhlTeam": "Minnesota",
+          "protected": true
+        },
+        {
+          "lastName": "Morrissey",
+          "firstName": "Josh",
+          "nhlTeam": "Winnipeg",
+          "protected": true
+        },
+        {
+          "lastName": "Deangelo",
+          "firstName": "Tony",
+          "nhlTeam": "NY Islanders",
+          "protected": false
+        },
+        {
+          "lastName": "Hellebuyck",
+          "firstName": "Connor",
+          "nhlTeam": "Winnipeg",
+          "protected": true
+        },
+        {
+          "lastName": "Wedgewood",
+          "firstName": "Scott",
+          "nhlTeam": "Colorado",
+          "protected": false
+        }
+      ]
+    },
+    {
+      "username": "jonathan",
+      "franchise": "Floride Panthers",
+      "franchiseAbbrev": "FLA",
+      "roster": [
+        {
+          "lastName": "MacKinnon",
+          "firstName": "Nathan",
+          "nhlTeam": "Colorado",
+          "protected": true
+        },
+        {
+          "lastName": "Marner",
+          "firstName": "Mitchell",
+          "nhlTeam": "Vegas",
+          "protected": true
+        },
+        {
+          "lastName": "Kucherov",
+          "firstName": "Nikita",
+          "nhlTeam": "Tampa Bay",
+          "protected": true
+        },
+        {
+          "lastName": "Scheifele",
+          "firstName": "Mark",
+          "nhlTeam": "Winnipeg",
+          "protected": true
+        },
+        {
+          "lastName": "Miller",
+          "firstName": "JT",
+          "nhlTeam": "NY Rangers",
+          "protected": true
+        },
+        {
+          "lastName": "Jenner",
+          "firstName": "Boone",
+          "nhlTeam": "Columbus",
+          "protected": false
+        },
+        {
+          "lastName": "Trocheck",
+          "firstName": "Vincent",
+          "nhlTeam": "Utah",
+          "protected": false
+        },
+        {
+          "lastName": "Marchand",
+          "firstName": "Brad",
+          "nhlTeam": "Floride",
+          "protected": false
+        },
+        {
+          "lastName": "Roslovic",
+          "firstName": "Jack",
+          "nhlTeam": "Edmonton",
+          "protected": false
+        },
+        {
+          "lastName": "Brink",
+          "firstName": "Bobby",
+          "nhlTeam": "Philadelphie",
+          "protected": false
+        },
+        {
+          "lastName": "Eiserman",
+          "firstName": "Cole",
+          "nhlTeam": "NY Islanders",
+          "protected": false
+        },
+        {
+          "lastName": "Barlow",
+          "firstName": "Colby",
+          "nhlTeam": "Winnipeg",
+          "protected": false
+        },
+        {
+          "lastName": "Lambert",
+          "firstName": "Brad",
+          "nhlTeam": "Winnipeg",
+          "protected": false
+        },
+        {
+          "lastName": "Del Bel Belluz",
+          "firstName": "Luca",
+          "nhlTeam": "Columbus",
+          "protected": false
+        },
+        {
+          "lastName": "Sourdif",
+          "firstName": "Justin",
+          "nhlTeam": "Washington",
+          "protected": false
+        },
+        {
+          "lastName": "Kane",
+          "firstName": "Patrick",
+          "nhlTeam": "Detroit",
+          "protected": false
+        },
+        {
+          "lastName": "Fantilli",
+          "firstName": "Adam",
+          "nhlTeam": "Columbus",
+          "protected": true
+        },
+        {
+          "lastName": "Werenski",
+          "firstName": "Zach",
+          "nhlTeam": "Columbus",
+          "protected": true
+        },
+        {
+          "lastName": "Carlson",
+          "firstName": "John",
+          "nhlTeam": "Washington",
+          "protected": false
+        },
+        {
+          "lastName": "Clarke",
+          "firstName": "Brandt",
+          "nhlTeam": "Los Angeles",
+          "protected": true
+        },
+        {
+          "lastName": "Montour",
+          "firstName": "Brandon",
+          "nhlTeam": "Seattle",
+          "protected": false
+        },
+        {
+          "lastName": "Zellweger",
+          "firstName": "Olen",
+          "nhlTeam": "Buffalo",
+          "protected": false
+        },
+        {
+          "lastName": "Jiricek",
+          "firstName": "David",
+          "nhlTeam": "Minnesota",
+          "protected": false
+        },
+        {
+          "lastName": "Morrow",
+          "firstName": "Scott",
+          "nhlTeam": "NY Rangers",
+          "protected": false
+        },
+        {
+          "lastName": "Shesterkin",
+          "firstName": "Igor",
+          "nhlTeam": "NY Rangers",
+          "protected": false
+        },
+        {
+          "lastName": "Swayman",
+          "firstName": "Jeremy",
+          "nhlTeam": "Boston",
+          "protected": true
+        }
+      ]
+    },
+    {
+      "username": "christian",
+      "franchise": "Los Angeles Kings",
+      "franchiseAbbrev": "LAK",
+      "roster": [
+        {
+          "lastName": "Kaprisov",
+          "firstName": "Kiril",
+          "nhlTeam": "Minnesota",
+          "protected": true
+        },
+        {
+          "lastName": "Pastrnak",
+          "firstName": "David",
+          "nhlTeam": "Boston",
+          "protected": true
+        },
+        {
+          "lastName": "Tkachuk",
+          "firstName": "Brady",
+          "nhlTeam": "Floride",
+          "protected": true
+        },
+        {
+          "lastName": "Stamkos",
+          "firstName": "Steven",
+          "nhlTeam": "Nashville",
+          "protected": false
+        },
+        {
+          "lastName": "Hugues",
+          "firstName": "Jack",
+          "nhlTeam": "New Jersey",
+          "protected": true
+        },
+        {
+          "lastName": "Boldy",
+          "firstName": "Matt",
+          "nhlTeam": "Minnesota",
+          "protected": true
+        },
+        {
+          "lastName": "Geekie",
+          "firstName": "Morgan",
+          "nhlTeam": "Boston",
+          "protected": false
+        },
+        {
+          "lastName": "McLeod",
+          "firstName": "Ryan",
+          "nhlTeam": "Buffalo",
+          "protected": false
+        },
+        {
+          "lastName": "Johnson",
+          "firstName": "Kent",
+          "nhlTeam": "Columbus",
+          "protected": false
+        },
+        {
+          "lastName": "Kantserov",
+          "firstName": "Roman",
+          "nhlTeam": "Chicago",
+          "protected": false
+        },
+        {
+          "lastName": "Celebrini",
+          "firstName": "Macklin",
+          "nhlTeam": "San Jose",
+          "protected": true
+        },
+        {
+          "lastName": "Yulov",
+          "firstName": "Danila",
+          "nhlTeam": "Minnesota",
+          "protected": false
+        },
+        {
+          "lastName": "Smith",
+          "firstName": "Will",
+          "nhlTeam": "New Jersey",
+          "protected": true
+        },
+        {
+          "lastName": "Greentree",
+          "firstName": "Liam",
+          "nhlTeam": "New-York",
+          "protected": false
+        },
+        {
+          "lastName": "Kulich",
+          "firstName": "Jiri",
+          "nhlTeam": "Buffalo",
+          "protected": false
+        },
+        {
+          "lastName": "Unger Sorum",
+          "firstName": "Felix",
+          "nhlTeam": "Caroline",
+          "protected": false
+        },
+        {
+          "lastName": "Nesbitt",
+          "firstName": "Jack",
+          "nhlTeam": "Philadelphie",
+          "protected": false
+        },
+        {
+          "lastName": "Karlsson",
+          "firstName": "Erik",
+          "nhlTeam": "Pittsburgh",
+          "protected": false
+        },
+        {
+          "lastName": "McAvoy",
+          "firstName": "Charlie",
+          "nhlTeam": "Boston",
+          "protected": true
+        },
+        {
+          "lastName": "Mintyukov",
+          "firstName": "Pavel",
+          "nhlTeam": "Anaheim",
+          "protected": false
+        },
+        {
+          "lastName": "Weegar",
+          "firstName": "MacKenzie",
+          "nhlTeam": "Utah",
+          "protected": false
+        },
+        {
+          "lastName": "Gostisbehere",
+          "firstName": "Shayne",
+          "nhlTeam": "Caroline",
+          "protected": true
+        },
+        {
+          "lastName": "Gulyayev",
+          "firstName": "Mikhail",
+          "nhlTeam": "Colorado",
+          "protected": false
+        },
+        {
+          "lastName": "Blankenburg",
+          "firstName": "Nick",
+          "nhlTeam": "Nashville",
+          "protected": false
+        },
+        {
+          "lastName": "Wolf",
+          "firstName": "Dustin",
+          "nhlTeam": "Calgary",
+          "protected": false
+        },
+        {
+          "lastName": "Dostal",
+          "firstName": "Lukas",
+          "nhlTeam": "Anaheim",
+          "protected": false
+        },
+        {
+          "lastName": "Stolarz",
+          "firstName": "Anthony",
+          "nhlTeam": "Toronto",
+          "protected": false
+        },
+        {
+          "lastName": "Augustine",
+          "firstName": "Trey",
+          "nhlTeam": "Detroit",
+          "protected": false
+        }
+      ]
+    },
+    {
+      "username": "steeve",
+      "franchise": "Montreal Canadiens",
+      "franchiseAbbrev": "MTL",
+      "roster": [
+        {
+          "lastName": "Connor",
+          "firstName": "Kyle",
+          "nhlTeam": "Winnipeg",
+          "protected": true
+        },
+        {
+          "lastName": "Hintz",
+          "firstName": "Roope",
+          "nhlTeam": "Dallas",
+          "protected": false
+        },
+        {
+          "lastName": "Norris",
+          "firstName": "Josh",
+          "nhlTeam": "Buffalo",
+          "protected": false
+        },
+        {
+          "lastName": "Caufield",
+          "firstName": "Cole",
+          "nhlTeam": "Montreal",
+          "protected": true
+        },
+        {
+          "lastName": "Necas",
+          "firstName": "Martin",
+          "nhlTeam": "Colorado",
+          "protected": true
+        },
+        {
+          "lastName": "Anthony",
+          "firstName": "Cirelli",
+          "nhlTeam": "Tampa Bay",
+          "protected": false
+        },
+        {
+          "lastName": "Rakell",
+          "firstName": "Richard",
+          "nhlTeam": "Pittsburgh",
+          "protected": false
+        },
+        {
+          "lastName": "Ovechkin",
+          "firstName": "Alex",
+          "nhlTeam": "Washington",
+          "protected": false
+        },
+        {
+          "lastName": "Bear",
+          "firstName": "Carter",
+          "nhlTeam": "Detroit",
+          "protected": false
+        },
+        {
+          "lastName": "Demidov",
+          "firstName": "Ivan",
+          "nhlTeam": "Montreal",
+          "protected": false
+        },
+        {
+          "lastName": "Oliver",
+          "firstName": "Kapanen",
+          "nhlTeam": "Montreal",
+          "protected": false
+        },
+        {
+          "lastName": "Nadeau",
+          "firstName": "Bradly",
+          "nhlTeam": "Caroline",
+          "protected": false
+        },
+        {
+          "lastName": "Musty",
+          "firstName": "Quentin",
+          "nhlTeam": "San Jose",
+          "protected": false
+        },
+        {
+          "lastName": "Lardis",
+          "firstName": "Nick",
+          "nhlTeam": "Chicago",
+          "protected": false
+        },
+        {
+          "lastName": "Protas",
+          "firstName": "Ilya",
+          "nhlTeam": "Washington",
+          "protected": false
+        },
+        {
+          "lastName": "Cristall",
+          "firstName": "Andrew",
+          "nhlTeam": "Washington",
+          "protected": false
+        },
+        {
+          "lastName": "Mantha",
+          "firstName": "Anthony",
+          "nhlTeam": "New Jersey",
+          "protected": false
+        },
+        {
+          "lastName": "Plante",
+          "firstName": "Max",
+          "nhlTeam": "Detroit",
+          "protected": false
+        },
+        {
+          "lastName": "Gauthier",
+          "firstName": "Cutter",
+          "nhlTeam": "Anaheim",
+          "protected": true
+        },
+        {
+          "lastName": "Dahlin",
+          "firstName": "Rasmus",
+          "nhlTeam": "Buffalo",
+          "protected": true
+        },
+        {
+          "lastName": "Makar",
+          "firstName": "Cale",
+          "nhlTeam": "Colorado",
+          "protected": true
+        },
+        {
+          "lastName": "Hutson",
+          "firstName": "Lane",
+          "nhlTeam": "Montreal",
+          "protected": true
+        },
+        {
+          "lastName": "Heiskanen",
+          "firstName": "Miro",
+          "nhlTeam": "Dallas",
+          "protected": true
+        },
+        {
+          "lastName": "Hanifin",
+          "firstName": "Noah",
+          "nhlTeam": "Vegas",
+          "protected": false
+        },
+        {
+          "lastName": "Casey",
+          "firstName": "Seamus",
+          "nhlTeam": "New Jersey",
+          "protected": false
+        },
+        {
+          "lastName": "Vasilevski",
+          "firstName": "Andrei",
+          "nhlTeam": "Tampa Bay",
+          "protected": true
+        }
+      ]
+    },
+    {
+      "username": "akexandre",
+      "franchise": "Nashville Predators",
+      "franchiseAbbrev": "NSH",
+      "roster": [
+        {
+          "lastName": "Draisaitl",
+          "firstName": "Leon",
+          "nhlTeam": "Edmonton",
+          "protected": true
+        },
+        {
+          "lastName": "Reinhart",
+          "firstName": "Sam",
+          "nhlTeam": "Floride",
+          "protected": true
+        },
+        {
+          "lastName": "Ehlers",
+          "firstName": "Nicolai",
+          "nhlTeam": "Caroline",
+          "protected": true
+        },
+        {
+          "lastName": "Stutzle",
+          "firstName": "Tim",
+          "nhlTeam": "Ottawa",
+          "protected": true
+        },
+        {
+          "lastName": "Knies",
+          "firstName": "Matthew",
+          "nhlTeam": "Toronto",
+          "protected": true
+        },
+        {
+          "lastName": "Pinto",
+          "firstName": "Shane",
+          "nhlTeam": "Ottawa",
+          "protected": false
+        },
+        {
+          "lastName": "Doan",
+          "firstName": "Josh",
+          "nhlTeam": "Buffalo",
+          "protected": false
+        },
+        {
+          "lastName": "Hyman",
+          "firstName": "Zack",
+          "nhlTeam": "Edmonton",
+          "protected": true
+        },
+        {
+          "lastName": "Barbashev",
+          "firstName": "Ivan",
+          "nhlTeam": "Vegas",
+          "protected": false
+        },
+        {
+          "lastName": "O'Reilly",
+          "firstName": "Ryan",
+          "nhlTeam": "Nashville",
+          "protected": false
+        },
+        {
+          "lastName": "Hall",
+          "firstName": "Taylor",
+          "nhlTeam": "Caroline",
+          "protected": false
+        },
+        {
+          "lastName": "Kapanen",
+          "firstName": "Kasperi",
+          "nhlTeam": "Edmonton",
+          "protected": false
+        },
+        {
+          "lastName": "Shabanov",
+          "firstName": "Maxim",
+          "nhlTeam": "NYIslanders",
+          "protected": false
+        },
+        {
+          "lastName": "Ritchie",
+          "firstName": "Calum",
+          "nhlTeam": "NY Islanders",
+          "protected": false
+        },
+        {
+          "lastName": "Bowman",
+          "firstName": "Braedan",
+          "nhlTeam": "Vegas",
+          "protected": false
+        },
+        {
+          "lastName": "Buchelnikov",
+          "firstName": "Dmitri",
+          "nhlTeam": "Detroit",
+          "protected": false
+        },
+        {
+          "lastName": "Othmann",
+          "firstName": "Brennan",
+          "nhlTeam": "NY Rangers",
+          "protected": false
+        },
+        {
+          "lastName": "Bouchard",
+          "firstName": "Evan",
+          "nhlTeam": "Edmonton",
+          "protected": true
+        },
+        {
+          "lastName": "Dobson",
+          "firstName": "Noah",
+          "nhlTeam": "Montreal",
+          "protected": true
+        },
+        {
+          "lastName": "Sanderson",
+          "firstName": "Jake",
+          "nhlTeam": "Ottawa",
+          "protected": true
+        },
+        {
+          "lastName": "Faulk",
+          "firstName": "Justin",
+          "nhlTeam": "St-Louis",
+          "protected": false
+        },
+        {
+          "lastName": "Freij",
+          "firstName": "Alfons",
+          "nhlTeam": "Winnipeg",
+          "protected": false
+        },
+        {
+          "lastName": "Gibson",
+          "firstName": "John",
+          "nhlTeam": "Detroit",
+          "protected": false
+        },
+        {
+          "lastName": "Levi",
+          "firstName": "Devon",
+          "nhlTeam": "Edmonton",
+          "protected": false
+        }
+      ]
+    },
+    {
+      "username": "patrick",
+      "franchise": "NY Rangers",
+      "franchiseAbbrev": "NYR",
+      "roster": [
+        {
+          "lastName": "Barzal",
+          "firstName": "Matthew",
+          "nhlTeam": "NY Islanders",
+          "protected": true
+        },
+        {
+          "lastName": "Forsberg",
+          "firstName": "Filip",
+          "nhlTeam": "Nashville",
+          "protected": true
+        },
+        {
+          "lastName": "Zibanejad",
+          "firstName": "Mika",
+          "nhlTeam": "NY Rangers",
+          "protected": true
+        },
+        {
+          "lastName": "Johnston",
+          "firstName": "Wyatt",
+          "nhlTeam": "Dallas",
+          "protected": true
+        },
+        {
+          "lastName": "Bennett",
+          "firstName": "Sam",
+          "nhlTeam": "Floride",
+          "protected": false
+        },
+        {
+          "lastName": "Peterka",
+          "firstName": "JJ",
+          "nhlTeam": "Boston",
+          "protected": true
+        },
+        {
+          "lastName": "Hischier",
+          "firstName": "Nico",
+          "nhlTeam": "New Jersey",
+          "protected": true
+        },
+        {
+          "lastName": "Nischuskin",
+          "firstName": "Valeri",
+          "nhlTeam": "Colombus",
+          "protected": false
+        },
+        {
+          "lastName": "Toffoli",
+          "firstName": "Tyler",
+          "nhlTeam": "San Jose",
+          "protected": false
+        },
+        {
+          "lastName": "Stankoven",
+          "firstName": "Logan",
+          "nhlTeam": "Dallas",
+          "protected": true
+        },
+        {
+          "lastName": "Rust",
+          "firstName": "Bryan",
+          "nhlTeam": "Pittsburgh",
+          "protected": false
+        },
+        {
+          "lastName": "Lundell",
+          "firstName": "Anton",
+          "nhlTeam": "Floride",
+          "protected": false
+        },
+        {
+          "lastName": "Newhook",
+          "firstName": "Alex",
+          "nhlTeam": "Montreal",
+          "protected": false
+        },
+        {
+          "lastName": "Kindel",
+          "firstName": "Ben",
+          "nhlTeam": "Pittsburgh",
+          "protected": false
+        },
+        {
+          "lastName": "Horcoff",
+          "firstName": "William",
+          "nhlTeam": "Pittsburgh",
+          "protected": false
+        },
+        {
+          "lastName": "Bedard",
+          "firstName": "Connor",
+          "nhlTeam": "Chicago",
+          "protected": true
+        },
+        {
+          "lastName": "Graf",
+          "firstName": "Collin",
+          "nhlTeam": "San Jose",
+          "protected": false
+        },
+        {
+          "lastName": "Harley",
+          "firstName": "Thomas",
+          "nhlTeam": "Dallas",
+          "protected": true
+        },
+        {
+          "lastName": "Chabot",
+          "firstName": "Thomas",
+          "nhlTeam": "Ottawa",
+          "protected": false
+        },
+        {
+          "lastName": "Malinski",
+          "firstName": "Sam",
+          "nhlTeam": "Colorado",
+          "protected": false
+        },
+        {
+          "lastName": "Evans",
+          "firstName": "Ryker",
+          "nhlTeam": "Seattle",
+          "protected": false
+        },
+        {
+          "lastName": "Schaefer",
+          "firstName": "Matthew",
+          "nhlTeam": "NYIslanders",
+          "protected": false
+        },
+        {
+          "lastName": "Buium",
+          "firstName": "Zeev",
+          "nhlTeam": "Minnesota",
+          "protected": false
+        },
+        {
+          "lastName": "Mateychuk",
+          "firstName": "Denton",
+          "nhlTeam": "Columbus",
+          "protected": false
+        },
+        {
+          "lastName": "Binnington",
+          "firstName": "Jordan",
+          "nhlTeam": "St-Louis",
+          "protected": false
+        },
+        {
+          "lastName": "Blackwood",
+          "firstName": "Mackenzie",
+          "nhlTeam": "Colorado",
+          "protected": false
+        },
+        {
+          "lastName": "Cossa",
+          "firstName": "Sebastian",
+          "nhlTeam": "Utah",
+          "protected": false
+        },
+        {
+          "lastName": "Ingram",
+          "firstName": "Connor",
+          "nhlTeam": "Utah",
+          "protected": false
+        }
+      ]
+    },
+    {
+      "username": "jonathanr",
+      "franchise": "Ottawa Senators",
+      "franchiseAbbrev": "OTT",
+      "roster": [
+        {
+          "lastName": "Barkov",
+          "firstName": "Aleksander",
+          "nhlTeam": "Floride",
+          "protected": true
+        },
+        {
+          "lastName": "Tkachuk",
+          "firstName": "Matthew",
+          "nhlTeam": "Floride",
+          "protected": true
+        },
+        {
+          "lastName": "Jarvis",
+          "firstName": "Seth",
+          "nhlTeam": "Caroline",
+          "protected": true
+        },
+        {
+          "lastName": "Wilson",
+          "firstName": "Tom",
+          "nhlTeam": "Washington",
+          "protected": true
+        },
+        {
+          "lastName": "Garland",
+          "firstName": "Conor",
+          "nhlTeam": "Vancouver",
+          "protected": false
+        },
+        {
+          "lastName": "Rossi",
+          "firstName": "Marco",
+          "nhlTeam": "Vancouver",
+          "protected": true
+        },
+        {
+          "lastName": "Gritsyuk",
+          "firstName": "Arseny",
+          "nhlTeam": "New Jersey",
+          "protected": false
+        },
+        {
+          "lastName": "Desnoyers",
+          "firstName": "Caleb",
+          "nhlTeam": "Utah",
+          "protected": false
+        },
+        {
+          "lastName": "Frondell",
+          "firstName": "Anton",
+          "nhlTeam": "Chicago",
+          "protected": false
+        },
+        {
+          "lastName": "Carbonneau",
+          "firstName": "Justin",
+          "nhlTeam": "St-Louis",
+          "protected": false
+        },
+        {
+          "lastName": "Snuggerud",
+          "firstName": "Jimmy",
+          "nhlTeam": "St-Louis",
+          "protected": false
+        },
+        {
+          "lastName": "Gridin",
+          "firstName": "Matvei",
+          "nhlTeam": "Calgary",
+          "protected": false
+        },
+        {
+          "lastName": "Luchanko",
+          "firstName": "Jett",
+          "nhlTeam": "Philadelphie",
+          "protected": false
+        },
+        {
+          "lastName": "Perreault",
+          "firstName": "Gabe",
+          "nhlTeam": "NY Rangers",
+          "protected": false
+        },
+        {
+          "lastName": "Heidt",
+          "firstName": "Riley",
+          "nhlTeam": "Minnesota",
+          "protected": false
+        },
+        {
+          "lastName": "Rehkopf",
+          "firstName": "Carson",
+          "nhlTeam": "Seattle",
+          "protected": false
+        },
+        {
+          "lastName": "Dvorsky",
+          "firstName": "Dalibor",
+          "nhlTeam": "St-Louis",
+          "protected": false
+        },
+        {
+          "lastName": "Cowan",
+          "firstName": "Easton",
+          "nhlTeam": "Toronto",
+          "protected": false
+        },
+        {
+          "lastName": "Robertson",
+          "firstName": "Jason",
+          "nhlTeam": "Dallas",
+          "protected": true
+        },
+        {
+          "lastName": "Dach",
+          "firstName": "Kirby",
+          "nhlTeam": "Montreal",
+          "protected": false
+        },
+        {
+          "lastName": "Smith",
+          "firstName": "Reilly",
+          "nhlTeam": "Vegas",
+          "protected": false
+        },
+        {
+          "lastName": "Koivunen",
+          "firstName": "Ville",
+          "nhlTeam": "Pittsburgh",
+          "protected": false
+        },
+        {
+          "lastName": "Fox",
+          "firstName": "Adam",
+          "nhlTeam": "NY Rangers",
+          "protected": true
+        },
+        {
+          "lastName": "Hamilton",
+          "firstName": "Dougie",
+          "nhlTeam": "Devils",
+          "protected": true
+        },
+        {
+          "lastName": "Hedman",
+          "firstName": "Victor",
+          "nhlTeam": "Tampa Bay",
+          "protected": true
+        },
+        {
+          "lastName": "Durzi",
+          "firstName": "Sean",
+          "nhlTeam": "Utah",
+          "protected": false
+        },
+        {
+          "lastName": "Aitcheson",
+          "firstName": "Kashawn",
+          "nhlTeam": "NY Islanders",
+          "protected": false
+        },
+        {
+          "lastName": "Yakemchuk",
+          "firstName": "Carter",
+          "nhlTeam": "Ottawa",
+          "protected": false
+        },
+        {
+          "lastName": "Bryce",
+          "firstName": "Pickford",
+          "nhlTeam": "Montreal",
+          "protected": false
+        },
+        {
+          "lastName": "Ufko",
+          "firstName": "Ryan",
+          "nhlTeam": "Nashville",
+          "protected": false
+        },
+        {
+          "lastName": "Luneau",
+          "firstName": "Tristan",
+          "nhlTeam": "Anaheim",
+          "protected": false
+        },
+        {
+          "lastName": "Mews",
+          "firstName": "Henry",
+          "nhlTeam": "Calgary",
+          "protected": false
+        },
+        {
+          "lastName": "Nikishin",
+          "firstName": "Alexander",
+          "nhlTeam": "Caroline",
+          "protected": false
+        },
+        {
+          "lastName": "Bobrovsky",
+          "firstName": "Sergei",
+          "nhlTeam": "Floride",
+          "protected": false
+        },
+        {
+          "lastName": "Wallstedt",
+          "firstName": "Jesper",
+          "nhlTeam": "Minnesota",
+          "protected": false
+        }
+      ]
+    },
+    {
+      "username": "alain",
+      "franchise": "Toronto Maple Leafs",
+      "franchiseAbbrev": "TOR",
+      "roster": [
+        {
+          "lastName": "Matthews",
+          "firstName": "Auston",
+          "nhlTeam": "Toronto",
+          "protected": true
+        },
+        {
+          "lastName": "McDavid",
+          "firstName": "Connor",
+          "nhlTeam": "Edmonton",
+          "protected": true
+        },
+        {
+          "lastName": "Rantanen",
+          "firstName": "Mikko",
+          "nhlTeam": "Dallas",
+          "protected": true
+        },
+        {
+          "lastName": "Guentzel",
+          "firstName": "Jake",
+          "nhlTeam": "Tampa Bay",
+          "protected": true
+        },
+        {
+          "lastName": "Svechnikov",
+          "firstName": "Andrei",
+          "nhlTeam": "Caroline",
+          "protected": true
+        },
+        {
+          "lastName": "Nelson",
+          "firstName": "Brock",
+          "nhlTeam": "Colorado",
+          "protected": false
+        },
+        {
+          "lastName": "Hagel",
+          "firstName": "Brandon",
+          "nhlTeam": "Tampa Bay",
+          "protected": true
+        },
+        {
+          "lastName": "Malkin",
+          "firstName": "Evgeni",
+          "nhlTeam": "Pittsburgh",
+          "protected": false
+        },
+        {
+          "lastName": "Bourque",
+          "firstName": "Mavrik",
+          "nhlTeam": "Nashville",
+          "protected": false
+        },
+        {
+          "lastName": "Tavares",
+          "firstName": "John",
+          "nhlTeam": "Toronto",
+          "protected": true
+        },
+        {
+          "lastName": "Samoskevich",
+          "firstName": "Mackie",
+          "nhlTeam": "Seattle",
+          "protected": false
+        },
+        {
+          "lastName": "Maccelli",
+          "firstName": "Mattias",
+          "nhlTeam": "Toronto",
+          "protected": false
+        },
+        {
+          "lastName": "Zuccarello",
+          "firstName": "Mats",
+          "nhlTeam": "Los-Angeles",
+          "protected": false
+        },
+        {
+          "lastName": "Wood",
+          "firstName": "Matthew",
+          "nhlTeam": "Nashville",
+          "protected": false
+        },
+        {
+          "lastName": "Hryckowian",
+          "firstName": "Justin",
+          "nhlTeam": "Dallas",
+          "protected": false
+        },
+        {
+          "lastName": "Kemell",
+          "firstName": "Joakim",
+          "nhlTeam": "Nashville",
+          "protected": false
+        },
+        {
+          "lastName": "Tolvanen",
+          "firstName": "Eeli",
+          "nhlTeam": "Seattle",
+          "protected": false
+        },
+        {
+          "lastName": "Kurashev",
+          "firstName": "Philipp",
+          "nhlTeam": "San Jose",
+          "protected": false
+        },
+        {
+          "lastName": "Nemec",
+          "firstName": "Simon",
+          "nhlTeam": "New Jersey",
+          "protected": true
+        },
+        {
+          "lastName": "Walman",
+          "firstName": "Jake",
+          "nhlTeam": "Edmonton",
+          "protected": false
+        },
+        {
+          "lastName": "Moser",
+          "firstName": "J.J",
+          "nhlTeam": "Tampa Bay",
+          "protected": false
+        },
+        {
+          "lastName": "Spence",
+          "firstName": "Jordan",
+          "nhlTeam": "Ottawa",
+          "protected": false
+        },
+        {
+          "lastName": "Ekman-Larsson",
+          "firstName": "Oliver",
+          "nhlTeam": "Toronto",
+          "protected": false
+        },
+        {
+          "lastName": "Bonk",
+          "firstName": "Oliver",
+          "nhlTeam": "Philadelphie",
+          "protected": false
+        },
+        {
+          "lastName": "Del Gaizo",
+          "firstName": "Marc",
+          "nhlTeam": "Montreal",
+          "protected": false
+        },
+        {
+          "lastName": "Burns",
+          "firstName": "Brent",
+          "nhlTeam": "Colorado",
+          "protected": false
+        },
+        {
+          "lastName": "Perunovich",
+          "firstName": "Scott",
+          "nhlTeam": "Utah",
+          "protected": false
+        },
+        {
+          "lastName": "Edvinsson",
+          "firstName": "Simon",
+          "nhlTeam": "Detroit",
+          "protected": true
+        },
+        {
+          "lastName": "Thompson",
+          "firstName": "Logan",
+          "nhlTeam": "Washington",
+          "protected": false
+        },
+        {
+          "lastName": "Knight",
+          "firstName": "Spencer",
+          "nhlTeam": "Chicago",
+          "protected": false
+        },
+        {
+          "lastName": "Bussi",
+          "firstName": "Brandon",
+          "nhlTeam": "Caroline",
+          "protected": false
+        }
+      ]
+    },
+    {
+      "username": "mathieu",
+      "franchise": "Vegas Golden Knights",
+      "franchiseAbbrev": "VGK",
+      "roster": [
+        {
+          "lastName": "Dorofeyev",
+          "firstName": "Pavel",
+          "nhlTeam": "NY Rangers",
+          "protected": true
+        },
+        {
+          "lastName": "Horvat",
+          "firstName": "Bo",
+          "nhlTeam": "NY Islanders",
+          "protected": true
+        },
+        {
+          "lastName": "Schmaltz",
+          "firstName": "Nick",
+          "nhlTeam": "Utah",
+          "protected": true
+        },
+        {
+          "lastName": "Boeser",
+          "firstName": "Brock",
+          "nhlTeam": "Vancouver",
+          "protected": false
+        },
+        {
+          "lastName": "Beniers",
+          "firstName": "Matty",
+          "nhlTeam": "Seattle",
+          "protected": false
+        },
+        {
+          "lastName": "McTavish",
+          "firstName": "Mason",
+          "nhlTeam": "St-Louis",
+          "protected": false
+        },
+        {
+          "lastName": "Verhaeghe",
+          "firstName": "Carter",
+          "nhlTeam": "Floride",
+          "protected": true
+        },
+        {
+          "lastName": "Bertuzzi",
+          "firstName": "Tyler",
+          "nhlTeam": "Chicago",
+          "protected": false
+        },
+        {
+          "lastName": "Eriksson Ek",
+          "firstName": "Joel",
+          "nhlTeam": "Minnesota",
+          "protected": false
+        },
+        {
+          "lastName": "Frost",
+          "firstName": "Morgan",
+          "nhlTeam": "Calgary",
+          "protected": false
+        },
+        {
+          "lastName": "Voronkov",
+          "firstName": "Dmitry",
+          "nhlTeam": "Columbus",
+          "protected": false
+        },
+        {
+          "lastName": "Dawson",
+          "firstName": "Mercer",
+          "nhlTeam": "New-Jersey",
+          "protected": false
+        },
+        {
+          "lastName": "Donato",
+          "firstName": "Ryan",
+          "nhlTeam": "Chicago",
+          "protected": false
+        },
+        {
+          "lastName": "Cuylle",
+          "firstName": "Will",
+          "nhlTeam": "NY Rangers",
+          "protected": false
+        },
+        {
+          "lastName": "Zary",
+          "firstName": "Connor",
+          "nhlTeam": "Calgary",
+          "protected": false
+        },
+        {
+          "lastName": "Brazeau",
+          "firstName": "Justin",
+          "nhlTeam": "Pittsburgh",
+          "protected": false
+        },
+        {
+          "lastName": "Misa",
+          "firstName": "Michael",
+          "nhlTeam": "San Jose",
+          "protected": false
+        },
+        {
+          "lastName": "Howard",
+          "firstName": "Isaac",
+          "nhlTeam": "Edmonton",
+          "protected": false
+        },
+        {
+          "lastName": "Beck",
+          "firstName": "Owen",
+          "nhlTeam": "Montreal",
+          "protected": false
+        },
+        {
+          "lastName": "Josi",
+          "firstName": "Roman",
+          "nhlTeam": "Nashville",
+          "protected": true
+        },
+        {
+          "lastName": "Lacombe",
+          "firstName": "Jackson",
+          "nhlTeam": "Anaheim",
+          "protected": true
+        },
+        {
+          "lastName": "Dunn",
+          "firstName": "Vince",
+          "nhlTeam": "Seattle",
+          "protected": true
+        },
+        {
+          "lastName": "Toews",
+          "firstName": "Devon",
+          "nhlTeam": "Colorado",
+          "protected": false
+        },
+        {
+          "lastName": "Sanheim",
+          "firstName": "Travis",
+          "nhlTeam": "Philadelphie",
+          "protected": false
+        },
+        {
+          "lastName": "Mrtka",
+          "firstName": "Radim",
+          "nhlTeam": "Buffalo",
+          "protected": false
+        },
+        {
+          "lastName": "Brzustewicz",
+          "firstName": "Hunter",
+          "nhlTeam": "Calgary",
+          "protected": false
+        },
+        {
+          "lastName": "Simashev",
+          "firstName": "Dimitri",
+          "nhlTeam": "Utah",
+          "protected": false
+        },
+        {
+          "lastName": "Jiricek",
+          "firstName": "Adam",
+          "nhlTeam": "St-Louis",
+          "protected": false
+        },
+        {
+          "lastName": "Reinbacher",
+          "firstName": "David",
+          "nhlTeam": "Montreal",
+          "protected": false
+        },
+        {
+          "lastName": "Mailloux",
+          "firstName": "Logan",
+          "nhlTeam": "Montreal",
+          "protected": false
+        },
+        {
+          "lastName": "Askarov",
+          "firstName": "Yaroslav",
+          "nhlTeam": "Nashville",
+          "protected": true
+        },
+        {
+          "lastName": "Dobes",
+          "firstName": "Jakub",
+          "nhlTeam": "Montreal",
+          "protected": true
+        },
+        {
+          "lastName": "Greaves",
+          "firstName": "Jet",
+          "nhlTeam": "Columbus",
+          "protected": false
+        }
+      ]
+    },
+    {
+      "username": "eric",
+      "franchise": "Washington Capitals",
+      "franchiseAbbrev": "WSH",
+      "roster": [
+        {
+          "lastName": "Cooley",
+          "firstName": "Logan",
+          "nhlTeam": "Utah",
+          "protected": true
+        },
+        {
+          "lastName": "Stone",
+          "firstName": "Mark",
+          "nhlTeam": "Vegas",
+          "protected": false
+        },
+        {
+          "lastName": "Suzuki",
+          "firstName": "Nick",
+          "nhlTeam": "Montreal",
+          "protected": true
+        },
+        {
+          "lastName": "Bratt",
+          "firstName": "Jesper",
+          "nhlTeam": "New Jersey",
+          "protected": true
+        },
+        {
+          "lastName": "Lindholm",
+          "firstName": "Elias",
+          "nhlTeam": "Boston",
+          "protected": false
+        },
+        {
+          "lastName": "Cozens",
+          "firstName": "Dylan",
+          "nhlTeam": "Ottawa",
+          "protected": true
+        },
+        {
+          "lastName": "Terry",
+          "firstName": "Troy",
+          "nhlTeam": "Anaheim",
+          "protected": true
+        },
+        {
+          "lastName": "Nazar",
+          "firstName": "Frank",
+          "nhlTeam": "Chicago",
+          "protected": false
+        },
+        {
+          "lastName": "Coronato",
+          "firstName": "Matt",
+          "nhlTeam": "Calgary",
+          "protected": false
+        },
+        {
+          "lastName": "McCann",
+          "firstName": "Jared",
+          "nhlTeam": "Seattle",
+          "protected": false
+        },
+        {
+          "lastName": "Zacha",
+          "firstName": "Pavel",
+          "nhlTeam": "Boston",
+          "protected": true
+        },
+        {
+          "lastName": "Martone",
+          "firstName": "Porter",
+          "nhlTeam": "Philadelphie",
+          "protected": false
+        },
+        {
+          "lastName": "Cootes",
+          "firstName": "Braeden",
+          "nhlTeam": "Vancouver",
+          "protected": false
+        },
+        {
+          "lastName": "Martin",
+          "firstName": "Brady",
+          "nhlTeam": "Nashville",
+          "protected": false
+        },
+        {
+          "lastName": "O'Brien",
+          "firstName": "Jake",
+          "nhlTeam": "Seattle",
+          "protected": false
+        },
+        {
+          "lastName": "McGroarty",
+          "firstName": "Rutger",
+          "nhlTeam": "Pittsburgh",
+          "protected": false
+        },
+        {
+          "lastName": "Chernyshov",
+          "firstName": "Igor",
+          "nhlTeam": "San Jose",
+          "protected": false
+        },
+        {
+          "lastName": "Yager",
+          "firstName": "Brayden",
+          "nhlTeam": "Winnipeg",
+          "protected": false
+        },
+        {
+          "lastName": "Lekkerimaki",
+          "firstName": "Jonathan",
+          "nhlTeam": "Vancouver",
+          "protected": false
+        },
+        {
+          "lastName": "Minten",
+          "firstName": "Fraser",
+          "nhlTeam": "Boston",
+          "protected": false
+        },
+        {
+          "lastName": "Nestrasil",
+          "firstName": "Vaclav",
+          "nhlTeam": "Chicago",
+          "protected": false
+        },
+        {
+          "lastName": "Sergatchev",
+          "firstName": "Mikhail",
+          "nhlTeam": "Utah",
+          "protected": true
+        },
+        {
+          "lastName": "Raddysh",
+          "firstName": "Darren",
+          "nhlTeam": "Tampa Bay",
+          "protected": true
+        },
+        {
+          "lastName": "Theodore",
+          "firstName": "Shea",
+          "nhlTeam": "Vegas",
+          "protected": true
+        },
+        {
+          "lastName": "Fowler",
+          "firstName": "Cam",
+          "nhlTeam": "St-Louis",
+          "protected": false
+        },
+        {
+          "lastName": "Matheson",
+          "firstName": "Mike",
+          "nhlTeam": "Montreal",
+          "protected": false
+        },
+        {
+          "lastName": "Lohrei",
+          "firstName": "Mason",
+          "nhlTeam": "Boston",
+          "protected": false
+        },
+        {
+          "lastName": "Dickinson",
+          "firstName": "Sam",
+          "nhlTeam": "San Jose",
+          "protected": false
+        },
+        {
+          "lastName": "Lindstein",
+          "firstName": "Theo",
+          "nhlTeam": "St-Louis",
+          "protected": false
+        },
+        {
+          "lastName": "D'Astous",
+          "firstName": "Charle-Edouard",
+          "nhlTeam": "Tampa Bay",
+          "protected": false
+        },
+        {
+          "lastName": "Gustavsson",
+          "firstName": "Filip",
+          "nhlTeam": "Minnesota",
+          "protected": false
+        },
+        {
+          "lastName": "Kuemper",
+          "firstName": "Darcy",
+          "nhlTeam": "Los Angeles",
+          "protected": false
+        },
+        {
+          "lastName": "Fowler",
+          "firstName": "Jakob",
+          "nhlTeam": "Montreal",
+          "protected": false
+        }
+      ]
+    }
+  ],
+  "picks": [
+    {
+      "round": 1,
+      "originalFranchiseAbbrev": "CAR",
+      "ownedByFranchiseAbbrev": "CAR"
+    },
+    {
+      "round": 2,
+      "originalFranchiseAbbrev": "CAR",
+      "ownedByFranchiseAbbrev": "LAK"
+    },
+    {
+      "round": 3,
+      "originalFranchiseAbbrev": "CAR",
+      "ownedByFranchiseAbbrev": "LAK"
+    },
+    {
+      "round": 1,
+      "originalFranchiseAbbrev": "COL",
+      "ownedByFranchiseAbbrev": "CAR"
+    },
+    {
+      "round": 2,
+      "originalFranchiseAbbrev": "COL",
+      "ownedByFranchiseAbbrev": "TOR"
+    },
+    {
+      "round": 3,
+      "originalFranchiseAbbrev": "COL",
+      "ownedByFranchiseAbbrev": "COL"
+    },
+    {
+      "round": 1,
+      "originalFranchiseAbbrev": "DAL",
+      "ownedByFranchiseAbbrev": "DAL"
+    },
+    {
+      "round": 2,
+      "originalFranchiseAbbrev": "DAL",
+      "ownedByFranchiseAbbrev": "DAL"
+    },
+    {
+      "round": 3,
+      "originalFranchiseAbbrev": "DAL",
+      "ownedByFranchiseAbbrev": "FLA"
+    },
+    {
+      "round": 1,
+      "originalFranchiseAbbrev": "DET",
+      "ownedByFranchiseAbbrev": "CAR"
+    },
+    {
+      "round": 2,
+      "originalFranchiseAbbrev": "DET",
+      "ownedByFranchiseAbbrev": "NYR"
+    },
+    {
+      "round": 3,
+      "originalFranchiseAbbrev": "DET",
+      "ownedByFranchiseAbbrev": "DET"
+    },
+    {
+      "round": 1,
+      "originalFranchiseAbbrev": "EDM",
+      "ownedByFranchiseAbbrev": "EDM"
+    },
+    {
+      "round": 2,
+      "originalFranchiseAbbrev": "EDM",
+      "ownedByFranchiseAbbrev": "NSH"
+    },
+    {
+      "round": 3,
+      "originalFranchiseAbbrev": "EDM",
+      "ownedByFranchiseAbbrev": "CAR"
+    },
+    {
+      "round": 1,
+      "originalFranchiseAbbrev": "FLA",
+      "ownedByFranchiseAbbrev": "FLA"
+    },
+    {
+      "round": 2,
+      "originalFranchiseAbbrev": "FLA",
+      "ownedByFranchiseAbbrev": "FLA"
+    },
+    {
+      "round": 3,
+      "originalFranchiseAbbrev": "FLA",
+      "ownedByFranchiseAbbrev": "FLA"
+    },
+    {
+      "round": 1,
+      "originalFranchiseAbbrev": "LAK",
+      "ownedByFranchiseAbbrev": "NYR"
+    },
+    {
+      "round": 2,
+      "originalFranchiseAbbrev": "LAK",
+      "ownedByFranchiseAbbrev": "LAK"
+    },
+    {
+      "round": 3,
+      "originalFranchiseAbbrev": "LAK",
+      "ownedByFranchiseAbbrev": "LAK"
+    },
+    {
+      "round": 1,
+      "originalFranchiseAbbrev": "MTL",
+      "ownedByFranchiseAbbrev": "DET"
+    },
+    {
+      "round": 2,
+      "originalFranchiseAbbrev": "MTL",
+      "ownedByFranchiseAbbrev": "DAL"
+    },
+    {
+      "round": 3,
+      "originalFranchiseAbbrev": "MTL",
+      "ownedByFranchiseAbbrev": "VGK"
+    },
+    {
+      "round": 1,
+      "originalFranchiseAbbrev": "NSH",
+      "ownedByFranchiseAbbrev": "DET"
+    },
+    {
+      "round": 2,
+      "originalFranchiseAbbrev": "NSH",
+      "ownedByFranchiseAbbrev": "NSH"
+    },
+    {
+      "round": 3,
+      "originalFranchiseAbbrev": "NSH",
+      "ownedByFranchiseAbbrev": "NSH"
+    },
+    {
+      "round": 1,
+      "originalFranchiseAbbrev": "NYR",
+      "ownedByFranchiseAbbrev": "NYR"
+    },
+    {
+      "round": 2,
+      "originalFranchiseAbbrev": "NYR",
+      "ownedByFranchiseAbbrev": "NYR"
+    },
+    {
+      "round": 3,
+      "originalFranchiseAbbrev": "NYR",
+      "ownedByFranchiseAbbrev": "MTL"
+    },
+    {
+      "round": 1,
+      "originalFranchiseAbbrev": "OTT",
+      "ownedByFranchiseAbbrev": "OTT"
+    },
+    {
+      "round": 2,
+      "originalFranchiseAbbrev": "OTT",
+      "ownedByFranchiseAbbrev": "OTT"
+    },
+    {
+      "round": 3,
+      "originalFranchiseAbbrev": "OTT",
+      "ownedByFranchiseAbbrev": "OTT"
+    },
+    {
+      "round": 1,
+      "originalFranchiseAbbrev": "TOR",
+      "ownedByFranchiseAbbrev": "OTT"
+    },
+    {
+      "round": 2,
+      "originalFranchiseAbbrev": "TOR",
+      "ownedByFranchiseAbbrev": "OTT"
+    },
+    {
+      "round": 3,
+      "originalFranchiseAbbrev": "TOR",
+      "ownedByFranchiseAbbrev": "DAL"
+    },
+    {
+      "round": 1,
+      "originalFranchiseAbbrev": "VGK",
+      "ownedByFranchiseAbbrev": "CAR"
+    },
+    {
+      "round": 2,
+      "originalFranchiseAbbrev": "VGK",
+      "ownedByFranchiseAbbrev": "NYR"
+    },
+    {
+      "round": 3,
+      "originalFranchiseAbbrev": "VGK",
+      "ownedByFranchiseAbbrev": "VGK"
+    },
+    {
+      "round": 1,
+      "originalFranchiseAbbrev": "WSH",
+      "ownedByFranchiseAbbrev": "WSH"
+    },
+    {
+      "round": 2,
+      "originalFranchiseAbbrev": "WSH",
+      "ownedByFranchiseAbbrev": "WSH"
+    },
+    {
+      "round": 3,
+      "originalFranchiseAbbrev": "WSH",
+      "ownedByFranchiseAbbrev": "WSH"
+    }
+  ]
+}

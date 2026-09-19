@@ -7,6 +7,7 @@ using FantasyWarrior.Jobs.News;
 using FantasyWarrior.Jobs.Nhl;
 using FantasyWarrior.Jobs.Ops;
 using FantasyWarrior.Jobs.Sql;
+using Microsoft.EntityFrameworkCore;
 
 // Usage: dotnet run -- <job> [options]
 //
@@ -197,6 +198,39 @@ switch (job)
             .RunAsync(GetOption(args, "--file") ?? "data/unresolved-players.txt", dryRun);
     }
 
+    case "add-player":
+    {
+        // A single explicit insert for the rare case where player-resolve's
+        // surname search comes back genuinely ambiguous (several real NHLers
+        // share a full name) and a human has confirmed which NHL id is meant.
+        await using var db = DataServiceCollectionExtensions.CreateContext();
+        var id = long.Parse(GetOption(args, "--id") ?? throw new ArgumentException("--id required"));
+        if (await db.Players.AnyAsync(p => p.PlayerId == id))
+        {
+            Console.WriteLine($"Player {id} already exists.");
+            return 0;
+        }
+        var player = new FantasyWarrior.Data.Entities.Player
+        {
+            PlayerId = id,
+            FirstName = GetOption(args, "--first") ?? throw new ArgumentException("--first required"),
+            LastName = GetOption(args, "--last") ?? throw new ArgumentException("--last required"),
+            Position = GetOption(args, "--pos") ?? "C",
+            TeamAbbrev = GetOption(args, "--team"),
+            Status = GetOption(args, "--status") ?? FantasyWarrior.Data.Entities.PlayerStatus.Nhl,
+            BirthDate = GetOption(args, "--birth") is { } b ? DateOnly.Parse(b) : null,
+            LastSyncedUtc = DateTime.UtcNow,
+        };
+        Console.WriteLine($"=== add-player{(dryRun ? "  [DRY RUN]" : "")} ===");
+        Console.WriteLine($"  {player.PlayerId}  {player.FirstName} {player.LastName} "
+            + $"({player.Position}, {player.TeamAbbrev}, {player.Status})");
+        if (dryRun) return 0;
+        db.Players.Add(player);
+        await db.SaveChangesAsync();
+        Console.WriteLine("Added.");
+        return 0;
+    }
+
     case "career-sync":
     {
         using var http = NewHttp();
@@ -318,6 +352,14 @@ switch (job)
             capAmount: long.TryParse(GetOption(args, "--cap"), out var cap) ? cap : 134_000_000,
             dryRun: dryRun,
             openingLineup: !args.Contains("--no-opening-lineup"));
+    }
+
+    case "seed-mordus2":
+    {
+        await using var db = DataServiceCollectionExtensions.CreateContext();
+        return await new SeedMordus2Job(db).RunAsync(
+            file: GetOption(args, "--file") ?? "data/mordus2.json",
+            dryRun: dryRun);
     }
 
     case "clone-league":
