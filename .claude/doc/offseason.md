@@ -200,7 +200,10 @@ turn could otherwise never take anyone, with no way to shed a player inside the
 draft. **The salary cap still applies** — a different rule, `capAmount` passed
 through unchanged. Trades keep enforcing both bounds; the loosening is the
 draft's alone. The loss quota is a separate check, `DraftRules.ValidateLoss`,
-applied to the team being robbed.
+applied to the team being robbed. A team at its quota keeps its exposed players
+**in** the available list, struck through (`DraftPool.IsMaxedOutOnly`), because
+a veteran silently vanishing would read as a protection nobody declared; the
+From column's pill shows each owner's losses so far.
 
 **The board shows every turn, made or not.** `DraftOrder.Remaining` walks the
 turns still to come and the API concatenates them onto the selections made, so
