@@ -544,6 +544,34 @@ switch (job)
         return 0;
     }
 
+    case "backdate-roster-spots":
+    {
+        // Every "effective now" screen (Team, cap totals, vStandings' Today
+        // CTE, the free-agent "engaged" flag) gates on RosterSpot.StartDate <=
+        // today -- exactly right for a spot opened by a real trade ahead of
+        // its first scored week, wrong for a whole roster seeded before its
+        // season's week 1 has even started: the ownership is real *now*, only
+        // the scoring window (already dated to week 1 via RosterAssignments,
+        // untouched here) is in the future. Safe only preseason -- see
+        // SeedMordusJob's own comment on why spots are dated to week 1, not
+        // "now", for a MID-season import (missing assignments for weeks
+        // already passed); that bug does not apply before week 1 has started.
+        await using var db = DataServiceCollectionExtensions.CreateContext();
+        var code = GetOption(args, "--league") ?? "TKW6UR";
+        var league = await db.Leagues.FirstAsync(l => l.JoinCode == code);
+        var today = PoolClock.TodayEt(DateTimeOffset.UtcNow);
+        var spots = await db.RosterSpots
+            .Where(s => s.LeagueId == league.LeagueId && s.EndDate == null && s.StartDate > today)
+            .ToListAsync();
+        Console.WriteLine($"=== backdate-roster-spots{(dryRun ? "  [DRY RUN]" : "")}  {league.Name} ===");
+        Console.WriteLine($"{spots.Count} spot(s) dated after {today:yyyy-MM-dd} -> would move to {today:yyyy-MM-dd}.");
+        if (dryRun) return 0;
+        foreach (var s in spots) s.StartDate = today;
+        await db.SaveChangesAsync();
+        Console.WriteLine("Done.");
+        return 0;
+    }
+
     case "set-optimal-lineup":
     {
         await using var db = DataServiceCollectionExtensions.CreateContext();
