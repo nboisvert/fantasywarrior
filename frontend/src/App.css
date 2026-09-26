@@ -552,11 +552,17 @@
    than a fifth mutually-exclusive state: the opposite side of the box (left,
    not right), same bare-glyph-plus-halo treatment, not a new visual language
    (Nick, 2026-09-26 — confirmed this reuses the existing badge style rather
-   than a filled "pill" chip). */
+   than a filled "pill" chip). Colour is the modifier, not this base class —
+   see `.hurt`/`.suspended` — since the two kinds no longer share one. */
 .lineup-pending-injury {
   top: 0;
   left: 1px;
+}
+.lineup-pending-injury.hurt {
   color: var(--danger);
+}
+.lineup-pending-injury.suspended {
+  color: var(--suspended);
 }
 
 /* ---------- lineup replacement picker (Team screen) ---------- */
@@ -2542,7 +2548,15 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+/* Rose for hurt, slate for suspended (Nick, 2026-09-26) — a disciplinary fact
+   reads differently than a medical one, same split `.lineup-pending-injury`
+   makes on the jersey badge. */
+.stats-injury.hurt {
   color: var(--danger);
+}
+.stats-injury.suspended {
+  color: var(--suspended);
 }
 
 /* A player already promised away by an accepted trade, or arriving via one —

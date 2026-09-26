@@ -31,6 +31,13 @@
   --franchise: #c7d2e0;
   --online: #4ade80;
   --online-glow: rgba(74, 222, 128, 0.4);
+  /* A suspension is disciplinary, not medical — it shouldn't read as the same
+     alarm as an injury, so it doesn't share --danger's rose (Nick,
+     2026-09-26). Not literal black either: these badges have no background
+     chip, so a true black glyph would all but disappear against
+     --bg-elevated. A dark slate stays legible while reading as "neutral,
+     administrative" rather than "urgent". */
+  --suspended: #475569;
 
   --font-display: "Russo One", system-ui, sans-serif;
   --font-body: "Chakra Petch", system-ui, sans-serif;

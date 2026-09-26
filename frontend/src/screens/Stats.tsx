@@ -72,6 +72,22 @@ function formatMoneyCompact(amount: number): string {
  * distinct from the first two, which are only ever a bench call. */
 type PendingChange = "in" | "out" | "gone" | "joining" | null;
 
+/** Precedence when more than one pending fact could describe the same spot
+ * (Nick, 2026-09-26) — highest first. Explicit rather than left to whichever
+ * `if` happens to run first, since that reads as a rule only by accident.
+ *
+ * "gone" is absolute: a player leaving the roster is settled, and nothing
+ * else about the lineup still matters for that spot. "in" outranks
+ * "joining" on the arrival side — once a real lineup decision exists for
+ * him, that is more informative than the bare fact that he is arriving via
+ * trade. "out" is the weakest: a bench call, never a departure. */
+const PENDING_PRIORITY: readonly PendingChange[] = ["gone", "in", "joining", "out"];
+
+function resolvePending(...candidates: PendingChange[]): PendingChange {
+  for (const state of PENDING_PRIORITY) if (candidates.includes(state)) return state;
+  return null;
+}
+
 /** Active/bench control on a player row.
  *
  * The icon is **this week's** state — who is scoring for you right now. The
@@ -139,9 +155,14 @@ function LineupToggle({
   // suspended, orthogonal to whatever is or isn't happening to the lineup
   // spot. Same bare-glyph-plus-halo treatment, not a new visual language
   // (Nick, 2026-09-26: confirmed this reuses the existing badge style rather
-  // than a filled "pill" chip).
+  // than a filled "pill" chip). Colour still splits by kind — rose for hurt,
+  // slate for suspended, a disciplinary fact rather than a medical one —
+  // same distinction InjuryMark's own colour makes.
   const injuryFlag = injuryStatus && (
-    <span className="lineup-pending lineup-pending-injury" aria-hidden="true">
+    <span
+      className={`lineup-pending lineup-pending-injury ${injuryStatus === "Suspended" ? "suspended" : "hurt"}`}
+      aria-hidden="true"
+    >
       {injuryStatus === "Suspended" ? <GavelIcon size={13} /> : <CrossIcon size={13} />}
     </span>
   );
@@ -301,16 +322,23 @@ function LineupPicker({
  * no jersey to badge (see `showRowInjury`), so this is the fallback for
  * exactly that one case, in the row's right-hand icon group.
  *
- * Two symbols, one colour: hurt and suspended both keep a player out of the
- * lineup, so both rows carry the same rose bar, but a gavel never claims a
- * suspended man is injured. The kind is decided server-side — see
- * InjuryClassifier — so this only picks a glyph. */
+ * Two symbols, two colours (Nick, 2026-09-26): a suspension is disciplinary,
+ * not medical, so it no longer shares injury's rose — see `--suspended`.
+ * Both still keep a player out of the lineup, and the row's own edge
+ * (`.stats-row-out`) stays one colour either way; only the glyph and this
+ * mark's own colour say which. The kind is decided server-side — see
+ * InjuryClassifier — so this only picks a glyph and a class. */
 function InjuryMark({ status, type }: { status: InjuryStatus; type: string | null }) {
   const { t } = useLanguage();
   const kind = status === "Suspended" ? t("stats.suspendedKind") : t("stats.injuredKind");
   const label = t("stats.injuryLabel", { kind, type });
   return (
-    <span className="stats-injury" role="img" aria-label={label} title={label}>
+    <span
+      className={`stats-injury ${status === "Suspended" ? "suspended" : "hurt"}`}
+      role="img"
+      aria-label={label}
+      title={label}
+    >
       {status === "Suspended" ? <GavelIcon size={11} /> : <CrossIcon size={10} />}
     </span>
   );
@@ -892,14 +920,15 @@ function RosterGrid({
                       editable={!!lineupEditable}
                       busy={saving}
                       // An accepted trade is known before the nightly job
-                      // executes it, both sides at once — a traded-out player
-                      // gets "gone", a traded-in one "joining", neither
-                      // waiting on pendingFor's own current-vs-next diff.
-                      pending={
-                        r.tradeMark === "out" ? "gone"
-                        : r.tradeMark === "in" ? "joining"
-                        : (pendingFor?.(lineupEntry) ?? null)
-                      }
+                      // executes it — a traded-out player is a "gone"
+                      // candidate, a traded-in one a "joining" candidate —
+                      // ranked against pendingFor's own current-vs-next diff
+                      // by resolvePending rather than either short-circuiting
+                      // the other outright.
+                      pending={resolvePending(
+                        r.tradeMark === "out" ? "gone" : r.tradeMark === "in" ? "joining" : null,
+                        pendingFor?.(lineupEntry) ?? null,
+                      )}
                       injuryStatus={r.injuryStatus}
                       injuryType={r.injuryType}
                       onToggle={(spotId) => onToggleLineup?.(spotId)}
