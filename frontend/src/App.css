@@ -2141,17 +2141,24 @@
   }
 }
 
-/* Was just `.stats-table-title`'s own margin-bottom; now the row wrapper that
-   also seats the position filter, right-aligned against the title exactly
-   the way Nick asked for it (2026-08-25). `baseline` rather than `center`:
-   the filter's own small buttons otherwise look like they're floating a
-   couple of px above the title's text. */
+/* The row wrapper that seats the title block and the position filter,
+   right-aligned against it (2026-08-25, per Nick). `flex-start` (2026-09-27,
+   per Nick — was `baseline`): the title block is two lines now that the
+   player-count sits under the title instead of beside it, and baseline would
+   pin the filter to whichever of those two lines' baseline it happened to
+   read, not the title's. */
 .stats-table-head {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
   margin: 0 0 0.5rem;
+}
+
+.stats-table-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
 }
 
 .stats-table-title {
@@ -2162,11 +2169,15 @@
   letter-spacing: 0.1em;
 }
 
-/* De-emphasized count next to the ROSTER title (2026-07-27, per Nick — same
- * lighter/muted-font treatment as PlayerCard's bio secondary values, no
- * parens-as-punctuation styling trick, just type). */
+/* Player count, under the title rather than beside it (2026-09-27, per Nick
+ * — was inline, same line as "ROSTER"). Same lighter/muted-font treatment as
+ * PlayerCard's bio secondary values, no parens-as-punctuation styling
+ * trick, just type; `block` now that it is its own line rather than a
+ * trailing span. */
 .stats-table-title-sub {
+  display: block;
   font-weight: 400;
+  font-size: 0.7rem;
   text-transform: none;
   letter-spacing: normal;
   color: var(--text-muted);
@@ -2200,6 +2211,15 @@
 
 .stats-position-filter-btn:hover {
   color: var(--text);
+}
+
+/* The active-lineup option (2026-09-27, per Nick): a jersey glyph, not a
+   letter, so it reads as "status" rather than a fifth position — same icon
+   `.lineup-toggle` uses for an active player, at filter-button scale. */
+.stats-position-filter-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Active borrows its colour from the position it filters to — the same

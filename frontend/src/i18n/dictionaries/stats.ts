@@ -22,13 +22,13 @@ export const en = {
   positionEmptyForwards: "forwards",
   positionEmptyDefensemen: "defensemen",
   positionEmptyGoalies: "goalies",
+  positionEmptyActive: "active players",
   prospects: "Prospects",
   total: "Total",
 
   // ---- grid headers ----
   colPlayer: "Player",
   groupFantasyPoint: "Fantasy point",
-  groupRecord: "Record",
   groupNhl: "NHL",
   groupExtra: "Extra",
   groupCapHit: "Cap hit",
@@ -37,6 +37,7 @@ export const en = {
 
   // ---- position filter ----
   filterAll: "All",
+  filterActive: "Active this week",
   filterAria: "Filter roster by position",
 
   // ---- player periods (week-by-week panel) ----
@@ -113,12 +114,12 @@ export const fr = {
   positionEmptyForwards: "attaquant",
   positionEmptyDefensemen: "défenseur",
   positionEmptyGoalies: "gardien",
+  positionEmptyActive: "joueur actif",
   prospects: "Espoirs",
   total: "Total",
 
   colPlayer: "Joueur",
   groupFantasyPoint: "Point ligue",
-  groupRecord: "Fiche",
   groupNhl: "LNH",
   groupExtra: "Extra",
   groupCapHit: "Plafond",
@@ -126,6 +127,7 @@ export const fr = {
   colInLineupAria: "Dans la formation",
 
   filterAll: "Tous",
+  filterActive: "Actifs cette semaine",
   filterAria: "Filtrer l'alignement par position",
 
   noWeeksScored: "Encore aucune semaine comptée pour ce joueur.",

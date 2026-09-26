@@ -593,15 +593,24 @@ public static class LineupEndpoints
 
             // The Équipe slot, as one row of the same grid.
             //
-            // Only the three team columns carry a number (Nick, 2026-08-05): a
-            // franchise has no goals, no cap hit and no injury, and the screen
-            // shows a dash rather than a zero for each. The player-stat fields
-            // are still present and still zero — they are the row shape, and
-            // the T branch on the grid never reads them.
+            // Goals, assists, cap hit and injury genuinely have no franchise
+            // equivalent (Nick, 2026-08-05) and stay zero — the player-stat
+            // fields are still present and still zero, they are the row shape,
+            // and the T branch on the grid never reads them. Games played is
+            // different: a franchise really has played some number of real NHL
+            // games, it just isn't tracked as its own counter the way a
+            // player's is — W + L + OTL already sums to exactly that (Nick,
+            // 2026-09-27), so spotActiveGamesPlayed is real rather than the
+            // placeholder zero it used to be, and the grid's Fantasy PT/G (which
+            // divides pool points by this) stops reading as "—" on a row that
+            // plainly scored.
             object FranchiseRow(RosterSpot spot)
             {
                 var f = franchises.GetValueOrDefault(spot.FranchiseAbbrev!);
                 spotTotals.TryGetValue(spot.RosterSpotId, out var st);
+                var teamWins = st?.ActiveTeamWins ?? 0;
+                var teamLosses = st?.ActiveTeamLosses ?? 0;
+                var teamOtLosses = st?.ActiveTeamOtLosses ?? 0;
                 return new
                 {
                     // Negative, so a franchise row can never collide with an NHL
@@ -625,11 +634,9 @@ public static class LineupEndpoints
                     pim = 0, shots = 0, hits = 0, blockedShots = 0,
                     wins = 0, otLosses = 0, shutouts = 0,
                     goalsAgainst = 0, saves = 0, shotsAgainst = 0,
-                    teamWins = st?.ActiveTeamWins ?? 0,
-                    teamLosses = st?.ActiveTeamLosses ?? 0,
-                    teamOtLosses = st?.ActiveTeamOtLosses ?? 0,
+                    teamWins, teamLosses, teamOtLosses,
                     spotStartDate = (DateOnly?)spot.StartDate,
-                    spotActiveGamesPlayed = 0,
+                    spotActiveGamesPlayed = teamWins + teamLosses + teamOtLosses,
                     spotActiveGoals = 0,
                     spotActiveAssists = 0,
                     spotActivePoints = st?.ActivePoints ?? 0,

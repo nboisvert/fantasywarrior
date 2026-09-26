@@ -650,7 +650,7 @@ function useSharedPlayerColumnWidth(deps: readonly unknown[]) {
 /** The four things `.stats-position-filter` can be set to — "ALL" plus the
  * three real position groups. The franchise slot ("T") is deliberately not a
  * choice: it isn't a position a GM would filter for. */
-export type PositionFilter = "ALL" | "F" | "D" | "G";
+export type PositionFilter = "ALL" | "F" | "D" | "G" | "ACTIVE";
 
 /** "No forwards on this list." — the empty state a position filter can reach
  * that `emptyLabel` can't: the grid has players, just none in this group. */
@@ -658,6 +658,7 @@ function positionFilterEmptyLabel(filter: PositionFilter, t: (key: string, vars?
   const noun =
     filter === "F" ? t("stats.positionEmptyForwards")
     : filter === "D" ? t("stats.positionEmptyDefensemen")
+    : filter === "ACTIVE" ? t("stats.positionEmptyActive")
     : t("stats.positionEmptyGoalies");
   return t("stats.positionEmpty", { noun });
 }
@@ -675,10 +676,16 @@ function positionFilterEmptyLabel(filter: PositionFilter, t: (key: string, vars?
  * 2026-08-29 — "ça aurait dû être fait comme ça dès le départ"): one filter
  * control in the app, not a second one that happens to look similar. */
 export function PositionFilterControl({
-  value, onChange,
+  value, onChange, includeActive,
 }: {
   value: PositionFilter;
   onChange: (filter: PositionFilter) => void;
+  /** Appends a fifth, jersey-icon option that filters to this week's active
+   * lineup — only where "active" actually means something (Nick,
+   * 2026-09-27: the Team screen's Roster grid). Omitted everywhere else this
+   * control is reused (DraftRoom's Available pane), where a player has no
+   * active/bench state to filter on at all. */
+  includeActive?: boolean;
 }) {
   const { t } = useLanguage();
   const options: { key: PositionFilter; label: string }[] = [
@@ -686,25 +693,27 @@ export function PositionFilterControl({
     { key: "F", label: "F" },
     { key: "D", label: "D" },
     { key: "G", label: "G" },
+    ...(includeActive ? [{ key: "ACTIVE" as const, label: t("stats.filterActive") }] : []),
   ];
   return (
     <div className="stats-position-filter" role="group" aria-label={t("stats.filterAria")}>
       {options.map((opt) => {
         const active = value === opt.key;
-        // "ALL" has no position colour of its own — it keeps the button's
-        // plain active treatment (ice, same as everything else the app calls
-        // "selected"). F/D/G borrow theirs from the same class every other
-        // position marker in the app already uses.
-        const posClass = active && opt.key !== "ALL" ? ` pos-compact-${opt.key.toLowerCase()}` : "";
+        // "ALL" and "ACTIVE" have no position colour of their own — they keep
+        // the button's plain active treatment (ice, same as everything else
+        // the app calls "selected"). F/D/G borrow theirs from the same class
+        // every other position marker in the app already uses.
+        const posClass = active && opt.key !== "ALL" && opt.key !== "ACTIVE" ? ` pos-compact-${opt.key.toLowerCase()}` : "";
         return (
           <button
             key={opt.key}
             type="button"
-            className={`stats-position-filter-btn${active ? ` active${posClass}` : ""}`}
+            className={`stats-position-filter-btn${opt.key === "ACTIVE" ? " stats-position-filter-btn-icon" : ""}${active ? ` active${posClass}` : ""}`}
             aria-pressed={active}
+            title={opt.key === "ACTIVE" ? opt.label : undefined}
             onClick={() => onChange(opt.key)}
           >
-            {opt.label}
+            {opt.key === "ACTIVE" ? <JerseyIcon size={13} /> : opt.label}
           </button>
         );
       })}
@@ -756,8 +765,15 @@ function RosterGrid({
   // Applied before anything else touches `rows`, so sorting, totals and the
   // Extra-position goalie split all naturally see only what the filter lets
   // through — one filter step, not one per downstream computation.
+  //
+  // "ACTIVE" reads this grid's own `lineupByPlayer` rather than a position —
+  // the franchise counts as always active (it has no bench to drop to), and
+  // on a grid this prop is absent from (Departed), nothing does, which is
+  // correct: a departed player was never this week's active lineup.
   const filteredRows =
-    positionFilter === "ALL" ? rows : rows.filter((r) => posGroup(r.position) === positionFilter);
+    positionFilter === "ALL" ? rows
+    : positionFilter === "ACTIVE" ? rows.filter((r) => r.isFranchise || lineupByPlayer?.get(r.id)?.active === true)
+    : rows.filter((r) => posGroup(r.position) === positionFilter);
 
   // Each grid sorts independently — that is the main thing two instances need
   // that one shared table could not give.
@@ -782,9 +798,6 @@ function RosterGrid({
   const nhlGoalsTotal = sum(filteredRows, (r) => r.goals);
   const nhlAssistsTotal = sum(filteredRows, (r) => r.assists);
   const nhlPtsTotal = sum(filteredRows, (r) => r.nhlPoints);
-  const winsTotal = sum(filteredRows, (r) => r.wins);
-  const otLossesTotal = sum(filteredRows, (r) => r.otLosses);
-  const shutoutsTotal = sum(filteredRows, (r) => r.shutouts);
   const plusMinusTotal = sum(filteredRows, (r) => r.plusMinus);
   const pimTotal = sum(filteredRows, (r) => r.pim);
   const shotsTotal = sum(filteredRows, (r) => r.shots);
@@ -797,12 +810,12 @@ function RosterGrid({
   return (
     <div>
       <div className="stats-table-head">
-        <span className="stats-table-title">
-          {title}
-          {subtitle != null && <span className="stats-table-title-sub"> {subtitle}</span>}
+        <span className="stats-table-title-group">
+          <span className="stats-table-title">{title}</span>
+          {subtitle != null && <span className="stats-table-title-sub">{subtitle}</span>}
         </span>
         {onPositionFilterChange && (
-          <PositionFilterControl value={positionFilter} onChange={onPositionFilterChange} />
+          <PositionFilterControl value={positionFilter} onChange={onPositionFilterChange} includeActive />
         )}
       </div>
       {rows.length === 0 ? (
@@ -823,11 +836,6 @@ function RosterGrid({
                 </button>
               </th>
               <GroupHead label={t("stats.groupFantasyPoint")} span={5} accent />
-              {/* "Record", not "Goalie", since 2026-08-05: the Équipe slot
-                  reports W/L/OTL in the same three columns, and a goalie's
-                  W/OTL/SO was always a record anyway. L is filled for the
-                  franchise alone — no goalie loss total is stored. */}
-              <GroupHead label={t("stats.groupRecord")} span={4} />
               <GroupHead label={t("stats.groupNhl")} span={5} />
               <GroupHead label={t("stats.groupExtra")} span={5} />
               <GroupHead label={t("stats.groupCapHit")} span={2} />
@@ -838,10 +846,6 @@ function RosterGrid({
               <SortableHead label="A" colKey="poolAssists" active={sort.key === "poolAssists"} dir={sort.dir} onSort={sort.toggle} accent />
               <SortableHead label="PT" colKey="poolPoints" active={sort.key === "poolPoints"} dir={sort.dir} onSort={sort.toggle} accent spotlight />
               <SortableHead label="PT/G" colKey="poolPtsPerGame" active={sort.key === "poolPtsPerGame"} dir={sort.dir} onSort={sort.toggle} accent />
-              <SortableHead label="W" colKey="wins" active={sort.key === "wins"} dir={sort.dir} onSort={sort.toggle} groupStart />
-              <SortableHead label="L" colKey="teamLosses" active={sort.key === "teamLosses"} dir={sort.dir} onSort={sort.toggle} />
-              <SortableHead label="OTL" colKey="otLosses" active={sort.key === "otLosses"} dir={sort.dir} onSort={sort.toggle} />
-              <SortableHead label="SO" colKey="shutouts" active={sort.key === "shutouts"} dir={sort.dir} onSort={sort.toggle} />
               <SortableHead label="GP" colKey="gamesPlayed" active={sort.key === "gamesPlayed"} dir={sort.dir} onSort={sort.toggle} groupStart />
               <SortableHead label="G" colKey="goals" active={sort.key === "goals"} dir={sort.dir} onSort={sort.toggle} />
               <SortableHead label="A" colKey="assists" active={sort.key === "assists"} dir={sort.dir} onSort={sort.toggle} />
@@ -862,6 +866,14 @@ function RosterGrid({
               // Departed rows only — everywhere else a jersey icon shows and
               // carries the injury fact itself, as a corner badge.
               const showRowInjury = !r.isFranchise && !lineupEntry;
+              // The NHL group's real-world equivalent of a franchise's games
+              // played and points (2026-09-27, per Nick — the "—" this used
+              // to show was a gap, not a fact: a franchise really has played
+              // some number of real games and really has a real NHL standings
+              // total, they just aren't individual-player stats). Zero for
+              // every other row, since teamWins/teamOtLosses are zero there.
+              const franchiseGamesPlayed = r.teamWins + r.teamLosses + r.teamOtLosses;
+              const franchiseNhlPoints = 2 * r.teamWins + r.teamOtLosses;
               return (
               <Fragment key={r.id}>
               {/* Opens the prospect zone: a section header, not just a border,
@@ -886,7 +898,7 @@ function RosterGrid({
                   <td className="stats-col-player stats-prospect-label-cell">
                     <div className="stats-col-player-inner">{t("stats.prospects")}</div>
                   </td>
-                  <td colSpan={21} />
+                  <td colSpan={17} />
                 </tr>
               )}
               {/* The coloured edge rides the sticky identity cell, so it stays
@@ -992,23 +1004,24 @@ function RosterGrid({
                   </span>
                 </div>
                 </td>
-                {/* A franchise has none of these. It scored, so PTS is real;
-                    everything else is a dash rather than a zero, which would
-                    read as "took the ice and produced nothing". */}
-                <td className="accent stats-group-start">{r.isFranchise ? "—" : r.poolGamesPlayed}</td>
+                {/* A franchise has no individual goals or assists — those stay
+                    a dash rather than a zero, which would read as "took the
+                    ice and produced nothing". GP and PTS, in both groups, are
+                    real: see franchiseGamesPlayed/franchiseNhlPoints above. */}
+                <td className="accent stats-group-start">{r.poolGamesPlayed}</td>
                 <td className="accent">{r.isFranchise ? "—" : r.poolGoals}</td>
                 <td className="accent">{r.isFranchise ? "—" : r.poolAssists}</td>
                 <td className="accent stats-col-spotlight">{r.poolPoints}</td>
-                <td className="accent">{r.isFranchise ? "—" : displayRate(r.poolPtsPerGame, 2)}</td>
-                <td className="stats-group-start">{r.isFranchise ? r.teamWins : r.isGoalie ? r.wins : "—"}</td>
-                <td>{r.isFranchise ? r.teamLosses : "—"}</td>
-                <td>{r.isFranchise ? r.teamOtLosses : r.isGoalie ? r.otLosses : "—"}</td>
-                <td>{r.isGoalie ? r.shutouts : "—"}</td>
-                <td className="stats-group-start">{r.isFranchise ? "—" : r.gamesPlayed}</td>
+                <td className="accent">{displayRate(r.poolPtsPerGame, 2)}</td>
+                <td className="stats-group-start">{r.isFranchise ? franchiseGamesPlayed : r.gamesPlayed}</td>
                 <td>{r.isFranchise ? "—" : r.goals}</td>
                 <td>{r.isFranchise ? "—" : r.assists}</td>
-                <td className="stats-col-spotlight">{r.isFranchise ? "—" : r.nhlPoints}</td>
-                <td>{r.isFranchise ? "—" : displayRate(r.nhlPtsPerGame, 2)}</td>
+                <td className="stats-col-spotlight">{r.isFranchise ? franchiseNhlPoints : r.nhlPoints}</td>
+                <td>
+                  {r.isFranchise
+                    ? displayRate(franchiseGamesPlayed > 0 ? franchiseNhlPoints / franchiseGamesPlayed : null, 2)
+                    : displayRate(r.nhlPtsPerGame, 2)}
+                </td>
                 <td className="stats-group-start">{r.isFranchise ? "—" : signed(r.plusMinus)}</td>
                 <td>{r.isFranchise ? "—" : r.pim}</td>
                 <td>{r.isFranchise ? "—" : r.shots}</td>
@@ -1022,7 +1035,7 @@ function RosterGrid({
                    table, and lining its columns up with the season
                    grid's twenty-one would make both unreadable. */
                 <tr className="player-periods-row">
-                  <td colSpan={23}>
+                  <td colSpan={19}>
                     {periodsByPlayer[r.id] ? (
                       <PlayerPeriods data={periodsByPlayer[r.id]} isGoalie={r.isGoalie} />
                     ) : (
@@ -1045,12 +1058,6 @@ function RosterGrid({
               <td className="accent">{poolAssistsTotal}</td>
               <td className="accent stats-col-spotlight">{poolPtsTotal}</td>
               <td className="accent">{displayRate(poolGp > 0 ? poolPtsTotal / poolGp : null, 2)}</td>
-              <td className="stats-group-start">{winsTotal}</td>
-              {/* Only the franchise fills this column, and one row's number is
-                  not a total. */}
-              <td>—</td>
-              <td>{otLossesTotal}</td>
-              <td>{shutoutsTotal}</td>
               <td className="stats-group-start">{nhlGp}</td>
               <td>{nhlGoalsTotal}</td>
               <td>{nhlAssistsTotal}</td>
