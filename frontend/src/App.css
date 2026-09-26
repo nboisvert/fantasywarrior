@@ -2397,14 +2397,15 @@
    siblings — a sub-pixel disagreement, but a real and visible one at zoom.
    `.stats-col-player-inner` carries the flex layout instead, the same way
    the thead button below already did before this fix existed. */
-/* Tighter than the grid's shared 0.5rem (2026-09-25, per Nick): less dead
-   space before the jersey/franchise icon, which narrows the whole identity
-   column and leaves more room for the stat columns. Needs `.stats-grid td`'s
-   own tag-plus-class specificity to actually win — a bare `.stats-col-player`
-   rule loses that fight regardless of source order. */
+/* Considerably tighter than the grid's shared 0.5rem (2026-09-26, per Nick —
+   the first pass, to 0.3rem, was not a big enough cut to read as changed at
+   all): minimal dead space before the jersey/franchise icon, which narrows
+   the whole identity column and leaves more room for the stat columns. Needs
+   `.stats-grid td`'s own tag-plus-class specificity to actually win — a bare
+   `.stats-col-player` rule loses that fight regardless of source order. */
 .stats-grid td.stats-col-player,
 .stats-grid th.stats-col-player {
-  padding-left: 0.3rem;
+  padding-left: 0.15rem;
 }
 
 .stats-col-player {
@@ -2432,7 +2433,10 @@
 .stats-col-player-inner {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
+  /* 0.45rem -> 0.25rem (2026-09-26, per Nick): tighter all round -- icon to
+     name, and name to position before .stats-player-pos's own negative
+     margin below pulls that second gap in even further. */
+  gap: 0.25rem;
   height: 100%;
 }
 
@@ -2545,7 +2549,14 @@
   flex-shrink: 0;
   /* Fixed width so F, D and G land on the same x, whatever the letter. */
   width: 0.75rem;
-  text-align: right;
+  /* Left, not right (2026-09-26, per Nick): now that this sits right after
+     the name rather than at the far right of the cell, right-aligning it put
+     the letter at the *far* edge of its own box — visually further from the
+     name than the flex gap alone. Left-aligned, it lands immediately after
+     it; the negative margin pulls the box itself in by a few more pixels on
+     top of the row's own (already tightened) flex gap. */
+  margin-left: -0.15rem;
+  text-align: left;
   font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
