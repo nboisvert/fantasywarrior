@@ -360,14 +360,10 @@
 
 /* ---------- week-by-week breakdown (Team screen) ---------- */
 
-/* Pushed flush to the identity cell's own right edge (2026-09-25, per Nick),
-   whatever the name and position before it leave open — `margin-left: auto`
-   rather than a fixed position, so a long name never crowds it and a short
-   one never leaves it stranded mid-cell. Past the position, so the name and
-   position keep reading as one unit and this reads as an affordance on the
-   row rather than part of the player's identity. The negative right margin
-   pulls it past the cell's own padding for a genuinely tight edge rather than
-   a token gesture at one. */
+/* Last in .stats-row-right-group, which is what actually pushes flush to the
+   identity cell's own right edge (2026-09-26, per Nick) — see that class.
+   Just the tight negative right margin here, past the group's own padding,
+   for a genuinely tight edge rather than a token gesture at one. */
 .stats-periods-btn {
   flex-shrink: 0;
   display: inline-flex;
@@ -375,7 +371,7 @@
   justify-content: center;
   width: 1.35rem;
   height: 1.35rem;
-  margin: -0.5rem -0.35rem -0.5rem auto;
+  margin: -0.5rem -0.35rem -0.5rem 0;
   padding: 0;
   border: none;
   border-radius: 6px;
@@ -2498,14 +2494,24 @@
   box-shadow: inset 2px 0 0 var(--danger);
 }
 
+/* Everything past the name+position identity — injury/trade marks, the
+   calendar button — pushed to the cell's own right edge as one group (Nick,
+   2026-09-26). `margin-left: auto` on the group itself, not on whichever mark
+   happens to be first, since which marks are present varies row to row and
+   only one of them should ever push. */
+.stats-row-right-group {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.15rem;
+  margin-left: auto;
+}
+
 .stats-injury {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  /* Sits against the name, not centred in leftover space — it reads as an
-     annotation on that name rather than as another column. */
-  margin-left: -0.2rem;
   color: var(--danger);
 }
 
@@ -2531,7 +2537,6 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin-left: -0.2rem;
 }
 .stats-trade-out {
   color: var(--danger);
@@ -2553,9 +2558,12 @@
      the name rather than at the far right of the cell, right-aligning it put
      the letter at the *far* edge of its own box — visually further from the
      name than the flex gap alone. Left-aligned, it lands immediately after
-     it; the negative margin pulls the box itself in by a few more pixels on
-     top of the row's own (already tightened) flex gap. */
-  margin-left: -0.15rem;
+     it. 3px net from the name, exactly (Nick's own number) — a pixel margin
+     rather than rem, pulling the box in from the row's own 0.25rem/4px flex
+     gap by 1px, deliberately not scaling with root font size the rest of the
+     row's spacing does: the target is a fixed visual distance, not a
+     proportion of it. */
+  margin-left: -1px;
   text-align: left;
   font-size: 0.68rem;
   font-weight: 700;

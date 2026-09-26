@@ -902,8 +902,6 @@ function RosterGrid({
                   ) : (
                     <button type="button" className="stats-player-btn" onClick={() => onOpenPlayer(r.id)}>
                       <span className="stats-player-name">{formatShortName(r.name)}</span>
-                      {r.injuryStatus && <InjuryMark status={r.injuryStatus} type={r.injuryType} />}
-                      {r.tradeMark && <TradeMarkIcon direction={r.tradeMark} />}
                     </button>
                   )}
                   {/* Right against the name, not at the end of the row (Nick,
@@ -913,24 +911,33 @@ function RosterGrid({
                   <span className={`stats-player-pos pos-compact-${posGroupClass(r.position)}`}>
                     {posGroup(r.position)}
                   </span>
-                  {/* No week-by-week for a franchise: the breakdown is served
-                      per player id, and a franchise has none. `margin-left:
-                      auto` (see .stats-periods-btn) pushes it flush to the
-                      cell's own right edge regardless of how short the name
-                      and position before it are — an affordance on the row,
-                      never part of the player's identity. */}
-                  {!r.isFranchise && (
-                    <button
-                      type="button"
-                      className={`stats-periods-btn${openPeriodsFor === r.id ? " open" : ""}`}
-                      onClick={() => onTogglePeriods(r.id)}
-                      aria-expanded={openPeriodsFor === r.id}
-                      aria-label={t("stats.weekByWeekAria", { name: r.name })}
-                      title={t("stats.weekByWeek")}
-                    >
-                      <CalendarIcon size={13} />
-                    </button>
-                  )}
+                  {/* Everything past the name+position identity, pushed to the
+                      cell's own right edge as one group (Nick, 2026-09-26):
+                      injury/trade marks used to sit inside the name button —
+                      part of "who this player is" — when they are really a
+                      status about the row, the same kind of fact the calendar
+                      button already reads as. `margin-left: auto` lives here,
+                      not on .stats-periods-btn, since the group's first
+                      *present* child is the one that needs to push right, and
+                      which one that is varies row to row. */}
+                  <span className="stats-row-right-group">
+                    {r.injuryStatus && <InjuryMark status={r.injuryStatus} type={r.injuryType} />}
+                    {r.tradeMark && <TradeMarkIcon direction={r.tradeMark} />}
+                    {/* No week-by-week for a franchise: the breakdown is
+                        served per player id, and a franchise has none. */}
+                    {!r.isFranchise && (
+                      <button
+                        type="button"
+                        className={`stats-periods-btn${openPeriodsFor === r.id ? " open" : ""}`}
+                        onClick={() => onTogglePeriods(r.id)}
+                        aria-expanded={openPeriodsFor === r.id}
+                        aria-label={t("stats.weekByWeekAria", { name: r.name })}
+                        title={t("stats.weekByWeek")}
+                      >
+                        <CalendarIcon size={13} />
+                      </button>
+                    )}
+                  </span>
                 </div>
                 </td>
                 {/* A franchise has none of these. It scored, so PTS is real;
