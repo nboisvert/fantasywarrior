@@ -2552,19 +2552,15 @@
    position-indicator pattern). */
 .stats-player-pos {
   flex-shrink: 0;
-  /* Fixed width so F, D and G land on the same x, whatever the letter. */
-  width: 0.75rem;
-  /* Left, not right (2026-09-26, per Nick): now that this sits right after
-     the name rather than at the far right of the cell, right-aligning it put
-     the letter at the *far* edge of its own box — visually further from the
-     name than the flex gap alone. Left-aligned, it lands immediately after
-     it. 3px net from the name, exactly (Nick's own number) — a pixel margin
-     rather than rem, pulling the box in from the row's own 0.25rem/4px flex
-     gap by 1px, deliberately not scaling with root font size the rest of the
-     row's spacing does: the target is a fixed visual distance, not a
-     proportion of it. */
+  /* No fixed width (2026-09-26, per Nick): a column-like box was making
+     every row's letter line up on the same x regardless of name length —
+     read as a table column, which is exactly the rigidity/width this was
+     supposed to save. Free text glued to the name instead: its own content
+     width only, landing wherever the name happens to end. 3px net gap
+     (Nick's own number) — a pixel margin, not rem, since the target is a
+     fixed visual distance, not one that scales with root font size the way
+     the row's rem-based spacing does. */
   margin-left: -1px;
-  text-align: left;
   font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
