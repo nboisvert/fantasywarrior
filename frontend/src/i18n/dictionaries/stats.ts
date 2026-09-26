@@ -54,6 +54,7 @@ export const en = {
   lineupChangeIn: ", coming into next week's lineup",
   lineupChangeOut: ", dropping out of next week's lineup",
   lineupChangeGone: ", leaving the team before next week",
+  lineupChangeJoining: ", joining the team before next week",
   lineupTapHint: ", tap to change next week",
 
   // ---- lineup picker sheet ----
@@ -69,12 +70,10 @@ export const en = {
   pickerArrivingViaTrade: "arriving via trade",
   pickerNobodyPlays: (v: { pos: string }) => `Nobody on the bench plays ${v.pos}.`,
 
-  // ---- injury / trade marks ----
+  // ---- injury mark ----
   injuredKind: "Injured",
   suspendedKind: "Suspended",
   injuryLabel: (v: { kind: string; type: string | null }) => (v.type ? `${v.kind} — ${v.type}` : v.kind),
-  leavingViaTrade: "Leaving via trade",
-  arrivingViaTrade: "Arriving via trade",
 
   // ---- screen chrome ----
   backToStandings: "Back to standings",
@@ -142,6 +141,7 @@ export const fr = {
   lineupChangeIn: ", entre dans la formation la semaine prochaine",
   lineupChangeOut: ", sort de la formation la semaine prochaine",
   lineupChangeGone: ", quitte l'équipe avant la semaine prochaine",
+  lineupChangeJoining: ", se joint à l'équipe avant la semaine prochaine",
   lineupTapHint: ", touche pour changer la semaine prochaine",
 
   pickerReplaceTitle: (v: { name: string; week: number | string }) =>
@@ -161,8 +161,6 @@ export const fr = {
   injuredKind: "Blessé",
   suspendedKind: "Suspendu",
   injuryLabel: (v: { kind: string; type: string | null }) => (v.type ? `${v.kind} — ${v.type}` : v.kind),
-  leavingViaTrade: "Quitte par échange",
-  arrivingViaTrade: "Arrive par échange",
 
   backToStandings: "Retour au classement",
   points: "Points",

@@ -535,6 +535,17 @@
   right: 1px;
   color: var(--danger);
 }
+/* The mirror of "gone", on the arrival side (Nick, 2026-09-26) — same corner
+   as plain "in" (joining rises out of the top), same green, but the log-in
+   glyph rather than an up arrow: arriving via trade is a roster-membership
+   change, not a bench call, same distinction "gone" already draws from
+   "out". Replaces the standalone trade icon that used to sit in the row's
+   right-hand group — see .stats-row-right-group's own comment. */
+.lineup-pending-joining {
+  top: 0;
+  right: 1px;
+  color: var(--success);
+}
 
 /* ---------- lineup replacement picker (Team screen) ---------- */
 
@@ -642,10 +653,10 @@
 }
 
 /* Why this name is in the list but not like the others. Two states, and they
-   borrow the grid's trade marks rather than inventing a register: rose and a
-   log-out glyph for the man leaving, green and log-in for the one arriving —
-   see .stats-trade-out/-in. Both carry an icon, so neither depends on colour
-   alone. */
+   borrow the same register the grid's own trade badges use (`.lineup-pending-
+   gone`/`-joining`): rose and a log-out glyph for the man leaving, green and
+   log-in for the one arriving. Both carry an icon, so neither depends on
+   colour alone. */
 .lineup-picker-note {
   display: flex;
   align-items: center;
@@ -2496,11 +2507,14 @@
   box-shadow: inset 2px 0 0 var(--danger);
 }
 
-/* Everything past the name+position identity — injury/trade marks, the
-   calendar button — pushed to the cell's own right edge as one group (Nick,
+/* Everything past the name+position identity — the injury mark, the calendar
+   button — pushed to the cell's own right edge as one group (Nick,
    2026-09-26). `margin-left: auto` on the group itself, not on whichever mark
    happens to be first, since which marks are present varies row to row and
-   only one of them should ever push. */
+   only one of them should ever push. The trade mark that used to be a third
+   icon here moved onto the jersey icon itself as a `.lineup-pending` corner
+   badge (`gone`/`joining`, below) — a row involved in a trade is still flagged
+   by the coloured left edge just past this group's own comment. */
 .stats-row-right-group {
   display: flex;
   flex-shrink: 0;
@@ -2534,18 +2548,6 @@
   box-shadow: inset 2px 0 0 var(--success);
 }
 
-.stats-trade {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.stats-trade-out {
-  color: var(--danger);
-}
-.stats-trade-in {
-  color: var(--success);
-}
 
 /* Plain-text position, directly right of the name (2026-09-25, per Nick —
    was at the far right of the cell, after the calendar button, which read as

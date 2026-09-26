@@ -67,17 +67,19 @@ function formatMoneyCompact(amount: number): string {
 }
 
 /** What happens to this spot when the week rolls over: it joins the lineup, it
- * drops out of it, or the player leaves the team altogether. */
-type PendingChange = "in" | "out" | "gone" | null;
+ * drops out of it, the player leaves the team altogether, or a new one joins
+ * it — the last two are roster-membership changes (an accepted trade),
+ * distinct from the first two, which are only ever a bench call. */
+type PendingChange = "in" | "out" | "gone" | "joining" | null;
 
 /** Active/bench control on a player row.
  *
  * The icon is **this week's** state — who is scoring for you right now. The
  * corner mark is next week's: green up for a player joining the lineup, red
  * down for one dropping to the bench, red door-out for one leaving the team
- * altogether. Two weeks in one control, but only one of them can still be
- * changed, which is why tapping opens next week's picker while the icon
- * keeps showing today.
+ * altogether, green door-in for one joining it via trade. Two weeks in one
+ * control, but only one of them can still be changed, which is why tapping
+ * opens next week's picker while the icon keeps showing today.
  */
 function LineupToggle({
   entry, editable, busy, pending, onToggle,
@@ -100,6 +102,7 @@ function LineupToggle({
     pending === "in" ? t("stats.lineupChangeIn")
     : pending === "out" ? t("stats.lineupChangeOut")
     : gone ? t("stats.lineupChangeGone")
+    : pending === "joining" ? t("stats.lineupChangeJoining")
     : "";
   const label = `${entry.name} — ${now}${change}${canTap ? t("stats.lineupTapHint") : ""}`;
   const className = `lineup-toggle${entry.active ? " on" : ""}${canTap ? "" : " static"}`;
@@ -108,13 +111,18 @@ function LineupToggle({
   // The mark carries shape *and* position *and* colour, so it never depends on
   // colour alone; the aria-label above states it in words.
   //
-  // "gone" (leaving the roster, e.g. via trade) gets the door-out glyph, not
-  // "out"'s arrow — a departure is a different fact than a bench call, and
-  // this corner mark is only ever a complement to the jersey icon, never a
-  // stand-in for it.
+  // "gone" (leaving the roster via trade) gets the door-out glyph, not "out"'s
+  // arrow — a departure is a different fact than a bench call. "joining"
+  // (arriving via trade) gets the mirror door-in glyph for the same reason,
+  // rather than sharing "in"'s arrow, which means something narrower (moving
+  // from bench to active). This corner mark is only ever a complement to the
+  // jersey icon, never a stand-in for it.
   const flag = pending && (
     <span className={`lineup-pending lineup-pending-${pending}`} aria-hidden="true">
-      {pending === "in" ? <ArrowUpIcon size={13} /> : pending === "gone" ? <LogOutIcon size={13} /> : <ArrowDownIcon size={13} />}
+      {pending === "in" ? <ArrowUpIcon size={13} />
+        : pending === "joining" ? <LogInIcon size={13} />
+        : pending === "gone" ? <LogOutIcon size={13} />
+        : <ArrowDownIcon size={13} />}
     </span>
   );
 
@@ -280,25 +288,6 @@ function InjuryMark({ status, type }: { status: InjuryStatus; type: string | nul
   return (
     <span className="stats-injury" role="img" aria-label={label} title={label}>
       {status === "Suspended" ? <GavelIcon size={11} /> : <CrossIcon size={10} />}
-    </span>
-  );
-}
-
-/** The trade mark, sitting after the name (and after the injury mark, if both
- * apply — a player can be hurt and already promised away at once).
- *
- * Leaving uses the same door-out glyph as `.lineup-pending-gone` — the
- * toggle a few pixels to its left already carries that mark for the same
- * reason, and a GM should never see one without the other. A trade-out is
- * always a real departure, never a mere bench call, so it never shares
- * ground with plain `-out`'s arrow the way the toggle's flag does. Arriving
- * keeps its own log-in glyph. Icon + aria-label always accompany the colour. */
-function TradeMarkIcon({ direction }: { direction: "out" | "in" }) {
-  const { t } = useLanguage();
-  const label = direction === "out" ? t("stats.leavingViaTrade") : t("stats.arrivingViaTrade");
-  return (
-    <span className={`stats-trade stats-trade-${direction}`} role="img" aria-label={label} title={label}>
-      {direction === "out" ? <LogOutIcon size={11} /> : <LogInIcon size={11} />}
     </span>
   );
 }
@@ -876,11 +865,14 @@ function RosterGrid({
                       editable={!!lineupEditable}
                       busy={saving}
                       // An accepted trade is known before the nightly job
-                      // executes it and next week's own lineup catches up —
-                      // same "gone" mark either way, so a traded-out player
-                      // never shows the name-row icon without the toggle
-                      // agreeing.
-                      pending={r.tradeMark === "out" ? "gone" : (pendingFor?.(lineupEntry) ?? null)}
+                      // executes it, both sides at once — a traded-out player
+                      // gets "gone", a traded-in one "joining", neither
+                      // waiting on pendingFor's own current-vs-next diff.
+                      pending={
+                        r.tradeMark === "out" ? "gone"
+                        : r.tradeMark === "in" ? "joining"
+                        : (pendingFor?.(lineupEntry) ?? null)
+                      }
                       onToggle={(spotId) => onToggleLineup?.(spotId)}
                     />
                   ) : (
@@ -913,16 +905,19 @@ function RosterGrid({
                   </span>
                   {/* Everything past the name+position identity, pushed to the
                       cell's own right edge as one group (Nick, 2026-09-26):
-                      injury/trade marks used to sit inside the name button —
-                      part of "who this player is" — when they are really a
-                      status about the row, the same kind of fact the calendar
-                      button already reads as. `margin-left: auto` lives here,
-                      not on .stats-periods-btn, since the group's first
+                      the injury mark used to sit inside the name button —
+                      part of "who this player is" — when it's really a status
+                      about the row, the same kind of fact the calendar button
+                      already reads as. The trade mark that used to sit here
+                      too moved again (Nick, 2026-09-26) onto the jersey icon
+                      itself, as a `.lineup-pending` corner badge — see
+                      `pending="gone"`/`"joining"` above — rather than as a
+                      third icon in this group. `margin-left: auto` lives
+                      here, not on .stats-periods-btn, since the group's first
                       *present* child is the one that needs to push right, and
                       which one that is varies row to row. */}
                   <span className="stats-row-right-group">
                     {r.injuryStatus && <InjuryMark status={r.injuryStatus} type={r.injuryType} />}
-                    {r.tradeMark && <TradeMarkIcon direction={r.tradeMark} />}
                     {/* No week-by-week for a franchise: the breakdown is
                         served per player id, and a franchise has none. */}
                     {!r.isFranchise && (
