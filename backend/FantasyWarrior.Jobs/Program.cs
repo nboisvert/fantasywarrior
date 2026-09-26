@@ -145,6 +145,9 @@ using System.Text.Json;
 //     Corrects LeagueSeasons.Number on a league's active season -- the pool's
 //     own lifetime season count, not derivable from anything else, and easy
 //     to get wrong on a rebuild (seed-mordus defaults to 3 unless told).
+//   injury-report [--league TKW6UR]
+//     Every currently-injured/suspended player on the league's rosters
+//     (PlayerInjuries.ResolvedUtc == null), grouped by team. Read-only.
 //   list-leagues-and-users
 //     Prints every league, user and team in the database. Run before a
 //     delete-league --delete-users to confirm its scope -- a commissioner's
@@ -526,6 +529,29 @@ switch (job)
         Console.WriteLine($"{league.Name}: season number {active.Number} -> {n}");
         active.Number = n;
         await db.SaveChangesAsync();
+        return 0;
+    }
+
+    case "injury-report":
+    {
+        await using var db = DataServiceCollectionExtensions.CreateContext();
+        var code = GetOption(args, "--league") ?? "TKW6UR";
+        var league = await db.Leagues.FirstAsync(l => l.JoinCode == code);
+        var rows = await db.RosterSpots
+            .Where(s => s.LeagueId == league.LeagueId && s.EndDate == null && s.PlayerId != null)
+            .Join(db.Teams, s => s.TeamId, t => t.TeamId, (s, t) => new { s.PlayerId, t.Name, Username = t.Owner!.Username })
+            .Join(db.Players, x => x.PlayerId, p => p.PlayerId, (x, p) => new { x.Name, x.Username, p!.PlayerId, p.FirstName, p.LastName })
+            .Join(db.PlayerInjuries.Where(i => i.ResolvedUtc == null), x => x.PlayerId, i => i.PlayerId,
+                (x, i) => new { x.Name, x.Username, x.FirstName, x.LastName, i.Status, i.InjuryType, i.ReportedUtc })
+            .OrderBy(x => x.Name).ThenBy(x => x.LastName)
+            .ToListAsync();
+        Console.WriteLine($"=== injury-report  {league.Name} — {rows.Count} current ===");
+        foreach (var g in rows.GroupBy(r => (r.Username, r.Name)))
+        {
+            Console.WriteLine($"\n  {g.Key.Name} ({g.Key.Username})");
+            foreach (var r in g)
+                Console.WriteLine($"    {$"{r.FirstName} {r.LastName}",-24} {r.Status,-10} {r.InjuryType ?? "",-14} since {r.ReportedUtc:yyyy-MM-dd}");
+        }
         return 0;
     }
 
