@@ -2446,12 +2446,14 @@
   display: flex;
   align-items: center;
   gap: 0.45rem;
-  /* Fills the column so the calendar button and position land against the
-     cell's right edge rather than trailing whatever length the name happens
-     to be — the letters then line up as their own column and scan
-     vertically (2026-08-02, per Nick: position moved after the calendar
-     button, to the far right). */
-  flex: 1;
+  /* Sized to its own content, not grown to fill the column (2026-09-26, per
+     Nick — reverses 2026-08-02's "fills the column" intent, which is exactly
+     what was putting dead space between a short name and the position/mark
+     group that now sits right after it: the *button* was reaching the
+     cell's right region even though its *text* stopped well short of it.
+     `0 1 auto` still allows shrinking — see .stats-player-name — for the
+     rare case the row genuinely runs out of room. */
+  flex: 0 1 auto;
   min-width: 0;
   border: none;
   background: none;
@@ -2467,11 +2469,11 @@
 }
 
 .stats-player-name {
-  /* Takes the slack, which is what pushes the position right. The fixed
-     max-width this used to carry went with the switch to short names
-     ("S. Crosby"); min-width: 0 is what still lets a long surname ellipsize
-     inside a flex child. */
-  flex: 1;
+  /* No longer flex: 1 (2026-09-26, per Nick — see .stats-player-btn): this
+     must not grow past its text, only shrink below it when the row is
+     genuinely tight. min-width: 0 is what still lets a long surname
+     ellipsize inside a flex child when it does. */
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
