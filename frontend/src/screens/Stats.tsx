@@ -906,8 +906,19 @@ function RosterGrid({
                       {r.tradeMark && <TradeMarkIcon direction={r.tradeMark} />}
                     </button>
                   )}
+                  {/* Right against the name, not at the end of the row (Nick,
+                      2026-09-25): the two read as one identity together —
+                      "S. Crosby C" — rather than the position drifting off
+                      into whatever else the row carries. */}
+                  <span className={`stats-player-pos pos-compact-${posGroupClass(r.position)}`}>
+                    {posGroup(r.position)}
+                  </span>
                   {/* No week-by-week for a franchise: the breakdown is served
-                      per player id, and a franchise has none. */}
+                      per player id, and a franchise has none. `margin-left:
+                      auto` (see .stats-periods-btn) pushes it flush to the
+                      cell's own right edge regardless of how short the name
+                      and position before it are — an affordance on the row,
+                      never part of the player's identity. */}
                   {!r.isFranchise && (
                     <button
                       type="button"
@@ -920,9 +931,6 @@ function RosterGrid({
                       <CalendarIcon size={13} />
                     </button>
                   )}
-                  <span className={`stats-player-pos pos-compact-${posGroupClass(r.position)}`}>
-                    {posGroup(r.position)}
-                  </span>
                 </div>
                 </td>
                 {/* A franchise has none of these. It scored, so PTS is real;

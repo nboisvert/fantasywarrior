@@ -360,9 +360,14 @@
 
 /* ---------- week-by-week breakdown (Team screen) ---------- */
 
-/* Sits at the far right of the player cell, past the position, so the name and
+/* Pushed flush to the identity cell's own right edge (2026-09-25, per Nick),
+   whatever the name and position before it leave open — `margin-left: auto`
+   rather than a fixed position, so a long name never crowds it and a short
+   one never leaves it stranded mid-cell. Past the position, so the name and
    position keep reading as one unit and this reads as an affordance on the
-   row rather than part of the player's identity. */
+   row rather than part of the player's identity. The negative right margin
+   pulls it past the cell's own padding for a genuinely tight edge rather than
+   a token gesture at one. */
 .stats-periods-btn {
   flex-shrink: 0;
   display: inline-flex;
@@ -370,7 +375,7 @@
   justify-content: center;
   width: 1.35rem;
   height: 1.35rem;
-  margin: -0.5rem -0.15rem -0.5rem 0.15rem;
+  margin: -0.5rem -0.35rem -0.5rem auto;
   padding: 0;
   border: none;
   border-radius: 6px;
@@ -2392,6 +2397,16 @@
    siblings — a sub-pixel disagreement, but a real and visible one at zoom.
    `.stats-col-player-inner` carries the flex layout instead, the same way
    the thead button below already did before this fix existed. */
+/* Tighter than the grid's shared 0.5rem (2026-09-25, per Nick): less dead
+   space before the jersey/franchise icon, which narrows the whole identity
+   column and leaves more room for the stat columns. Needs `.stats-grid td`'s
+   own tag-plus-class specificity to actually win — a bare `.stats-col-player`
+   rule loses that fight regardless of source order. */
+.stats-grid td.stats-col-player,
+.stats-grid th.stats-col-player {
+  padding-left: 0.3rem;
+}
+
 .stats-col-player {
   position: sticky;
   left: 0;
@@ -2521,10 +2536,11 @@
   color: var(--success);
 }
 
-/* Plain-text position, at the far right of the identity cell — after the
-   calendar button (2026-08-02, per Nick) — before the numeric columns start.
-   No pill/badge chrome on this data-dense screen (compact convention; see
-   CLAUDE.md's position-indicator pattern). */
+/* Plain-text position, directly right of the name (2026-09-25, per Nick —
+   was at the far right of the cell, after the calendar button, which read as
+   the position belonging to the row rather than to the player). No pill/badge
+   chrome on this data-dense screen (compact convention; see CLAUDE.md's
+   position-indicator pattern). */
 .stats-player-pos {
   flex-shrink: 0;
   /* Fixed width so F, D and G land on the same x, whatever the letter. */

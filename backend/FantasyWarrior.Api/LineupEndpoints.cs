@@ -46,16 +46,16 @@ public static class LineupEndpoints
             };
             var periodsDto = allPeriods.Select(p => Dtos.Period(p, now)).ToArray();
 
-            // A rival's lineup is competitive information until it locks.
+            // Every GM's active/bench split is visible to the whole league,
+            // locked or not (Nick, 2026-09-25) — including a rival's, so
+            // "what is his lineup right now" never needs a click to find out.
+            // This used to hide an unlocked week from anyone but its owner
+            // ("competitive information until it locks"); dropped because a
+            // freshly seeded season otherwise shows nobody's lineup to anyone
+            // but themselves until the very first week locks. `isOwner` still
+            // gates *editing* (LineupEndpoints' write path, unchanged) — this
+            // is read visibility only.
             var isOwner = viewer is not null && Queries.Normalize(viewer) == owner;
-            if (!isOwner && !locked)
-                return Results.Ok(new
-                {
-                    periodIndex = periodDoc.Number, startDate = periodDoc.StartDate, endDate = periodDoc.EndDate,
-                    gameCount = periodDoc.GameCount, locked, finalized = periodDoc.FinalizedUtc is not null,
-                    isOwner = false, hidden = true,
-                    slots, used = new { }, entries = Array.Empty<object>(), periods = periodsDto,
-                });
 
             var today = PoolClock.TodayEt(now);
 
