@@ -8,10 +8,14 @@ existed, so its rosters are a periodic import of PoolExpert's own export
 Warrior derives — that export is the whole truth at import time, and whatever
 `RosterSpots` carried before is discarded rather than reconciled against it.
 The current import is checked in as
-[`data/mordus-2026-27.json`](../../data/mordus-2026-27.json) and materialised
-by `reset-mordus-rosters` ([deployment.md](deployment.md)), which replaces
-only the roster spots — the league, its Users, Teams, Trades and chat history
-carry over untouched.
+[`data/mordus-2026-27.json`](../../data/mordus-2026-27.json). Two jobs
+materialise it ([deployment.md](deployment.md)): `reset-mordus-rosters`
+replaces only the roster spots, keeping the league, its Users, Teams, Trades
+and chat history; `delete-league --delete-users` + `seed-mordus` replaces the
+whole league — a clean slate with no trade or message history and fresh
+Users, which is how the 2026-27 season itself was actually rolled onto the
+live league (Nick, 2026-09-25: no test-era history was worth keeping, not
+even the GM accounts).
 
 ## Identity
 
@@ -24,9 +28,8 @@ A GM's franchise (the `T`/Équipe slot) is whatever the latest PoolExpert export
 says he owns, not a fixed lifetime assignment — four changed hands between
 season 3 and season 4 (`akexandre` Nashville → New Jersey, `patrick` NY
 Rangers → Tampa Bay, `yvan` Detroit → San Jose, `jonathanr` Ottawa →
-Minnesota), and `reset-mordus-rosters` picks up a change like that
-automatically since it rebuilds every spot, franchise slot included, from the
-export.
+Minnesota), and both rebuild jobs pick up a change like that automatically
+since they rebuild every spot, franchise slot included, from the export.
 
 ## Scoring scale
 
@@ -46,8 +49,9 @@ events a league must be able to pay apart. The franchise total is read off the
 
 **Active lineup 9 F + 4 D + 1 G**, plus the Équipe slot. The bench has no fixed
 size (observed reserves run 7 to 20) and active ↔ reserve swaps every week.
-**Roster 23 min, 35 max**, cap **$134M**, a contractless player counting $1M
-(`cap.defaultCapHit`), **3 rookie draft rounds** a year.
+**Roster 23 min, 35 max**, cap **$136M, floor $104M** (Nick, 2026-09-25; was
+$134M with no floor), a contractless player counting $1M (`cap.defaultCapHit`),
+**3 rookie draft rounds** a year.
 
 Every one of these is a field of the league's rules document — what each means
 and where it is enforced is in [league-rules.md](league-rules.md). They are set

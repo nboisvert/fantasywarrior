@@ -1,6 +1,7 @@
 using FantasyWarrior.Core.Seasons;
 using FantasyWarrior.Core.Time;
 using FantasyWarrior.Data;
+using FantasyWarrior.Data.Entities;
 using FantasyWarrior.Data.Seasons;
 using FantasyWarrior.Jobs.CapWages;
 using FantasyWarrior.Jobs.News;
@@ -8,6 +9,7 @@ using FantasyWarrior.Jobs.Nhl;
 using FantasyWarrior.Jobs.Ops;
 using FantasyWarrior.Jobs.Sql;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 // Usage: dotnet run -- <job> [options]
 //
@@ -90,11 +92,14 @@ using Microsoft.EntityFrameworkCore;
 //
 // --- league setup ---
 //   seed-mordus [--file data/mordus-rosters.json] [--season] [--commissioner]
-//               [--cap] [--dry-run] [--no-opening-lineup]
+//               [--cap] [--floor] [--join-code] [--dry-run] [--no-opening-lineup]
 //     Creates "Les Mordus" from the rosters imported out of Nick's PoolExpert
-//     PDF. --no-opening-lineup leaves week 1 to be auto-filled, which is what
-//     the Firestore build did and the only setting under which a replay can be
-//     compared against golden-scores-preSql.json.
+//     PDF. --floor sets the cap floor (Cap.Min, null by default). --join-code
+//     keeps a known code instead of drawing a random one -- for rebuilding the
+//     same league fresh (delete-league first) without stranding GMs who have
+//     the old code bookmarked. --no-opening-lineup leaves week 1 to be
+//     auto-filled, which is what the Firestore build did and the only setting
+//     under which a replay can be compared against golden-scores-preSql.json.
 //   clone-league --from <joinCode> --name <name> [--drafting] [--commissioner-only]
 //               [--protection-slots N] [--steal-rounds N] [--max-losses N] [--dry-run]
 //     Copies a league's rules and rosters into a new one -- and nothing else.
@@ -108,11 +113,15 @@ using Microsoft.EntityFrameworkCore;
 //   wipe-pools [--dry-run]
 //     Deletes pool data and un-banks every week. NHL reference data is
 //     untouched -- that is the expensive half to rebuild.
-//   delete-league --name <exact league name> [--dry-run]
+//   delete-league --name <exact league name> [--delete-users [--keep-user <u>]] [--dry-run]
 //     Permanently deletes one league by name -- the same load-bearing order as
 //     seed-mordus2's own wipe (see deployment.md "Throwing a copy away"). Only
-//     for a league with no banked history (a clone/rehearsal copy); nothing
-//     here un-banks a week.
+//     for a league with no banked history (a clone/rehearsal copy, or a real
+//     league whose history is being deliberately discarded); nothing here
+//     un-banks a week. --delete-users also deletes every team owner's User
+//     row (and their CockcoinAwards) -- except --keep-user, and except anyone
+//     who still owns a team in a DIFFERENT league, checked again right before
+//     the delete so this can never strand an unrelated league.
 //   reset-mordus-rosters [--file data/mordus-2026-27.json] [--dry-run]
 //     Wipes Les Mordus's roster spots (and, by cascade, the RosterAssignments
 //     scored against them) and rebuilds them from a fresh PoolExpert export --
@@ -120,6 +129,18 @@ using Microsoft.EntityFrameworkCore;
 //     unless League.Season already equals the file's season (season-phase
 //     --to InSeason) and that season's period calendar already exists
 //     (season-init, period-init).
+//   dump-mordus-rosters [--file data/mordus-2026-27-seed.json]
+//     Writes Les Mordus's current roster spots out in seed-mordus's own file
+//     shape (resolved playerIds, not names) -- for rebuilding via seed-mordus
+//     without re-resolving names reset-mordus-rosters already resolved once.
+//   fix-season-number --league <joinCode> --number N
+//     Corrects LeagueSeasons.Number on a league's active season -- the pool's
+//     own lifetime season count, not derivable from anything else, and easy
+//     to get wrong on a rebuild (seed-mordus defaults to 3 unless told).
+//   list-leagues-and-users
+//     Prints every league, user and team in the database. Run before a
+//     delete-league --delete-users to confirm its scope -- a commissioner's
+//     account is often shared with an unrelated personal league.
 //
 // --- season simulation (test mode) ---
 //   sim-clock [--set YYYY-MM-DD] [--season] [--off]
@@ -363,7 +384,10 @@ switch (job)
             // play by, and which put two teams over budget on paper.
             capAmount: long.TryParse(GetOption(args, "--cap"), out var cap) ? cap : 134_000_000,
             dryRun: dryRun,
-            openingLineup: !args.Contains("--no-opening-lineup"));
+            openingLineup: !args.Contains("--no-opening-lineup"),
+            capFloor: long.TryParse(GetOption(args, "--floor"), out var floor) ? floor : null,
+            joinCode: GetOption(args, "--join-code"),
+            seasonNumber: int.TryParse(GetOption(args, "--season-number"), out var num) ? num : 3);
     }
 
     case "seed-mordus2":
@@ -412,6 +436,9 @@ switch (job)
             return 0;
         }
         var id = toDelete.LeagueId;
+        var deleteUsers = args.Contains("--delete-users");
+        var keep = (GetOption(args, "--keep-user") ?? "").Trim().ToLowerInvariant();
+
         Console.WriteLine($"=== delete-league{(dryRun ? "  [DRY RUN]" : "")}  \"{name}\" (join code {toDelete.JoinCode}) ===");
         var counts = new (string Name, int Count)[]
         {
@@ -422,6 +449,17 @@ switch (job)
             ("DraftPicks", await db.DraftPicks.CountAsync(p => p.LeagueId == id)),
         };
         foreach (var (n, c) in counts) Console.WriteLine($"  {n,-16} {c,6}");
+
+        // Owners this league's teams belong to -- candidates for --delete-users.
+        // A candidate is only actually deleted if this is the ONLY league they
+        // belong to (checked again right before the delete, inside the same
+        // transaction) -- a user shared with another league is never touched,
+        // --keep-user or not, so this can never strand an unrelated league.
+        var ownerIds = await db.Teams.Where(t => t.LeagueId == id).Select(t => t.OwnerUserId).Distinct().ToListAsync();
+        if (deleteUsers)
+        {
+            Console.WriteLine($"  --delete-users: {ownerIds.Count} owner(s), keeping \"{keep}\" if present.");
+        }
         if (dryRun) { Console.WriteLine("\n[DRY RUN] Nothing deleted."); return 0; }
 
         // Same load-bearing order as SeedMordus2Job's own wipe (see deployment.md
@@ -443,9 +481,100 @@ switch (job)
             await db.LeagueMembers.Where(m => m.LeagueId == id).ExecuteDeleteAsync();
             await db.Teams.Where(t => t.LeagueId == id).ExecuteDeleteAsync();
             await db.Leagues.Where(l => l.LeagueId == id).ExecuteDeleteAsync();
+
+            if (deleteUsers)
+            {
+                foreach (var ownerId in ownerIds)
+                {
+                    var user = await db.Users.FindAsync(ownerId);
+                    if (user is null || user.Username == keep) continue;
+                    if (await db.Teams.AnyAsync(t => t.OwnerUserId == ownerId))
+                    {
+                        Console.WriteLine($"  keeping {user.Username} -- still owns a team in another league.");
+                        continue;
+                    }
+                    await db.CockcoinAwards.Where(a => a.UserId == ownerId).ExecuteDeleteAsync();
+                    db.Users.Remove(user);
+                    Console.WriteLine($"  deleted user {user.Username}.");
+                }
+                await db.SaveChangesAsync();
+            }
+
             await tx.CommitAsync();
         });
         Console.WriteLine($"\nDeleted \"{name}\".");
+        return 0;
+    }
+
+    case "fix-season-number":
+    {
+        await using var db = DataServiceCollectionExtensions.CreateContext();
+        var code = GetOption(args, "--league") ?? throw new ArgumentException("--league required");
+        var n = int.Parse(GetOption(args, "--number") ?? throw new ArgumentException("--number required"));
+        var league = await db.Leagues.FirstAsync(l => l.JoinCode == code);
+        var active = await db.LeagueSeasons
+            .Where(s => s.LeagueId == league.LeagueId && s.Phase != LeagueSeasonPhase.Complete)
+            .FirstAsync();
+        Console.WriteLine($"{league.Name}: season number {active.Number} -> {n}");
+        active.Number = n;
+        await db.SaveChangesAsync();
+        return 0;
+    }
+
+    case "list-leagues-and-users":
+    {
+        await using var db = DataServiceCollectionExtensions.CreateContext();
+        Console.WriteLine("=== Leagues ===");
+        foreach (var l in await db.Leagues.Select(l => new { l.LeagueId, l.Name, l.Season, l.JoinCode, l.CommissionerUserId }).ToListAsync())
+            Console.WriteLine($"  {l.LeagueId,3}  {l.Name,-20} season={l.Season} join={l.JoinCode} commissioner={l.CommissionerUserId}");
+        Console.WriteLine("=== Users ===");
+        foreach (var u in await db.Users.Select(u => new { u.UserId, u.Username, u.DisplayName }).ToListAsync())
+            Console.WriteLine($"  {u.UserId,3}  {u.Username,-14} {u.DisplayName}");
+        Console.WriteLine("=== Teams ===");
+        foreach (var t in await db.Teams.Select(t => new { t.TeamId, t.LeagueId, t.Name, t.OwnerUserId }).ToListAsync())
+            Console.WriteLine($"  {t.TeamId,3}  league={t.LeagueId,3} owner={t.OwnerUserId,3} {t.Name}");
+        return 0;
+    }
+
+    case "dump-mordus-rosters":
+    {
+        // One-off: captures the roster spots reset-mordus-rosters already
+        // built and verified (every name resolved, zero guesses) into
+        // seed-mordus's own file shape, so a full rebuild (wipe-pools then
+        // seed-mordus) does not have to re-resolve 414 names from the PDF.
+        await using var db = DataServiceCollectionExtensions.CreateContext();
+        var outFile = GetOption(args, "--file") ?? "data/mordus-2026-27-seed.json";
+        var league = await db.Leagues.FirstAsync(l => l.Name == "Les Mordus");
+        var firstPeriod = await db.Periods.Where(p => p.Season == league.Season)
+            .OrderBy(p => p.Number).FirstAsync();
+        var teams = await db.Teams.Where(t => t.LeagueId == league.LeagueId)
+            .Include(t => t.Owner)
+            .Select(t => new { t.TeamId, t.Name, t.FranchiseAbbrev, Username = t.Owner!.Username, Gm = t.Owner!.DisplayName })
+            .ToListAsync();
+        var spots = await db.RosterSpots.Where(s => s.LeagueId == league.LeagueId && s.PlayerId != null)
+            .Select(s => new { s.TeamId, s.RosterSpotId, s.PlayerId })
+            .ToListAsync();
+        var activeIds = (await db.RosterAssignments
+            .Where(ra => ra.PeriodId == firstPeriod.PeriodId && ra.IsActive
+                && ra.RosterSpot!.LeagueId == league.LeagueId)
+            .Select(ra => ra.RosterSpotId).ToListAsync()).ToHashSet();
+        var players = await db.Players.ToDictionaryAsync(p => p.PlayerId, p => p);
+
+        var teamsJson = teams.Select(t =>
+        {
+            var mine = spots.Where(s => s.TeamId == t.TeamId).ToList();
+            object ToEntry(long playerId) { var p = players[playerId]; return new { playerId, name = $"{p.FirstName} {p.LastName}", pos = p.Position, team = p.TeamAbbrev ?? "" }; }
+            return new
+            {
+                gm = t.Gm, username = t.Username, franchise = t.Name, franchiseAbbrev = t.FranchiseAbbrev,
+                active = mine.Where(s => activeIds.Contains(s.RosterSpotId)).Select(s => ToEntry(s.PlayerId!.Value)),
+                reserve = mine.Where(s => !activeIds.Contains(s.RosterSpotId)).Select(s => ToEntry(s.PlayerId!.Value)),
+            };
+        });
+
+        var payload = new { source = "reset-mordus-rosters dump, season 20262027", activeSlots = new { forwards = 9, defense = 4, goalies = 1 }, teams = teamsJson };
+        await File.WriteAllTextAsync(outFile, JsonSerializer.Serialize(payload, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true }));
+        Console.WriteLine($"Wrote {outFile}: {teams.Count} teams, {spots.Count} player spots.");
         return 0;
     }
 

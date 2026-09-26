@@ -48,7 +48,8 @@ public sealed class SeedMordusJob(FantasyWarriorDbContext db)
     /// </param>
     public async Task<int> RunAsync(
         string file, string season, string commissioner, long capAmount, bool dryRun,
-        bool openingLineup = true, CancellationToken ct = default)
+        bool openingLineup = true, long? capFloor = null, string? joinCode = null,
+        int seasonNumber = 3, CancellationToken ct = default)
     {
         if (!File.Exists(file))
         {
@@ -140,7 +141,7 @@ public sealed class SeedMordusJob(FantasyWarriorDbContext db)
         {
             Name = LeagueName,
             Season = season,
-            JoinCode = await UniqueJoinCodeAsync(ct),
+            JoinCode = joinCode ?? await UniqueJoinCodeAsync(ct),
             CommissionerUserId = commissionerUser.UserId,
             CreatedUtc = now,
         };
@@ -156,12 +157,12 @@ public sealed class SeedMordusJob(FantasyWarriorDbContext db)
         {
             LeagueId = league.LeagueId,
             Season = season,
-            // The source PDF's own title says season 3, and the pool has counted
-            // its own seasons for years — this is not derivable from the NHL
-            // season string.
-            Number = 3,
+            // The pool has counted its own seasons for years — not derivable
+            // from the NHL season string, so it comes from the source PDF's
+            // own title (or, on a rebuild, from data.Source's own record of it).
+            Number = seasonNumber,
             Phase = LeagueSeasonPhase.InSeason,
-            Rules = MordusRules(data, capAmount),
+            Rules = MordusRules(data, capAmount, capFloor),
             StartedUtc = now,
         });
 
@@ -291,12 +292,13 @@ public sealed class SeedMordusJob(FantasyWarriorDbContext db)
     /// and <c>MaxLossesPerTeam</c> sat NULL on the live row, and two of them had
     /// no writer anywhere in the app.
     /// </summary>
-    private static RuleSet MordusRules(RosterFile data, long capAmount)
+    private static RuleSet MordusRules(RosterFile data, long capAmount, long? capFloor)
     {
         var rules = RuleSetDefaults.ForNewLeague();
 
         rules.PoolType = PoolType.Keeper;
         rules.Cap.Max = capAmount;
+        rules.Cap.Min = capFloor;
         rules.Cap.DefaultCapHit = 1_000_000;
         rules.Roster.Min = 23;
         rules.Roster.Max = 35;

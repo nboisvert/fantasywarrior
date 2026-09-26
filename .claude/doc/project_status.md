@@ -25,20 +25,28 @@ runbooks.
 games — 32 teams × 82 — and 51 264 player-game lines, 2025-10-07 → 2026-04-16),
 contracts scraped from CapWages.
 
-**One league: Les Mordus**, join code `TKW6UR`, `League.Season` `20262027`
-(season 4, phase `InSeason`). Its rosters, rules, cap and scoring scale are in
-[mordus.md](mordus.md). `Mordus2` — the throwaway copy `clone-league` and
-`seed-mordus2` used to rehearse the 2026-27 off-season on — is deleted; its
-job is done now that the real season has started, and both jobs still exist
-for the next off-season's rehearsal.
+**Les Mordus** — join code `TKW6UR`, `League.Season` `20262027` (season 4,
+phase `InSeason`) — is the pool this app is built for. Its rosters, rules,
+cap and scoring scale are in [mordus.md](mordus.md). `Mordus2` — the
+throwaway copy `clone-league` and `seed-mordus2` used to rehearse the 2026-27
+off-season on — is deleted; its job is done now that the real season has
+started, and both jobs still exist for the next off-season's rehearsal. (Two
+other leagues exist in the database, `Test` and `Thomas Boisvert` — personal
+sandboxes unrelated to Les Mordus, not covered by this doc.)
 
-**Test mode is off.** The 2025-26 season replay that validated the scoring
-engine end to end (banking, lineup carry-forward, trades) ran its course on
-Les Mordus; `sim-clock --off` returned the app to the real clock, and
-`reset-mordus-rosters` replaced the replay's rosters and banked history with
-the 2026-27 season's real ones from a fresh PoolExpert export. See
-[testmode.md](testmode.md) for the mechanism, still there for the season after
-this one.
+**Test mode is off, and Les Mordus was rebuilt from a clean slate for
+2026-27.** The 2025-26 season replay that validated the scoring engine end to
+end (banking, lineup carry-forward, trades) ran its course; `sim-clock --off`
+returned the app to the real clock. Rather than carry the replay's trade
+history and test-era GM accounts forward, Nick had the league fully rebuilt
+(2026-09-25): `delete-league --delete-users` (keeping `nick`, who also owns
+an unrelated personal league) then `seed-mordus` from a fresh PoolExpert
+export, landing directly `InSeason` with real rules (cap, floor, roster
+bounds, protection slots, steal rounds, rookie rounds all written — the
+long-standing "off-season numbers never entered" gap is closed by this path).
+`reset-mordus-rosters` is the lighter alternative for a future season
+boundary that keeps history. See [testmode.md](testmode.md) for the
+simulation mechanism, still there for the season after this one.
 
 ## Roadmap
 
@@ -75,14 +83,6 @@ this one.
   routes trust a username in the query string like everything else, so anyone
   who knows a handle can read that person's private threads. It is the first
   place where the gap exposes content rather than actions.
-
-- **Les Mordus' three off-season numbers are still not entered on the live
-  league.** `protection.slots`, `draft.steal.rounds` and
-  `draft.steal.maxLossesPerTeam` are settled ([mordus.md](mordus.md)) and now
-  all three are on the rules panel, so entering them is a five-minute job for
-  the commissioner. Until that happens `draft/open` **refuses** rather than
-  opening a draft with no steal segment, so the danger is gone and only the
-  data entry is left.
 
 - **`period-rollup` scores a league whatever its phase.** It iterates every
   league and knows nothing about `LeagueSeasonPhase`, so a copy sitting in

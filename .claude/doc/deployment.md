@@ -443,11 +443,60 @@ dotnet run --project backend/FantasyWarrior.Jobs -- reset-mordus-rosters
   pass auto-fills week 1 with each team's best players, which is not what the
   GMs actually had.
 
-**`delete-league --name <exact name> [--dry-run]`** permanently deletes one
-league by name — the same load-bearing delete order as `seed-mordus2`'s own
-wipe. Only for a league with no banked history (a `clone-league` rehearsal
-copy); it does not un-bank a week, so running it against a league with real
-history leaves that history half-deleted rather than undone.
+⚠️ **`season-phase --to Preparing` opens the next `LeagueSeason` with BLANK
+rules** — cap, roster bounds, lineup slots (all zeroed), protection, draft,
+everything. It does not copy the closing season's rules forward, and nothing
+warns: the league silently plays with a 0/0/0 lineup and no cap until someone
+notices. Before stepping a live league through `Complete → Preparing → … →
+InSeason` for a real season, save its current rules (`GET
+/api/leagues/{code}` → `.ruleSet`) and `PATCH` them straight back once
+`InSeason` lands — or prefer `seed-mordus`/`reset-mordus-rosters` below,
+which always write real rules and never leave this gap.
+
+**`delete-league --name <exact name> [--delete-users [--keep-user <u>]] [--dry-run]`**
+permanently deletes one league by name — the same load-bearing delete order
+as `seed-mordus2`'s own wipe. Only for a league with no banked history (a
+`clone-league` rehearsal copy, or a real league whose history is being
+deliberately discarded); it does not un-bank a week. `--delete-users` also
+deletes every team owner's `User` row (and their `CockcoinAwards`) — except
+`--keep-user`, and except anyone who still owns a team in a *different*
+league, re-checked inside the same transaction right before the delete, so
+this can never strand an unrelated league (a commissioner's own account
+almost always needs `--keep-user`, since he tends to own a personal sandbox
+league too).
+
+**Rebuilding Les Mordus with no history at all** — trades, messages and the
+test-era GM accounts all discarded, a genuinely clean slate rather than a
+roster refresh — is `delete-league` + `seed-mordus`, not
+`reset-mordus-rosters`:
+
+```powershell
+dotnet run --project backend/FantasyWarrior.Jobs -- delete-league --name "Les Mordus" --delete-users --keep-user nick --dry-run
+dotnet run --project backend/FantasyWarrior.Jobs -- delete-league --name "Les Mordus" --delete-users --keep-user nick
+
+dotnet run --project backend/FantasyWarrior.Jobs -- seed-mordus `
+  --file data/mordus-2026-27-seed.json --season 20262027 --commissioner nick `
+  --cap 136000000 --floor 104000000 --join-code TKW6UR --season-number 4 --dry-run
+dotnet run --project backend/FantasyWarrior.Jobs -- seed-mordus `
+  --file data/mordus-2026-27-seed.json --season 20262027 --commissioner nick `
+  --cap 136000000 --floor 104000000 --join-code TKW6UR --season-number 4
+```
+
+- `--floor` sets `cap.min` (null by default — most seasons have no floor).
+- `--join-code` reuses a known code instead of drawing a random one, so GMs
+  who have it bookmarked are not stranded by a rebuild.
+- `--season-number` is the pool's own lifetime season count (`LeagueSeasons.
+  Number`) — **not derivable from anything else**, since it predates this app;
+  it must be passed explicitly or it silently defaults to `3`.
+- `seed-mordus`'s file format needs resolved `playerId`s, not names —
+  `reset-mordus-rosters` already does that resolution and can dump its result
+  in this shape: `dotnet run --project backend/FantasyWarrior.Jobs --
+  dump-mordus-rosters --file data/mordus-2026-27-seed.json` (run it against
+  the *current* Les Mordus before deleting it).
+- `list-leagues-and-users` (no options) prints every league, user and team in
+  the database — the way to confirm a `delete-league --delete-users` scope
+  before running it, since a commissioner's account is often shared with an
+  unrelated personal league.
 
 ---
 
