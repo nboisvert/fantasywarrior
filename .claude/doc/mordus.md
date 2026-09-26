@@ -1,33 +1,32 @@
 # Les Mordus — the league's settings
 
 The pool Fantasy Warrior is built for first. **This file is the single source for
-its numbers**; every other doc links here rather than restating them. Rosters
-come from `Classement Mordus pool a vie saison 3 — PoolExpert.com`, extracted to
-[`data/mordus-rosters.json`](../../data/mordus-rosters.json) and materialised by
-`seed-mordus` ([deployment.md](deployment.md)).
+its numbers**; every other doc links here rather than restating them. Les Mordus
+is a real-world pool that ran on PoolExpert.com for years before this app
+existed, so its rosters are a periodic import of PoolExpert's own export
+(`Classement Mordus<season> — PoolExpert.com`) rather than something Fantasy
+Warrior derives — that export is the whole truth at import time, and whatever
+`RosterSpots` carried before is discarded rather than reconciled against it.
+The current import is checked in as
+[`data/mordus-2026-27.json`](../../data/mordus-2026-27.json) and materialised
+by `reset-mordus-rosters` ([deployment.md](deployment.md)), which replaces
+only the roster spots — the league, its Users, Teams, Trades and chat history
+carry over untouched.
 
 ## Identity
 
-Join code `TKW6UR` (drawn at random on every re-seed), season `20252026`,
-**14 GMs**, commissioner `nick`, **418 roster spots** — 404 players plus one NHL
-franchise each. `LeagueSeasons` says season **3**, confirmed by the source PDF's
-title. Usernames are the GM's first name, disambiguated by a surname initial on
-a collision (`jonathan` / `jonathanr`).
+Join code `TKW6UR`, League.Season `20262027`, **14 GMs**, commissioner `nick`,
+**428 roster spots** — 414 players plus one NHL franchise each. `LeagueSeasons`
+says season **4**. Usernames are the GM's first name, disambiguated by a
+surname initial on a collision (`jonathan` / `jonathanr`).
 
-## Mordus2
-
-Les Mordus itself is mid-replay of 2025-26 (`testmode.md`) and cannot have its
-phase touched — advancing it would freeze a draft order fourteen real GMs then
-live with, over a season that has not finished being replayed for stats
-purposes. **Mordus2** is the standalone league that carries the real
-2026-2027 off-season instead: the real current rosters, salaries and
-draft-pick trades, which Nick tracks in his own spreadsheet outside the app
-rather than through Les Mordus's live rows, and the 14 GMs' actual protection
-choices, gathered as photos over Messenger. It is rebuilt from that
-spreadsheet — checked in as [`data/mordus2.json`](../../data/mordus2.json) —
-by `seed-mordus2`, landing directly in `Drafting`. See
-[deployment.md](deployment.md) for the job and what each field in the data
-file means.
+A GM's franchise (the `T`/Équipe slot) is whatever the latest PoolExpert export
+says he owns, not a fixed lifetime assignment — four changed hands between
+season 3 and season 4 (`akexandre` Nashville → New Jersey, `patrick` NY
+Rangers → Tampa Bay, `yvan` Detroit → San Jose, `jonathanr` Ottawa →
+Minnesota), and `reset-mordus-rosters` picks up a change like that
+automatically since it rebuilds every spot, franchise slot included, from the
+export.
 
 ## Scoring scale
 
@@ -115,5 +114,5 @@ Names the import cannot match are resolved by `player-resolve` from
 [`data/unresolved-players.txt`](../../data/unresolved-players.txt) — command in
 [deployment.md](deployment.md), matching rules in
 [integrations.md](integrations.md). **A GM may dress non-NHL players**: they get a
-normal roster assignment with every stat at zero, which is why two teams score
-very little in a replay that carries week 1's lineup forward.
+normal roster assignment that scores nothing, rather than being refused a spot
+or silently dropped.

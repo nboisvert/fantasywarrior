@@ -108,6 +108,18 @@ using Microsoft.EntityFrameworkCore;
 //   wipe-pools [--dry-run]
 //     Deletes pool data and un-banks every week. NHL reference data is
 //     untouched -- that is the expensive half to rebuild.
+//   delete-league --name <exact league name> [--dry-run]
+//     Permanently deletes one league by name -- the same load-bearing order as
+//     seed-mordus2's own wipe (see deployment.md "Throwing a copy away"). Only
+//     for a league with no banked history (a clone/rehearsal copy); nothing
+//     here un-banks a week.
+//   reset-mordus-rosters [--file data/mordus-2026-27.json] [--dry-run]
+//     Wipes Les Mordus's roster spots (and, by cascade, the RosterAssignments
+//     scored against them) and rebuilds them from a fresh PoolExpert export --
+//     the league, its Users, Teams, Trades and Messages are left alone. Refuses
+//     unless League.Season already equals the file's season (season-phase
+//     --to InSeason) and that season's period calendar already exists
+//     (season-init, period-init).
 //
 // --- season simulation (test mode) ---
 //   sim-clock [--set YYYY-MM-DD] [--season] [--off]
@@ -382,6 +394,67 @@ switch (job)
     {
         await using var db = DataServiceCollectionExtensions.CreateContext();
         return await new WipePoolsJob(db).RunAsync(dryRun);
+    }
+
+    case "delete-league":
+    {
+        await using var db = DataServiceCollectionExtensions.CreateContext();
+        var name = GetOption(args, "--name");
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            Console.Error.WriteLine("delete-league needs --name <exact league name>.");
+            return 1;
+        }
+        var toDelete = await db.Leagues.FirstOrDefaultAsync(l => l.Name == name);
+        if (toDelete is null)
+        {
+            Console.WriteLine($"No league named \"{name}\". Nothing to do.");
+            return 0;
+        }
+        var id = toDelete.LeagueId;
+        Console.WriteLine($"=== delete-league{(dryRun ? "  [DRY RUN]" : "")}  \"{name}\" (join code {toDelete.JoinCode}) ===");
+        var counts = new (string Name, int Count)[]
+        {
+            ("RosterSpots", await db.RosterSpots.CountAsync(s => s.LeagueId == id)),
+            ("Teams", await db.Teams.CountAsync(t => t.LeagueId == id)),
+            ("Trades", await db.Trades.CountAsync(t => t.LeagueId == id)),
+            ("Messages", await db.Messages.CountAsync(m => m.LeagueId == id)),
+            ("DraftPicks", await db.DraftPicks.CountAsync(p => p.LeagueId == id)),
+        };
+        foreach (var (n, c) in counts) Console.WriteLine($"  {n,-16} {c,6}");
+        if (dryRun) { Console.WriteLine("\n[DRY RUN] Nothing deleted."); return 0; }
+
+        // Same load-bearing order as SeedMordus2Job's own wipe (see deployment.md
+        // "Throwing a copy away") -- never run this against a league with banked
+        // history, since nothing here un-banks a week.
+        await db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+        {
+            await using var tx = await db.Database.BeginTransactionAsync();
+            await db.RosterAssignments.Where(ra => ra.RosterSpot!.LeagueId == id).ExecuteDeleteAsync();
+            await db.RosterSpots.Where(s => s.LeagueId == id).ExecuteDeleteAsync();
+            await db.TradeAssets.Where(a => a.Trade!.LeagueId == id).ExecuteDeleteAsync();
+            await db.TradeVotes.Where(v => v.Trade!.LeagueId == id).ExecuteDeleteAsync();
+            await db.Messages.Where(m => m.LeagueId == id).ExecuteDeleteAsync();
+            await db.TeamPeriodLineups.Where(l => l.Team!.LeagueId == id).ExecuteDeleteAsync();
+            await db.Trades.Where(t => t.LeagueId == id).ExecuteDeleteAsync();
+            await db.DraftSelections.Where(s => s.LeagueSeason!.LeagueId == id).ExecuteDeleteAsync();
+            await db.DraftPicks.Where(p => p.LeagueId == id).ExecuteDeleteAsync();
+            await db.LeagueSeasons.Where(s => s.LeagueId == id).ExecuteDeleteAsync();
+            await db.LeagueMembers.Where(m => m.LeagueId == id).ExecuteDeleteAsync();
+            await db.Teams.Where(t => t.LeagueId == id).ExecuteDeleteAsync();
+            await db.Leagues.Where(l => l.LeagueId == id).ExecuteDeleteAsync();
+            await tx.CommitAsync();
+        });
+        Console.WriteLine($"\nDeleted \"{name}\".");
+        return 0;
+    }
+
+    case "reset-mordus-rosters":
+    {
+        await using var db = DataServiceCollectionExtensions.CreateContext();
+        return await new ResetMordusRostersJob(db).RunAsync(
+            file: GetOption(args, "--file") ?? "data/mordus-2026-27.json",
+            dryRun: dryRun);
     }
 
     case "sim-clock":

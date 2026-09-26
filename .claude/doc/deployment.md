@@ -403,6 +403,52 @@ search endpoint returns several real players for one name and a human has
 confirmed which NHL id is meant (`api-web.nhle.com/v1/player/{id}/landing`
 gives the id). Refuses if the id already exists. Not part of the nightly chain.
 
+### Rolling a real season onto Les Mordus — `reset-mordus-rosters`
+
+Les Mordus' rosters are a periodic import from PoolExpert.com, not something
+this app derives (see [mordus.md](mordus.md)). At a season boundary — the
+off-season's steals and trades happened on PoolExpert, outside the app — the
+latest export is taken as the whole truth and `RosterSpots` are replaced
+wholesale rather than reconciled one by one:
+
+```powershell
+dotnet run --project backend/FantasyWarrior.Jobs -- reset-mordus-rosters --dry-run
+dotnet run --project backend/FantasyWarrior.Jobs -- reset-mordus-rosters
+```
+
+- Reads `data/mordus-2026-27.json` by default (`--file` to point at a
+  different import) — same shape as `mordus2.json`'s teams/roster entries,
+  plus an `active`/`reserve` split like `mordus-rosters.json`'s, and the same
+  name-resolution ladder as `seed-mordus2` (exact match → Nom/Prénom swap →
+  nickname/transliteration on a shared last name → fuzzy last name gated on a
+  close first name; an explicit `"playerId"` skips resolution for a name the
+  matcher cannot disambiguate on its own). Unresolved names stop the run and
+  are printed, never guessed — run `player-resolve` on them first (see the
+  worked example this file's own history left in
+  `data/unresolved-mordus-2026-27.txt`) and `add-player --id` for the rare
+  name that endpoint itself cannot place.
+- **Refuses unless `League.Season` already equals the file's season.** That
+  means `season-phase --league TKW6UR --to <next>` has already been stepped
+  all the way to `InSeason` for the new season, and `season-init`/
+  `period-init` have already declared and built its calendar — this job only
+  dates the new spots against a week 1 that already exists, never invents one.
+- **Only `RosterSpots` (and, by cascade, the `RosterAssignments` scored
+  against them) are wiped**, scoped to Les Mordus. The league, its Users,
+  Teams, Trades and Messages are untouched — unlike `seed-mordus2`'s wipe,
+  this never deletes the league itself. A team's `FranchiseAbbrev` **is**
+  overwritten from the file, since the Équipe slot is part of what gets
+  rebuilt.
+- Seeds week 1's opening lineup from the file's `active`/`reserve` split, the
+  same reasoning as `seed-mordus`'s `openingLineup`: without it the scoring
+  pass auto-fills week 1 with each team's best players, which is not what the
+  GMs actually had.
+
+**`delete-league --name <exact name> [--dry-run]`** permanently deletes one
+league by name — the same load-bearing delete order as `seed-mordus2`'s own
+wipe. Only for a league with no banked history (a `clone-league` rehearsal
+copy); it does not un-bank a week, so running it against a league with real
+history leaves that history half-deleted rather than undone.
+
 ---
 
 ## Troubleshooting

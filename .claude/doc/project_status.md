@@ -25,20 +25,20 @@ runbooks.
 games — 32 teams × 82 — and 51 264 player-game lines, 2025-10-07 → 2026-04-16),
 contracts scraped from CapWages.
 
-**Two leagues exist.**
+**One league: Les Mordus**, join code `TKW6UR`, `League.Season` `20262027`
+(season 4, phase `InSeason`). Its rosters, rules, cap and scoring scale are in
+[mordus.md](mordus.md). `Mordus2` — the throwaway copy `clone-league` and
+`seed-mordus2` used to rehearse the 2026-27 off-season on — is deleted; its
+job is done now that the real season has started, and both jobs still exist
+for the next off-season's rehearsal.
 
-- **Les Mordus** — the live league, join code `TKW6UR`, season `20252026`. Its
-  rosters, rules, cap and scoring scale are in [mordus.md](mordus.md).
-- **Mordus2** — a throwaway copy of Les Mordus, join code `6HEURH`, created by
-  `clone-league`, sitting in `Drafting` for season `20262027`. Same rules, same
-  rosters, **no history**. It exists so the off-season is rehearsed on a copy
-  and never on the live pool. Delete it whenever; the SQL is in
-  [deployment.md](deployment.md).
-
-**A season replay is running.** It sits at **2025-12-22, week 12, weeks 1-11
-banked**. `sim-clock` is the only authority: everything in the app believes it
-is whatever day that job reports, so **check it before treating any
-date-related behaviour as a bug**. See [testmode.md](testmode.md).
+**Test mode is off.** The 2025-26 season replay that validated the scoring
+engine end to end (banking, lineup carry-forward, trades) ran its course on
+Les Mordus; `sim-clock --off` returned the app to the real clock, and
+`reset-mordus-rosters` replaced the replay's rosters and banked history with
+the 2026-27 season's real ones from a fresh PoolExpert export. See
+[testmode.md](testmode.md) for the mechanism, still there for the season after
+this one.
 
 ## Roadmap
 

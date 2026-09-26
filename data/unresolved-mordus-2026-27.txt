@@ -1,0 +1,21 @@
+# Players from the Mordus 2026-27 PoolExpert export that reset-mordus-rosters
+# could not match — free agents / recent draftees player-sync's two endpoints
+# (roster, prospects) do not see. See ResetMordusRostersJob.
+
+Xavier Villeneuve
+Keaton Verhoeff
+Wyatt Cullen
+Dean Letourneau
+Benjamin Kindel
+Caleb Malhotra
+Malte Gustafsson
+Daxon Rudolph
+Carson Carels
+Elton Hermansson
+Tommy Bleyl
+Cameron Reid
+Zack Bolduc
+Oscar Hemming
+William Zellers
+Ryan Lin
+J.P. Hurlbert
