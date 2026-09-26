@@ -403,6 +403,34 @@ search endpoint returns several real players for one name and a human has
 confirmed which NHL id is meant (`api-web.nhle.com/v1/player/{id}/landing`
 gives the id). Refuses if the id already exists. Not part of the nightly chain.
 
+### Setting an opening lineup nobody has set yet — `set-optimal-lineup`
+
+A freshly seeded roster carries whatever active/reserve split its import said
+(the PDF's own snapshot, or none at all) — not necessarily each team's real
+best nine forwards, four defensemen and one goalie. `set-optimal-lineup`
+ranks every rostered player on a prior season's totals, scored under the
+league's own scale (`RuleSet.Scoring.ScaleFor`), and activates the best of
+each position group per team:
+
+```powershell
+dotnet run --project backend/FantasyWarrior.Jobs -- set-optimal-lineup --dry-run
+dotnet run --project backend/FantasyWarrior.Jobs -- set-optimal-lineup
+```
+
+- `--league` (default `TKW6UR`), `--week` (default `1`), `--stats-season`
+  (default: the season before `League.Season` — 2025-26 to open 2026-27).
+- Reuses `SeasonTotalsQuery` (unbounded — end-of-season totals, the same path
+  the protection slate reads) and `StatColumns.ToStatLine(...).Score(...)`,
+  the same scoring primitives the nightly job scores a real week with, so a
+  goalie ranks against a skater exactly the way the pool actually pays them.
+- Updates `RosterAssignments.IsActive` for the spots that already have a row
+  for the period — `seed-mordus`/`reset-mordus-rosters` create one per spot
+  when they seed the opening lineup — and creates one for any that don't.
+  Never touches the Équipe (`T`) spot, which carries no lineup choice.
+- A player with no rows in the ranking season (a rookie, a recent signing)
+  scores 0 and simply loses out to anyone who played — never an error, since
+  a team short on proven players still needs *someone* active.
+
 ### Rolling a real season onto Les Mordus — `reset-mordus-rosters`
 
 Les Mordus' rosters are a periodic import from PoolExpert.com, not something
