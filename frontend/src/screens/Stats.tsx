@@ -82,12 +82,17 @@ type PendingChange = "in" | "out" | "gone" | "joining" | null;
  * opens next week's picker while the icon keeps showing today.
  */
 function LineupToggle({
-  entry, editable, busy, pending, onToggle,
+  entry, editable, busy, pending, injuryStatus, injuryType, onToggle,
 }: {
   entry: LineupEntry;
   editable: boolean;
   busy: boolean;
   pending: PendingChange;
+  /** Independent of `pending` — a player can be hurt *and* have a pending
+   * lineup or trade change at once, so this is its own corner mark, not a
+   * fifth `pending` state. */
+  injuryStatus: InjuryStatus | null;
+  injuryType: string | null;
   onToggle: (spotId: string) => void;
 }) {
   // A player who leaves before next week has no lineup row to set, so there is
@@ -104,7 +109,11 @@ function LineupToggle({
     : gone ? t("stats.lineupChangeGone")
     : pending === "joining" ? t("stats.lineupChangeJoining")
     : "";
-  const label = `${entry.name} — ${now}${change}${canTap ? t("stats.lineupTapHint") : ""}`;
+  const injuryKind = injuryStatus === "Suspended" ? t("stats.suspendedKind") : t("stats.injuredKind");
+  const injuryText = injuryStatus
+    ? `, ${t("stats.injuryLabel", { kind: injuryKind, type: injuryType })}`
+    : "";
+  const label = `${entry.name} — ${now}${change}${injuryText}${canTap ? t("stats.lineupTapHint") : ""}`;
   const className = `lineup-toggle${entry.active ? " on" : ""}${canTap ? "" : " static"}`;
   const icon = entry.active ? <JerseyIcon size={16} /> : <JerseyOutlineIcon size={16} />;
 
@@ -126,11 +135,23 @@ function LineupToggle({
     </span>
   );
 
+  // A second, independent corner mark (opposite side from `flag`) — hurt or
+  // suspended, orthogonal to whatever is or isn't happening to the lineup
+  // spot. Same bare-glyph-plus-halo treatment, not a new visual language
+  // (Nick, 2026-09-26: confirmed this reuses the existing badge style rather
+  // than a filled "pill" chip).
+  const injuryFlag = injuryStatus && (
+    <span className="lineup-pending lineup-pending-injury" aria-hidden="true">
+      {injuryStatus === "Suspended" ? <GavelIcon size={13} /> : <CrossIcon size={13} />}
+    </span>
+  );
+
   if (!canTap)
     return (
       <span className={className} title={label} aria-label={label}>
         {icon}
         {flag}
+        {injuryFlag}
       </span>
     );
   return (
@@ -145,6 +166,7 @@ function LineupToggle({
     >
       {icon}
       {flag}
+      {injuryFlag}
     </button>
   );
 }
@@ -273,9 +295,11 @@ function LineupPicker({
   );
 }
 
-/** The infirmary mark, sitting immediately after the name — which is what
- * squeezes the name into an ellipsis when the column runs short (2026-08-04,
- * per Nick: the mark matters more than the last letters of a surname).
+/** The infirmary mark — Departed-grid rows only (Nick, 2026-09-26). Everywhere
+ * else a player still has a jersey icon, the same fact renders as a corner
+ * badge on it instead (`LineupToggle`'s `injuryFlag`); a departed player has
+ * no jersey to badge (see `showRowInjury`), so this is the fallback for
+ * exactly that one case, in the row's right-hand icon group.
  *
  * Two symbols, one colour: hurt and suspended both keep a player out of the
  * lineup, so both rows carry the same rose bar, but a gavel never claims a
@@ -807,6 +831,9 @@ function RosterGrid({
           <tbody>
             {ordered.map((r) => {
               const lineupEntry = lineupByPlayer?.get(r.id);
+              // Departed rows only — everywhere else a jersey icon shows and
+              // carries the injury fact itself, as a corner badge.
+              const showRowInjury = !r.isFranchise && !lineupEntry;
               return (
               <Fragment key={r.id}>
               {/* Opens the prospect zone: a section header, not just a border,
@@ -873,6 +900,8 @@ function RosterGrid({
                         : r.tradeMark === "in" ? "joining"
                         : (pendingFor?.(lineupEntry) ?? null)
                       }
+                      injuryStatus={r.injuryStatus}
+                      injuryType={r.injuryType}
                       onToggle={(spotId) => onToggleLineup?.(spotId)}
                     />
                   ) : (
@@ -905,19 +934,18 @@ function RosterGrid({
                   </span>
                   {/* Everything past the name+position identity, pushed to the
                       cell's own right edge as one group (Nick, 2026-09-26):
-                      the injury mark used to sit inside the name button —
-                      part of "who this player is" — when it's really a status
-                      about the row, the same kind of fact the calendar button
-                      already reads as. The trade mark that used to sit here
-                      too moved again (Nick, 2026-09-26) onto the jersey icon
-                      itself, as a `.lineup-pending` corner badge — see
-                      `pending="gone"`/`"joining"` above — rather than as a
-                      third icon in this group. `margin-left: auto` lives
-                      here, not on .stats-periods-btn, since the group's first
-                      *present* child is the one that needs to push right, and
-                      which one that is varies row to row. */}
+                      the calendar button, plus the injury mark for a row that
+                      has no jersey icon to badge instead (Departed — see
+                      `showRowInjury` below). Everywhere a jersey icon *does*
+                      show, both the injury and the trade/lineup-change facts
+                      moved onto it as `.lineup-pending` corner badges (Nick,
+                      2026-09-26) rather than living here as standalone icons.
+                      `margin-left: auto` lives here, not on .stats-periods-
+                      btn, since the group's first *present* child is the one
+                      that needs to push right, and which one that is varies
+                      row to row. */}
                   <span className="stats-row-right-group">
-                    {r.injuryStatus && <InjuryMark status={r.injuryStatus} type={r.injuryType} />}
+                    {showRowInjury && r.injuryStatus && <InjuryMark status={r.injuryStatus} type={r.injuryType} />}
                     {/* No week-by-week for a franchise: the breakdown is
                         served per player id, and a franchise has none. */}
                     {!r.isFranchise && (

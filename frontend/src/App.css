@@ -547,6 +547,18 @@
   color: var(--success);
 }
 
+/* Hurt or suspended — independent of whatever `.lineup-pending-*` above is or
+   isn't showing (a player can be both at once), so its own corner rather
+   than a fifth mutually-exclusive state: the opposite side of the box (left,
+   not right), same bare-glyph-plus-halo treatment, not a new visual language
+   (Nick, 2026-09-26 — confirmed this reuses the existing badge style rather
+   than a filled "pill" chip). */
+.lineup-pending-injury {
+  top: 0;
+  left: 1px;
+  color: var(--danger);
+}
+
 /* ---------- lineup replacement picker (Team screen) ---------- */
 
 /* A sheet rather than an inline expansion: the answer to "who plays instead"
@@ -2493,14 +2505,16 @@
   transition: color 0.2s;
 }
 
-/* ---- unavailable player (2026-08-04, per Nick) ----
+/* ---- unavailable player (2026-08-04, per Nick; badge moved onto the jersey
+   icon 2026-09-26) ----
 
    A player who is hurt or suspended is marked twice, and neither mark costs
-   the row a column: a rose edge on the sticky identity cell, and a badge that
-   sits right after the name — the name ellipsizes to make room, which is the
-   trade Nick asked for (the mark matters more than the last letters of a
-   surname). Colour is never the only signal: the glyph carries the meaning and
-   both the title and aria-label say it in words. */
+   the row a column: a rose edge on the sticky identity cell, and a corner
+   badge on the jersey icon (`.lineup-pending-injury`) — or, for a Departed
+   row with no jersey to badge, the row-level `.stats-injury` glyph instead
+   (see `showRowInjury` in Stats.tsx). Colour is never the only signal: the
+   glyph carries the meaning and both the title and aria-label say it in
+   words. */
 .stats-row-out .stats-col-player {
   /* inset rather than border-left: the cell is sticky, and an inset shadow
      rides along with it instead of scrolling out of view with the row. */
