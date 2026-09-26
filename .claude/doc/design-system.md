@@ -98,14 +98,42 @@ width: `useSharedPlayerColumnWidth`, mounted on the screen's root `<section>`
 row structure identical everywhere.
 
 **An unavailable player is marked twice, and neither mark costs the row a
-column**: a rose edge on the sticky identity cell plus a badge right after the
-name. The badge (`.stats-injury`) sits **in the flow**, not absolutely
-positioned, so `.stats-player-name` ellipsizes to make room — the mark matters
-more than the last letters of a surname. The edge is an `inset` box-shadow on
-`.stats-row-out .stats-col-player`, not a border on the row, so it rides with
-the sticky cell instead of scrolling out of view. Injured and suspended share
-the rose but never the symbol — a gavel, not a cross — and the glyph, `title`
-and aria-label carry the meaning, so colour is never the only signal.
+column**: a rose edge on the sticky identity cell, plus a corner badge on the
+jersey icon itself (`.lineup-pending-injury`) rather than a separate icon in
+the row. The edge is an `inset` box-shadow on `.stats-row-out
+.stats-col-player`, not a border on the row, so it rides with the sticky cell
+instead of scrolling out of view. Injured and suspended share the rose but
+never the symbol — a gavel, not a cross — and the glyph, `title` and
+aria-label carry the meaning, so colour is never the only signal. A Departed
+row has no jersey to badge (`.stats-toggle-spacer` shows instead), so it keeps
+the older in-row glyph, `.stats-injury` — the one remaining case that class
+still serves (`showRowInjury` in `Stats.tsx`).
+
+### Jersey icon badges
+
+The jersey icon (`LineupToggle`) carries up to two independent corner
+badges, because a player's lineup/trade status and his health are two
+different facts that can both be true at once — a full visual vocabulary,
+with every state rendered, lives at
+<https://claude.ai/artifact/QZiYhxqwCCJ2JcaGLkBPAV>.
+
+- **Right corner (`top: 0` or `bottom: 0`, `right: 1px`) — lineup and trade,
+  mutually exclusive, at most one showing.** `pending="in"` (green arrow up):
+  joining next week's active lineup. `pending="out"` (rose arrow down):
+  dropping to the bench next week. `pending="gone"` (rose door-out): leaving
+  the team via an accepted trade — the toggle is inert, nothing left to
+  configure. `pending="joining"` (green door-in): arriving via trade, the
+  mirror of `gone` rather than sharing `in`'s arrow, since a roster-membership
+  change is a different fact than a bench call.
+- **Left corner (`top: 0`, `left: 1px`) — injury, independent of the above.**
+  `injuryStatus="Injured"` (rose cross) or `"Suspended"` (rose gavel). Renders
+  alongside whichever right-corner state is showing, or alone.
+
+Both reuse the same `.lineup-pending` base (bare glyph, no background chip,
+a triple `drop-shadow(0 0 1.5px var(--bg-elevated))` halo that punches a
+clear ring through the jersey's own strokes underneath) — deliberately not a
+filled "pill": at this size a solid badge reads as demanding action, when
+these are only annotations on a row.
 
 **Prospects** — players with no NHL career games (rule and provenance in
 [data-model.md](data-model.md)) are pinned **below** the roster in a fixed
