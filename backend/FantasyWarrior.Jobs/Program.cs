@@ -145,6 +145,18 @@ using System.Text.Json;
 //     any traded picks, deletes the trade. Refuses if a spot the trade opened
 //     already has a banked (finalized) week — that can never move. Not a
 //     feature the app exposes; a correction for a trade a GM wants taken back.
+//   assign-picks [--league TKW6UR] --year 2027 --file path.json [--dry-run]
+//     Reassigns a batch of already-initialized picks (draft-picks-init must
+//     run first) from a JSON file of [{round, originalAbbrev, ownerUsername}]
+//     — the exceptions to "everyone still holds their own", reconciled by
+//     hand against a source outside the app. A pick not listed is left alone.
+//
+//   force-trade [--league TKW6UR] --proposer u1 --counterparty u2
+//               --from-proposer id,id --from-counterparty id,id [--dry-run]
+//     Enters and executes a player-for-player trade two GMs already agreed to
+//     outside the app, skipping cap/roster-size validation (still checks each
+//     side actually holds what it's offering). Effective the same way an
+//     in-app acceptance is — the start of the next period.
 //   dump-mordus-rosters [--file data/mordus-2026-27-seed.json]
 //     Writes Les Mordus's current roster spots out in seed-mordus's own file
 //     shape (resolved playerIds, not names) -- for rebuilding via seed-mordus
@@ -630,6 +642,40 @@ switch (job)
             return 1;
         }
         return await new ReverseTradeJob(db).RunAsync(leagueCode, tradeId, dryRun);
+    }
+
+    case "assign-picks":
+    {
+        await using var db = DataServiceCollectionExtensions.CreateContext();
+        var leagueCode = GetOption(args, "--league") ?? "TKW6UR";
+        var file = GetOption(args, "--file");
+        if (!int.TryParse(GetOption(args, "--year"), out var pickYear) || file is null)
+        {
+            Console.Error.WriteLine("assign-picks requires --year <YYYY> and --file <path>.");
+            return 1;
+        }
+        return await new AssignPicksJob(db).RunAsync(leagueCode, pickYear, file, dryRun);
+    }
+
+    case "force-trade":
+    {
+        await using var db = DataServiceCollectionExtensions.CreateContext();
+        var leagueCode = GetOption(args, "--league") ?? "TKW6UR";
+        var proposer = GetOption(args, "--proposer");
+        var counterparty = GetOption(args, "--counterparty");
+        if (proposer is null || counterparty is null)
+        {
+            Console.Error.WriteLine("force-trade requires --proposer <username> and --counterparty <username>.");
+            return 1;
+        }
+        List<long> ParseIds(string? opt) =>
+            (opt ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(long.Parse).ToList();
+        var today = PoolClock.TodayEt(await new SimulationClockService(db).NowAsync());
+        return await new ForceTradeJob(db).RunAsync(
+            leagueCode, proposer, counterparty,
+            ParseIds(GetOption(args, "--from-proposer")), ParseIds(GetOption(args, "--from-counterparty")),
+            today, dryRun);
     }
 
     case "dump-mordus-rosters":
