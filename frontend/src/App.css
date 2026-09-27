@@ -1438,11 +1438,15 @@
   align-items: center;
   justify-content: center;
   width: 1.7rem;
-  color: var(--text-muted);
+  /* A bit more evident than plain --text-muted (Nick, 2026-09-27) — blended
+     toward full --text rather than jumping to it outright, so the digit
+     stays in the same neutral-gray family as the blazon behind it instead
+     of clashing with it. */
+  color: color-mix(in srgb, var(--text) 40%, var(--text-muted));
   font-weight: 700;
-  /* Barely bigger than the grid's own 0.82rem body text (was 1.15rem — read
-     as its own display size rather than a rank, per Nick). */
-  font-size: 0.92rem;
+  /* 2px over the grid's own body/name size (2026-09-27, per Nick — was a
+     vaguer "barely bigger" at 0.92rem). */
+  font-size: calc(0.82rem + 2px);
   line-height: 1;
 }
 
