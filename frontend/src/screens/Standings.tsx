@@ -1,6 +1,6 @@
 import { Fragment, useState } from "react";
 import type { ReactNode } from "react";
-import { api, formatCapCompact } from "../api";
+import { api, formatCapCompact, teamCityOr } from "../api";
 import type { LeagueDetail, TeamDto, TeamPeriodRow } from "../api";
 import { ArrowDownIcon, ArrowUpIcon, CalendarIcon, ChevronDownIcon, CrossIcon, FlameIcon, TrophyIcon } from "../components/Icons";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -290,7 +290,9 @@ export function Standings({
                           onClick={() => onOpenTeamStats(team.ownerUsername)}
                           aria-label={t("standings.viewStats", { team: team.name })}
                         >
-                          <span className="standings-team-name">{team.name}</span>
+                          <span className="standings-team-name" title={team.name}>
+                            {teamCityOr(team.name, team.franchiseAbbrev)}
+                          </span>
                         </button>
                         <button
                           type="button"

@@ -1121,6 +1121,30 @@ export function posGroupClass(position: string): string {
   return posGroup(position).toLowerCase();
 }
 
+/** City (or market) for each of the 32 NHL franchises, keyed by abbrev —
+ * static reference data, not synced from anywhere, because a relocation is
+ * news the whole app would need to react to, not a nightly diff. Used to
+ * shrink a team identity down to its shortest unambiguous form (the
+ * Standings grid's first column) without losing which club it is. */
+const NHL_CITY: Record<string, string> = {
+  ANA: "Anaheim", BOS: "Boston", BUF: "Buffalo", CAR: "Carolina",
+  CBJ: "Columbus", CGY: "Calgary", CHI: "Chicago", COL: "Colorado",
+  DAL: "Dallas", DET: "Detroit", EDM: "Edmonton", FLA: "Florida",
+  LAK: "Los Angeles", MIN: "Minnesota", MTL: "Montreal", NJD: "New Jersey",
+  NSH: "Nashville", NYI: "NY Islanders", NYR: "NY Rangers", OTT: "Ottawa",
+  PHI: "Philadelphia", PIT: "Pittsburgh", SEA: "Seattle", SJS: "San Jose",
+  STL: "St. Louis", TBL: "Tampa Bay", TOR: "Toronto", UTA: "Utah",
+  VAN: "Vancouver", VGK: "Vegas", WPG: "Winnipeg", WSH: "Washington",
+};
+
+/** Shortens a team's identity to its city for a tight grid column, falling
+ * back to the full name when the abbrev is missing or unrecognized — a
+ * league that doesn't use the franchise-identity convention, or a custom
+ * team name that isn't an NHL club at all. */
+export function teamCityOr(fullName: string, abbrev: string | null): string {
+  return (abbrev && NHL_CITY[abbrev]) || fullName;
+}
+
 /** The N most notable players on one side of a trade, ranked by NHL points
  * (looked up from already-loaded roster data — the trade endpoint carries no
  * stats). Shared by the Trades screen (N=2 headliners per side) and the

@@ -1393,7 +1393,10 @@
   left: 0;
   z-index: 2;
   text-align: left;
-  min-width: 9.5rem;
+  /* City only, not the franchise's full name (Nick, 2026-09-26) — "Los
+     Angeles"/"Tampa Bay" is the longest this gets, so the column can give
+     the rest of the grid back the width a full "Colorado Avalanche" needed. */
+  min-width: 6.75rem;
   background: var(--bg-elevated);
 }
 
