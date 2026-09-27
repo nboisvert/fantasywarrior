@@ -213,7 +213,23 @@
    Same .top-card shell as the sections above, no stat block: an injury has
    no scoring number to headline, so the photo ring carries the one fact
    that matters instead — rose for hurt, slate for suspended, same colours
-   PlayerCard/Stats already use for the same split. */
+   PlayerCard/Stats already use for the same split.
+
+   No card frame here, unlike its siblings (Nick, 2026-09-27: "on va sauver
+   beaucoup de place") — border and background dropped, padding cut to just
+   enough breathing room; the ring and the lift-on-hover (still inherited
+   from .top-card:hover) carry the tile's edges instead of a drawn box. */
+.injury-card {
+  border-color: transparent;
+  background: none;
+  padding: 0.3rem 0.2rem 0.2rem;
+}
+
+.injury-card:hover {
+  border-color: transparent;
+  background: none;
+}
+
 .injury-card .top-card-headshot {
   border-color: rgba(244, 63, 94, 0.6);
   box-shadow: 0 0 16px rgba(244, 63, 94, 0.35);
@@ -233,8 +249,6 @@
 }
 
 .injury-card-inert:hover {
-  border-color: var(--border);
-  background: var(--surface);
   transform: none;
 }
 
