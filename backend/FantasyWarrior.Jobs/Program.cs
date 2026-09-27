@@ -129,14 +129,16 @@ using System.Text.Json;
 //     unless League.Season already equals the file's season (season-phase
 //     --to InSeason) and that season's period calendar already exists
 //     (season-init, period-init).
-//   set-optimal-lineup [--league TKW6UR] [--week 1] [--stats-season] [--dry-run]
-//     Sets one week's active lineup for every team to the best F/D/G split
-//     available under the league's own scoring scale, ranked on a prior
-//     season's totals (--stats-season, default: the season before League.
-//     Season). For opening a season nobody has set a real lineup for yet.
-//     Updates RosterAssignments.IsActive for spots that already have a row for
-//     the period (seed-mordus/reset-mordus-rosters both create one per spot);
-//     creates one for any that don't. Never touches the Équipe (`T`) spot.
+//   set-optimal-lineup [--league TKW6UR] [--week 1] [--stats-season] [--team username] [--dry-run]
+//     Sets one week's active lineup for every team (or just --team's, for
+//     correcting one GM's lineup without touching the rest of the league) to
+//     the best F/D/G split available under the league's own scoring scale,
+//     ranked on a prior season's totals (--stats-season, default: the season
+//     before League.Season). For opening a season nobody has set a real
+//     lineup for yet. Updates RosterAssignments.IsActive for spots that
+//     already have a row for the period (seed-mordus/reset-mordus-rosters
+//     both create one per spot); creates one for any that don't. Never
+//     touches the Équipe (`T`) spot.
 //   dump-mordus-rosters [--file data/mordus-2026-27-seed.json]
 //     Writes Les Mordus's current roster spots out in seed-mordus's own file
 //     shape (resolved playerIds, not names) -- for rebuilding via seed-mordus
@@ -608,7 +610,8 @@ switch (job)
             periodNumber: int.TryParse(GetOption(args, "--week"), out var wk) ? wk : 1,
             statsSeason: GetOption(args, "--stats-season")
                 ?? Season.Previous(league?.Season ?? await CurrentSeasonAsync(db)),
-            dryRun: dryRun);
+            dryRun: dryRun,
+            teamUsername: GetOption(args, "--team"));
     }
 
     case "dump-mordus-rosters":

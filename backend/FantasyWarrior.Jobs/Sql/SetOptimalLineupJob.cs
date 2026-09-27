@@ -21,7 +21,8 @@ namespace FantasyWarrior.Jobs.Sql;
 public sealed class SetOptimalLineupJob(FantasyWarriorDbContext db)
 {
     public async Task<int> RunAsync(
-        string leagueCode, int periodNumber, string statsSeason, bool dryRun, CancellationToken ct = default)
+        string leagueCode, int periodNumber, string statsSeason, bool dryRun,
+        string? teamUsername = null, CancellationToken ct = default)
     {
         var league = await db.Leagues.FirstOrDefaultAsync(l => l.JoinCode == leagueCode, ct);
         if (league is null) { Console.Error.WriteLine($"No league with join code {leagueCode}."); return 1; }
@@ -58,6 +59,13 @@ public sealed class SetOptimalLineupJob(FantasyWarriorDbContext db)
 
         var teams = await db.Teams.Where(t => t.LeagueId == league.LeagueId)
             .Select(t => new { t.TeamId, t.Name, Username = t.Owner!.Username }).ToListAsync(ct);
+        if (teamUsername is not null)
+            teams = teams.Where(t => string.Equals(t.Username, teamUsername, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (teamUsername is not null && teams.Count == 0)
+        {
+            Console.Error.WriteLine($"No team owned by '{teamUsername}' in {league.Name}.");
+            return 1;
+        }
 
         var existing = (await db.RosterAssignments
             .Where(a => a.PeriodId == period.PeriodId && a.RosterSpot!.LeagueId == league.LeagueId)
