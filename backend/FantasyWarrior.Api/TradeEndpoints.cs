@@ -682,6 +682,197 @@ public static class TradeEndpoints
                 cockcoinBalance,
             });
         });
+
+        // Commissioner: record a trade two GMs already agreed to somewhere
+        // outside the app (a phone call, a league group chat, a Facebook
+        // "trade machine" post) and land it immediately, the way an in-app
+        // acceptance does. Skips the cap/roster-size checks propose/accept
+        // enforce — those exist to stop a GM from proposing something illegal,
+        // not to second-guess something already settled that two real people
+        // will sort out themselves. Still refuses an asset that doesn't
+        // actually belong to the side it's claimed from: a typo is a bug, not
+        // an agreed trade.
+        app.MapPost("/api/leagues/{leagueId}/trades/sync", async (
+            string leagueId, SyncTradeRequest req, FantasyWarriorDbContext db, SimulationClockService clock) =>
+        {
+            var guard = await CommissionerAsync(db, leagueId, req.Username, "sync a trade");
+            if (guard.Error is not null) return guard.Error;
+            var league = guard.League!;
+
+            var proposer = Queries.Normalize(req.ProposerUsername ?? "");
+            var counterparty = Queries.Normalize(req.CounterpartyUsername ?? "");
+            if (proposer.Length == 0 || counterparty.Length == 0 || proposer == counterparty)
+                return Results.BadRequest(new { error = "proposerUsername and counterpartyUsername are required and must differ." });
+
+            var proposerTeam = await Queries.TeamAsync(db, league.LeagueId, proposer);
+            var counterpartyTeam = await Queries.TeamAsync(db, league.LeagueId, counterparty);
+            if (proposerTeam is null || counterpartyTeam is null)
+                return Results.NotFound(new { error = "Team not found." });
+
+            var playersFromProposer = req.PlayersFromProposer ?? [];
+            var playersFromCounterparty = req.PlayersFromCounterparty ?? [];
+            var picksFromProposer = req.PicksFromProposer ?? [];
+            var picksFromCounterparty = req.PicksFromCounterparty ?? [];
+            if (playersFromProposer.Count + playersFromCounterparty.Count
+                + picksFromProposer.Count + picksFromCounterparty.Count == 0)
+                return Results.BadRequest(new { error = "Trade must include at least one player or pick." });
+
+            var held = await db.RosterSpots
+                .Where(s => s.LeagueId == league.LeagueId && s.EndDate == null && s.PlayerId != null)
+                .Select(s => new { s.TeamId, s.PlayerId })
+                .ToListAsync();
+            var proposerHas = held.Where(h => h.TeamId == proposerTeam.TeamId).Select(h => h.PlayerId!.Value).ToHashSet();
+            var counterpartyHas = held.Where(h => h.TeamId == counterpartyTeam.TeamId).Select(h => h.PlayerId!.Value).ToHashSet();
+            var badPlayers = playersFromProposer.Where(id => !proposerHas.Contains(id))
+                .Concat(playersFromCounterparty.Where(id => !counterpartyHas.Contains(id))).ToList();
+            if (badPlayers.Count > 0)
+                return Results.BadRequest(new { error = $"Not on the claimed team's roster: {string.Join(", ", badPlayers)}." });
+
+            var pickIds = picksFromProposer.Concat(picksFromCounterparty).ToList();
+            var picks = pickIds.Count == 0
+                ? []
+                : await db.DraftPicks.Where(p => p.LeagueId == league.LeagueId && pickIds.Contains(p.DraftPickId)).ToListAsync();
+            var badPicks = new List<int>();
+            foreach (var (ids, teamId) in new[] { (picksFromProposer, proposerTeam.TeamId), (picksFromCounterparty, counterpartyTeam.TeamId) })
+                foreach (var id in ids)
+                {
+                    var pick = picks.FirstOrDefault(p => p.DraftPickId == id);
+                    if (pick is null || pick.CurrentTeamId != teamId || pick.UsedUtc is not null) badPicks.Add(id);
+                }
+            if (badPicks.Count > 0)
+                return Results.BadRequest(new { error = $"Not the claimed team's to trade: pick(s) {string.Join(", ", badPicks)}." });
+
+            var periods = await db.Periods.Where(p => p.Season == league.Season)
+                .Select(p => new PeriodSpan(p.Number, p.StartDate, p.EndDate)).ToListAsync();
+            var effectiveDate = TradeSchedule.NextPeriodStart(periods, await clock.TodayEtAsync());
+            if (effectiveDate is not { } effective)
+                return Results.Conflict(new { error = "The season has no week left for this trade to take effect in." });
+            var nextPeriod = await db.Periods.FirstAsync(p => p.Season == league.Season && p.StartDate == effective);
+
+            var trade = new Trade
+            {
+                LeagueId = league.LeagueId,
+                ProposerTeamId = proposerTeam.TeamId,
+                CounterpartyTeamId = counterpartyTeam.TeamId,
+                Status = TradeStatus.Accepted,
+                CreatedUtc = DateTime.UtcNow,
+                RespondedUtc = DateTime.UtcNow,
+                EffectiveDate = effective,
+            };
+            db.Trades.Add(trade);
+            foreach (var id in playersFromProposer)
+                db.TradeAssets.Add(new TradeAsset
+                {
+                    Trade = trade, FromTeamId = proposerTeam.TeamId, ToTeamId = counterpartyTeam.TeamId,
+                    AssetType = TradeAssetType.Player, PlayerId = id,
+                });
+            foreach (var id in playersFromCounterparty)
+                db.TradeAssets.Add(new TradeAsset
+                {
+                    Trade = trade, FromTeamId = counterpartyTeam.TeamId, ToTeamId = proposerTeam.TeamId,
+                    AssetType = TradeAssetType.Player, PlayerId = id,
+                });
+            foreach (var id in picksFromProposer)
+                db.TradeAssets.Add(new TradeAsset
+                {
+                    Trade = trade, FromTeamId = proposerTeam.TeamId, ToTeamId = counterpartyTeam.TeamId,
+                    AssetType = TradeAssetType.DraftPick, DraftPickId = id,
+                });
+            foreach (var id in picksFromCounterparty)
+                db.TradeAssets.Add(new TradeAsset
+                {
+                    Trade = trade, FromTeamId = counterpartyTeam.TeamId, ToTeamId = proposerTeam.TeamId,
+                    AssetType = TradeAssetType.DraftPick, DraftPickId = id,
+                });
+
+            var strategy = db.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                await using var tx = await db.Database.BeginTransactionAsync();
+                // trade.Assets is already populated by EF's navigation fixup —
+                // every asset above was added in this same batch with its
+                // Trade reference set.
+                await TradeExecution.ApplyAsync(db, trade, effective, nextPeriod);
+                await db.SaveChangesAsync();
+                await tx.CommitAsync();
+            });
+
+            return Results.Ok(new { ok = true, tradeId = trade.TradeId, effectiveDate = effective, periodIndex = nextPeriod.Number });
+        });
+
+        // Commissioner: undo one synced-or-accepted trade — the counterpart to
+        // /sync above. Reopens the spots it closed, deletes the spots (and any
+        // lineup rows already written against them) it opened, restores traded
+        // picks, deletes the trade. Refuses if a spot it opened already has a
+        // banked week: that can never move, synced trade or not.
+        app.MapPost("/api/leagues/{leagueId}/trades/{tradeId}/unsync", async (
+            string leagueId, string tradeId, SyncTradeUsernameRequest req, FantasyWarriorDbContext db) =>
+        {
+            var guard = await CommissionerAsync(db, leagueId, req.Username, "unsync a trade");
+            if (guard.Error is not null) return guard.Error;
+            var league = guard.League!;
+
+            if (!int.TryParse(tradeId, out var id)) return Results.NotFound(new { error = "Trade not found." });
+            var trade = await db.Trades.Include(t => t.Assets).Include(t => t.Votes)
+                .FirstOrDefaultAsync(t => t.TradeId == id && t.LeagueId == league.LeagueId);
+            if (trade is null) return Results.NotFound(new { error = "Trade not found." });
+            if (trade.Status is TradeStatus.Pending or TradeStatus.Declined or TradeStatus.Cancelled)
+                return Results.BadRequest(new { error = "Nothing executed for this trade yet — decline or cancel it instead." });
+
+            var opened = await db.RosterSpots.Where(s => s.StartTradeId == id).ToListAsync();
+            var closed = await db.RosterSpots.Where(s => s.EndTradeId == id).ToListAsync();
+            var openedAssignments = await db.RosterAssignments
+                .Where(a => opened.Select(s => s.RosterSpotId).Contains(a.RosterSpotId))
+                .ToListAsync();
+            if (openedAssignments.Any(a => a.IsFinalized))
+                return Results.Conflict(new
+                {
+                    error = "A banked week already exists on a spot this trade opened — a trade can never move history.",
+                });
+
+            var pickAssets = trade.Assets.Where(a => a.AssetType == TradeAssetType.DraftPick).ToList();
+            var picks = pickAssets.Count == 0
+                ? []
+                : await db.DraftPicks.Where(p => pickAssets.Select(a => a.DraftPickId).Contains(p.DraftPickId)).ToListAsync();
+            var movedSince = pickAssets.Where(a => picks.First(p => p.DraftPickId == a.DraftPickId).CurrentTeamId != a.ToTeamId).ToList();
+            if (movedSince.Count > 0)
+                return Results.Conflict(new
+                {
+                    error = $"Pick {movedSince[0].DraftPickId} moved again since this trade — unsync that trade first.",
+                });
+
+            var strategy = db.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                await using var tx = await db.Database.BeginTransactionAsync();
+
+                // The delete has to land before the reopen, or the
+                // (LeagueId, PlayerId) unique index refuses the reopened spot
+                // while its still-open replacement is still on the table.
+                db.RosterAssignments.RemoveRange(openedAssignments);
+                db.RosterSpots.RemoveRange(opened);
+                await db.SaveChangesAsync();
+
+                foreach (var s in closed)
+                {
+                    s.EndDate = null;
+                    s.EndReason = null;
+                    s.EndTradeId = null;
+                    s.ClosedUtc = null;
+                }
+                foreach (var asset in pickAssets)
+                    picks.First(p => p.DraftPickId == asset.DraftPickId).CurrentTeamId = asset.FromTeamId;
+
+                db.TradeVotes.RemoveRange(trade.Votes);
+                db.TradeAssets.RemoveRange(trade.Assets);
+                db.Trades.Remove(trade);
+                await db.SaveChangesAsync();
+
+                await tx.CommitAsync();
+            });
+
+            return Results.Ok(new { ok = true, tradeId = id });
+        });
     }
 
     /// <summary>
@@ -690,6 +881,29 @@ public static class TradeEndpoints
     /// </summary>
     private static string? Blank(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToUpperInvariant();
+
+    /// <summary>
+    /// Same shape and reasoning as <c>DraftEndpoints.CommissionerAsync</c> —
+    /// a second, independent copy rather than a shared one, because the two
+    /// only agree on "check the commissioner", not on which league concept
+    /// they're guarding; <paramref name="action"/> is what makes the refusal
+    /// message say the right thing for either.
+    /// </summary>
+    private static async Task<(League? League, IResult? Error)> CommissionerAsync(
+        FantasyWarriorDbContext db, string leagueId, string? username, string action)
+    {
+        if (string.IsNullOrWhiteSpace(username))
+            return (null, Results.BadRequest(new { error = "Username is required." }));
+
+        var league = await Queries.LeagueByCodeAsync(db, leagueId);
+        if (league is null) return (null, Results.NotFound(new { error = "League not found." }));
+
+        var commissioner = await db.Users.FindAsync(league.CommissionerUserId);
+        if (commissioner?.Username != Queries.Normalize(username))
+            return (null, Results.Json(new { error = $"Only the commissioner can {action}." }, statusCode: 403));
+
+        return (league, null);
+    }
 }
 
 public record ProposeTradeRequest(
@@ -702,3 +916,8 @@ public record ProposeTradeRequest(
     string? FranchiseFromProposer = null, string? FranchiseFromCounterparty = null);
 public record RespondTradeRequest(string? Username, bool Accept);
 public record VoteTradeRequest(string? Username, string? FavoredUsername);
+public record SyncTradeRequest(
+    string? Username, string? ProposerUsername, string? CounterpartyUsername,
+    List<long>? PlayersFromProposer, List<long>? PlayersFromCounterparty,
+    List<int>? PicksFromProposer = null, List<int>? PicksFromCounterparty = null);
+public record SyncTradeUsernameRequest(string? Username);
