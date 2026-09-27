@@ -145,7 +145,7 @@ using System.Text.Json;
 //     any traded picks, deletes the trade. Refuses if a spot the trade opened
 //     already has a banked (finalized) week — that can never move. Not a
 //     feature the app exposes; a correction for a trade a GM wants taken back.
-//   assign-picks [--league TKW6UR] --year 2027 --file path.json [--dry-run]
+//   assign-picks [--league TKW6UR] --year 2027 [--file data/picks-2027.json] [--dry-run]
 //     Reassigns a batch of already-initialized picks (draft-picks-init must
 //     run first) from a JSON file of [{round, originalAbbrev, ownerUsername}]
 //     — the exceptions to "everyone still holds their own", reconciled by
@@ -648,10 +648,10 @@ switch (job)
     {
         await using var db = DataServiceCollectionExtensions.CreateContext();
         var leagueCode = GetOption(args, "--league") ?? "TKW6UR";
-        var file = GetOption(args, "--file");
-        if (!int.TryParse(GetOption(args, "--year"), out var pickYear) || file is null)
+        var file = GetOption(args, "--file") ?? "data/picks-2027.json";
+        if (!int.TryParse(GetOption(args, "--year"), out var pickYear))
         {
-            Console.Error.WriteLine("assign-picks requires --year <YYYY> and --file <path>.");
+            Console.Error.WriteLine("assign-picks requires --year <YYYY>.");
             return 1;
         }
         return await new AssignPicksJob(db).RunAsync(leagueCode, pickYear, file, dryRun);

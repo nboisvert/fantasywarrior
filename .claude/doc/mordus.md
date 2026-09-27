@@ -90,6 +90,22 @@ games: measured at the skaters' bar he would stay untouchable twice as long. Wit
 9 slots on an average roster of 29 and auto-protection not counted, a GM still
 exposes a good half of his depth — the league's number, not a comfort setting.
 
+### 2027 draft-pick ownership
+
+Seeded from Nick's own spreadsheet (2026-09-23), reconciled by hand rather
+than replayed trade by trade — `data/picks-2027.json` holds the 20 picks
+that had changed hands, applied over `draft-picks-init`'s default of
+everyone holding their own. Two entries in that spreadsheet don't resolve
+cleanly and are left at the default (each team holding its own pick) until
+Nick confirms otherwise:
+
+- **Los Angeles' 2027 2nd round pick** is claimed by two tabs — Los
+  Angeles' own (still held) and San Jose's ("Choix 2e tour L-A 2027",
+  acquired). The app treats it as still Los Angeles'.
+- **Toronto's 2027 2nd round pick** appears on no tab at all — not
+  Toronto's own (which lists only its 1st and 3rd) and not anyone else's.
+  The app treats it as still Toronto's.
+
 ## The Équipe slot (`T`)
 
 The PDF gives every participant an `E` line holding his own NHL franchise, at $0

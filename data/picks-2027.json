@@ -1,0 +1,22 @@
+[
+  {"round": 2, "originalAbbrev": "CAR", "ownerUsername": "dany"},
+  {"round": 3, "originalAbbrev": "CAR", "ownerUsername": "yvan"},
+  {"round": 1, "originalAbbrev": "COL", "ownerUsername": "eric"},
+  {"round": 2, "originalAbbrev": "COL", "ownerUsername": "alain"},
+  {"round": 1, "originalAbbrev": "DAL", "ownerUsername": "antoine"},
+  {"round": 3, "originalAbbrev": "DAL", "ownerUsername": "antoine"},
+  {"round": 2, "originalAbbrev": "MTL", "ownerUsername": "jonathanr"},
+  {"round": 3, "originalAbbrev": "MTL", "ownerUsername": "mathieu"},
+  {"round": 1, "originalAbbrev": "MIN", "ownerUsername": "antoine"},
+  {"round": 2, "originalAbbrev": "MIN", "ownerUsername": "yvan"},
+  {"round": 3, "originalAbbrev": "MIN", "ownerUsername": "mathieu"},
+  {"round": 1, "originalAbbrev": "NJD", "ownerUsername": "antoine"},
+  {"round": 2, "originalAbbrev": "NJD", "ownerUsername": "yvan"},
+  {"round": 1, "originalAbbrev": "SJS", "ownerUsername": "antoine"},
+  {"round": 2, "originalAbbrev": "SJS", "ownerUsername": "jonathanr"},
+  {"round": 3, "originalAbbrev": "SJS", "ownerUsername": "dany"},
+  {"round": 1, "originalAbbrev": "TOR", "ownerUsername": "eric"},
+  {"round": 3, "originalAbbrev": "TOR", "ownerUsername": "yvan"},
+  {"round": 1, "originalAbbrev": "VGK", "ownerUsername": "antoine"},
+  {"round": 2, "originalAbbrev": "VGK", "ownerUsername": "yvan"}
+]
