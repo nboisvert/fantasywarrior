@@ -8,8 +8,10 @@
 
 import { useEffect, useState } from "react";
 import { api, formatCapCompact } from "../api";
-import type { LeagueDetail, LineupEntry } from "../api";
+import type { LeagueDetail, LineupEntry, RosterPlayer } from "../api";
 import { ActivityIcon, UsersIcon } from "../components/Icons";
+import { InjuryGrid } from "../components/InjuryGrid";
+import type { InjuryCard } from "../components/InjuryGrid";
 import { PlayerCard } from "../components/PlayerCard";
 import { TopPlayerGrid } from "../components/TopPlayerGrid";
 import type { TopPlayerCard } from "../components/TopPlayerGrid";
@@ -137,12 +139,68 @@ export function Dashboard({ league, username }: { league: LeagueDetail; username
         </p>
       </div>
 
+      <InjuryReport roster={league.myRoster} />
       <TopReserve league={league} username={username} onOpenPlayer={setOpenPlayerId} />
       <TopFreeAgents league={league} onOpenPlayer={setOpenPlayerId} />
 
       {openPlayerId != null && <PlayerCard playerId={openPlayerId} leagueId={league.id} onClose={() => setOpenPlayerId(null)} />}
     </section>
   );
+}
+
+/** The sources that ARE the injury lists (integrations.md) — filtering a
+ * player's news to these two is how this finds the article that actually
+ * reported his current PlayerInjury, rather than just his newest headline. */
+const INJURY_NEWS_SOURCES = new Set(["rotowire_html", "fantasysp"]);
+
+function isUnavailable(p: RosterPlayer): p is RosterPlayer & { injuryStatus: "Injured" | "Suspended" } {
+  return p.injuryStatus != null;
+}
+
+/** Hidden entirely with a clean bill of health (InjuryGrid itself renders
+ * null on an empty list) — one fetch per injured/suspended roster player,
+ * since the roster endpoint already carries the status/type but not the
+ * article behind it. Small roster, rarely more than a couple hurt at once,
+ * so parallel per-player fetches beat standing up a batch endpoint for it. */
+function InjuryReport({ roster }: { roster: RosterPlayer[] }) {
+  const { t } = useLanguage();
+  const [cards, setCards] = useState<InjuryCard[] | null>(null);
+
+  useEffect(() => {
+    const injured = roster.filter(isUnavailable);
+    if (injured.length === 0) {
+      setCards([]);
+      return;
+    }
+    let ignore = false;
+    Promise.all(
+      injured.map((p) =>
+        api
+          .playerNews(p.id)
+          .then((rows) => ({ player: p, rows }))
+          .catch(() => ({ player: p, rows: [] })),
+      ),
+    ).then((results) => {
+      if (ignore) return;
+      setCards(
+        results.map(({ player, rows }): InjuryCard => ({
+          playerId: player.id,
+          name: player.name,
+          team: player.team,
+          headshotUrl: player.headshotUrl,
+          status: player.injuryStatus,
+          injuryType: player.injuryType,
+          articleUrl: rows.find((r) => INJURY_NEWS_SOURCES.has(r.source))?.url ?? null,
+        })),
+      );
+    });
+    return () => {
+      ignore = true;
+    };
+  }, [roster]);
+
+  if (cards === null) return null;
+  return <InjuryGrid title={t("dashboard.injuryReport")} cards={cards} />;
 }
 
 /** The two completed weeks behind the one being played, most recent last.

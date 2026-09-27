@@ -59,7 +59,7 @@ export interface Engageable {
   engaged?: boolean;
 }
 
-export interface RosterPlayer extends PlayerDto, Engageable {
+export interface RosterPlayer extends PlayerDto, Engageable, InjuryFields {
   /** Fantasy points banked for this team. */
   points: number;
   nhlPoints: number;
@@ -668,6 +668,20 @@ export interface NewsArticle {
   publishedUtc: string;
 }
 
+/** One item from GET /api/players/{id}/news, newest first — every source, not
+ * just the injury lists. `rotowire_html`/`fantasysp` are the injury lists
+ * themselves (see NewsArticle's own source union), so filtering to those two
+ * is how a caller finds the article that actually explains a current
+ * PlayerInjury rather than just the newest headline about the player. */
+export interface PlayerNewsItem {
+  id: string;
+  source: "rotowire_rss" | "rotowire_html" | "fantasysp";
+  headline: string;
+  body: string | null;
+  url: string | null;
+  publishedUtc: string;
+}
+
 export interface TradePlayer {
   id: number;
   name: string;
@@ -815,6 +829,10 @@ export const api = {
     request<LeagueSeasonSummary[]>(`/api/leagues/${encodeURIComponent(leagueId)}/seasons`),
   news: (limit = 30) =>
     request<NewsArticle[]>(`/api/news?limit=${encodeURIComponent(String(limit))}`),
+  playerNews: (playerId: number, limit = 10) =>
+    request<PlayerNewsItem[]>(
+      `/api/players/${playerId}/news?limit=${encodeURIComponent(String(limit))}`,
+    ),
   updateRules: (leagueId: string, username: string, ruleSet: RuleSet) =>
     request<{ ok: boolean; season: string; unsupported: RuleGap[] }>(`/api/leagues/${encodeURIComponent(leagueId)}/rules`, {
       method: "PATCH",

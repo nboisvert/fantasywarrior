@@ -401,6 +401,12 @@ public static class LeagueEndpoints
                         points = pointsByPlayer.GetValueOrDefault(p.PlayerId),
                         nhlPoints = nhlPoints.GetValueOrDefault(p.PlayerId.ToString()),
                         engaged = engagedPlayers.Contains(p.PlayerId),
+                        // Same `injuries` lookup the team-count column above
+                        // already built for this league — the GM Office
+                        // Injury Report reads it per player instead of rolled
+                        // up to a count.
+                        injuryStatus = injuries.TryGetValue(p.PlayerId, out var inj) ? inj.Status : null,
+                        injuryType = inj?.InjuryType,
                     })
                     .OrderByDescending(x => x.points)
                     .Cast<object>()];

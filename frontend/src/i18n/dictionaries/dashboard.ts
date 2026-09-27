@@ -12,6 +12,7 @@ export const en = {
   weekPoints: (v: { index: number | string; points: number | string }) =>
     `Week ${v.index}: +${v.points} pts`,
   benchedSuffix: (v: { count: number | string }) => `, ${v.count} benched`,
+  injuryReport: "Injury Report",
   topReserve: "Top Reserve",
   topFreeAgents: "Top Free Agents",
   lastTwoWeeks: "last 2 weeks",
@@ -35,6 +36,7 @@ export const fr = {
   weekPoints: (v: { index: number | string; points: number | string }) =>
     `Semaine ${v.index} : +${v.points} pts`,
   benchedSuffix: (v: { count: number | string }) => `, ${v.count} au banc`,
+  injuryReport: "Rapport médical",
   topReserve: "Top réserve",
   topFreeAgents: "Top joueurs autonomes",
   lastTwoWeeks: "2 dernières semaines",
