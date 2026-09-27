@@ -23,6 +23,14 @@ public sealed class ForceTradeJob(FantasyWarriorDbContext db)
     public async Task<int> RunAsync(
         string leagueCode, string proposerUsername, string counterpartyUsername,
         List<long> playersFromProposer, List<long> playersFromCounterparty,
+        DateOnly today, bool dryRun, CancellationToken ct = default) =>
+        await RunAsync(leagueCode, proposerUsername, counterpartyUsername,
+            playersFromProposer, playersFromCounterparty, [], [], today, dryRun, ct);
+
+    public async Task<int> RunAsync(
+        string leagueCode, string proposerUsername, string counterpartyUsername,
+        List<long> playersFromProposer, List<long> playersFromCounterparty,
+        List<int> picksFromProposer, List<int> picksFromCounterparty,
         DateOnly today, bool dryRun, CancellationToken ct = default)
     {
         var league = await db.Leagues.FirstOrDefaultAsync(l => l.JoinCode == leagueCode, ct);
@@ -60,6 +68,25 @@ public sealed class ForceTradeJob(FantasyWarriorDbContext db)
             .Where(p => playersFromProposer.Concat(playersFromCounterparty).Contains(p.PlayerId))
             .ToDictionaryAsync(p => p.PlayerId, p => p.FullName, ct);
 
+        var pickIds = picksFromProposer.Concat(picksFromCounterparty).ToList();
+        var picks = pickIds.Count == 0
+            ? []
+            : await db.DraftPicks.Where(p => pickIds.Contains(p.DraftPickId)).ToListAsync(ct);
+        var badPicks = new List<string>();
+        foreach (var (ids, teamId, whose) in new[]
+                 { (picksFromProposer, proposerTeam.TeamId, proposerUsername), (picksFromCounterparty, counterpartyTeam.TeamId, counterpartyUsername) })
+            foreach (var id in ids)
+            {
+                var pick = picks.FirstOrDefault(p => p.DraftPickId == id);
+                if (pick is null || pick.CurrentTeamId != teamId || pick.UsedUtc is not null)
+                    badPicks.Add($"pick {id} is not currently {whose}'s to trade");
+            }
+        if (badPicks.Count > 0)
+        {
+            foreach (var b in badPicks) Console.Error.WriteLine(b);
+            return 1;
+        }
+
         var periods = await db.Periods.Where(p => p.Season == league.Season)
             .Select(p => new PeriodSpan(p.Number, p.StartDate, p.EndDate)).ToListAsync(ct);
         var effectiveDate = TradeSchedule.NextPeriodStart(periods, today);
@@ -73,8 +100,13 @@ public sealed class ForceTradeJob(FantasyWarriorDbContext db)
         Console.WriteLine($"=== force-trade{(dryRun ? "  [DRY RUN]" : "")}  {league.Name} ===");
         Console.WriteLine($"{proposerUsername} ({proposerTeam.Name}) <-> {counterpartyUsername} ({counterpartyTeam.Name}), "
             + $"effective {effective:yyyy-MM-dd} (week {nextPeriod.Number})");
-        Console.WriteLine($"  {proposerUsername} sends: {string.Join(", ", playersFromProposer.Select(id => players.GetValueOrDefault(id, id.ToString())))}");
-        Console.WriteLine($"  {counterpartyUsername} sends: {string.Join(", ", playersFromCounterparty.Select(id => players.GetValueOrDefault(id, id.ToString())))}");
+        string PickLabel(int id)
+        {
+            var p = picks.First(x => x.DraftPickId == id);
+            return $"{p.Year} rd {p.Round} pick (#{id})";
+        }
+        Console.WriteLine($"  {proposerUsername} sends: {string.Join(", ", playersFromProposer.Select(id => players.GetValueOrDefault(id, id.ToString())).Concat(picksFromProposer.Select(PickLabel)))}");
+        Console.WriteLine($"  {counterpartyUsername} sends: {string.Join(", ", playersFromCounterparty.Select(id => players.GetValueOrDefault(id, id.ToString())).Concat(picksFromCounterparty.Select(PickLabel)))}");
         Console.WriteLine("  (cap and roster-size limits NOT checked — bypassed by design)");
 
         if (dryRun) { Console.WriteLine("\n[DRY RUN] Nothing written."); return 0; }
@@ -102,6 +134,18 @@ public sealed class ForceTradeJob(FantasyWarriorDbContext db)
             {
                 Trade = trade, FromTeamId = counterpartyTeam.TeamId, ToTeamId = proposerTeam.TeamId,
                 AssetType = TradeAssetType.Player, PlayerId = id,
+            });
+        foreach (var id in picksFromProposer)
+            db.TradeAssets.Add(new TradeAsset
+            {
+                Trade = trade, FromTeamId = proposerTeam.TeamId, ToTeamId = counterpartyTeam.TeamId,
+                AssetType = TradeAssetType.DraftPick, DraftPickId = id,
+            });
+        foreach (var id in picksFromCounterparty)
+            db.TradeAssets.Add(new TradeAsset
+            {
+                Trade = trade, FromTeamId = counterpartyTeam.TeamId, ToTeamId = proposerTeam.TeamId,
+                AssetType = TradeAssetType.DraftPick, DraftPickId = id,
             });
 
         var strategy = db.Database.CreateExecutionStrategy();

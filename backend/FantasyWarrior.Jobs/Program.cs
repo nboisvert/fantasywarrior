@@ -152,11 +152,12 @@ using System.Text.Json;
 //     hand against a source outside the app. A pick not listed is left alone.
 //
 //   force-trade [--league TKW6UR] --proposer u1 --counterparty u2
-//               --from-proposer id,id --from-counterparty id,id [--dry-run]
-//     Enters and executes a player-for-player trade two GMs already agreed to
-//     outside the app, skipping cap/roster-size validation (still checks each
-//     side actually holds what it's offering). Effective the same way an
-//     in-app acceptance is — the start of the next period.
+//               --from-proposer id,id --from-counterparty id,id
+//               [--picks-from-proposer pickId,pickId] [--picks-from-counterparty pickId,pickId] [--dry-run]
+//     Enters and executes a trade (players and/or draft picks) two GMs
+//     already agreed to outside the app, skipping cap/roster-size validation
+//     (still checks each side actually holds what it's offering). Effective
+//     the same way an in-app acceptance is — the start of the next period.
 //   dump-mordus-rosters [--file data/mordus-2026-27-seed.json]
 //     Writes Les Mordus's current roster spots out in seed-mordus's own file
 //     shape (resolved playerIds, not names) -- for rebuilding via seed-mordus
@@ -671,10 +672,14 @@ switch (job)
         List<long> ParseIds(string? opt) =>
             (opt ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .Select(long.Parse).ToList();
+        List<int> ParsePickIds(string? opt) =>
+            (opt ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(int.Parse).ToList();
         var today = PoolClock.TodayEt(await new SimulationClockService(db).NowAsync());
         return await new ForceTradeJob(db).RunAsync(
             leagueCode, proposer, counterparty,
             ParseIds(GetOption(args, "--from-proposer")), ParseIds(GetOption(args, "--from-counterparty")),
+            ParsePickIds(GetOption(args, "--picks-from-proposer")), ParsePickIds(GetOption(args, "--picks-from-counterparty")),
             today, dryRun);
     }
 
