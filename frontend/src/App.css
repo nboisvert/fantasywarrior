@@ -1400,39 +1400,70 @@
   background: var(--bg-elevated);
 }
 
+/* Considerably tighter than the grid's shared 0.5rem (2026-09-26, per Nick,
+   same cut as .stats-col-player on the Team grid): minimal dead space
+   before the rank blazon, which narrows the whole identity column. Needs
+   `.standings-grid td`'s own tag-plus-class specificity to actually win — a
+   bare `.standings-col-team` rule loses that fight regardless of source
+   order. */
+.standings-grid td.standings-col-team,
+.standings-grid th.standings-col-team {
+  padding-left: 0.15rem;
+}
+
 /* The flex layout lives on this inner wrapper, never on the <td> itself — a
    flex <td> under border-collapse fights the row's own height sync with its
    siblings (the exact trap .stats-col-player's own comment documents). */
 .standings-col-team-inner {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  /* Tightened the same way .stats-col-player-inner was on the Team grid
+     (2026-09-26, per Nick): less dead space between the rank, the name and
+     the calendar button narrows the whole identity column and leaves more
+     room for the stat columns. */
+  gap: 0.25rem;
   height: 100%;
 }
 
-/* Plain rank number — no circle, no podium colours, and (2026-09-01, per
-   Nick, a second pass: it still looked mismatched with a display font)
-   no special typeface either — the same plain grid font every other
+/* Plain rank number — no circle, no podium colours, and no special typeface
+   (2026-09-01, per Nick, two passes) — the same plain grid font every other
    number in this table uses. The podium badge stays exactly as it was for
-   Palmares, which still uses it; this is a new, separate look.
-
-   Sized well past the row's own text (2026-09-01, per Nick, a third pass)
-   without growing the row: .standings-periods-btn (1.35rem/21.6px) is the
-   real height ceiling for this flex row, not the 0.82rem body text, so the
-   digit can paint far bigger than that as long as its net footprint
-   (box + margin) stays at or under 21.6px — same trick .lineup-toggle uses
-   on the Team grid (font-size 1.6rem/25.6px, line-height 1, margin -0.125rem
-   top/bottom: 25.6 - 2 - 2 = 21.6px net). `position: relative` anchors the
-   rank-change badge overlaid on top of it. */
+   Palmares, which still uses it; this is a separate look. `position:
+   relative` anchors the blazon watermark behind the digit and the
+   rank-change badge on top of it. */
 .standings-rank-plain {
   position: relative;
   flex-shrink: 0;
-  width: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
   color: var(--text-muted);
   font-weight: 700;
-  font-size: 1.15rem;
+  /* Barely bigger than the grid's own 0.82rem body text (was 1.15rem — read
+     as its own display size rather than a rank, per Nick). */
+  font-size: 0.92rem;
   line-height: 1;
-  text-align: left;
+}
+
+/* Shield watermark behind the rank digit — same glyph and stroke family as
+   JerseyIcon/JerseyOutlineIcon in Team, just low-opacity and centered rather
+   than drawn as a full-size icon. Neutral on every row, no podium tint: the
+   digit above still carries the "no colour, no chip" rule untouched. */
+.standings-rank-blazon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--text-muted);
+  opacity: 0.16;
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+.standings-rank-digit {
+  position: relative;
+  z-index: 1;
 }
 
 .standings-team-btn {

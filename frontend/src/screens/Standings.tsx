@@ -2,7 +2,7 @@ import { Fragment, useState } from "react";
 import type { ReactNode } from "react";
 import { api, formatCapCompact, teamCityOr } from "../api";
 import type { LeagueDetail, TeamDto, TeamPeriodRow } from "../api";
-import { ArrowDownIcon, ArrowUpIcon, CalendarIcon, ChevronDownIcon, CrossIcon, FlameIcon, TrophyIcon } from "../components/Icons";
+import { ArrowDownIcon, ArrowUpIcon, CalendarIcon, ChevronDownIcon, CrossIcon, FlameIcon, ShieldIcon, TrophyIcon } from "../components/Icons";
 import { useLanguage } from "../i18n/LanguageContext";
 
 /** The rank-movement indicator, now a corner badge on the rank digit itself
@@ -281,7 +281,8 @@ export function Standings({
                     <td className="standings-col-team">
                       <div className="standings-col-team-inner">
                         <span className="standings-rank-plain">
-                          {team.rank}
+                          <ShieldIcon size={22} className="standings-rank-blazon" />
+                          <span className="standings-rank-digit">{team.rank}</span>
                           <RankChangeBadge change={team.rankChange} />
                         </span>
                         <button
