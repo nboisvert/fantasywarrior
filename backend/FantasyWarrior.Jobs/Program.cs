@@ -139,6 +139,12 @@ using System.Text.Json;
 //     already have a row for the period (seed-mordus/reset-mordus-rosters
 //     both create one per spot); creates one for any that don't. Never
 //     touches the Équipe (`T`) spot.
+//   reverse-trade [--league TKW6UR] --trade-id 32 [--dry-run]
+//     Undoes one accepted/processed trade: reopens the spots it closed,
+//     deletes the spots (and their RosterAssignment rows) it opened, restores
+//     any traded picks, deletes the trade. Refuses if a spot the trade opened
+//     already has a banked (finalized) week — that can never move. Not a
+//     feature the app exposes; a correction for a trade a GM wants taken back.
 //   dump-mordus-rosters [--file data/mordus-2026-27-seed.json]
 //     Writes Les Mordus's current roster spots out in seed-mordus's own file
 //     shape (resolved playerIds, not names) -- for rebuilding via seed-mordus
@@ -612,6 +618,18 @@ switch (job)
                 ?? Season.Previous(league?.Season ?? await CurrentSeasonAsync(db)),
             dryRun: dryRun,
             teamUsername: GetOption(args, "--team"));
+    }
+
+    case "reverse-trade":
+    {
+        await using var db = DataServiceCollectionExtensions.CreateContext();
+        var leagueCode = GetOption(args, "--league") ?? "TKW6UR";
+        if (!int.TryParse(GetOption(args, "--trade-id"), out var tradeId))
+        {
+            Console.Error.WriteLine("reverse-trade requires --trade-id <id>.");
+            return 1;
+        }
+        return await new ReverseTradeJob(db).RunAsync(leagueCode, tradeId, dryRun);
     }
 
     case "dump-mordus-rosters":
