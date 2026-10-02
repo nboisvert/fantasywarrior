@@ -223,7 +223,7 @@ it is looked up on essentially every request.
 > draft were ten columns here plus a `LeagueScoringRules` table, all mutated in
 > place. They are one document per season on `LeagueSeasons.Rules` — see
 > [league-rules.md](league-rules.md) for the catalogue and
-> [mordus.md](mordus.md) for Les Mordus own values. What is left here is
+> [mordus.md](mordus.md) for Les Mordus' own. What is left here is
 > identity and membership.
 
 **`LeagueSeasons`** — `LeagueSeasonId`, LeagueId (FK cascade), Season, Number,
@@ -391,8 +391,8 @@ StolenFromTeamId (FK null), DraftPickId (FK null), MadeUtc
 
 > **Why this table rather than a derivation.** Reading the draft back out of the
 > `RosterSpots` it opened does not work: they carry `StartReason = Draft`, but
-> `SeedMordusJob` opened all 418 spots of the Mordus import with that same reason,
-> so a derivation would count 418 phantom selections before the first real one. Even
+> `seed-mordus` opens every spot of a seeded roster with that same reason, so a
+> derivation would count every seeded spot as a phantom selection. Even
 > in a clean league a steal is a **pair** of spots with no key for the event between
 > them, and the draft's order would rest on an identity column's ordering.
 >

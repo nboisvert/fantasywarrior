@@ -4,7 +4,7 @@ namespace FantasyWarrior.Core.Tests.Trades;
 
 public class TradeRulesTests
 {
-    // Les Mordus: $134M cap, 23-35 roster.
+    // A $134M cap, 23-35 roster.
     private const long Cap = 134_000_000;
     private const int Min = 23;
     private const int Max = 35;

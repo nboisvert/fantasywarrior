@@ -130,8 +130,8 @@ shared characters in the given name, keeping Zack for Zachary and Sam for Samuel
 while refusing Marcel for Mathieu. Nicknames sharing no prefix (Bill for William)
 are reported unresolved rather than guessed.
 
-⚠️ **Never hand-correct the names in `data/unresolved-players.txt`.** They are
-kept spelled the way the source wrote them, on purpose: the matcher is what
+⚠️ **Never hand-correct the names in a `player-resolve` input file.** Keep them
+spelled the way the source wrote them, on purpose: the matcher is what
 absorbs Zack for Zachary and Sandin Pellikka for Sandin-Pellikka. Tidying the
 input by hand would silently disable the only regression signal these two
 matchers give.

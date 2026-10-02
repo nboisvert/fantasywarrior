@@ -1,7 +1,9 @@
 # League rules — the catalogue
 
 > Every rule a league plays by: what it is, what it defaults to, and **where it
-> is enforced**. Les Mordus' own values are in [mordus.md](mordus.md); the schema
+> is enforced**. Les Mordus' own values are in
+> [`data/mordus-rules.json`](../../data/mordus-rules.json), explained in
+> [mordus.md](mordus.md); the schema
 > is in [data-model.md](data-model.md); how scoring works is in
 > [scoring-model.md](scoring-model.md); the off-season mechanics are in
 > [offseason.md](offseason.md).
@@ -236,8 +238,8 @@ panel in the app — which reads the whole document and sends it straight back, 
 anything it dropped would be a rule silently reset to its default. It writes to
 the season being prepared.
 
-`seed-mordus` and `clone-league` write a document as they build the season they
-create; creating a league through `POST /api/leagues` opens its first season with
+`seed-mordus` (from `data/mordus-rules.json`) and `clone-league` write a
+document as they build the season they create; creating a league through `POST /api/leagues` opens its first season with
 the defaults. A league with no `LeagueSeason` row has nowhere to keep its rules,
 so none of these may skip it.
 

@@ -8,9 +8,9 @@ namespace FantasyWarrior.Data.Entities;
 /// <b>Why this exists rather than being derived from <see cref="RosterSpot"/>.</b>
 /// The tempting shortcut is to read the draft back out of the spots it opened —
 /// they already carry <c>StartReason = Draft</c>. It does not work, and the
-/// reason is concrete: <c>SeedMordusJob</c> opened all 418 of Les Mordus' spots
-/// with exactly that reason when the league was imported. A derivation would
-/// count 418 phantom selections before the first real pick was made.
+/// reason is concrete: <c>SeedMordusJob</c> opens every seeded spot with exactly
+/// that reason. A derivation would count each one as a phantom selection
+/// before the first real pick was made.
 ///
 /// Three more reasons it would still be wrong even in a clean league: a steal is
 /// a <i>pair</i> of spots with no key for the event between them; the order of a

@@ -55,7 +55,7 @@ changelog — `git log` is, and the commit messages here are detailed on purpose
   | Schema — tables, columns, indexes, views | `data-model.md` |
   | The rule catalogue — every parameter, its default, where it is enforced | `league-rules.md` |
   | Off-season — phases, protections, draft | `offseason.md` |
-  | Les Mordus' own numbers | `mordus.md` |
+  | Les Mordus' own numbers | `data/mordus-rules.json` (explained in `mordus.md`) |
   | Jobs, commands, runbooks, deploys | `deployment.md` |
   | Colours, CSS, layout, screen conventions | `design-system.md` |
 
@@ -78,7 +78,7 @@ changelog — `git log` is, and the commit messages here are detailed on purpose
 | [offseason.md](.claude/doc/offseason.md) | What "season" means, `LeagueSeasons`, the six phases, protections, and the two-segment draft. |
 | [deployment.md](.claude/doc/deployment.md) | Infra, how to deploy, config, local dev, every job and runbook, troubleshooting. Keep it updated when infra changes. |
 | [design-system.md](.claude/doc/design-system.md) | Night Arena detail: exact colours, typography, the stats-grid traps, PWA asset regeneration. |
-| [mordus.md](.claude/doc/mordus.md) | Les Mordus: the league's own settings and vocabulary. |
+| [mordus.md](.claude/doc/mordus.md) | Les Mordus: what is particular to the league, and why. Its numbers are `data/mordus-rules.json`. |
 | [integrations.md](.claude/doc/integrations.md) | The NHL API, CapWages and the news sources — and the terms that constrain each. |
 | [testmode.md](.claude/doc/testmode.md) | Season replay. |
 | [cockman-concept.md](.claude/doc/cockman-concept.md) | The Garry Cockman / cockcoin mascot concept — a living doc, keep appending. |

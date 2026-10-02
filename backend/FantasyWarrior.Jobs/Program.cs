@@ -83,7 +83,7 @@ using System.Text.Json;
 //     after the current one. Picks exist one year ahead and only one, which is
 //     what makes "tradable a year in advance" true without a rule saying so.
 //
-//   player-resolve [--file data/unresolved-players.txt] [--dry-run]
+//   player-resolve --file <names.txt> [--dry-run]
 //     Adds players player-sync cannot see, from a list of names. An unsigned
 //     free agent is on no roster and a fresh draftee on no prospect list, so
 //     neither endpoint the roster sync reads will ever return them. Resolves
@@ -91,15 +91,14 @@ using System.Text.Json;
 //     unambiguous — the rest is reported, never guessed.
 //
 // --- league setup ---
-//   seed-mordus [--file data/mordus-rosters.json] [--season] [--commissioner]
-//               [--cap] [--floor] [--join-code] [--dry-run] [--no-opening-lineup]
-//     Creates "Les Mordus" from the rosters imported out of Nick's PoolExpert
-//     PDF. --floor sets the cap floor (Cap.Min, null by default). --join-code
+//   seed-mordus --file <rosters.json> --season-number N [--rules data/mordus-rules.json]
+//               [--season] [--commissioner] [--join-code] [--dry-run] [--no-opening-lineup]
+//     Creates "Les Mordus" from a roster file (resolved player ids) and the
+//     league's rules file, written to the new season verbatim. --join-code
 //     keeps a known code instead of drawing a random one -- for rebuilding the
 //     same league fresh (delete-league first) without stranding GMs who have
 //     the old code bookmarked. --no-opening-lineup leaves week 1 to be
-//     auto-filled, which is what the Firestore build did and the only setting
-//     under which a replay can be compared against golden-scores-preSql.json.
+//     auto-filled instead of taking the file's active/reserve split.
 //   clone-league --from <joinCode> --name <name> [--drafting] [--commissioner-only]
 //               [--protection-slots N] [--steal-rounds N] [--max-losses N] [--dry-run]
 //     Copies a league's rules and rosters into a new one -- and nothing else.
@@ -114,17 +113,16 @@ using System.Text.Json;
 //     Deletes pool data and un-banks every week. NHL reference data is
 //     untouched -- that is the expensive half to rebuild.
 //   delete-league --name <exact league name> [--delete-users [--keep-user <u>]] [--dry-run]
-//     Permanently deletes one league by name -- the same load-bearing order as
-//     seed-mordus2's own wipe (see deployment.md "Throwing a copy away"). Only
-//     for a league with no banked history (a clone/rehearsal copy, or a real
+//     Permanently deletes one league by name, in the order its foreign keys
+//     make load-bearing. Only for a league with no banked history (a clone/rehearsal copy, or a real
 //     league whose history is being deliberately discarded); nothing here
 //     un-banks a week. --delete-users also deletes every team owner's User
 //     row (and their CockcoinAwards) -- except --keep-user, and except anyone
 //     who still owns a team in a DIFFERENT league, checked again right before
 //     the delete so this can never strand an unrelated league.
-//   reset-mordus-rosters [--file data/mordus-2026-27.json] [--dry-run]
+//   reset-mordus-rosters --file <rosters.json> [--dry-run]
 //     Wipes Les Mordus's roster spots (and, by cascade, the RosterAssignments
-//     scored against them) and rebuilds them from a fresh PoolExpert export --
+//     scored against them) and rebuilds them from a roster file of names --
 //     the league, its Users, Teams, Trades and Messages are left alone. Refuses
 //     unless League.Season already equals the file's season (season-phase
 //     --to InSeason) and that season's period calendar already exists
@@ -145,7 +143,7 @@ using System.Text.Json;
 //     any traded picks, deletes the trade. Refuses if a spot the trade opened
 //     already has a banked (finalized) week — that can never move. Not a
 //     feature the app exposes; a correction for a trade a GM wants taken back.
-//   assign-picks [--league TKW6UR] --year 2027 [--file data/picks-2027.json] [--dry-run]
+//   assign-picks [--league TKW6UR] --year 2027 --file <picks.json> [--dry-run]
 //     Reassigns a batch of already-initialized picks (draft-picks-init must
 //     run first) from a JSON file of [{round, originalAbbrev, ownerUsername}]
 //     — the exceptions to "everyone still holds their own", reconciled by
@@ -158,14 +156,14 @@ using System.Text.Json;
 //     already agreed to outside the app, skipping cap/roster-size validation
 //     (still checks each side actually holds what it's offering). Effective
 //     the same way an in-app acceptance is — the start of the next period.
-//   dump-mordus-rosters [--file data/mordus-2026-27-seed.json]
+//   dump-mordus-rosters --file <out.json>
 //     Writes Les Mordus's current roster spots out in seed-mordus's own file
 //     shape (resolved playerIds, not names) -- for rebuilding via seed-mordus
 //     without re-resolving names reset-mordus-rosters already resolved once.
 //   fix-season-number --league <joinCode> --number N
 //     Corrects LeagueSeasons.Number on a league's active season -- the pool's
 //     own lifetime season count, not derivable from anything else, and easy
-//     to get wrong on a rebuild (seed-mordus defaults to 3 unless told).
+//     to get wrong by hand.
 //   injury-report [--league TKW6UR]
 //     Every currently-injured/suspended player on the league's rosters
 //     (PlayerInjuries.ResolvedUtc == null), grouped by team. Read-only.
@@ -260,7 +258,7 @@ switch (job)
         using var http = NewHttp();
         await using var db = DataServiceCollectionExtensions.CreateContext();
         return await new PlayerResolveJob(new NhlApiClient(http), db)
-            .RunAsync(GetOption(args, "--file") ?? "data/unresolved-players.txt", dryRun);
+            .RunAsync(GetOption(args, "--file") ?? throw new ArgumentException("--file required"), dryRun);
     }
 
     case "add-player":
@@ -408,26 +406,14 @@ switch (job)
     {
         await using var db = DataServiceCollectionExtensions.CreateContext();
         return await new SeedMordusJob(db).RunAsync(
-            file: GetOption(args, "--file") ?? "data/mordus-rosters.json",
+            file: GetOption(args, "--file") ?? throw new ArgumentException("--file required"),
+            rulesFile: GetOption(args, "--rules") ?? "data/mordus-rules.json",
             season: GetOption(args, "--season") ?? await CurrentSeasonAsync(db),
             commissioner: GetOption(args, "--commissioner") ?? "nick",
-            // The league's real cap (Nick, 2026-08-05). It was seeded at
-            // $115M — the NHL's own number — which is not the rule the Mordus
-            // play by, and which put two teams over budget on paper.
-            capAmount: long.TryParse(GetOption(args, "--cap"), out var cap) ? cap : 134_000_000,
             dryRun: dryRun,
             openingLineup: !args.Contains("--no-opening-lineup"),
-            capFloor: long.TryParse(GetOption(args, "--floor"), out var floor) ? floor : null,
             joinCode: GetOption(args, "--join-code"),
-            seasonNumber: int.TryParse(GetOption(args, "--season-number"), out var num) ? num : 3);
-    }
-
-    case "seed-mordus2":
-    {
-        await using var db = DataServiceCollectionExtensions.CreateContext();
-        return await new SeedMordus2Job(db).RunAsync(
-            file: GetOption(args, "--file") ?? "data/mordus2.json",
-            dryRun: dryRun);
+            seasonNumber: int.TryParse(GetOption(args, "--season-number"), out var num) ? num : null);
     }
 
     case "clone-league":
@@ -494,8 +480,7 @@ switch (job)
         }
         if (dryRun) { Console.WriteLine("\n[DRY RUN] Nothing deleted."); return 0; }
 
-        // Same load-bearing order as SeedMordus2Job's own wipe (see deployment.md
-        // "Throwing a copy away") -- never run this against a league with banked
+        // The foreign keys make this order load-bearing -- never run this against a league with banked
         // history, since nothing here un-banks a week.
         await db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
         {
@@ -649,7 +634,7 @@ switch (job)
     {
         await using var db = DataServiceCollectionExtensions.CreateContext();
         var leagueCode = GetOption(args, "--league") ?? "TKW6UR";
-        var file = GetOption(args, "--file") ?? "data/picks-2027.json";
+        var file = GetOption(args, "--file") ?? throw new ArgumentException("--file required");
         if (!int.TryParse(GetOption(args, "--year"), out var pickYear))
         {
             Console.Error.WriteLine("assign-picks requires --year <YYYY>.");
@@ -685,12 +670,11 @@ switch (job)
 
     case "dump-mordus-rosters":
     {
-        // One-off: captures the roster spots reset-mordus-rosters already
-        // built and verified (every name resolved, zero guesses) into
-        // seed-mordus's own file shape, so a full rebuild (wipe-pools then
-        // seed-mordus) does not have to re-resolve 414 names from the PDF.
+        // Captures the roster spots reset-mordus-rosters already built and
+        // verified (every name resolved, zero guesses) into seed-mordus's own
+        // file shape, so a full rebuild does not have to re-resolve every name.
         await using var db = DataServiceCollectionExtensions.CreateContext();
-        var outFile = GetOption(args, "--file") ?? "data/mordus-2026-27-seed.json";
+        var outFile = GetOption(args, "--file") ?? throw new ArgumentException("--file required");
         var league = await db.Leagues.FirstAsync(l => l.Name == "Les Mordus");
         var firstPeriod = await db.Periods.Where(p => p.Season == league.Season)
             .OrderBy(p => p.Number).FirstAsync();
@@ -719,7 +703,7 @@ switch (job)
             };
         });
 
-        var payload = new { source = "reset-mordus-rosters dump, season 20262027", activeSlots = new { forwards = 9, defense = 4, goalies = 1 }, teams = teamsJson };
+        var payload = new { source = $"reset-mordus-rosters dump, season {league.Season}", teams = teamsJson };
         await File.WriteAllTextAsync(outFile, JsonSerializer.Serialize(payload, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true }));
         Console.WriteLine($"Wrote {outFile}: {teams.Count} teams, {spots.Count} player spots.");
         return 0;
@@ -729,7 +713,7 @@ switch (job)
     {
         await using var db = DataServiceCollectionExtensions.CreateContext();
         return await new ResetMordusRostersJob(db).RunAsync(
-            file: GetOption(args, "--file") ?? "data/mordus-2026-27.json",
+            file: GetOption(args, "--file") ?? throw new ArgumentException("--file required"),
             dryRun: dryRun);
     }
 

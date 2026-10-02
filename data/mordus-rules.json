@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "poolType": "keeper",
+  "cap": { "max": 136000000, "min": 104000000, "defaultCapHit": 1000000 },
+  "roster": { "min": 23, "max": 35, "franchiseSlot": true },
+  "lineup": {
+    "mode": "activeSelection",
+    "slots": { "forwards": 9, "defense": 4, "goalies": 1 },
+    "onMissing": "carryForward"
+  },
+  "scoring": {
+    "values": {
+      "goals": 1,
+      "assists": 1,
+      "wins": 2,
+      "otLosses": 1,
+      "shutouts": 0,
+      "teamWins": 2,
+      "teamOtLosses": 1,
+      "teamLosses": 0
+    },
+    "byPosition": {},
+    "includePlayoffs": false
+  },
+  "trades": { "enabled": true, "picksTradable": true, "pickYearsAhead": 1, "approval": "none" },
+  "protection": {
+    "slots": 9,
+    "slotsByPosition": null,
+    "auto": { "enabled": true, "skaterMaxCareerGames": 100, "goalieMaxCareerGames": 50 },
+    "afterDraft": "stayWithTeam"
+  },
+  "draft": {
+    "unprotectedDisposition": "stealRounds",
+    "steal": { "rounds": 2, "turnsTradable": false, "maxLossesPerTeam": 2 },
+    "rookieRounds": 3,
+    "snake": false
+  },
+  "freeAgency": { "mode": "none", "allow": "both", "movesPerPeriod": null, "windows": [] }
+}

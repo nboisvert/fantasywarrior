@@ -73,7 +73,7 @@ c'est un lien. Un fait énoncé dans deux fichiers est un défaut, même si les 
 | 1 | **Statut** — construit / pas construit / risque ouvert | `project_status.md` |
 | 2 | **Schéma** — tables, colonnes, index, vues, contraintes | `data-model.md` |
 | 3 | **Entre-saison** — phases, protections, vols, repêchage | `offseason.md` |
-| 4 | **Chiffres des Mordus** — plafond, slots, taille de roster, barème | `mordus.md` |
+| 4 | **Chiffres des Mordus** — plafond, slots, taille de roster, barème | `data/mordus-rules.json` (expliqué dans `mordus.md`) |
 | 5 | **Jobs, commandes, runbooks, déploiement** | `deployment.md` |
 | 6 | **Couleurs, CSS, mise en page, conventions d'écran** | `design-system.md` |
 

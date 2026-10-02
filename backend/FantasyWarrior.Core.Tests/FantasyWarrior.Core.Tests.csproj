@@ -22,6 +22,8 @@
     <!-- Pages captured from the live CapWages site, trimmed. Re-capture and
          diff these when a sync suddenly returns nothing. -->
     <Content Include="Fixtures\**" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Les Mordus' rules file, tested as-is rather than restated. -->
+    <Content Include="..\..\data\mordus-rules.json" Link="mordus-rules.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

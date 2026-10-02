@@ -61,7 +61,7 @@ public sealed class CloneLeagueJob(FantasyWarriorDbContext db)
         }
 
         // Same posture as seed-mordus: a name collision is far likelier to be a
-        // re-run than an intention, and a second "Mordus2" would be
+        // re-run than an intention, and a second copy would be
         // indistinguishable from the first in every list in the app.
         if (await db.Leagues.AnyAsync(l => l.Name == name, ct))
         {

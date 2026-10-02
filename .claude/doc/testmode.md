@@ -43,7 +43,7 @@ can enter it.
 |---|---|
 | Where we are | `sim-clock` |
 | Advance | `sim-advance --to 2025-11-23` |
-| Start over | `wipe-pools`, then `seed-mordus` and `sim-clock --set 2025-10-04` |
+| Start over | `wipe-pools`, then `seed-mordus --file <rosters.json> --season 20252026 --season-number <N>` and `sim-clock --set 2025-10-04` |
 | Back to real time | `sim-clock --off` |
 
 `sim-advance` **stops at every week end it crosses**, so each week is really

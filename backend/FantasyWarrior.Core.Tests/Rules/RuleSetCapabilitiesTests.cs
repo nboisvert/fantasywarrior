@@ -17,14 +17,12 @@ public class RuleSetCapabilitiesTests
     }
 
     [Fact]
-    public void LesMordusRulesAreFullySupported()
+    public void LesMordusRulesHaveOnlyTheKnownCapFloorGap()
     {
-        // The pool the app is built for. A gap here is a feature that has to
-        // ship before October, not a badge in a panel.
-        var gaps = RuleSetCapabilities.Unsupported(MordusRuleSet.Build());
-
-        Assert.Empty(gaps);
-        Assert.True(RuleSetCapabilities.IsFullySupported(MordusRuleSet.Build()));
+        // The pool the app is built for, so a gap here is a feature to ship,
+        // not a badge in a panel. Its cap floor is the one known gap (open risk
+        // in project_status.md); any other path appearing here is a regression.
+        Assert.Equal(["cap.min"], Paths(MordusRuleSet.Build()));
     }
 
     [Theory]

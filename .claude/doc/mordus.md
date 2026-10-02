@@ -1,138 +1,66 @@
-# Les Mordus — the league's settings
+# Les Mordus — the league's rules
 
-The pool Fantasy Warrior is built for first. **This file is the single source for
-its numbers**; every other doc links here rather than restating them. Les Mordus
-is a real-world pool that ran on PoolExpert.com for years before this app
-existed, so its rosters are a periodic import of PoolExpert's own export
-(`Classement Mordus<season> — PoolExpert.com`) rather than something Fantasy
-Warrior derives — that export is the whole truth at import time, and whatever
-`RosterSpots` carried before is discarded rather than reconciled against it.
-The current import is checked in as
-[`data/mordus-2026-27.json`](../../data/mordus-2026-27.json). Two jobs
-materialise it ([deployment.md](deployment.md)): `reset-mordus-rosters`
-replaces only the roster spots, keeping the league, its Users, Teams, Trades
-and chat history; `delete-league --delete-users` + `seed-mordus` replaces the
-whole league — a clean slate with no trade or message history and fresh
-Users, which is how the 2026-27 season itself was actually rolled onto the
-live league (Nick, 2026-09-25: no test-era history was worth keeping, not
-even the GM accounts).
+The pool Fantasy Warrior is built for first. **Its rules live in one file,
+[`data/mordus-rules.json`](../../data/mordus-rules.json)** — a serialized
+`RuleSet`, the same document a league stores on its `LeagueSeason`. What each
+field means and where it is enforced is in [league-rules.md](league-rules.md);
+this file holds only what is particular to Les Mordus and why.
+
+The file has two readers:
+
+- **`seed-mordus` writes it to the new season verbatim** — the job holds no
+  rule of its own, and refuses a file `RuleSetValidation` rejects. Command in
+  [deployment.md](deployment.md).
+- **The unit tests load it as-is** (`MordusRuleSet`), so an edit the code cannot
+  honour fails a test rather than a seed.
+
+The live league's own copy is its `LeagueSeason.Rules`, edited from the
+commissioner's rules panel (`PATCH /api/leagues/{joinCode}/rules`). **A rule
+changed on the panel must be changed in the file too**, or the next reseed
+silently reverts it.
 
 ## Identity
 
-Join code `TKW6UR`, League.Season `20262027`, **14 GMs**, commissioner `nick`,
-**428 roster spots** — 414 players plus one NHL franchise each. `LeagueSeasons`
-says season **4**. Usernames are the GM's first name, disambiguated by a
-surname initial on a collision (`jonathan` / `jonathanr`).
+Join code `TKW6UR`, commissioner `nick`. Usernames are the GM's first name,
+disambiguated by a surname initial on a collision (`jonathan` / `jonathanr`).
+The pool has counted its own seasons for years, which is why `seed-mordus`
+takes `--season-number` explicitly: `LeagueSeasons.Number` predates the app and
+is derivable from nothing else.
 
-A GM's franchise (the `T`/Équipe slot) is whatever the latest PoolExpert export
-says he owns, not a fixed lifetime assignment — four changed hands between
-season 3 and season 4 (`akexandre` Nashville → New Jersey, `patrick` NY
-Rangers → Tampa Bay, `yvan` Detroit → San Jose, `jonathanr` Ottawa →
-Minnesota), and both rebuild jobs pick up a change like that automatically
-since they rebuild every spot, franchise slot included, from the export.
+## What is particular to the league
 
-## Scoring scale
+**Keeper, points reset each season.** Rosters carry over, totals start at zero
+every season — there is no lifetime total to model.
 
-| Stat | Pts | | Stat | Pts |
-|---|---|---|---|---|
-| Goal | 1 | | Franchise win (`teamWins`) | 2 |
-| Assist | 1 | | Franchise OT loss (`teamOtLosses`) | 1 |
-| Goalie win | **2** | | Franchise regulation loss (`teamLosses`) | 0 |
-| Goalie OT loss | 1 | | Shutout | 0 |
+**The Équipe slot (`T`).** Every GM owns one NHL franchise, held in a roster
+spot like any player (`roster.franchiseSlot`). It scores its club's record and
+can change hands. How the slot is modelled, and why the club you *are* can
+diverge from the club you *own*, is in [data-model.md](data-model.md).
 
-The franchise keys are deliberately separate from the goalie's — priced the same
-here by coincidence, but "my goalie won" and "my franchise won" are different
+**Franchise results have their own keys.** `teamWins` / `teamOtLosses` /
+`teamLosses` are priced apart from the goalie's `wins` / `otLosses`. They can
+carry the same values, but "my goalie won" and "my franchise won" are different
 events a league must be able to pay apart. The franchise total is read off the
 `Games` table, never the players' game log (`FranchiseResults.For`).
 
-## Format
+**A contractless player counts at `cap.defaultCapHit`** rather than zero, so a
+roster cannot dodge the cap with unsigned players.
 
-**Active lineup 9 F + 4 D + 1 G**, plus the Équipe slot. The bench has no fixed
-size (observed reserves run 7 to 20) and active ↔ reserve swaps every week.
-**Roster 23 min, 35 max**, cap **$136M, floor $104M** (Nick, 2026-09-25; was
-$134M with no floor), a contractless player counting $1M (`cap.defaultCapHit`),
-**3 rookie draft rounds** a year.
+**The bench has no fixed size**: only the active lineup is slotted, within the
+roster's min/max. Active ↔ reserve swaps are weekly.
 
-Every one of these is a field of the league's rules document — what each means
-and where it is enforced is in [league-rules.md](league-rules.md). They are set
-through the commissioner-only rules panel (`PATCH /api/leagues/{joinCode}/rules`)
-and written by `seed-mordus` when it builds the league. Jobs and endpoints in
-[deployment.md](deployment.md).
+**Two auto-protection bars, not one.** A goalie plays about half his club's
+games: measured at the skaters' bar he would stay untouchable twice as long.
+Auto-protection is free — it does not cost a protection slot.
 
-## Off-season rules
+**Unclaimed exposed players stay on their team** after the steal rounds
+(`protection.afterDraft`). Off-season mechanics live in
+[offseason.md](offseason.md).
 
-The pool is keeper: rosters carry over, **points reset to zero each season**, and
-the pool has counted its own seasons for years — so there is no lifetime total to
-model despite the report's "pool à vie" title. Between two seasons runs a draft
-whose first two rounds are steal rounds. Mechanics live in
-[offseason.md](offseason.md); the numbers are the league's:
+**A GM may dress non-NHL players.** They get a normal roster assignment that
+scores nothing, rather than being refused a spot or silently dropped.
 
-| Rule | Value | Where |
-|---|---|---|
-| Protectable players per GM | 9 | `protection.slots` |
-| Steal rounds (so 2 steals per team) | 2 | `draft.steal.rounds` |
-| Maximum losses per team | 2 | `draft.steal.maxLossesPerTeam` |
-| Auto-protected, goalie | ≤ 50 career NHL games | `protection.auto.goalieMaxCareerGames` |
-| Auto-protected, skater | ≤ 100 career NHL games | `protection.auto.skaterMaxCareerGames` |
-| Auto-protection costs a slot | No — free | `protection.auto.enabled` |
-| Unclaimed exposed players | Stay on their team | `protection.afterDraft` |
+## Known gap
 
-> All seven are fields of the league's rules document and all seven are on the
-> rules panel, so an off-season can be configured entirely from the app.
-> `draft/open` refuses a steal segment with no protection slots, and refuses one
-> whose protection slate is empty: a half-configured off-season stops rather than
-> running as an all-rookie draft with uncapped losses. Whether the live league's
-> document *carries* these values is a status question — see
-> [project_status.md](project_status.md).
-
-Two thresholds rather than one because a goalie plays about half his club's
-games: measured at the skaters' bar he would stay untouchable twice as long. With
-9 slots on an average roster of 29 and auto-protection not counted, a GM still
-exposes a good half of his depth — the league's number, not a comfort setting.
-
-### 2027 draft-pick ownership
-
-Seeded from Nick's own spreadsheet (2026-09-23), reconciled by hand rather
-than replayed trade by trade — `data/picks-2027.json` holds the 20 picks
-that had changed hands, applied over `draft-picks-init`'s default of
-everyone holding their own. Two entries in that spreadsheet don't resolve
-cleanly and are left at the default (each team holding its own pick) until
-Nick confirms otherwise:
-
-- **Los Angeles' 2027 2nd round pick** is claimed by two tabs — Los
-  Angeles' own (still held) and San Jose's ("Choix 2e tour L-A 2027",
-  acquired). The app treats it as still Los Angeles'.
-- **Toronto's 2027 2nd round pick** appears on no tab at all — not
-  Toronto's own (which lists only its 1st and 3rd) and not anyone else's.
-  The app treats it as still Toronto's.
-
-## The Équipe slot (`T`)
-
-The PDF gives every participant an `E` line holding his own NHL franchise, at $0
-— it appears exactly 14 times. Each GM therefore owns one franchise for life, and
-it scores. How a franchise slot is modelled, and why the club you *are* can
-diverge from the club you *own*, is in [data-model.md](data-model.md); what it
-pays is in the scale above.
-
-## PoolExpert → Fantasy Warrior vocabulary
-
-Useful when reading the source PDF.
-
-| PoolExpert | Fantasy Warrior |
-|---|---|
-| Participant | `User` + `Team` — one `Team` per participant per league |
-| His NHL franchise, the `E` line | `Team.FranchiseAbbrev` **and** a `T`-group `RosterSpot` (above) |
-| `T` column (blank / `D` / `G`) | Ignored on import — position comes from `Players`, which is authoritative |
-| Block above "JOUEURS DE RÉSERVE" | Active players — the week's `Lineup` (`activeSpotIds`) |
-| "JOUEURS DE RÉSERVE" | Benched — same `RosterSpot`, simply absent from `activeSpotIds`; the bench is not a separate entity |
-| `PSal` | `Player.CapHit` — the PDF is in millions (`9.50`), `CapHit` in dollars |
-| `PPts`, `PPP`, `PJ`, `B`, `P`, `1/7/30` | Not imported; stats come from `PlayerGameStats` |
-
-## Names and non-NHL players
-
-Names the import cannot match are resolved by `player-resolve` from
-[`data/unresolved-players.txt`](../../data/unresolved-players.txt) — command in
-[deployment.md](deployment.md), matching rules in
-[integrations.md](integrations.md). **A GM may dress non-NHL players**: they get a
-normal roster assignment that scores nothing, rather than being refused a spot
-or silently dropped.
+The cap floor (`cap.min`) is recorded but not enforced — only the ceiling is.
+Tracked in [project_status.md](project_status.md).

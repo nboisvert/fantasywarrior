@@ -3,6 +3,7 @@
 Phases, protections, the steal draft and the rookie/free-agent draft — the whole
 window between two seasons. Tables and indexes: [data-model.md](data-model.md).
 Les Mordus' own numbers (slots, steal rounds, loss quota, auto-protection bars):
+[`data/mordus-rules.json`](../../data/mordus-rules.json), explained in
 [mordus.md](mordus.md). Jobs and the SQL runbook: [deployment.md](deployment.md).
 
 ## 1. Three things are called "season"
@@ -179,9 +180,9 @@ it" reduces to a pure function of how many selections have been made.
 That is what makes `DraftSelections` necessary rather than convenient: with
 nothing to claim, the unique index on `(LeagueSeasonId, OverallIndex)` is the
 only thing stopping two GMs from taking turn 7. **The draft can never be derived
-from `RosterSpots` carrying `StartReason = Draft` either** — `SeedMordusJob`
-opened all 418 original Mordus spots with exactly that reason, so the log has to
-be a table of its own.
+from `RosterSpots` carrying `StartReason = Draft` either** — `seed-mordus`
+opens every seeded spot with exactly that reason, so the log has to be a table
+of its own.
 
 **A turn can be passed** (`PlayerId` null). Teams × the loss quota can equal the
 steal segment's turn count exactly, so a GM late in the order can genuinely face

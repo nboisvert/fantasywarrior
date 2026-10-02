@@ -10,20 +10,16 @@ using Microsoft.EntityFrameworkCore;
 namespace FantasyWarrior.Jobs.Sql;
 
 /// <summary>
-/// Resets Les Mordus' roster spots for a new season, from Nick's PoolExpert
-/// export (see .claude/doc/mordus.md), and reseeds them fresh.
+/// Resets Les Mordus' roster spots for a new season from a roster file of
+/// names (see .claude/doc/mordus.md), and reseeds them fresh.
 ///
 /// Unlike <see cref="SeedMordusJob"/> (which refuses if the league already
-/// exists) and <see cref="SeedMordus2Job"/> (which deletes and recreates the
-/// whole league), this targets the live, existing "Les Mordus" — the league,
-/// its Users, Teams, LeagueMembers, Trades and Messages all survive untouched.
+/// exists), this targets the live, existing "Les Mordus" — the league, its
+/// Users, Teams, LeagueMembers, Trades and Messages all survive untouched.
 /// Only <see cref="RosterSpot"/>s (and, by cascade, the
-/// <see cref="RosterAssignment"/>s scored against them) are wiped and rebuilt,
-/// because a keeper league's off-season is normally a handful of steals and
-/// trades layered onto spots that already exist — but here the DB's spots
-/// reflect a season-long replay that never matched what really happened on
-/// PoolExpert, so reconciling them one by one is not worth it. The PDF is
-/// taken as the whole truth and everything open is replaced by it.
+/// <see cref="RosterAssignment"/>s scored against them) are wiped and rebuilt:
+/// the file is taken as the whole truth and everything open is replaced by
+/// it, rather than reconciled spot by spot.
 ///
 /// Requires the target season to already be declared (`season-init`,
 /// `period-init`) and Les Mordus's <c>League.Season</c> to already equal it —
@@ -161,8 +157,8 @@ public sealed class ResetMordusRostersJob(FantasyWarriorDbContext db)
             await using var tx = await db.Database.BeginTransactionAsync(ct);
 
             // RosterAssignments cascade off RosterSpots, but deleted explicitly
-            // first anyway — same defensive ordering as WipePoolsJob and
-            // SeedMordus2Job, so a provider that does not honor the cascade
+            // first anyway — same defensive ordering as WipePoolsJob, so a
+            // provider that does not honor the cascade
             // fails loudly here rather than leaving orphaned scoring rows.
             await db.RosterAssignments.Where(ra => ra.RosterSpot!.LeagueId == leagueId).ExecuteDeleteAsync(ct);
             await db.RosterSpots.Where(s => s.LeagueId == leagueId).ExecuteDeleteAsync(ct);
@@ -256,7 +252,7 @@ public sealed class ResetMordusRostersJob(FantasyWarriorDbContext db)
         return 0;
     }
 
-    // ---- name resolution, same approach as SeedMordus2Job -------------------
+    // ---- name resolution ----------------------------------------------------
     // (exact match -> Nom/Prénom swap -> nickname/transliteration on a shared
     // last name -> fuzzy last name gated on a close first name; never guesses
     // among several real candidates).

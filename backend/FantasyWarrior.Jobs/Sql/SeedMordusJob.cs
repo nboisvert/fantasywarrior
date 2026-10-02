@@ -9,61 +9,69 @@ using Microsoft.EntityFrameworkCore;
 namespace FantasyWarrior.Jobs.Sql;
 
 /// <summary>
-/// Creates the real "Les Mordus" league from the rosters imported out of Nick's
-/// PoolExpert standings PDF (see .claude/doc/mordus.md).
+/// Creates the "Les Mordus" league from a roster file and the league's rules
+/// file (data/mordus-rules.json, see .claude/doc/mordus.md).
 ///
-/// The roster data is a checked-in artifact (data/mordus-rosters.json), not
-/// something this job derives: the PDF's names arrive as one run of
-/// concatenated text and had to be segmented against the player list offline.
-/// Keeping the result in the repo makes the import reviewable and re-runnable
-/// without the PDF.
+/// Both are checked-in artifacts rather than something this job derives, so a
+/// seed is reviewable and re-runnable. The roster file carries resolved player
+/// ids; the rules file is a serialized <see cref="RuleSet"/>, written to the
+/// new season verbatim — this job holds no rule of its own.
 ///
-/// Unlike the Firestore version, this seeds **roster spots too** — the model
-/// that did not exist when that one was written. Every spot opens on the
-/// season's first period start rather than on the day the league is created:
-/// dating them from "now" is what made every team score zero the first time
-/// this was tried, because every scoring window fell before the spots existed.
+/// Every spot opens on the season's first period start rather than on the day
+/// the league is created: dating them from "now" puts every scoring window
+/// before the spots exist, and every team scores zero.
 /// </summary>
 public sealed class SeedMordusJob(FantasyWarriorDbContext db)
 {
     private const string LeagueName = "Les Mordus";
 
-    private sealed record RosterFile(string Source, ActiveSlots ActiveSlots, List<TeamEntry> Teams);
-    private sealed record ActiveSlots(int Forwards, int Defense, int Goalies);
+    private sealed record RosterFile(string Source, List<TeamEntry> Teams);
     private sealed record TeamEntry(string Gm, string Username, string Franchise, string? FranchiseAbbrev,
         List<PlayerEntry> Active, List<PlayerEntry> Reserve);
     private sealed record PlayerEntry(long PlayerId, string Name, string Pos, string Team);
 
     /// <param name="openingLineup">
     /// Whether to seed week 1's lineup from the roster file's active/reserve
-    /// split — the alignment the GMs actually had when the PDF was captured.
-    ///
-    /// On by default because it is the truthful starting state. Turning it off
-    /// leaves week 1 to be auto-filled with each team's best available players,
-    /// which is what the Firestore build did, and is therefore the only setting
-    /// under which a replay can be compared against
-    /// golden-scores-preSql.json — the two produce genuinely different
-    /// (and both legitimate) scores, so the oracle only validates the engine
-    /// when the inputs match.
+    /// split — the alignment the GMs actually had. On by default because it is
+    /// the truthful starting state; off leaves week 1 to be auto-filled with
+    /// each team's best available players.
     /// </param>
     public async Task<int> RunAsync(
-        string file, string season, string commissioner, long capAmount, bool dryRun,
-        bool openingLineup = true, long? capFloor = null, string? joinCode = null,
-        int seasonNumber = 3, CancellationToken ct = default)
+        string file, string rulesFile, string season, string commissioner, bool dryRun,
+        bool openingLineup = true, string? joinCode = null,
+        int? seasonNumber = null, CancellationToken ct = default)
     {
-        if (!File.Exists(file))
+        if (seasonNumber is null)
         {
-            Console.Error.WriteLine($"Roster file not found: {file}");
+            // The pool's own lifetime count predates this app and is derivable
+            // from nothing else, so it is never defaulted.
+            Console.Error.WriteLine("seed-mordus needs --season-number <N> (the pool's own season count).");
             return 1;
         }
+        foreach (var path in new[] { file, rulesFile })
+            if (!File.Exists(path))
+            {
+                Console.Error.WriteLine($"File not found: {path}");
+                return 1;
+            }
 
         var data = JsonSerializer.Deserialize<RosterFile>(
             await File.ReadAllTextAsync(file, ct),
             new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
 
+        var rules = RuleSetJson.Deserialize(await File.ReadAllTextAsync(rulesFile, ct));
+        var errors = rules.IsUnwritten ? ["no version"] : RuleSetValidation.Validate(rules);
+        if (errors.Count > 0)
+        {
+            Console.Error.WriteLine($"{rulesFile} is not a valid rules document:");
+            foreach (var e in errors) Console.Error.WriteLine($"  {e}");
+            return 1;
+        }
+
         Console.WriteLine($"=== seed-mordus{(dryRun ? "  [DRY RUN]" : "")} ===");
-        Console.WriteLine($"{data.Teams.Count} teams, slots {data.ActiveSlots.Forwards}F/"
-            + $"{data.ActiveSlots.Defense}D/{data.ActiveSlots.Goalies}G, cap ${capAmount:N0}");
+        Console.WriteLine($"{data.Teams.Count} teams, slots {rules.Lineup.Slots.Forwards}F/"
+            + $"{rules.Lineup.Slots.Defense}D/{rules.Lineup.Slots.Goalies}G, cap ${rules.Cap.Max:N0}"
+            + (rules.Cap.Min is { } min ? $", floor ${min:N0}" : ""));
 
         if (await db.Leagues.AnyAsync(l => l.Name == LeagueName && l.Season == season, ct))
         {
@@ -157,12 +165,9 @@ public sealed class SeedMordusJob(FantasyWarriorDbContext db)
         {
             LeagueId = league.LeagueId,
             Season = season,
-            // The pool has counted its own seasons for years — not derivable
-            // from the NHL season string, so it comes from the source PDF's
-            // own title (or, on a rebuild, from data.Source's own record of it).
-            Number = seasonNumber,
+            Number = seasonNumber.Value,
             Phase = LeagueSeasonPhase.InSeason,
-            Rules = MordusRules(data, capAmount, capFloor),
+            Rules = rules,
             StartedUtc = now,
         });
 
@@ -185,10 +190,9 @@ public sealed class SeedMordusJob(FantasyWarriorDbContext db)
             });
             await db.SaveChangesAsync(ct);
 
-            // The Équipe slot: the PDF's `E` line, one franchise per GM, held
-            // for life. A roster spot like any other since 2026-08-05 — it
-            // scores its franchise's record and can be traded, both of which a
-            // column on Teams could not express.
+            // The Équipe slot: one franchise per GM. A roster spot like any
+            // other — it scores its franchise's record and can be traded, both
+            // of which a column on Teams could not express.
             if (entry.FranchiseAbbrev is { } franchise)
                 db.RosterSpots.Add(new RosterSpot
                 {
@@ -223,8 +227,7 @@ public sealed class SeedMordusJob(FantasyWarriorDbContext db)
             // **The week-1 lineup, as the GMs actually set it.** Without this the
             // scoring pass finds no lineup and auto-fills with each team's best
             // available players — which scores strictly higher than the real
-            // rosters did, and silently. Comparing against the pre-migration
-            // snapshot is what surfaced it.
+            // rosters did, and silently.
             if (openingLineup)
             {
                 var activeSpotIds = entry.Active
@@ -281,53 +284,6 @@ public sealed class SeedMordusJob(FantasyWarriorDbContext db)
         db.Users.Add(user);
         await db.SaveChangesAsync(ct);
         return user;
-    }
-
-    /// <summary>
-    /// Les Mordus' rules, as documented in <c>mordus.md</c> — which stays their
-    /// single source, so a change there is a change here and nowhere else.
-    ///
-    /// <b>The three off-season numbers are written.</b> They were decided long
-    /// ago and had never been entered: <c>ProtectionSlots</c>, <c>StealRounds</c>
-    /// and <c>MaxLossesPerTeam</c> sat NULL on the live row, and two of them had
-    /// no writer anywhere in the app.
-    /// </summary>
-    private static RuleSet MordusRules(RosterFile data, long capAmount, long? capFloor)
-    {
-        var rules = RuleSetDefaults.ForNewLeague();
-
-        rules.PoolType = PoolType.Keeper;
-        rules.Cap.Max = capAmount;
-        rules.Cap.Min = capFloor;
-        rules.Cap.DefaultCapHit = 1_000_000;
-        rules.Roster.Min = 23;
-        rules.Roster.Max = 35;
-        // Every GM's `E` line: one NHL franchise apiece, held for life.
-        rules.Roster.FranchiseSlot = true;
-        rules.Lineup.Slots = new PositionCounts
-        {
-            Forwards = data.ActiveSlots.Forwards,
-            Defense = data.ActiveSlots.Defense,
-            Goalies = data.ActiveSlots.Goalies,
-        };
-
-        // The Équipe slot's own keys, not the goalie's: they happen to be priced
-        // the same here, which is a coincidence, not a shared rule.
-        rules.Scoring.Values[StatKeys.TeamWins] = 2;
-        rules.Scoring.Values[StatKeys.TeamOtLosses] = 1;
-        rules.Scoring.Values[StatKeys.TeamLosses] = 0;
-
-        rules.Protection.Slots = 9;
-        rules.Draft.Steal.Rounds = 2;
-        rules.Draft.Steal.MaxLossesPerTeam = 2;
-        // Three rounds a year. It used to be set by hand through the rules PATCH
-        // after a seed, which meant every wipe-and-reseed silently produced a
-        // league with no draft — and `draft-picks-init` reads it, so it
-        // generated nothing and the trade sheet lost its Draft picks section
-        // without a word.
-        rules.Draft.RookieRounds = 3;
-
-        return rules;
     }
 
     private async Task<string> UniqueJoinCodeAsync(CancellationToken ct)

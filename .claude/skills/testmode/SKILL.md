@@ -114,16 +114,14 @@ de lectures à ménager.
 
 ## Étape 4 — `init` (destructif)
 
-> **Il n'y a pas de job `sim-reset`.** Ce fichier en décrivait un jusqu'au
-> 2026-08-05; il n'a jamais existé sous Azure SQL. La remise à zéro est une
-> séquence de trois jobs, et elle est **plus destructive** que ce que ce
-> paragraphe promettait.
+> **Il n'y a pas de job `sim-reset`.** La remise à zéro est une séquence de
+> trois jobs, et elle efface **toutes** les ligues, pas seulement la simulation.
 
 ```bash
 dotnet run --project backend/FantasyWarrior.Jobs -- wipe-pools --dry-run
 # montrer le constat, puis :
 dotnet run --project backend/FantasyWarrior.Jobs -- wipe-pools
-dotnet run --project backend/FantasyWarrior.Jobs -- seed-mordus
+dotnet run --project backend/FantasyWarrior.Jobs -- seed-mordus --file <rosters.json> --season 20252026 --season-number <N>
 dotnet run --project backend/FantasyWarrior.Jobs -- sim-clock --set 2025-10-04 --season 20252026
 ```
 
@@ -132,10 +130,10 @@ dotnet run --project backend/FantasyWarrior.Jobs -- sim-clock --set 2025-10-04 -
 
 Ce que `wipe-pools` efface : alignements, échanges, scores, **roster spots,
 équipes, ligues et utilisateurs**, plus le banquage de toutes les semaines et
-le curseur de simulation. Contrairement à ce que ce fichier affirmait, **les
-roster spots et les utilisateurs ne survivent pas** — `seed-mordus` les
-recrée depuis `data/mordus-rosters.json`, ce qui est justement pourquoi ce
-fichier doit être à jour avant de commencer.
+le curseur de simulation. `seed-mordus` les recrée depuis un fichier de
+rosters (ids résolus) et applique `data/mordus-rules.json`. **Aucun fichier de
+rosters n'est versionné dans le repo** — demande à Nick lequel utiliser avant
+de commencer.
 
 Ce qui est conservé : toutes les données NHL (joueurs, contrats, matchs,
 statistiques) et le calendrier des semaines lui-même.
