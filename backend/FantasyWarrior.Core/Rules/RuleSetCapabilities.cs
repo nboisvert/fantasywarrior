@@ -77,10 +77,6 @@ public static class RuleSetCapabilities
                 "A trade executes as soon as both GMs agree. League votes are recorded and rated "
                 + "but block nothing, and there is no commissioner veto."));
 
-        if (rules.Trades.PickYearsAhead > 1)
-            gaps.Add(new RuleGap("trades.pickYearsAhead",
-                "Picks exist one season ahead only — draft-picks-init generates a single "
-                + "season's — so nothing further out can be traded."));
 
         if (rules.Protection.SlotsByPosition is not null)
             gaps.Add(new RuleGap("protection.slotsByPosition",

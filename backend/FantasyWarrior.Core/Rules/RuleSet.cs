@@ -238,9 +238,10 @@ public sealed class TradeConfig
     public bool PicksTradable { get; set; } = true;
 
     /// <summary>
-    /// How many seasons ahead picks exist and can therefore be traded. One
-    /// today: <c>draft-picks-init</c> generates a single season's picks, which
-    /// is what makes "tradable a year in advance" true without a rule saying so.
+    /// How many seasons ahead picks exist and can therefore be traded.
+    /// <c>draft-picks-init</c> generates exactly that window
+    /// (<see cref="Drafts.DraftPickYears"/>), which is what makes "tradable N
+    /// years in advance" true without a rule saying so.
     /// </summary>
     public int PickYearsAhead { get; set; } = 1;
 

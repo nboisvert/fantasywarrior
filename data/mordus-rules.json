@@ -22,7 +22,7 @@
     "byPosition": {},
     "includePlayoffs": false
   },
-  "trades": { "enabled": true, "picksTradable": true, "pickYearsAhead": 1, "approval": "none" },
+  "trades": { "enabled": true, "picksTradable": true, "pickYearsAhead": 2, "approval": "none" },
   "protection": {
     "slots": 9,
     "slotsByPosition": null,

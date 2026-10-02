@@ -79,9 +79,10 @@ using System.Text.Json;
 //     one. --to InSeason flips League.Season and clears protections; --to
 //     Complete writes the champion off vStandings. See offseason.md.
 //   draft-picks-init --league <joinCode> [--year YYYY] [--dry-run]
-//     One pick per team per round for one season, defaulting to the season
-//     after the current one. Picks exist one year ahead and only one, which is
-//     what makes "tradable a year in advance" true without a rule saying so.
+//     One pick per team per round, for every missing year from the draft after
+//     the current season through trades.pickYearsAhead (or one --year). Picks
+//     exist that far ahead and no further, which is what makes "tradable N
+//     years in advance" true without a rule saying so.
 //
 //   player-resolve --file <names.txt> [--dry-run]
 //     Adds players player-sync cannot see, from a list of names. An unsigned
@@ -91,10 +92,16 @@ using System.Text.Json;
 //     unambiguous — the rest is reported, never guessed.
 //
 // --- league setup ---
+//   poolexpert-parse --text <report.txt> --out <rosters.json>
+//     Turns a PoolExpert "Classement" report (the PDF through pdftotext -raw)
+//     into a roster file: each participant's franchise, actives and reserves.
+//     Usernames and GM names are left blank to fill in by hand; garbled lines
+//     the PDF carries are reported, never guessed at.
 //   seed-mordus --file <rosters.json> --season-number N [--rules data/mordus-rules.json]
 //               [--season] [--commissioner] [--join-code] [--dry-run] [--no-opening-lineup]
-//     Creates "Les Mordus" from a roster file (resolved player ids) and the
-//     league's rules file, written to the new season verbatim. --join-code
+//     Creates "Les Mordus" from a roster file (names, resolved here) and the
+//     league's rules file, written to the new season verbatim. A dry run
+//     resolves every name even while the league still exists. --join-code
 //     keeps a known code instead of drawing a random one -- for rebuilding the
 //     same league fresh (delete-league first) without stranding GMs who have
 //     the old code bookmarked. --no-opening-lineup leaves week 1 to be
@@ -122,7 +129,7 @@ using System.Text.Json;
 //     the delete so this can never strand an unrelated league.
 //   reset-mordus-rosters --file <rosters.json> [--dry-run]
 //     Wipes Les Mordus's roster spots (and, by cascade, the RosterAssignments
-//     scored against them) and rebuilds them from a roster file of names --
+//     scored against them) and rebuilds them from the same roster file --
 //     the league, its Users, Teams, Trades and Messages are left alone. Refuses
 //     unless League.Season already equals the file's season (season-phase
 //     --to InSeason) and that season's period calendar already exists
@@ -143,9 +150,9 @@ using System.Text.Json;
 //     any traded picks, deletes the trade. Refuses if a spot the trade opened
 //     already has a banked (finalized) week — that can never move. Not a
 //     feature the app exposes; a correction for a trade a GM wants taken back.
-//   assign-picks [--league TKW6UR] --year 2027 --file <picks.json> [--dry-run]
+//   assign-picks [--league TKW6UR] --file <picks.json> [--year 2027] [--dry-run]
 //     Reassigns a batch of already-initialized picks (draft-picks-init must
-//     run first) from a JSON file of [{round, originalAbbrev, ownerUsername}]
+//     run first) from a JSON file of [{year, round, originalAbbrev, ownerUsername}]
 //     — the exceptions to "everyone still holds their own", reconciled by
 //     hand against a source outside the app. A pick not listed is left alone.
 //
@@ -156,10 +163,6 @@ using System.Text.Json;
 //     already agreed to outside the app, skipping cap/roster-size validation
 //     (still checks each side actually holds what it's offering). Effective
 //     the same way an in-app acceptance is — the start of the next period.
-//   dump-mordus-rosters --file <out.json>
-//     Writes Les Mordus's current roster spots out in seed-mordus's own file
-//     shape (resolved playerIds, not names) -- for rebuilding via seed-mordus
-//     without re-resolving names reset-mordus-rosters already resolved once.
 //   fix-season-number --league <joinCode> --number N
 //     Corrects LeagueSeasons.Number on a league's active season -- the pool's
 //     own lifetime season count, not derivable from anything else, and easy
@@ -355,12 +358,12 @@ switch (job)
     case "draft-picks-init":
     {
         await using var db = DataServiceCollectionExtensions.CreateContext();
-        // Year defaults to the season after the current one: picks are always
-        // generated one year ahead, never for the season being played.
-        var defaultYear = Season.StartYear(await CurrentSeasonAsync(db)) + 1;
+        // Without --year: every year from the draft after the current season
+        // through trades.pickYearsAhead — never the season being played.
         return await new DraftPicksInitJob(db).RunAsync(
             GetOption(args, "--league"),
-            int.TryParse(GetOption(args, "--year"), out var draftYear) ? draftYear : defaultYear,
+            int.TryParse(GetOption(args, "--year"), out var draftYear) ? draftYear : null,
+            Season.StartYear(await CurrentSeasonAsync(db)) + 1,
             dryRun);
     }
 
@@ -408,7 +411,7 @@ switch (job)
         return await new SeedMordusJob(db).RunAsync(
             file: GetOption(args, "--file") ?? throw new ArgumentException("--file required"),
             rulesFile: GetOption(args, "--rules") ?? "data/mordus-rules.json",
-            season: GetOption(args, "--season") ?? await CurrentSeasonAsync(db),
+            season: GetOption(args, "--season"),
             commissioner: GetOption(args, "--commissioner") ?? "nick",
             dryRun: dryRun,
             openingLineup: !args.Contains("--no-opening-lineup"),
@@ -635,12 +638,8 @@ switch (job)
         await using var db = DataServiceCollectionExtensions.CreateContext();
         var leagueCode = GetOption(args, "--league") ?? "TKW6UR";
         var file = GetOption(args, "--file") ?? throw new ArgumentException("--file required");
-        if (!int.TryParse(GetOption(args, "--year"), out var pickYear))
-        {
-            Console.Error.WriteLine("assign-picks requires --year <YYYY>.");
-            return 1;
-        }
-        return await new AssignPicksJob(db).RunAsync(leagueCode, pickYear, file, dryRun);
+        return await new AssignPicksJob(db).RunAsync(
+            leagueCode, int.TryParse(GetOption(args, "--year"), out var pickYear) ? pickYear : null, file, dryRun);
     }
 
     case "force-trade":
@@ -668,45 +667,13 @@ switch (job)
             today, dryRun);
     }
 
-    case "dump-mordus-rosters":
+    case "poolexpert-parse":
     {
-        // Captures the roster spots reset-mordus-rosters already built and
-        // verified (every name resolved, zero guesses) into seed-mordus's own
-        // file shape, so a full rebuild does not have to re-resolve every name.
         await using var db = DataServiceCollectionExtensions.CreateContext();
-        var outFile = GetOption(args, "--file") ?? throw new ArgumentException("--file required");
-        var league = await db.Leagues.FirstAsync(l => l.Name == "Les Mordus");
-        var firstPeriod = await db.Periods.Where(p => p.Season == league.Season)
-            .OrderBy(p => p.Number).FirstAsync();
-        var teams = await db.Teams.Where(t => t.LeagueId == league.LeagueId)
-            .Include(t => t.Owner)
-            .Select(t => new { t.TeamId, t.Name, t.FranchiseAbbrev, Username = t.Owner!.Username, Gm = t.Owner!.DisplayName })
-            .ToListAsync();
-        var spots = await db.RosterSpots.Where(s => s.LeagueId == league.LeagueId && s.PlayerId != null)
-            .Select(s => new { s.TeamId, s.RosterSpotId, s.PlayerId })
-            .ToListAsync();
-        var activeIds = (await db.RosterAssignments
-            .Where(ra => ra.PeriodId == firstPeriod.PeriodId && ra.IsActive
-                && ra.RosterSpot!.LeagueId == league.LeagueId)
-            .Select(ra => ra.RosterSpotId).ToListAsync()).ToHashSet();
-        var players = await db.Players.ToDictionaryAsync(p => p.PlayerId, p => p);
-
-        var teamsJson = teams.Select(t =>
-        {
-            var mine = spots.Where(s => s.TeamId == t.TeamId).ToList();
-            object ToEntry(long playerId) { var p = players[playerId]; return new { playerId, name = $"{p.FirstName} {p.LastName}", pos = p.Position, team = p.TeamAbbrev ?? "" }; }
-            return new
-            {
-                gm = t.Gm, username = t.Username, franchise = t.Name, franchiseAbbrev = t.FranchiseAbbrev,
-                active = mine.Where(s => activeIds.Contains(s.RosterSpotId)).Select(s => ToEntry(s.PlayerId!.Value)),
-                reserve = mine.Where(s => !activeIds.Contains(s.RosterSpotId)).Select(s => ToEntry(s.PlayerId!.Value)),
-            };
-        });
-
-        var payload = new { source = $"reset-mordus-rosters dump, season {league.Season}", teams = teamsJson };
-        await File.WriteAllTextAsync(outFile, JsonSerializer.Serialize(payload, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true }));
-        Console.WriteLine($"Wrote {outFile}: {teams.Count} teams, {spots.Count} player spots.");
-        return 0;
+        return await new PoolExpertParseJob(db).RunAsync(
+            GetOption(args, "--text") ?? throw new ArgumentException("--text required"),
+            GetOption(args, "--out") ?? throw new ArgumentException("--out required"),
+            GetOption(args, "--season") ?? await CurrentSeasonAsync(db));
     }
 
     case "reset-mordus-rosters":

@@ -1,4 +1,3 @@
-using System.Text.Json;
 using FantasyWarrior.Core.Rules;
 using FantasyWarrior.Core.Scoring;
 using FantasyWarrior.Core.Seasons;
@@ -13,8 +12,8 @@ namespace FantasyWarrior.Jobs.Sql;
 /// file (data/mordus-rules.json, see .claude/doc/mordus.md).
 ///
 /// Both are checked-in artifacts rather than something this job derives, so a
-/// seed is reviewable and re-runnable. The roster file carries resolved player
-/// ids; the rules file is a serialized <see cref="RuleSet"/>, written to the
+/// seed is reviewable and re-runnable. The roster file names players
+/// (<see cref="MordusRosterFile"/>); the rules file is a serialized <see cref="RuleSet"/>, written to the
 /// new season verbatim — this job holds no rule of its own.
 ///
 /// Every spot opens on the season's first period start rather than on the day
@@ -25,11 +24,6 @@ public sealed class SeedMordusJob(FantasyWarriorDbContext db)
 {
     private const string LeagueName = "Les Mordus";
 
-    private sealed record RosterFile(string Source, List<TeamEntry> Teams);
-    private sealed record TeamEntry(string Gm, string Username, string Franchise, string? FranchiseAbbrev,
-        List<PlayerEntry> Active, List<PlayerEntry> Reserve);
-    private sealed record PlayerEntry(long PlayerId, string Name, string Pos, string Team);
-
     /// <param name="openingLineup">
     /// Whether to seed week 1's lineup from the roster file's active/reserve
     /// split — the alignment the GMs actually had. On by default because it is
@@ -37,7 +31,7 @@ public sealed class SeedMordusJob(FantasyWarriorDbContext db)
     /// each team's best available players.
     /// </param>
     public async Task<int> RunAsync(
-        string file, string rulesFile, string season, string commissioner, bool dryRun,
+        string file, string rulesFile, string? season, string commissioner, bool dryRun,
         bool openingLineup = true, string? joinCode = null,
         int? seasonNumber = null, CancellationToken ct = default)
     {
@@ -48,16 +42,13 @@ public sealed class SeedMordusJob(FantasyWarriorDbContext db)
             Console.Error.WriteLine("seed-mordus needs --season-number <N> (the pool's own season count).");
             return 1;
         }
-        foreach (var path in new[] { file, rulesFile })
-            if (!File.Exists(path))
-            {
-                Console.Error.WriteLine($"File not found: {path}");
-                return 1;
-            }
-
-        var data = JsonSerializer.Deserialize<RosterFile>(
-            await File.ReadAllTextAsync(file, ct),
-            new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+        if (!File.Exists(rulesFile))
+        {
+            Console.Error.WriteLine($"Rules file not found: {rulesFile}");
+            return 1;
+        }
+        if (await MordusRosterFile.LoadAsync(file, ct) is not { } data) return 1;
+        season ??= data.Season;
 
         var rules = RuleSetJson.Deserialize(await File.ReadAllTextAsync(rulesFile, ct));
         var errors = rules.IsUnwritten ? ["no version"] : RuleSetValidation.Validate(rules);
@@ -73,12 +64,6 @@ public sealed class SeedMordusJob(FantasyWarriorDbContext db)
             + $"{rules.Lineup.Slots.Defense}D/{rules.Lineup.Slots.Goalies}G, cap ${rules.Cap.Max:N0}"
             + (rules.Cap.Min is { } min ? $", floor ${min:N0}" : ""));
 
-        if (await db.Leagues.AnyAsync(l => l.Name == LeagueName && l.Season == season, ct))
-        {
-            Console.Error.WriteLine($"\"{LeagueName}\" already exists for {season}. Refusing to overwrite it.");
-            return 1;
-        }
-
         // Spots must start when the season does, not when the league is created.
         var firstPeriod = await db.Periods
             .Where(p => p.Season == season)
@@ -86,64 +71,37 @@ public sealed class SeedMordusJob(FantasyWarriorDbContext db)
             .FirstOrDefaultAsync(ct);
         if (firstPeriod is null)
         {
-            Console.Error.WriteLine($"No period calendar for {season}. Run sql-period-init first.");
+            Console.Error.WriteLine($"No period calendar for {season}. Run period-init first.");
             return 1;
         }
         Console.WriteLine($"Roster spots open on {firstPeriod.StartDate:yyyy-MM-dd} (week 1 start).\n");
 
-        // Every player id is verified before anything is written: a bad id would
-        // otherwise fail the save halfway and leave a half-built league.
-        var wanted = data.Teams
-            .SelectMany(t => t.Active.Concat(t.Reserve))
-            .Select(p => p.PlayerId)
-            .Distinct()
-            .ToList();
-        var known = (await db.Players.Where(p => wanted.Contains(p.PlayerId))
-            .Select(p => p.PlayerId).ToListAsync(ct)).ToHashSet();
-        var missing = wanted.Where(id => !known.Contains(id)).ToHashSet();
-        if (missing.Count > 0)
-        {
-            // A GM can roster a player who never dressed: no NHL roster or
-            // prospect list returns him, and no boxscore creates him, but he
-            // still occupies a spot and counts against roster size. The roster
-            // file is a verified artifact, so it is a good enough source for a
-            // stub — the next player-sync fills in the rest if he ever appears.
-            Console.WriteLine($"{missing.Count} rostered player(s) unknown to the NHL feeds — "
-                + "creating them from the roster file:");
-            var seen = new HashSet<long>();
-            foreach (var p in data.Teams.SelectMany(t => t.Active.Concat(t.Reserve))
-                         .Where(p => missing.Contains(p.PlayerId) && seen.Add(p.PlayerId)))
-            {
-                Console.WriteLine($"  {p.PlayerId}  {p.Name} ({p.Pos}, {p.Team})");
-                var space = p.Name.LastIndexOf(' ');
-                db.Players.Add(new Player
-                {
-                    PlayerId = p.PlayerId,
-                    FirstName = space > 0 ? p.Name[..space] : "",
-                    LastName = space > 0 ? p.Name[(space + 1)..] : p.Name,
-                    Position = string.IsNullOrWhiteSpace(p.Pos) ? "C" : p.Pos[..1],
-                    TeamAbbrev = p.Team.Length == 3 ? p.Team : null,
-                    Status = PlayerStatus.Prospect,
-                    LastSyncedUtc = DateTime.UtcNow,
-                });
-            }
-            if (!dryRun) await db.SaveChangesAsync(ct);
-            Console.WriteLine();
-        }
-
-        var positions = await db.Players
-            .Where(p => wanted.Contains(p.PlayerId))
+        // Every name is resolved before anything is written: an unresolved one
+        // would otherwise leave a half-built league.
+        if (await data.ResolveAsync(db, ct) is not { } resolved) return 1;
+        var positions = await db.Players.AsNoTracking()
+            .Where(p => resolved.Values.Contains(p.PlayerId))
             .ToDictionaryAsync(p => p.PlayerId, p => p.Position, ct);
 
+        // Checked after resolution, so a dry run validates the file even while
+        // the league it will replace still exists.
+        var exists = await db.Leagues.AnyAsync(l => l.Name == LeagueName && l.Season == season, ct);
         if (dryRun)
         {
             Console.WriteLine($"[DRY RUN] Would create {data.Teams.Count} teams and "
-                + $"{data.Teams.Sum(t => t.Active.Count + t.Reserve.Count)} roster spots. Nothing written.");
+                + $"{data.Teams.Sum(t => t.Active.Count + t.Reserve.Count)} roster spots. Nothing written."
+                + (exists ? $"\n\"{LeagueName}\" already exists for {season}: a real run will refuse until it is deleted." : ""));
             return 0;
+        }
+        if (exists)
+        {
+            Console.Error.WriteLine($"\"{LeagueName}\" already exists for {season}. Refusing to overwrite it.");
+            return 1;
         }
 
         var now = DateTime.UtcNow;
-        var commissionerUser = await UpsertUserAsync(commissioner, now, ct);
+        var commissionerUser = await UpsertUserAsync(commissioner, now, ct,
+            data.Teams.FirstOrDefault(t => t.Username == commissioner)?.Gm);
 
         var league = new League
         {
@@ -174,7 +132,7 @@ public sealed class SeedMordusJob(FantasyWarriorDbContext db)
         var spotCount = 0;
         foreach (var entry in data.Teams)
         {
-            var user = await UpsertUserAsync(entry.Username, now, ct, entry.Gm);
+            var user = await UpsertUserAsync(entry.Username!, now, ct, entry.Gm);
             var team = new Team
             {
                 LeagueId = league.LeagueId,
@@ -193,33 +151,33 @@ public sealed class SeedMordusJob(FantasyWarriorDbContext db)
             // The Équipe slot: one franchise per GM. A roster spot like any
             // other — it scores its franchise's record and can be traded, both
             // of which a column on Teams could not express.
-            if (entry.FranchiseAbbrev is { } franchise)
-                db.RosterSpots.Add(new RosterSpot
-                {
-                    LeagueId = league.LeagueId,
-                    TeamId = team.TeamId,
-                    FranchiseAbbrev = franchise,
-                    PositionGroup = "T",
-                    StartDate = firstPeriod.StartDate,
-                    StartReason = RosterSpotStartReason.Draft,
-                    OpenedUtc = now,
-                });
+            db.RosterSpots.Add(new RosterSpot
+            {
+                LeagueId = league.LeagueId,
+                TeamId = team.TeamId,
+                FranchiseAbbrev = entry.FranchiseAbbrev,
+                PositionGroup = "T",
+                StartDate = firstPeriod.StartDate,
+                StartReason = RosterSpotStartReason.Draft,
+                OpenedUtc = now,
+            });
 
             var spotsByPlayer = new Dictionary<long, RosterSpot>();
             foreach (var player in entry.Active.Concat(entry.Reserve))
             {
+                var playerId = resolved[player];
                 var spot = new RosterSpot
                 {
                     LeagueId = league.LeagueId,
                     TeamId = team.TeamId,
-                    PlayerId = player.PlayerId,
-                    PositionGroup = PositionGroups.CodeFrom(positions.GetValueOrDefault(player.PlayerId, "C")),
+                    PlayerId = playerId,
+                    PositionGroup = PositionGroups.CodeFrom(positions.GetValueOrDefault(playerId, "C")),
                     StartDate = firstPeriod.StartDate,
                     StartReason = RosterSpotStartReason.Draft,
                     OpenedUtc = now,
                 };
                 db.RosterSpots.Add(spot);
-                spotsByPlayer[player.PlayerId] = spot;
+                spotsByPlayer[playerId] = spot;
                 spotCount++;
             }
             await db.SaveChangesAsync(ct);
@@ -231,8 +189,7 @@ public sealed class SeedMordusJob(FantasyWarriorDbContext db)
             if (openingLineup)
             {
                 var activeSpotIds = entry.Active
-                    .Where(p => spotsByPlayer.ContainsKey(p.PlayerId))
-                    .Select(p => spotsByPlayer[p.PlayerId].RosterSpotId)
+                    .Select(p => spotsByPlayer[resolved[p]].RosterSpotId)
                     .ToHashSet();
 
                 foreach (var (_, spot) in spotsByPlayer)

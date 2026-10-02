@@ -1,41 +1,46 @@
 using System.Text.Json;
 using FantasyWarrior.Data;
+using FantasyWarrior.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace FantasyWarrior.Jobs.Sql;
 
 /// <summary>
 /// Reassigns a batch of already-initialized draft picks to whoever actually
-/// holds them, from a JSON file of {round, originalAbbrev, ownerUsername}
+/// holds them, from a JSON file of {year, round, originalAbbrev, ownerUsername}
 /// entries — the league's own real trade history, reconciled by hand against
 /// a source outside the app (a spreadsheet, a commissioner's own records)
 /// rather than replayed trade by trade.
 ///
 /// A pick not listed keeps whatever <c>draft-picks-init</c> gave it — its
 /// original team, i.e. never traded — so the file only needs the exceptions.
+/// <c>--year</c> restricts a run to one year's entries.
 /// </summary>
 public sealed class AssignPicksJob(FantasyWarriorDbContext db)
 {
-    public async Task<int> RunAsync(string leagueCode, int year, string filePath, bool dryRun, CancellationToken ct = default)
+    public async Task<int> RunAsync(string leagueCode, int? year, string filePath, bool dryRun, CancellationToken ct = default)
     {
         var league = await db.Leagues.FirstOrDefaultAsync(l => l.JoinCode == leagueCode, ct);
         if (league is null) { Console.Error.WriteLine($"No league with join code {leagueCode}."); return 1; }
 
         if (!File.Exists(filePath)) { Console.Error.WriteLine($"No file at {filePath}."); return 1; }
-        var entries = JsonSerializer.Deserialize<List<PickAssignment>>(
+        var entries = (JsonSerializer.Deserialize<List<PickAssignment>>(
             await File.ReadAllTextAsync(filePath, ct),
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [])
+            .Where(e => year is null || e.Year == year)
+            .ToList();
 
         var teams = await db.Teams.Where(t => t.LeagueId == league.LeagueId).Include(t => t.Owner).ToListAsync(ct);
         var byAbbrev = teams.Where(t => t.FranchiseAbbrev is not null).ToDictionary(t => t.FranchiseAbbrev!);
         var byUsername = teams.Where(t => t.Owner is not null).ToDictionary(t => t.Owner!.Username);
 
-        var picks = await db.DraftPicks.Where(p => p.LeagueId == league.LeagueId && p.Year == year).ToListAsync(ct);
+        var picks = await db.DraftPicks.Where(p => p.LeagueId == league.LeagueId).ToListAsync(ct);
 
-        Console.WriteLine($"=== assign-picks{(dryRun ? "  [DRY RUN]" : "")}  {league.Name}, {year} ===");
+        Console.WriteLine($"=== assign-picks{(dryRun ? "  [DRY RUN]" : "")}  {league.Name}"
+            + (year is null ? "" : $", {year}") + " ===");
 
         var errors = new List<string>();
-        var changes = new List<(FantasyWarrior.Data.Entities.DraftPick pick, string from, string to)>();
+        var changes = new List<(DraftPick pick, string from, string to)>();
         foreach (var e in entries)
         {
             if (!byAbbrev.TryGetValue(e.OriginalAbbrev, out var originalTeam))
@@ -48,10 +53,11 @@ public sealed class AssignPicksJob(FantasyWarriorDbContext db)
                 errors.Add($"Unknown owner username '{e.OwnerUsername}'.");
                 continue;
             }
-            var pick = picks.FirstOrDefault(p => p.Round == e.Round && p.OriginalTeamId == originalTeam.TeamId);
+            var pick = picks.FirstOrDefault(p =>
+                p.Year == e.Year && p.Round == e.Round && p.OriginalTeamId == originalTeam.TeamId);
             if (pick is null)
             {
-                errors.Add($"No {year} round {e.Round} pick found for {e.OriginalAbbrev} — was draft-picks-init run?");
+                errors.Add($"No {e.Year} round {e.Round} pick found for {e.OriginalAbbrev} — was draft-picks-init run?");
                 continue;
             }
             if (pick.CurrentTeamId == ownerTeam.TeamId)
@@ -80,5 +86,5 @@ public sealed class AssignPicksJob(FantasyWarriorDbContext db)
         return 0;
     }
 
-    private sealed record PickAssignment(int Round, string OriginalAbbrev, string OwnerUsername);
+    private sealed record PickAssignment(int Year, int Round, string OriginalAbbrev, string OwnerUsername);
 }

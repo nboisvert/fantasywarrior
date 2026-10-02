@@ -58,7 +58,6 @@ public class RuleSetCapabilitiesTests
             r => r.Scoring.ByPosition["D"] = new Dictionary<string, double> { [StatKeys.Goals] = 2 }),
         ("scoring.includePlayoffs", r => r.Scoring.IncludePlayoffs = true),
         ("trades.approval", r => r.Trades.Approval = TradeApproval.Commissioner),
-        ("trades.pickYearsAhead", r => r.Trades.PickYearsAhead = 3),
         ("protection.slotsByPosition", r => r.Protection.SlotsByPosition = new PositionCounts()),
         ("protection.afterDraft",
             r => r.Protection.AfterDraft = AfterDraftDisposition.ReleasedToFreeAgents),

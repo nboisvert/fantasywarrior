@@ -1,0 +1,158 @@
+[
+  {
+    "year": 2027,
+    "round": 2,
+    "originalAbbrev": "CAR",
+    "ownerUsername": "dany"
+  },
+  {
+    "year": 2027,
+    "round": 3,
+    "originalAbbrev": "CAR",
+    "ownerUsername": "yvan"
+  },
+  {
+    "year": 2027,
+    "round": 1,
+    "originalAbbrev": "COL",
+    "ownerUsername": "eric"
+  },
+  {
+    "year": 2027,
+    "round": 2,
+    "originalAbbrev": "COL",
+    "ownerUsername": "alain"
+  },
+  {
+    "year": 2027,
+    "round": 1,
+    "originalAbbrev": "DAL",
+    "ownerUsername": "jonathan"
+  },
+  {
+    "year": 2027,
+    "round": 3,
+    "originalAbbrev": "DAL",
+    "ownerUsername": "antoine"
+  },
+  {
+    "year": 2027,
+    "round": 2,
+    "originalAbbrev": "LAK",
+    "ownerUsername": "jonathanr"
+  },
+  {
+    "year": 2027,
+    "round": 1,
+    "originalAbbrev": "MIN",
+    "ownerUsername": "jonathan"
+  },
+  {
+    "year": 2027,
+    "round": 2,
+    "originalAbbrev": "MIN",
+    "ownerUsername": "antoine"
+  },
+  {
+    "year": 2027,
+    "round": 3,
+    "originalAbbrev": "MIN",
+    "ownerUsername": "mathieu"
+  },
+  {
+    "year": 2027,
+    "round": 2,
+    "originalAbbrev": "MTL",
+    "ownerUsername": "jonathanr"
+  },
+  {
+    "year": 2027,
+    "round": 3,
+    "originalAbbrev": "MTL",
+    "ownerUsername": "mathieu"
+  },
+  {
+    "year": 2027,
+    "round": 1,
+    "originalAbbrev": "NJD",
+    "ownerUsername": "yvan"
+  },
+  {
+    "year": 2027,
+    "round": 2,
+    "originalAbbrev": "NJD",
+    "ownerUsername": "jonathanr"
+  },
+  {
+    "year": 2027,
+    "round": 1,
+    "originalAbbrev": "SJS",
+    "ownerUsername": "antoine"
+  },
+  {
+    "year": 2027,
+    "round": 2,
+    "originalAbbrev": "SJS",
+    "ownerUsername": "jonathanr"
+  },
+  {
+    "year": 2027,
+    "round": 3,
+    "originalAbbrev": "SJS",
+    "ownerUsername": "dany"
+  },
+  {
+    "year": 2027,
+    "round": 1,
+    "originalAbbrev": "TOR",
+    "ownerUsername": "eric"
+  },
+  {
+    "year": 2027,
+    "round": 2,
+    "originalAbbrev": "TOR",
+    "ownerUsername": "christian"
+  },
+  {
+    "year": 2027,
+    "round": 3,
+    "originalAbbrev": "TOR",
+    "ownerUsername": "yvan"
+  },
+  {
+    "year": 2027,
+    "round": 1,
+    "originalAbbrev": "VGK",
+    "ownerUsername": "antoine"
+  },
+  {
+    "year": 2027,
+    "round": 2,
+    "originalAbbrev": "VGK",
+    "ownerUsername": "antoine"
+  },
+  {
+    "year": 2028,
+    "round": 2,
+    "originalAbbrev": "CAR",
+    "ownerUsername": "jonathanr"
+  },
+  {
+    "year": 2028,
+    "round": 3,
+    "originalAbbrev": "CAR",
+    "ownerUsername": "jonathanr"
+  },
+  {
+    "year": 2028,
+    "round": 3,
+    "originalAbbrev": "MTL",
+    "ownerUsername": "jonathanr"
+  },
+  {
+    "year": 2028,
+    "round": 3,
+    "originalAbbrev": "VGK",
+    "ownerUsername": "dany"
+  }
+]

@@ -1,0 +1,2200 @@
+{
+  "source": "PoolExpert, Classement Mordus2026-27 (export du 29 septembre)",
+  "season": "20262027",
+  "teams": [
+    {
+      "gm": "Alexandre Giguere Briere",
+      "username": "alexandre",
+      "franchise": "New Jersey Devils",
+      "franchiseAbbrev": "NJD",
+      "active": [
+        {
+          "first": "Leon",
+          "last": "Draisaitl",
+          "team": "EDM"
+        },
+        {
+          "first": "Matthew",
+          "last": "Knies",
+          "team": "CBJ"
+        },
+        {
+          "first": "Tim",
+          "last": "Stützle",
+          "team": "OTT"
+        },
+        {
+          "first": "Zach",
+          "last": "Hyman",
+          "team": "EDM"
+        },
+        {
+          "first": "Josh",
+          "last": "Norris",
+          "team": "BUF"
+        },
+        {
+          "first": "Nikolaj",
+          "last": "Ehlers",
+          "team": "CAR"
+        },
+        {
+          "first": "Taylor",
+          "last": "Hall",
+          "team": "CAR"
+        },
+        {
+          "first": "Josh",
+          "last": "Doan",
+          "team": "BUF"
+        },
+        {
+          "first": "Sam",
+          "last": "Reinhart",
+          "team": "FLA"
+        },
+        {
+          "first": "Evan",
+          "last": "Bouchard",
+          "team": "EDM"
+        },
+        {
+          "first": "Owen",
+          "last": "Power",
+          "team": "BUF"
+        },
+        {
+          "first": "Jake",
+          "last": "Sanderson",
+          "team": "OTT"
+        },
+        {
+          "first": "Noah",
+          "last": "Dobson",
+          "team": "MTL"
+        },
+        {
+          "first": "Arturs",
+          "last": "Silovs",
+          "team": "PIT"
+        }
+      ],
+      "reserve": [
+        {
+          "first": "Calum",
+          "last": "Ritchie",
+          "team": "NYI"
+        },
+        {
+          "first": "Dmitri",
+          "last": "Buchelnikov",
+          "team": "STL"
+        },
+        {
+          "first": "Maxim",
+          "last": "Shabanov",
+          "team": "MIN"
+        },
+        {
+          "first": "Alexander",
+          "last": "Command",
+          "team": "NJ"
+        },
+        {
+          "first": "Braeden",
+          "last": "Bowman",
+          "team": "VGK"
+        },
+        {
+          "first": "Wyatt",
+          "last": "Cullen",
+          "team": "NSH"
+        },
+        {
+          "first": "Alfons",
+          "last": "Freij",
+          "team": "WIN"
+        },
+        {
+          "first": "Justin",
+          "last": "Faulk",
+          "team": "DET"
+        },
+        {
+          "first": "Devon",
+          "last": "Levi",
+          "team": "EDM"
+        },
+        {
+          "first": "John",
+          "last": "Gibson",
+          "team": "DET"
+        }
+      ]
+    },
+    {
+      "gm": "Jonathan Marcil",
+      "username": "jonathan",
+      "franchise": "Florida Panthers",
+      "franchiseAbbrev": "FLA",
+      "active": [
+        {
+          "first": "Nathan",
+          "last": "MacKinnon",
+          "team": "COL"
+        },
+        {
+          "first": "Mika",
+          "last": "Zibanejad",
+          "team": "NYR"
+        },
+        {
+          "first": "Patrick",
+          "last": "Kane",
+          "team": "CHI"
+        },
+        {
+          "first": "Vincent",
+          "last": "Trocheck",
+          "team": "UTA"
+        },
+        {
+          "first": "Nikita",
+          "last": "Kucherov",
+          "team": "TB"
+        },
+        {
+          "first": "Filip",
+          "last": "Forsberg",
+          "team": "NSH"
+        },
+        {
+          "first": "Mats",
+          "last": "Zuccarello",
+          "team": "LA"
+        },
+        {
+          "first": "J.T.",
+          "last": "Miller",
+          "team": "NYR"
+        },
+        {
+          "first": "Mark",
+          "last": "Scheifele",
+          "team": "WIN"
+        },
+        {
+          "first": "Zach",
+          "last": "Werenski",
+          "team": "CBJ"
+        },
+        {
+          "first": "Aaron",
+          "last": "Ekblad",
+          "team": "FLA"
+        },
+        {
+          "first": "Brandon",
+          "last": "Montour",
+          "team": "SEA"
+        },
+        {
+          "first": "Brandt",
+          "last": "Clarke",
+          "team": "LA"
+        },
+        {
+          "first": "Jeremy",
+          "last": "Swayman",
+          "team": "BOS"
+        }
+      ],
+      "reserve": [
+        {
+          "first": "Jack",
+          "last": "Roslovic",
+          "team": "TOR"
+        },
+        {
+          "first": "Bobby",
+          "last": "Brink",
+          "team": "MIN"
+        },
+        {
+          "first": "Colby",
+          "last": "Barlow",
+          "team": "WIN"
+        },
+        {
+          "first": "Luca",
+          "last": "Del Bel Belluz",
+          "team": "CBJ"
+        },
+        {
+          "first": "Cole",
+          "last": "Eiserman",
+          "team": "NYI"
+        },
+        {
+          "first": "Tynan",
+          "last": "Lawrence",
+          "team": "STL"
+        },
+        {
+          "first": "Brad",
+          "last": "Lambert",
+          "team": "WIN"
+        },
+        {
+          "first": "Vitali",
+          "last": "Pinchuk",
+          "team": "NSH"
+        },
+        {
+          "first": "Justin",
+          "last": "Sourdif",
+          "team": "WSH"
+        },
+        {
+          "first": "Travis",
+          "last": "Sanheim",
+          "team": "PHI"
+        },
+        {
+          "first": "Tristan",
+          "last": "Luneau",
+          "team": "ANA"
+        },
+        {
+          "first": "Scott",
+          "last": "Morrow",
+          "team": "NYR"
+        },
+        {
+          "first": "David",
+          "last": "Jiricek",
+          "team": "PHI"
+        },
+        {
+          "first": "Sergei",
+          "last": "Murashov",
+          "team": "PIT"
+        },
+        {
+          "first": "Joel",
+          "last": "Hofer",
+          "team": "STL"
+        }
+      ]
+    },
+    {
+      "gm": "Steeve Lachance",
+      "username": "steeve",
+      "franchise": "Montreal Canadiens",
+      "franchiseAbbrev": "MTL",
+      "active": [
+        {
+          "first": "Elias",
+          "last": "Pettersson",
+          "team": "VAN",
+          "playerId": 8480012
+        },
+        {
+          "first": "Brock",
+          "last": "Nelson",
+          "team": "COL"
+        },
+        {
+          "first": "Rickard",
+          "last": "Rakell",
+          "team": "PIT"
+        },
+        {
+          "first": "Martin",
+          "last": "Necas",
+          "team": "COL"
+        },
+        {
+          "first": "Anthony",
+          "last": "Mantha",
+          "team": "NJ"
+        },
+        {
+          "first": "Kyle",
+          "last": "Connor",
+          "team": "WIN"
+        },
+        {
+          "first": "Cole",
+          "last": "Caufield",
+          "team": "MTL"
+        },
+        {
+          "first": "Ivan",
+          "last": "Demidov",
+          "team": "MTL"
+        },
+        {
+          "first": "Cutter",
+          "last": "Gauthier",
+          "team": "ANA"
+        },
+        {
+          "first": "Cale",
+          "last": "Makar",
+          "team": "COL"
+        },
+        {
+          "first": "Adam",
+          "last": "Fox",
+          "team": "NYR"
+        },
+        {
+          "first": "Lane",
+          "last": "Hutson",
+          "team": "MTL"
+        },
+        {
+          "first": "Cole",
+          "last": "Hutson",
+          "team": "WSH"
+        },
+        {
+          "first": "Andrei",
+          "last": "Vasilevskiy",
+          "team": "TB"
+        }
+      ],
+      "reserve": [
+        {
+          "first": "Caleb",
+          "last": "Malhotra",
+          "team": "VAN"
+        },
+        {
+          "first": "Ilya",
+          "last": "Protas",
+          "team": "WSH"
+        },
+        {
+          "first": "Samuel",
+          "last": "Honzek",
+          "team": "CGY"
+        },
+        {
+          "first": "Carter",
+          "last": "Bear",
+          "team": "DET"
+        },
+        {
+          "first": "Max",
+          "last": "Plante",
+          "team": "DET"
+        },
+        {
+          "first": "Alexander",
+          "last": "Zharovsky",
+          "team": "MTL"
+        },
+        {
+          "first": "Nick",
+          "last": "Lardis",
+          "team": "CHI"
+        },
+        {
+          "first": "Andrew",
+          "last": "Cristall",
+          "team": "WSH"
+        },
+        {
+          "first": "Bradly",
+          "last": "Nadeau",
+          "team": "CAR"
+        },
+        {
+          "first": "Anthony",
+          "last": "Cirelli",
+          "team": "TB"
+        },
+        {
+          "first": "Arseny",
+          "last": "Gritsyuk",
+          "team": "NJ"
+        },
+        {
+          "first": "Riley",
+          "last": "Heidt",
+          "team": "MIN"
+        },
+        {
+          "first": "Seamus",
+          "last": "Casey",
+          "team": "NJ"
+        },
+        {
+          "first": "Henry",
+          "last": "Mews",
+          "team": "CGY"
+        },
+        {
+          "first": "Ryan",
+          "last": "Ufko",
+          "team": "NSH"
+        },
+        {
+          "first": "Malte",
+          "last": "Gustafsson",
+          "team": "NYI"
+        }
+      ]
+    },
+    {
+      "gm": "Christian Drouin",
+      "username": "christian",
+      "franchise": "Los Angeles Kings",
+      "franchiseAbbrev": "LAK",
+      "active": [
+        {
+          "first": "Macklin",
+          "last": "Celebrini",
+          "team": "SJ"
+        },
+        {
+          "first": "Will",
+          "last": "Smith",
+          "team": "SJ"
+        },
+        {
+          "first": "Jack",
+          "last": "Hughes",
+          "team": "NJ"
+        },
+        {
+          "first": "Steven",
+          "last": "Stamkos",
+          "team": "NSH"
+        },
+        {
+          "first": "Kirill",
+          "last": "Kaprizov",
+          "team": "MIN"
+        },
+        {
+          "first": "Roman",
+          "last": "Kantserov",
+          "team": "CHI"
+        },
+        {
+          "first": "Brady",
+          "last": "Tkachuk",
+          "team": "FLA"
+        },
+        {
+          "first": "David",
+          "last": "Pastrnak",
+          "team": "BOS"
+        },
+        {
+          "first": "Matt",
+          "last": "Boldy",
+          "team": "MIN"
+        },
+        {
+          "first": "Filip",
+          "last": "Hronek",
+          "team": "VAN"
+        },
+        {
+          "first": "Sean",
+          "last": "Durzi",
+          "team": "NYR"
+        },
+        {
+          "first": "Shayne",
+          "last": "Gostisbehere",
+          "team": "CAR"
+        },
+        {
+          "first": "Pavel",
+          "last": "Mintyukov",
+          "team": "ANA"
+        },
+        {
+          "first": "Carter",
+          "last": "Hart",
+          "team": "VGK"
+        }
+      ],
+      "reserve": [
+        {
+          "first": "Kent",
+          "last": "Johnson",
+          "team": "CBJ"
+        },
+        {
+          "first": "Danila",
+          "last": "Yurov",
+          "team": "MIN"
+        },
+        {
+          "first": "Ryan",
+          "last": "McLeod",
+          "team": "BUF"
+        },
+        {
+          "first": "Liam",
+          "last": "Greentree",
+          "team": "NYR"
+        },
+        {
+          "first": "Benjamin",
+          "last": "Rautiainen",
+          "team": "TB"
+        },
+        {
+          "first": "Jiri",
+          "last": "Kulich",
+          "team": "BUF"
+        },
+        {
+          "first": "Jack",
+          "last": "Nesbitt",
+          "team": "PHI"
+        },
+        {
+          "first": "Felix",
+          "last": "Unger Sorum",
+          "team": "CAR"
+        },
+        {
+          "first": "Mattias",
+          "last": "Samuelsson",
+          "team": "BUF"
+        },
+        {
+          "first": "Mikhail",
+          "last": "Gulyayev",
+          "team": "COL"
+        },
+        {
+          "first": "Charlie",
+          "last": "McAvoy",
+          "team": "BOS"
+        },
+        {
+          "first": "Tomas",
+          "last": "Galvas",
+          "team": "PIT"
+        },
+        {
+          "first": "Tommy",
+          "last": "Bleyl",
+          "team": "NSH"
+        },
+        {
+          "first": "Trey",
+          "last": "Augustine",
+          "team": "DET"
+        },
+        {
+          "first": "Lukas",
+          "last": "Dostal",
+          "team": "ANA"
+        }
+      ]
+    },
+    {
+      "gm": "Mathieu Letourneau",
+      "username": "mathieu",
+      "franchise": "Vegas Golden Knights",
+      "franchiseAbbrev": "VGK",
+      "active": [
+        {
+          "first": "Matty",
+          "last": "Beniers",
+          "team": "SEA"
+        },
+        {
+          "first": "Pavel",
+          "last": "Dorofeyev",
+          "team": "NYR"
+        },
+        {
+          "first": "Sam",
+          "last": "Bennett",
+          "team": "FLA"
+        },
+        {
+          "first": "Bo",
+          "last": "Horvat",
+          "team": "NYI"
+        },
+        {
+          "first": "Carter",
+          "last": "Verhaeghe",
+          "team": "FLA"
+        },
+        {
+          "first": "Nick",
+          "last": "Schmaltz",
+          "team": "UTA"
+        },
+        {
+          "first": "Joel",
+          "last": "Eriksson Ek",
+          "team": "MIN"
+        },
+        {
+          "first": "Ryan",
+          "last": "O'Reilly",
+          "team": "NSH"
+        },
+        {
+          "first": "Michael",
+          "last": "Misa",
+          "team": "SJ"
+        },
+        {
+          "first": "Devon",
+          "last": "Toews",
+          "team": "COL"
+        },
+        {
+          "first": "Roman",
+          "last": "Josi",
+          "team": "NSH"
+        },
+        {
+          "first": "Artyom",
+          "last": "Levshunov",
+          "team": "CHI"
+        },
+        {
+          "first": "Jackson",
+          "last": "LaCombe",
+          "team": "ANA"
+        },
+        {
+          "first": "Yaroslav",
+          "last": "Askarov",
+          "team": "SJ"
+        }
+      ],
+      "reserve": [
+        {
+          "first": "Dmitri",
+          "last": "Voronkov",
+          "team": "CBJ"
+        },
+        {
+          "first": "Isaac",
+          "last": "Howard",
+          "team": "EDM"
+        },
+        {
+          "first": "Jack",
+          "last": "Quinn",
+          "team": "BUF"
+        },
+        {
+          "first": "Ethan",
+          "last": "Belchetz",
+          "team": "UTA"
+        },
+        {
+          "first": "Owen",
+          "last": "Beck",
+          "team": "MTL"
+        },
+        {
+          "first": "Will",
+          "last": "Cuylle",
+          "team": "NYR"
+        },
+        {
+          "first": "Dawson",
+          "last": "Mercer",
+          "team": "NJ"
+        },
+        {
+          "first": "Oscar",
+          "last": "Hemming",
+          "team": "CBJ"
+        },
+        {
+          "first": "William",
+          "last": "Zellers",
+          "team": "BOS"
+        },
+        {
+          "first": "Justin",
+          "last": "Brazeau",
+          "team": "PIT"
+        },
+        {
+          "first": "Jackson",
+          "last": "Blake",
+          "team": "CAR"
+        },
+        {
+          "first": "Tyler",
+          "last": "Bertuzzi",
+          "team": "CHI"
+        },
+        {
+          "first": "Dmitriy",
+          "last": "Simashev",
+          "team": "UTA"
+        },
+        {
+          "first": "Adam",
+          "last": "Jiricek",
+          "team": "STL"
+        },
+        {
+          "first": "Logan",
+          "last": "Mailloux",
+          "team": "STL"
+        },
+        {
+          "first": "Radim",
+          "last": "Mrtka",
+          "team": "BUF"
+        },
+        {
+          "first": "David",
+          "last": "Reinbacher",
+          "team": "MTL"
+        },
+        {
+          "first": "Hunter",
+          "last": "Brzustewicz",
+          "team": "CGY"
+        },
+        {
+          "first": "Jakub",
+          "last": "Dobes",
+          "team": "MTL"
+        },
+        {
+          "first": "Jet",
+          "last": "Greaves",
+          "team": "CBJ"
+        }
+      ]
+    },
+    {
+      "gm": "Alain Rodrigue",
+      "username": "alain",
+      "franchise": "Toronto Maple Leafs",
+      "franchiseAbbrev": "TOR",
+      "active": [
+        {
+          "first": "Connor",
+          "last": "McDavid",
+          "team": "EDM"
+        },
+        {
+          "first": "Artturi",
+          "last": "Lehkonen",
+          "team": "COL"
+        },
+        {
+          "first": "John",
+          "last": "Tavares",
+          "team": "TOR"
+        },
+        {
+          "first": "Andrei",
+          "last": "Svechnikov",
+          "team": "CAR"
+        },
+        {
+          "first": "Mikko",
+          "last": "Rantanen",
+          "team": "DAL"
+        },
+        {
+          "first": "Alexis",
+          "last": "Lafreniere",
+          "team": "NYR"
+        },
+        {
+          "first": "Roope",
+          "last": "Hintz",
+          "team": "DAL"
+        },
+        {
+          "first": "Brandon",
+          "last": "Hagel",
+          "team": "TB"
+        },
+        {
+          "first": "Jake",
+          "last": "Guentzel",
+          "team": "TB"
+        },
+        {
+          "first": "Brent",
+          "last": "Burns",
+          "team": "COL"
+        },
+        {
+          "first": "Kevin",
+          "last": "Korchinski",
+          "team": "CHI"
+        },
+        {
+          "first": "Simon",
+          "last": "Edvinsson",
+          "team": "DET"
+        },
+        {
+          "first": "Oliver",
+          "last": "Ekman-Larsson",
+          "team": "TOR"
+        },
+        {
+          "first": "Brandon",
+          "last": "Bussi",
+          "team": "CAR"
+        }
+      ],
+      "reserve": [
+        {
+          "first": "Shane",
+          "last": "Wright",
+          "team": "SEA"
+        },
+        {
+          "first": "Evgeni",
+          "last": "Malkin",
+          "team": "PIT"
+        },
+        {
+          "first": "Mason",
+          "last": "Marchment",
+          "team": "SJ"
+        },
+        {
+          "first": "Matias",
+          "last": "Maccelli",
+          "team": "NYI"
+        },
+        {
+          "first": "Conor",
+          "last": "Geekie",
+          "team": "TB"
+        },
+        {
+          "first": "Joakim",
+          "last": "Kemell",
+          "team": "NSH"
+        },
+        {
+          "first": "Justin",
+          "last": "Hryckowian",
+          "team": "DAL"
+        },
+        {
+          "first": "Mackie",
+          "last": "Samoskevich",
+          "team": "SEA"
+        },
+        {
+          "first": "Philipp",
+          "last": "Kurashev",
+          "team": "SJ"
+        },
+        {
+          "first": "Chris",
+          "last": "Kreider",
+          "team": "MTL"
+        },
+        {
+          "first": "Matthew",
+          "last": "Wood",
+          "team": "NSH"
+        },
+        {
+          "first": "Mavrik",
+          "last": "Bourque",
+          "team": "NSH"
+        },
+        {
+          "first": "Tom",
+          "last": "Willander",
+          "team": "VAN"
+        },
+        {
+          "first": "Scott",
+          "last": "Perunovich",
+          "team": "LA"
+        },
+        {
+          "first": "Xavier",
+          "last": "Villeneuve",
+          "team": "CHI"
+        },
+        {
+          "first": "Keaton",
+          "last": "Verhoeff",
+          "team": "SJ"
+        },
+        {
+          "first": "Jordan",
+          "last": "Spence",
+          "team": "OTT"
+        },
+        {
+          "first": "Marc",
+          "last": "Del Gaizo",
+          "team": "NYR"
+        },
+        {
+          "first": "Oliver",
+          "last": "Bonk",
+          "team": "PHI"
+        },
+        {
+          "first": "Spencer",
+          "last": "Knight",
+          "team": "CHI"
+        }
+      ]
+    },
+    {
+      "gm": "Michel Allen",
+      "username": "michel",
+      "franchise": "Edmonton Oilers",
+      "franchiseAbbrev": "EDM",
+      "active": [
+        {
+          "first": "Clayton",
+          "last": "Keller",
+          "team": "UTA"
+        },
+        {
+          "first": "William",
+          "last": "Nylander",
+          "team": "TOR"
+        },
+        {
+          "first": "Noah",
+          "last": "Ostlund",
+          "team": "BUF"
+        },
+        {
+          "first": "Nazem",
+          "last": "Kadri",
+          "team": "COL"
+        },
+        {
+          "first": "Juraj",
+          "last": "Slafkovsky",
+          "team": "MTL"
+        },
+        {
+          "first": "Owen",
+          "last": "Tippett",
+          "team": "PHI"
+        },
+        {
+          "first": "Lucas",
+          "last": "Raymond",
+          "team": "DET"
+        },
+        {
+          "first": "Quinton",
+          "last": "Byfield",
+          "team": "LA"
+        },
+        {
+          "first": "Alex",
+          "last": "Tuch",
+          "team": "WSH"
+        },
+        {
+          "first": "Quinn",
+          "last": "Hughes",
+          "team": "MIN"
+        },
+        {
+          "first": "John",
+          "last": "Carlson",
+          "team": "TB"
+        },
+        {
+          "first": "Josh",
+          "last": "Morrissey",
+          "team": "WIN"
+        },
+        {
+          "first": "Rasmus",
+          "last": "Andersson",
+          "team": "VGK"
+        },
+        {
+          "first": "Scott",
+          "last": "Wedgewood",
+          "team": "COL"
+        }
+      ],
+      "reserve": [
+        {
+          "first": "Jared",
+          "last": "McCann",
+          "team": "SEA"
+        },
+        {
+          "first": "Daniil",
+          "last": "But",
+          "team": "UTA"
+        },
+        {
+          "first": "Zack",
+          "last": "Bolduc",
+          "team": "MTL",
+          "playerId": 8482737
+        },
+        {
+          "first": "Cayden",
+          "last": "Lindstrom",
+          "team": "CBJ"
+        },
+        {
+          "first": "Roger",
+          "last": "McQueen",
+          "team": "ANA"
+        },
+        {
+          "first": "Victor",
+          "last": "Eklund",
+          "team": "NYI"
+        },
+        {
+          "first": "Nikita",
+          "last": "Artamonov",
+          "team": "CAR"
+        },
+        {
+          "first": "Jake",
+          "last": "Neighbours",
+          "team": "STL"
+        },
+        {
+          "first": "Ivan",
+          "last": "Miroshnichenko",
+          "team": "WSH"
+        },
+        {
+          "first": "Oliver",
+          "last": "Moore",
+          "team": "CHI"
+        },
+        {
+          "first": "Viggo",
+          "last": "Björck",
+          "team": "WIN"
+        },
+        {
+          "first": "Ivan",
+          "last": "Ryabkin",
+          "team": "CAR"
+        },
+        {
+          "first": "Tony",
+          "last": "DeAngelo",
+          "team": "NYI"
+        },
+        {
+          "first": "Connor",
+          "last": "Hellebuyck",
+          "team": "WIN"
+        }
+      ]
+    },
+    {
+      "gm": "Eric Labrecque",
+      "username": "eric",
+      "franchise": "Washington Capitals",
+      "franchiseAbbrev": "WSH",
+      "active": [
+        {
+          "first": "Jesper",
+          "last": "Bratt",
+          "team": "NJ"
+        },
+        {
+          "first": "Mark",
+          "last": "Stone",
+          "team": "VGK"
+        },
+        {
+          "first": "Logan",
+          "last": "Cooley",
+          "team": "UTA"
+        },
+        {
+          "first": "Porter",
+          "last": "Martone",
+          "team": "PHI"
+        },
+        {
+          "first": "Nick",
+          "last": "Suzuki",
+          "team": "MTL"
+        },
+        {
+          "first": "Morgan",
+          "last": "Geekie",
+          "team": "BOS"
+        },
+        {
+          "first": "Tyson",
+          "last": "Foerster",
+          "team": "PHI"
+        },
+        {
+          "first": "Pavel",
+          "last": "Zacha",
+          "team": "BOS"
+        },
+        {
+          "first": "Frank",
+          "last": "Nazar",
+          "team": "CHI"
+        },
+        {
+          "first": "Shea",
+          "last": "Theodore",
+          "team": "VGK"
+        },
+        {
+          "first": "Mikhail",
+          "last": "Sergachev",
+          "team": "UTA"
+        },
+        {
+          "first": "Jamie",
+          "last": "Drysdale",
+          "team": "PHI"
+        },
+        {
+          "first": "Darren",
+          "last": "Raddysh",
+          "team": "TOR"
+        },
+        {
+          "first": "Jacob",
+          "last": "Markstrom",
+          "team": "FLA"
+        }
+      ],
+      "reserve": [
+        {
+          "first": "Jonathan",
+          "last": "Lekkerimaki",
+          "team": "VAN"
+        },
+        {
+          "first": "Vaclav",
+          "last": "Nestrasil",
+          "team": "CHI"
+        },
+        {
+          "first": "Braeden",
+          "last": "Cootes",
+          "team": "VAN"
+        },
+        {
+          "first": "Jake",
+          "last": "O'Brien",
+          "team": "SEA"
+        },
+        {
+          "first": "Brady",
+          "last": "Martin",
+          "team": "NSH"
+        },
+        {
+          "first": "Troy",
+          "last": "Terry",
+          "team": "ANA"
+        },
+        {
+          "first": "Igor",
+          "last": "Chernyshov",
+          "team": "SJ"
+        },
+        {
+          "first": "Matt",
+          "last": "Coronato",
+          "team": "CGY"
+        },
+        {
+          "first": "Elton",
+          "last": "Hermansson",
+          "team": "LA"
+        },
+        {
+          "first": "Dylan",
+          "last": "Cozens",
+          "team": "OTT"
+        },
+        {
+          "first": "Brayden",
+          "last": "Yager",
+          "team": "WIN"
+        },
+        {
+          "first": "Rutger",
+          "last": "McGroarty",
+          "team": "PIT"
+        },
+        {
+          "first": "Mason",
+          "last": "Lohrei",
+          "team": "BOS"
+        },
+        {
+          "first": "Sam",
+          "last": "Dickinson",
+          "team": "SJ"
+        },
+        {
+          "first": "Theo",
+          "last": "Lindstein",
+          "team": "STL"
+        },
+        {
+          "first": "Charle-Edouard",
+          "last": "D'Astous",
+          "team": "TB"
+        },
+        {
+          "first": "Jacob",
+          "last": "Fowler",
+          "team": "MTL"
+        },
+        {
+          "first": "Darcy",
+          "last": "Kuemper",
+          "team": "LA"
+        }
+      ]
+    },
+    {
+      "gm": "Jonathan Rochette",
+      "username": "jonathanr",
+      "franchise": "Minnesota Wild",
+      "franchiseAbbrev": "MIN",
+      "active": [
+        {
+          "first": "Brock",
+          "last": "Boeser",
+          "team": "VAN"
+        },
+        {
+          "first": "Matthew",
+          "last": "Tkachuk",
+          "team": "FLA"
+        },
+        {
+          "first": "Travis",
+          "last": "Konecny",
+          "team": "PHI"
+        },
+        {
+          "first": "Jimmy",
+          "last": "Snuggerud",
+          "team": "STL"
+        },
+        {
+          "first": "Tom",
+          "last": "Wilson",
+          "team": "WSH"
+        },
+        {
+          "first": "Mason",
+          "last": "McTavish",
+          "team": "STL"
+        },
+        {
+          "first": "Pavel",
+          "last": "Buchnevich",
+          "team": "STL"
+        },
+        {
+          "first": "Aleksander",
+          "last": "Barkov",
+          "team": "FLA"
+        },
+        {
+          "first": "Jason",
+          "last": "Robertson",
+          "team": "DAL"
+        },
+        {
+          "first": "Dougie",
+          "last": "Hamilton",
+          "team": "NJ"
+        },
+        {
+          "first": "Victor",
+          "last": "Hedman",
+          "team": "TB"
+        },
+        {
+          "first": "Miro",
+          "last": "Heiskanen",
+          "team": "DAL"
+        },
+        {
+          "first": "Philip",
+          "last": "Broberg",
+          "team": "STL"
+        },
+        {
+          "first": "Jesper",
+          "last": "Wallstedt",
+          "team": "MIN"
+        }
+      ],
+      "reserve": [
+        {
+          "first": "Marco",
+          "last": "Rossi",
+          "team": "VAN"
+        },
+        {
+          "first": "Easton",
+          "last": "Cowan",
+          "team": "TOR"
+        },
+        {
+          "first": "Liam",
+          "last": "Ohgren",
+          "team": "VAN"
+        },
+        {
+          "first": "Seth",
+          "last": "Jarvis",
+          "team": "CAR"
+        },
+        {
+          "first": "Jagger",
+          "last": "Firkus",
+          "team": "SEA"
+        },
+        {
+          "first": "Ethan",
+          "last": "Wyttenbach",
+          "team": "CGY"
+        },
+        {
+          "first": "Matvei",
+          "last": "Gridin",
+          "team": "CGY"
+        },
+        {
+          "first": "Jett",
+          "last": "Luchanko",
+          "team": "PHI"
+        },
+        {
+          "first": "Caleb",
+          "last": "Desnoyers",
+          "team": "UTA"
+        },
+        {
+          "first": "Dalibor",
+          "last": "Dvorsky",
+          "team": "STL"
+        },
+        {
+          "first": "Justin",
+          "last": "Carbonneau",
+          "team": "STL"
+        },
+        {
+          "first": "Michael",
+          "last": "Brandsegg-Nygard",
+          "team": "DET"
+        },
+        {
+          "first": "Anton",
+          "last": "Frondell",
+          "team": "CHI"
+        },
+        {
+          "first": "Carter",
+          "last": "Yakemchuk",
+          "team": "OTT"
+        },
+        {
+          "first": "Bryce",
+          "last": "Pickford",
+          "team": "MTL"
+        },
+        {
+          "first": "Carson",
+          "last": "Carels",
+          "team": "CGY"
+        },
+        {
+          "first": "Kashawn",
+          "last": "Aitcheson",
+          "team": "NYI"
+        },
+        {
+          "first": "Daxon",
+          "last": "Rudolph",
+          "team": "BUF"
+        },
+        {
+          "first": "Pyotr",
+          "last": "Kochetkov",
+          "team": "CAR"
+        }
+      ]
+    },
+    {
+      "gm": "Dany Blouin",
+      "username": "dany",
+      "franchise": "Dallas Stars",
+      "franchiseAbbrev": "DAL",
+      "active": [
+        {
+          "first": "Dylan",
+          "last": "Guenther",
+          "team": "UTA"
+        },
+        {
+          "first": "Brayden",
+          "last": "Point",
+          "team": "TB"
+        },
+        {
+          "first": "Luke",
+          "last": "Evangelista",
+          "team": "NJ"
+        },
+        {
+          "first": "Robert",
+          "last": "Thomas",
+          "team": "STL"
+        },
+        {
+          "first": "Adrian",
+          "last": "Kempe",
+          "team": "LA"
+        },
+        {
+          "first": "William",
+          "last": "Eklund",
+          "team": "OTT"
+        },
+        {
+          "first": "Dylan",
+          "last": "Strome",
+          "team": "WSH"
+        },
+        {
+          "first": "Drake",
+          "last": "Batherson",
+          "team": "OTT"
+        },
+        {
+          "first": "Gabriel",
+          "last": "Vilardi",
+          "team": "WIN"
+        },
+        {
+          "first": "Vince",
+          "last": "Dunn",
+          "team": "SEA"
+        },
+        {
+          "first": "Luke",
+          "last": "Hughes",
+          "team": "NJ"
+        },
+        {
+          "first": "Mike",
+          "last": "Matheson",
+          "team": "MTL"
+        },
+        {
+          "first": "Rasmus",
+          "last": "Dahlin",
+          "team": "BUF"
+        },
+        {
+          "first": "Logan",
+          "last": "Thompson",
+          "team": "WSH"
+        }
+      ],
+      "reserve": [
+        {
+          "first": "Konsta",
+          "last": "Helenius",
+          "team": "BUF"
+        },
+        {
+          "first": "Zach",
+          "last": "Benson",
+          "team": "BUF"
+        },
+        {
+          "first": "Matt",
+          "last": "Savoie",
+          "team": "EDM"
+        },
+        {
+          "first": "Egor",
+          "last": "Surin",
+          "team": "NSH"
+        },
+        {
+          "first": "Jani",
+          "last": "Nyman",
+          "team": "SEA"
+        },
+        {
+          "first": "Liam",
+          "last": "Ruck",
+          "team": "PIT"
+        },
+        {
+          "first": "Marco",
+          "last": "Kasper",
+          "team": "DET"
+        },
+        {
+          "first": "Cole",
+          "last": "Reschny",
+          "team": "CGY"
+        },
+        {
+          "first": "Luca",
+          "last": "Cagnoni",
+          "team": "SJ"
+        },
+        {
+          "first": "Sam",
+          "last": "Rinzel",
+          "team": "CHI"
+        },
+        {
+          "first": "Cameron",
+          "last": "Reid",
+          "team": "NSH"
+        },
+        {
+          "first": "Alberts",
+          "last": "Smits",
+          "team": "NYR"
+        },
+        {
+          "first": "K'Andre",
+          "last": "Miller",
+          "team": "CAR"
+        },
+        {
+          "first": "Karel",
+          "last": "Vejmelka",
+          "team": "UTA"
+        }
+      ]
+    },
+    {
+      "gm": "Nicolas Boisvert",
+      "username": "nick",
+      "franchise": "Colorado Avalanche",
+      "franchiseAbbrev": "COL",
+      "active": [
+        {
+          "first": "Jack",
+          "last": "Eichel",
+          "team": "VGK"
+        },
+        {
+          "first": "Artemi",
+          "last": "Panarin",
+          "team": "LA"
+        },
+        {
+          "first": "Matvei",
+          "last": "Michkov",
+          "team": "PHI"
+        },
+        {
+          "first": "Jordan",
+          "last": "Kyrou",
+          "team": "WSH"
+        },
+        {
+          "first": "Ryan",
+          "last": "Nugent-Hopkins",
+          "team": "EDM"
+        },
+        {
+          "first": "Tage",
+          "last": "Thompson",
+          "team": "BUF"
+        },
+        {
+          "first": "Beckett",
+          "last": "Sennecke",
+          "team": "ANA"
+        },
+        {
+          "first": "Dylan",
+          "last": "Holloway",
+          "team": "STL"
+        },
+        {
+          "first": "Sebastian",
+          "last": "Aho",
+          "team": "CAR"
+        },
+        {
+          "first": "Erik",
+          "last": "Karlsson",
+          "team": "PIT"
+        },
+        {
+          "first": "Brock",
+          "last": "Faber",
+          "team": "MIN"
+        },
+        {
+          "first": "Jakob",
+          "last": "Chychrun",
+          "team": "WSH"
+        },
+        {
+          "first": "Mattias",
+          "last": "Ekholm",
+          "team": "EDM"
+        },
+        {
+          "first": "Stuart",
+          "last": "Skinner",
+          "team": "WIN"
+        }
+      ],
+      "reserve": [
+        {
+          "first": "Nicholas",
+          "last": "Robertson",
+          "team": "PIT",
+          "playerId": 8481582
+        },
+        {
+          "first": "Trevor",
+          "last": "Connelly",
+          "team": "VGK"
+        },
+        {
+          "first": "Kevin",
+          "last": "Fiala",
+          "team": "LA"
+        },
+        {
+          "first": "Terik",
+          "last": "Parascak",
+          "team": "WSH"
+        },
+        {
+          "first": "Jonathan",
+          "last": "Drouin",
+          "team": "STL"
+        },
+        {
+          "first": "Cole",
+          "last": "Perfetti",
+          "team": "WIN"
+        },
+        {
+          "first": "Michael",
+          "last": "Hage",
+          "team": "MTL"
+        },
+        {
+          "first": "John",
+          "last": "Klingberg",
+          "team": "SJ"
+        },
+        {
+          "first": "Shakir",
+          "last": "Mukhamadullin",
+          "team": "EDM"
+        },
+        {
+          "first": "Dmitri",
+          "last": "Gamzin",
+          "team": "NYI"
+        },
+        {
+          "first": "Sergei",
+          "last": "Bobrovsky",
+          "team": "TOR"
+        }
+      ]
+    },
+    {
+      "gm": "Yvan Meunier",
+      "username": "yvan",
+      "franchise": "San Jose Sharks",
+      "franchiseAbbrev": "SJS",
+      "active": [
+        {
+          "first": "Kirill",
+          "last": "Marchenko",
+          "team": "TOR"
+        },
+        {
+          "first": "Gabriel",
+          "last": "Landeskog",
+          "team": "COL"
+        },
+        {
+          "first": "Sidney",
+          "last": "Crosby",
+          "team": "PIT"
+        },
+        {
+          "first": "Tomas",
+          "last": "Hertl",
+          "team": "VGK"
+        },
+        {
+          "first": "Trevor",
+          "last": "Zegras",
+          "team": "PHI"
+        },
+        {
+          "first": "Logan",
+          "last": "Stankoven",
+          "team": "CAR"
+        },
+        {
+          "first": "Dylan",
+          "last": "Larkin",
+          "team": "DET"
+        },
+        {
+          "first": "Matt",
+          "last": "Duchene",
+          "team": "DAL"
+        },
+        {
+          "first": "Aliaksei",
+          "last": "Protas",
+          "team": "WSH"
+        },
+        {
+          "first": "Morgan",
+          "last": "Rielly",
+          "team": "TOR"
+        },
+        {
+          "first": "Simon",
+          "last": "Nemec",
+          "team": "CGY"
+        },
+        {
+          "first": "J.J.",
+          "last": "Moser",
+          "team": "TB"
+        },
+        {
+          "first": "Moritz",
+          "last": "Seider",
+          "team": "DET"
+        },
+        {
+          "first": "Jake",
+          "last": "Oettinger",
+          "team": "DAL"
+        }
+      ],
+      "reserve": [
+        {
+          "first": "Nate",
+          "last": "Danielson",
+          "team": "DET"
+        },
+        {
+          "first": "Sacha",
+          "last": "Boisvert",
+          "team": "CHI"
+        },
+        {
+          "first": "Adam",
+          "last": "Novotny",
+          "team": "VAN"
+        },
+        {
+          "first": "Fabian",
+          "last": "Lysell",
+          "team": "COL"
+        },
+        {
+          "first": "Quentin",
+          "last": "Musty",
+          "team": "SJ"
+        },
+        {
+          "first": "Emmitt",
+          "last": "Finnie",
+          "team": "DET"
+        },
+        {
+          "first": "Connor",
+          "last": "McMichael",
+          "team": "STL"
+        },
+        {
+          "first": "Maddox",
+          "last": "Dagenais",
+          "team": "STL"
+        },
+        {
+          "first": "Conor",
+          "last": "Garland",
+          "team": "CBJ"
+        },
+        {
+          "first": "Fedor",
+          "last": "Svechkov",
+          "team": "COL"
+        },
+        {
+          "first": "Alexander",
+          "last": "Nikishin",
+          "team": "CAR"
+        },
+        {
+          "first": "Olen",
+          "last": "Zellweger",
+          "team": "BUF"
+        },
+        {
+          "first": "Rasmus",
+          "last": "Sandin",
+          "team": "WSH"
+        },
+        {
+          "first": "Jackson",
+          "last": "Smith",
+          "team": "CBJ"
+        },
+        {
+          "first": "Anton",
+          "last": "Silaev",
+          "team": "NJ"
+        },
+        {
+          "first": "Akira",
+          "last": "Schmid",
+          "team": "FLA"
+        }
+      ]
+    },
+    {
+      "gm": "Patrick Rheaume",
+      "username": "patrick",
+      "franchise": "Tampa Bay Lightning",
+      "franchiseAbbrev": "TBL",
+      "active": [
+        {
+          "first": "Ivan",
+          "last": "Barbashev",
+          "team": "VGK"
+        },
+        {
+          "first": "JJ",
+          "last": "Peterka",
+          "team": "BOS"
+        },
+        {
+          "first": "Anton",
+          "last": "Lundell",
+          "team": "FLA"
+        },
+        {
+          "first": "Mitch",
+          "last": "Marner",
+          "team": "VGK"
+        },
+        {
+          "first": "Alex",
+          "last": "Newhook",
+          "team": "MTL"
+        },
+        {
+          "first": "Alex",
+          "last": "DeBrincat",
+          "team": "DET"
+        },
+        {
+          "first": "Collin",
+          "last": "Graf",
+          "team": "SJ"
+        },
+        {
+          "first": "Wyatt",
+          "last": "Johnston",
+          "team": "DAL"
+        },
+        {
+          "first": "Nico",
+          "last": "Hischier",
+          "team": "NJ"
+        },
+        {
+          "first": "Sam",
+          "last": "Malinski",
+          "team": "COL"
+        },
+        {
+          "first": "Zeev",
+          "last": "Buium",
+          "team": "VAN"
+        },
+        {
+          "first": "Matthew",
+          "last": "Schaefer",
+          "team": "NYI"
+        },
+        {
+          "first": "Thomas",
+          "last": "Harley",
+          "team": "DAL"
+        },
+        {
+          "first": "Mackenzie",
+          "last": "Blackwood",
+          "team": "COL"
+        }
+      ],
+      "reserve": [
+        {
+          "first": "Nikita",
+          "last": "Klepov",
+          "team": "ANA"
+        },
+        {
+          "first": "Bryan",
+          "last": "Rust",
+          "team": "PIT"
+        },
+        {
+          "first": "William",
+          "last": "Horcoff",
+          "team": "PIT"
+        },
+        {
+          "first": "Jaxon",
+          "last": "Cover",
+          "team": "OTT"
+        },
+        {
+          "first": "Mathew",
+          "last": "Barzal",
+          "team": "NYI"
+        },
+        {
+          "first": "Dean",
+          "last": "Letourneau",
+          "team": "BOS"
+        },
+        {
+          "first": "Connor",
+          "last": "Bedard",
+          "team": "CHI"
+        },
+        {
+          "first": "Benjamin",
+          "last": "Kindel",
+          "team": "PIT",
+          "playerId": 8485414
+        },
+        {
+          "first": "Denton",
+          "last": "Mateychuk",
+          "team": "CBJ"
+        },
+        {
+          "first": "Thomas",
+          "last": "Chabot",
+          "team": "OTT"
+        },
+        {
+          "first": "Jordan",
+          "last": "Binnington",
+          "team": "STL"
+        },
+        {
+          "first": "Sebastian",
+          "last": "Cossa",
+          "team": "UTA"
+        }
+      ]
+    },
+    {
+      "gm": "Antoine Sylvain",
+      "username": "antoine",
+      "franchise": "Carolina Hurricanes",
+      "franchiseAbbrev": "CAR",
+      "active": [
+        {
+          "first": "Gabe",
+          "last": "Perreault",
+          "team": "NYR"
+        },
+        {
+          "first": "Adam",
+          "last": "Fantilli",
+          "team": "CBJ"
+        },
+        {
+          "first": "Timo",
+          "last": "Meier",
+          "team": "NJ"
+        },
+        {
+          "first": "Ryan",
+          "last": "Leonard",
+          "team": "WSH"
+        },
+        {
+          "first": "Auston",
+          "last": "Matthews",
+          "team": "TOR"
+        },
+        {
+          "first": "Leo",
+          "last": "Carlsson",
+          "team": "ANA"
+        },
+        {
+          "first": "Ivar",
+          "last": "Stenberg",
+          "team": "SJ"
+        },
+        {
+          "first": "Gavin",
+          "last": "McKenna",
+          "team": "TOR"
+        },
+        {
+          "first": "Alex",
+          "last": "Ovechkin",
+          "team": "WSH"
+        },
+        {
+          "first": "Zayne",
+          "last": "Parekh",
+          "team": "CGY"
+        },
+        {
+          "first": "Axel",
+          "last": "Sandin Pellikka",
+          "team": "DET"
+        },
+        {
+          "first": "Bowen",
+          "last": "Byram",
+          "team": "CHI"
+        },
+        {
+          "first": "Seth",
+          "last": "Jones",
+          "team": "FLA"
+        },
+        {
+          "first": "Ilya",
+          "last": "Sorokin",
+          "team": "NYI"
+        }
+      ],
+      "reserve": [
+        {
+          "first": "Berkly",
+          "last": "Catton",
+          "team": "SEA"
+        },
+        {
+          "first": "Oliver",
+          "last": "Kapanen",
+          "team": "MTL"
+        },
+        {
+          "first": "J.P.",
+          "last": "Hurlbert",
+          "team": "DET"
+        },
+        {
+          "first": "Jonathan",
+          "last": "Huberdeau",
+          "team": "CGY"
+        },
+        {
+          "first": "James",
+          "last": "Hagens",
+          "team": "BOS"
+        },
+        {
+          "first": "Tij",
+          "last": "Iginla",
+          "team": "UTA"
+        },
+        {
+          "first": "Ryan",
+          "last": "Lin",
+          "team": "SJ"
+        },
+        {
+          "first": "Tanner",
+          "last": "Molendyk",
+          "team": "NSH"
+        },
+        {
+          "first": "Chase",
+          "last": "Reid",
+          "team": "SEA"
+        },
+        {
+          "first": "Tristan",
+          "last": "Jarry",
+          "team": "EDM"
+        },
+        {
+          "first": "Ilya",
+          "last": "Nabokov",
+          "team": "COL"
+        },
+        {
+          "first": "Dustin",
+          "last": "Wolf",
+          "team": "CGY"
+        },
+        {
+          "first": "Justus",
+          "last": "Annunen",
+          "team": "NSH"
+        },
+        {
+          "first": "Adin",
+          "last": "Hill",
+          "team": "VGK"
+        }
+      ]
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+using FantasyWarrior.Core.Drafts;
 using FantasyWarrior.Core.Rules;
 using FantasyWarrior.Data;
 using FantasyWarrior.Data.Entities;
@@ -7,25 +8,28 @@ using Microsoft.EntityFrameworkCore;
 namespace FantasyWarrior.Jobs.Sql;
 
 /// <summary>
-/// Creates one season's draft picks: <c>draft.rookieRounds</c> picks per team,
-/// one per round. Les Mordus run three.
+/// Creates draft picks: <c>draft.rookieRounds</c> picks per team, one per
+/// round, for every draft year the league trades in.
 ///
 /// The analogue of <c>period-init</c>, and manual for the same reason — a
 /// calendar for a season that has not started is a decision, not a nightly
 /// chore.
 ///
-/// <b>Picks live one year ahead, and only one.</b> They are generated for the
-/// season after the one being played, which is exactly what makes "tradable one
-/// year in advance" hold without a rule enforcing it: no other year exists to
-/// trade. Trading validation refuses any pick id that is not one of these.
+/// <b>Picks live <c>trades.pickYearsAhead</c> years ahead, and no further</b>
+/// (<see cref="DraftPickYears"/>). Without <c>--year</c> every missing year in
+/// that window is generated, so running it again after a draft adds just the
+/// newly opened year.
 ///
-/// Idempotent by construction — <c>DraftPicks</c> is unique on
-/// (LeagueId, Year, Round, OriginalTeamId), so a second run cannot duplicate
-/// anything even if this check were wrong.
+/// Idempotent by construction — a year that already has picks is skipped, and
+/// <c>DraftPicks</c> is unique on (LeagueId, Year, Round, OriginalTeamId), so a
+/// second run cannot duplicate anything even if that check were wrong.
 /// </summary>
 public sealed class DraftPicksInitJob(FantasyWarriorDbContext db)
 {
-    public async Task<int> RunAsync(string? leagueCode, int year, bool dryRun, CancellationToken ct = default)
+    /// <param name="year">One explicit year; null means the whole window.</param>
+    /// <param name="nextDraftYear">The draft after the season being played.</param>
+    public async Task<int> RunAsync(
+        string? leagueCode, int? year, int nextDraftYear, bool dryRun, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(leagueCode))
         {
@@ -68,38 +72,37 @@ public sealed class DraftPicksInitJob(FantasyWarriorDbContext db)
             return 1;
         }
 
-        var existing = await db.DraftPicks
-            .CountAsync(p => p.LeagueId == league.LeagueId && p.Year == year, ct);
-        if (existing > 0)
-        {
-            Console.WriteLine($"{league.Name} already has {existing} picks for {year}. Nothing to do.");
-            return 0;
-        }
-
-        Console.WriteLine($"{league.Name}: {teams.Count} teams x {rounds} rounds for {year}");
-        if (dryRun)
-        {
-            Console.WriteLine($"  (dry run — would create {teams.Count * rounds} picks)");
-            return 0;
-        }
-
+        var years = year is { } one ? [one] : DraftPickYears.Ahead(nextDraftYear, rules.Trades.PickYearsAhead);
         var now = DateTime.UtcNow;
-        foreach (var team in teams)
-            for (var round = 1; round <= rounds; round++)
-                db.DraftPicks.Add(new DraftPick
-                {
-                    LeagueId = league.LeagueId,
-                    Year = year,
-                    Round = round,
-                    // PickInRound stays null: the order is not known until the
-                    // season it drafts for has a standings to derive it from.
-                    OriginalTeamId = team.TeamId,
-                    CurrentTeamId = team.TeamId,
-                    CreatedUtc = now,
-                });
+        foreach (var y in years)
+        {
+            var existing = await db.DraftPicks.CountAsync(p => p.LeagueId == league.LeagueId && p.Year == y, ct);
+            if (existing > 0)
+            {
+                Console.WriteLine($"{league.Name} already has {existing} picks for {y}. Skipped.");
+                continue;
+            }
 
-        await db.SaveChangesAsync(ct);
-        Console.WriteLine($"  Created {teams.Count * rounds} picks.");
+            Console.WriteLine($"{league.Name}: {teams.Count} teams x {rounds} rounds for {y}"
+                + (dryRun ? $" (dry run — would create {teams.Count * rounds} picks)" : ""));
+            if (dryRun) continue;
+
+            foreach (var team in teams)
+                for (var round = 1; round <= rounds; round++)
+                    db.DraftPicks.Add(new DraftPick
+                    {
+                        LeagueId = league.LeagueId,
+                        Year = y,
+                        Round = round,
+                        // PickInRound stays null: the order is not known until the
+                        // season it drafts for has a standings to derive it from.
+                        OriginalTeamId = team.TeamId,
+                        CurrentTeamId = team.TeamId,
+                        CreatedUtc = now,
+                    });
+            await db.SaveChangesAsync(ct);
+            Console.WriteLine($"  Created {teams.Count * rounds} picks.");
+        }
         return 0;
     }
 }

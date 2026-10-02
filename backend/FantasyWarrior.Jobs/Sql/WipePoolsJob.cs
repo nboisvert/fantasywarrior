@@ -31,6 +31,7 @@ public sealed class WipePoolsJob(FantasyWarriorDbContext db)
             ("Trades", await db.Trades.CountAsync(ct)),
             ("RosterAssignments", await db.RosterAssignments.CountAsync(ct)),
             ("TeamPeriodLineups", await db.TeamPeriodLineups.CountAsync(ct)),
+            ("DraftSelections", await db.DraftSelections.CountAsync(ct)),
             ("DraftPicks", await db.DraftPicks.CountAsync(ct)),
             ("RosterSpots", await db.RosterSpots.CountAsync(ct)),
             ("Teams", await db.Teams.CountAsync(ct)),
@@ -69,6 +70,9 @@ public sealed class WipePoolsJob(FantasyWarriorDbContext db)
             //
             // Deleting Trades before RosterSpots is the kind of mistake that
             // only shows up on a real wipe, and the last one was in July.
+            // DraftSelections first: its keys to DraftPicks, Teams and Players
+            // are NoAction, so a single leftover selection blocks every delete below.
+            await db.DraftSelections.ExecuteDeleteAsync(ct);
             await db.RosterAssignments.ExecuteDeleteAsync(ct);
             await db.RosterSpots.ExecuteDeleteAsync(ct);
             await db.TradeAssets.ExecuteDeleteAsync(ct);
