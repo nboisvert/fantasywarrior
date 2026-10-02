@@ -160,7 +160,7 @@ the rollup job, the views and every API read.
 |---|---|---|---|
 | `trades.enabled` | bool | true | yes |
 | `trades.picksTradable` | bool | true | yes |
-| `trades.pickYearsAhead` | count | 1 | 1 yes; >1 **badge** |
+| `trades.pickYearsAhead` | count | 1 | yes — `draft-picks-init` generates that many years |
 | `trades.approval` | `none` / `commissioner` / `leagueVote` | `none` | `none` yes; rest **badge** |
 
 Trades are also frozen by phase during `Protecting` and `Drafting`, which is a

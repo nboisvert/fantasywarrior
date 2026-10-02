@@ -311,25 +311,43 @@ already exists. Not part of the nightly chain.
 
 ### Seeding Les Mordus
 
-Les Mordus' rosters come from start-of-season source files outside the app; its
-rules come from [`data/mordus-rules.json`](../../data/mordus-rules.json) (see
-[mordus.md](mordus.md)). Two paths, depending on whether the league's history
-survives.
+Les Mordus' rosters come from PoolExpert's "Classement" export (a PDF), its pick
+ownership from the league's own spreadsheet, and its rules from
+[`data/mordus-rules.json`](../../data/mordus-rules.json) (see
+[mordus.md](mordus.md)). The roster file is
+[`data/mordus-rosters.json`](../../data/mordus-rosters.json), the traded picks
+[`data/mordus-picks.json`](../../data/mordus-picks.json).
+
+**The roster file.** One shape (`MordusRosterFile`) read by both seed paths:
+per team `gm`, `username`, `franchise`, `franchiseAbbrev`, and players by name
+(`first`, `last`, `team`) split into `active` and `reserve`. It is produced from
+the PDF:
+
+```powershell
+pdftotext -raw -enc UTF-8 Classement.pdf report.txt     # pdftotext ships with Git for Windows
+dotnet run --project backend/FantasyWarrior.Jobs -- poolexpert-parse --text report.txt --out data/mordus-rosters.json
+```
+
+- The `E` line is the franchise; lines above "JOUEURS DE RÉSERVE" are the active
+  lineup, the block below it the reserve; the swap history is ignored. The PDF
+  carries garbled ghost copies of some lines (letters and decimal points lost);
+  they are listed as skipped, and each has a clean copy right beside it.
+- `username` and `gm` come out blank — PoolExpert runs the GM's name into his
+  city — and are filled in by hand. Both seed paths refuse a team without one.
+- Names are resolved at seed time (`RosterNameResolver`): exact match → Nom/Prénom
+  swap → close first name on an exact last name → last name within two edits.
+  Unresolved names stop the run and are printed, never guessed: `player-resolve`
+  adds a player the feeds have not seen, and an explicit `"playerId"` on the
+  entry settles a name shared by two real players.
 
 **Keeping the league — `reset-mordus-rosters`.** The file is taken as the whole
 truth and `RosterSpots` are replaced wholesale rather than reconciled one by one:
 
 ```powershell
-dotnet run --project backend/FantasyWarrior.Jobs -- reset-mordus-rosters --file <rosters.json> --dry-run
-dotnet run --project backend/FantasyWarrior.Jobs -- reset-mordus-rosters --file <rosters.json>
+dotnet run --project backend/FantasyWarrior.Jobs -- reset-mordus-rosters --file data/mordus-rosters.json --dry-run
+dotnet run --project backend/FantasyWarrior.Jobs -- reset-mordus-rosters --file data/mordus-rosters.json
 ```
 
-- The file names players (`first`, `last`, `team`) per team, split into
-  `active` and `reserve`. Names are resolved by exact match → Nom/Prénom swap →
-  nickname/transliteration on a shared last name → fuzzy last name gated on a
-  close first name; an explicit `"playerId"` skips resolution for a name the
-  matcher cannot disambiguate. Unresolved names stop the run and are printed,
-  never guessed — run `player-resolve` on them first.
 - **Refuses unless `League.Season` already equals the file's season**:
   `season-phase` has reached `InSeason` for the new season and
   `season-init`/`period-init` have built its calendar. This job only dates the
@@ -344,27 +362,34 @@ dotnet run --project backend/FantasyWarrior.Jobs -- reset-mordus-rosters --file 
 - **It does not write rules.** If the season's rules need resetting, `PATCH`
   the contents of `data/mordus-rules.json` through the rules endpoint.
 
-**A clean slate — `delete-league` + `seed-mordus`.** Trades, messages and GM
-accounts all discarded:
+**A clean slate — `seed-mordus`.** Trades, messages and GM accounts all
+discarded, either for Les Mordus alone (`delete-league`) or for every league
+and user (`wipe-pools`, which keeps all NHL data):
 
 ```powershell
+dotnet run --project backend/FantasyWarrior.Jobs -- seed-mordus --file data/mordus-rosters.json --season-number <N> --join-code TKW6UR --dry-run
 dotnet run --project backend/FantasyWarrior.Jobs -- list-leagues-and-users
-dotnet run --project backend/FantasyWarrior.Jobs -- delete-league --name "Les Mordus" --delete-users --keep-user nick --dry-run
-dotnet run --project backend/FantasyWarrior.Jobs -- delete-league --name "Les Mordus" --delete-users --keep-user nick
-
-dotnet run --project backend/FantasyWarrior.Jobs -- seed-mordus `
-  --file <rosters.json> --season <s> --season-number <N> --join-code TKW6UR --dry-run
-dotnet run --project backend/FantasyWarrior.Jobs -- seed-mordus `
-  --file <rosters.json> --season <s> --season-number <N> --join-code TKW6UR
+dotnet run --project backend/FantasyWarrior.Jobs -- wipe-pools --dry-run
+dotnet run --project backend/FantasyWarrior.Jobs -- wipe-pools
+dotnet run --project backend/FantasyWarrior.Jobs -- seed-mordus --file data/mordus-rosters.json --season-number <N> --join-code TKW6UR
+dotnet run --project backend/FantasyWarrior.Jobs -- draft-picks-init --league TKW6UR
+dotnet run --project backend/FantasyWarrior.Jobs -- assign-picks --league TKW6UR --file data/mordus-picks.json --dry-run
+dotnet run --project backend/FantasyWarrior.Jobs -- assign-picks --league TKW6UR --file data/mordus-picks.json
+dotnet run --project backend/FantasyWarrior.Jobs -- nightly
 ```
 
+- The dry run resolves every name **before** checking whether the league
+  exists, so the file is validated while the old league is still standing.
 - `seed-mordus` writes `data/mordus-rules.json` to the new season verbatim
   (`--rules` points at another file) and refuses one `RuleSetValidation`
-  rejects. It lands the league directly `InSeason`.
-- Its roster file needs resolved `playerId`s, not names. `reset-mordus-rosters`
-  does that resolution; `dump-mordus-rosters --file <out.json>` writes the
-  current league's spots back out in `seed-mordus`'s shape (run it before the
-  delete).
+  rejects. It lands the league directly `InSeason`, on the season the file
+  names (`--season` overrides).
+- `draft-picks-init` without `--year` creates every missing year from the next
+  draft through `trades.pickYearsAhead`. `assign-picks` then moves the traded
+  ones: `data/mordus-picks.json` lists only the exceptions, as
+  `{year, round, originalAbbrev, ownerUsername}`.
+- `nightly` scores the week already under way, so standings reflect the games
+  played before the seed.
 - `--join-code` reuses a known code instead of drawing a random one, so GMs
   who have it bookmarked are not stranded.
 - `--season-number` is required: the pool's own lifetime season count
@@ -452,12 +477,6 @@ rookie-segment picks, auto-fills the protections and freezes the order.
   banked are not re-scored (`Periods.FinalizedUtc` is global).
 
 **Throwing a copy away** is `delete-league --name <copy name>` (above).
-
-**`assign-picks [--league <code>] --year <YYYY> --file <picks.json>`** reassigns
-a batch of already-initialized picks (`draft-picks-init` first) from a file of
-`[{round, originalAbbrev, ownerUsername}]` — the exceptions to "everyone still
-holds their own", reconciled against a source outside the app. A pick not listed
-is left alone.
 
 ---
 

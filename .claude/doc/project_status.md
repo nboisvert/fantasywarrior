@@ -34,10 +34,13 @@ this doc.)
 
 **Test mode is off.** The app runs on the real clock.
 
-**Les Mordus' start-of-season rosters are being re-established.** The roster
-files of earlier imports are gone from the repo; a new set of start-of-season
-source files is the next starting point, and reseeding from it re-applies the
-rules file. How a reseed runs is in [deployment.md](deployment.md).
+**Les Mordus' rebuild from a clean slate is prepared but not yet run.** The
+starting point is PoolExpert's export of 29 September
+([`data/mordus-rosters.json`](../../data/mordus-rosters.json), every name
+resolved by a dry run) and the league's pick spreadsheet
+([`data/mordus-picks.json`](../../data/mordus-picks.json), 2027 and 2028). The
+run wipes every league and user, then seeds Les Mordus — runbook in
+[deployment.md](deployment.md).
 
 ## Roadmap
 
@@ -51,7 +54,7 @@ rules file. How a reseed runs is in [deployment.md](deployment.md).
 | Trades — propose, respond, nightly processing, community rating | Done |
 | Contracts — CapWages import | Done |
 | GM-to-GM direct messages and live presence (SignalR) | Done |
-| Draft picks — tradable, one year ahead | Done |
+| Draft picks — tradable `trades.pickYearsAhead` years ahead | Done |
 | Cockcoin — Fibonacci milestone rewards for chat/trade offers, a done-deal bonus, and scheduled Cockman campaigns (evergreen welcome message shipped) | Done. See [cockman-concept.md](cockman-concept.md). |
 | Standings screen — a real table (GP/G/A/PTS/PTS-G, last night, this week) with a rank-movement pill backed by a nightly standings snapshot | Done. |
 | Season-lifecycle foundation — `Season`, `LeagueSeasons`, the six phases, the trade freeze, the palmarès | Done |

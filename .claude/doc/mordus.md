@@ -19,6 +19,10 @@ commissioner's rules panel (`PATCH /api/leagues/{joinCode}/rules`). **A rule
 changed on the panel must be changed in the file too**, or the next reseed
 silently reverts it.
 
+Its rosters come from PoolExpert's standings export and its pick ownership from
+the league's own spreadsheet, both checked in as data files — how they are read
+is in [deployment.md](deployment.md).
+
 ## Identity
 
 Join code `TKW6UR`, commissioner `nick`. Usernames are the GM's first name,
